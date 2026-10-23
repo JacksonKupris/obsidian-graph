@@ -39,6 +39,6 @@ Avoid: shapes that float or don't touch (a roof hovering over its walls, a flag 
 ## Type and spacing (HTML)
 
 - Obsidian's variables first (`--vg-font` from `--font-interface`); sizes from the `--vg-fs-*` scale (11/12/13/15/18).
-- Overlays over the canvas (today strip, status pill, floor bar, focus bar) are translucent raised pills with a hairline border and blur. They never overlap: when the today strip spans the pane, the overlays pinned under the toolbar move below it (`--vg-under-today`).
+- Overlays over the canvas (today strip, status pill, floor bar, focus bar) are translucent raised pills with a hairline border and blur. They all start on one line just under the toolbar (`--vg-under-bar`: 52px, 56px in a narrow pane, 58px on a phone) and never overlap: when the today strip spans the pane, the overlays beside it move below it (`--vg-under-today`, the bar line plus the strip). No overlay sets its own top.
 - Labels on the canvas use `haloText` / `topicLabel` (a halo in the ground colour), never a box.
 - Note names never sit on a shape: `noteLabels` puts a name below its shape, else beside it, else shortened, and leaves it out when there's no room. Every solid or figure a scene draws through `iso.hit` counts as a shape.
