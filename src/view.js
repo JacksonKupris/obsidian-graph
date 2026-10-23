@@ -1993,7 +1993,8 @@ function mountVaultGraph(root, DATA, opts) {
         pos.set(n.id, [x, y]); plant.set(n.id, stageOf(n)); });
       b.stats = { ever: b.ms.filter(n => plant.get(n.id) === 4).length, wilt: b.ms.filter(n => !n.ghost && staleFor(n, Q.stale_days)).length };
     });
-    return { beds, pos, plant };
+    // the beds' corners, so the camera frames whole beds (names and edges), not just the plants in them
+    return { beds, pos, plant, bounds: beds.flatMap(b => [[b.x, b.y - 8], [b.x + b.w, b.y + b.h]]) };
   }
   function drawGarden(now) {
     const { R, litSet, font, k } = mapFrame(), G = mapCache.garden;
