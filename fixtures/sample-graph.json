@@ -544,8 +544,8 @@
    "inlinks": 3,
    "outlinks": 2,
    "broken": 0,
-   "tasks": 0,
-   "words": 124,
+   "tasks": 1,
+   "words": 134,
    "age": 400,
    "refs": false,
    "isolated": false,
@@ -553,7 +553,14 @@
     "project/warehouse"
    ],
    "born": "2025-08-29",
-   "edited": "2025-09-18"
+   "edited": "2025-09-18",
+   "taskAge": 420,
+   "taskItems": [
+    [
+     "Check the shelf layout still matches what we do",
+     "2025-08-29"
+    ]
+   ]
   },
   {
    "id": "02-Projects/Warehouse/Stock Transfer Procedure.md",
@@ -712,8 +719,8 @@
    "inlinks": 2,
    "outlinks": 2,
    "broken": 0,
-   "tasks": 0,
-   "words": 118,
+   "tasks": 1,
+   "words": 129,
    "age": 400,
    "refs": false,
    "isolated": false,
@@ -721,7 +728,14 @@
     "technology/servers"
    ],
    "born": "2025-08-29",
-   "edited": "2025-09-18"
+   "edited": "2025-09-18",
+   "taskAge": 420,
+   "taskItems": [
+    [
+     "Check the disaster recovery plan still matches what we do",
+     "2025-08-29"
+    ]
+   ]
   },
   {
    "id": "03-Resources/Infrastructure/Monitoring Alerts.md",
@@ -959,8 +973,8 @@
    "inlinks": 2,
    "outlinks": 2,
    "broken": 0,
-   "tasks": 0,
-   "words": 119,
+   "tasks": 1,
+   "words": 129,
    "age": 400,
    "refs": false,
    "isolated": false,
@@ -968,7 +982,14 @@
     "activity/support"
    ],
    "born": "2025-08-29",
-   "edited": "2025-09-18"
+   "edited": "2025-09-18",
+   "taskAge": 420,
+   "taskItems": [
+    [
+     "Check the support macros still matches what we do",
+     "2025-08-29"
+    ]
+   ]
   },
   {
    "id": "03-Resources/Support/Ticket Triage.md",

@@ -59,6 +59,7 @@ for (const [topic, t] of Object.entries(TOPICS)) {
     const links = [`[[${next}]]`, `[[${other}]]`, i === 0 ? `[[${topic} - Context]]` : null].filter(Boolean);
     const body = `# ${n}\n\n${filler(topic.toLowerCase(), 4)}\n\nSee ${links.join(", ")}.\n\n## Notes\n\n${filler(topic.toLowerCase(), 3)}\n`
       + (i === 1 ? `\n## Tasks\n\n- [ ] Review ${n.toLowerCase()} with ${pick(PEOPLE).split(" ")[0]}\n- [x] Draft the first version [completion:: ${ago(20)}]\n` : "")
+      + (stale ? `\n## Tasks\n\n- [ ] Check the ${n.toLowerCase()} still matches what we do\n` : "")   // stale with open tasks: Complete, Cancel, Still current
       + (n === "Database Upgrade" ? "\n```sql\nSELECT id, status FROM rentals WHERE returned_at IS NULL;\n```\n" : "")
       + (n === "Booking Flow" ? "\nThe booking screen is in `booking.js`; payments go through `payments.js`.\n" : "");
     note(`${t.dir}/${n}.md`, { created: stale ? ago(420) : ago(60 + i * 3), updated: stale ? ago(400) : null, tags: [t.tag, i === 0 ? "status/in-progress" : null].filter(Boolean) }, body);

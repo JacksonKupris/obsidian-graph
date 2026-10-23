@@ -35,7 +35,8 @@ const H = () => window.vaultGraph, D = () => window.vaultGraph._debug;
 const KEYS = ["act", "r", "view", "tab", "floor", "el", "all", "c", "depth", "vision", "auto", "theme", "ppanel", "relens"];
 const sigOf = el => [el.tagName.toLowerCase(), [...el.classList].filter(c => !/^is-/.test(c)).sort().join("."),
   Object.keys(el.dataset).sort().join(","), KEYS.map(k => el.dataset[k] || "").join("|"), el.getAttribute("aria-label") && !Object.keys(el.dataset).length && !el.closest(".vg-sugg, .vg-st-row, .vg-pb-card, .vg-item") ? el.getAttribute("aria-label").slice(0, 24) : ""].join("#");
-const visible = el => { if (el.closest("[hidden]") || el.disabled) return false; const r = el.getBoundingClientRect(); return r.width > 2 && r.height > 2 && r.right > 0 && r.left < innerWidth; };   // not slid off-screen (a phone's closed drawer)
+// checkVisibility: content in a closed <details> still reports a box, though nothing is drawn there
+const visible = el => { if (el.closest("[hidden]") || el.disabled || (el.checkVisibility && !el.checkVisibility({ visibilityProperty: true }))) return false; const r = el.getBoundingClientRect(); return r.width > 2 && r.height > 2 && r.right > 0 && r.left < innerWidth; };   // not slid off-screen (a phone's closed drawer)
 const CLICKABLE = "button, a[href], [role=button], input[type=checkbox], summary, [data-id], [data-open], .vg-pitem";
 // a context's own controls: the picker's, the open drawer's (the toolbar behind it is covered by design), or the pane's
 const controls = ctx => [...((ctx && ctx.picker ? doc().querySelector(".vg-picker") : ctx && ctx.side ? doc().querySelector(".vg-side") : null) || root()).querySelectorAll(CLICKABLE)].filter(visible).filter(el => !el.matches(".vg-pq, .vg-picker-q, input[type=range], input[type=search], canvas"));
@@ -96,6 +97,8 @@ function contexts() {
 }
 
 // ---- one pass: every distinct control in every context
+const menuTried = { read: new Set(), write: new Set() };   // action-menu items clicked so far, per pass
+const MENU_FIRST = ["link", "mentions", "map", "reference", "current", "archive", "cancel", "complete"];   // last = tried first
 async function pass(mode, calls) {
   const seen = new Set();
   for (const ctx of contexts()) {
@@ -120,8 +123,14 @@ async function pass(mode, calls) {
       try { typeof el.click === "function" ? el.click() : el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window })); } catch (e) { errs.push(e.message); }
       out.clicks++;
       await sleep(160);
-      // follow-ups: a confirm box (OK in the write pass, Cancel otherwise), a typed answer, a note picker
-      for (let i = 0; i < 3; i++) {
+      // follow-ups: an action menu (one item it hasn't tried yet, so across every "⋯" each action is reached), a
+      // confirm box (OK in the write pass, Cancel otherwise), a typed answer, a note picker
+      let menuAct = null;
+      for (let i = 0; i < 4; i++) {
+        const menu = doc().querySelector(".vg-actmenu");
+        if (menu && !menuAct) { const it = [...menu.querySelectorAll("[data-act]")].filter(b => !menuTried[mode].has(b.dataset.act))
+            .sort((a, b) => MENU_FIRST.indexOf(b.dataset.act) - MENU_FIRST.indexOf(a.dataset.act))[0];   // the write actions first
+          if (it) { menuAct = it.dataset.act; menuTried[mode].add(menuAct); it.click(); await sleep(160); continue; } }
         const box = doc().querySelector(".vg-confirm");
         if (box) { const ta = box.querySelector("textarea"); if (ta) ta.value = "click-all test"; box.querySelector(mode === "write" ? '[data-c="ok"]' : '[data-c="no"]').click(); await sleep(160); continue; }
         const pal = doc().querySelector(".vg-palette:not([hidden])");
@@ -130,7 +139,8 @@ async function pass(mode, calls) {
       }
       if (mode === "write") await sleep(250);
       const made = calls.slice(nCalls).map(c => c[0]);
-      if (mode === "write" && el.dataset.act && made.length) (out.wiredAct[el.dataset.act] = [...new Set([...(out.wiredAct[el.dataset.act] || []), ...made])]);
+      const act = el.dataset.act || menuAct;
+      if (mode === "write" && act && made.length) (out.wiredAct[act] = [...new Set([...(out.wiredAct[act] || []), ...made])]);
       if (errs.length) out.errors.push({ mode, ctx: ctx.name, control: label, error: errs.slice(0, 2).join(" / ") });
       if (mode === "write" && made.length) (out.wired[sig.split("#").slice(2, 4).join(" ") + " · " + label] = [...new Set(made)]);
       if (!made.length && state() === before && !errs.length) out.noEffect.push({ mode, ctx: ctx.name, control: label });

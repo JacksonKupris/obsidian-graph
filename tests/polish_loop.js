@@ -20,7 +20,8 @@ const run = (script, args = []) => {   // a test script's last line, and whether
 
 // ---- the audit, inside the page: one record per problem, keyed so the same problem matches across runs
 const AUDIT = String.raw`(mobile => {
-  const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && !e.closest("[hidden]") && getComputedStyle(e).visibility !== "hidden"; };
+  // checkVisibility: content in a closed <details> still reports a box, though nothing is drawn there
+  const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && !e.closest("[hidden]") && getComputedStyle(e).visibility !== "hidden" && (!e.checkVisibility || e.checkVisibility()); };
   const name = e => (e.className && typeof e.className === "string" ? "." + e.className.trim().split(/\s+/).filter(c => c.startsWith("vg-")).slice(0, 2).join(".") : e.tagName.toLowerCase()) || e.tagName.toLowerCase();
   const out = [];
   // text cut off: an element holding text whose words run past its box, without an ellipsis to say so
