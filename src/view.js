@@ -681,6 +681,8 @@ function mountVaultGraph(root, DATA, opts) {
       x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); });
     Object.assign(cam, saved);
     if (x0 === Infinity) return;
+    // framed below the toolbar, and below the today strip too when this view has one, so nothing sits behind them
+    const padTop = (opts.compact ? 48 : 64) + (!opts.compact && !replay && !todayHidden.has(st.view) && todayFor(st.view) ? 40 : 0), pad = opts.compact || W < 500 ? 12 : 40;
     // a scene drawn through the iso kit: frame the turned, tilted picture, and move the camera in flat units
     const Mi = isoScene(), isoOn = !!Mi;
     if (isoOn) { let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
@@ -692,13 +694,11 @@ function mountVaultGraph(root, DATA, opts) {
       pts.forEach(q => { const u = q.x - W / 2, v = q.y - H / 2, X = Mi[0] * u + Mi[1] * v, Y = Mi[2] * u + Mi[3] * v;
         a0 = Math.min(a0, X); a1 = Math.max(a1, X); b0 = Math.min(b0, Y - 40); b1 = Math.max(b1, Y + 20); });
       if (a0 === Infinity) return;
-      const padTop = opts.compact ? 48 : 64, pad = opts.compact || W < 500 ? 12 : 40;
       const k = Math.min(opts.compact ? 1.8 : 4, Math.max(0.05, Math.min((W - 2 * pad) / Math.max(a1 - a0, 1), (H - padTop - pad) / Math.max(b1 - b0, 1))));
       const cx = (a0 + a1) / 2 * k, cy = (b0 + b1) / 2 * k - (padTop - pad) / 2, det = Mi[0] * Mi[3] - Mi[1] * Mi[2];   // flat offset whose angled image is -(cx, cy)
       animateTo({ k, tx: -(Mi[3] * cx - Mi[1] * cy) / det, ty: -(-Mi[2] * cx + Mi[0] * cy) / det }, ms == null ? 500 : ms);
       return;
     }
-    const padTop = opts.compact ? 48 : 64, pad = opts.compact || W < 500 ? 12 : 40;
     const k = Math.min(opts.compact ? 1.8 : 4, Math.max(0.05, Math.min((W - 2 * pad) / Math.max(x1 - x0, 1), (H - padTop - pad) / Math.max(y1 - y0, 1))));
     animateTo({ k, tx: -((x0 + x1) / 2 - W / 2) * k, ty: -((y0 + y1) / 2 - H / 2) * k + (padTop - pad) / 2, ...(pivot || {}) }, ms == null ? 500 : ms);
   }
