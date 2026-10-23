@@ -279,6 +279,13 @@ for (const f of ["view.js", "plugin.js"]) {
           const hits = VGRules.recallSearch(list, q, { n: 3, people, today, graph });
           check(`search "${q}" finds ${what} first`, !!(hits[0] && ok(hits[0])), true);
         }
+        // search keeps each note's words between queries (typing doesn't re-read the vault): a note whose text changed
+        // (new chunks, as the plugin caches them) is searched as it is now, and one that's gone isn't found
+        const word = "zanzibarquokka", i = list.findIndex(n => n.path.endsWith("VPN Setup.md"));
+        check("search: a word no note has", VGRules.recallSearch(list, word, { n: 3, today }).length, 0);
+        const edited = list.map((n, k) => k === i ? { ...n, chunks: [...n.chunks, ["section", "New", 99, `The ${word} gateway replaced the old tunnel last week.`, ""]] } : n);
+        check("search: a note's new text is found", (VGRules.recallSearch(edited, word, { n: 3, today })[0] || {}).path, list[i].path);
+        check("search: and gone once the note is", VGRules.recallSearch(list.filter((n, k) => k !== i), word, { n: 3, today }).length, 0);
       }
     }
     if (fails.length) { console.log("FAIL\n  " + fails.join("\n  ")); process.exit(1); }

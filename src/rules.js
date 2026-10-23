@@ -181,6 +181,32 @@ const VGRules = ((R) => {
     }
     return null;
   }
+  // A note's search data that doesn't depend on the query (each chunk's word counts, the note's name, heading and folder
+  // words), kept for as long as the note's chunks are: the plugin caches chunks per note until it changes, so each
+  // keystroke scores the vault instead of re-reading every chunk's words (about 15,000 in this vault).
+  const DOCS = new WeakMap();
+  function docsOf(n) {
+    let ds = n.chunks && typeof n.chunks === "object" ? DOCS.get(n.chunks) : null;
+    if (ds) return ds;
+    const name = stemCase(n.path), nw = new Set(recallWords(name)), pw = new Set(n.path.includes("/") ? recallWords(n.path.slice(0, n.path.lastIndexOf("/"))) : []);
+    ds = n.chunks.map(([kind, heading, line, body, lang]) => {
+      const tf = new Map(); recallWords(body).forEach(w => tf.set(w, (tf.get(w) || 0) + 1));
+      return { path: n.path, name, kind, heading, line, body, lang, tf, len: [...tf.values()].reduce((a, b) => a + b, 0), date: n.date || "", nw, hw: new Set(recallWords(heading)), pw };
+    });
+    DOCS.set(n.chunks, ds);
+    return ds;
+  }
+  // The searchable chunks of a set of notes, with the vocabulary (word -> chunks it's in) and the average chunk length,
+  // reused while no note in the set changed (same notes, same cached chunks)
+  let lastSet = null;
+  function docSet(notes, codeOnly) {
+    const L = lastSet;
+    if (L && L.codeOnly === !!codeOnly && L.chunks.length === notes.length && notes.every((n, i) => L.chunks[i] === n.chunks)) return L;
+    const docs = [];
+    for (const n of notes) for (const d of docsOf(n)) if (!codeOnly || d.kind === "code") docs.push(d);
+    const vocab = new Map(); docs.forEach(d => d.tf.forEach((_, w) => vocab.set(w, (vocab.get(w) || 0) + 1)));
+    return lastSet = { chunks: notes.map(n => n.chunks), codeOnly: !!codeOnly, docs, vocab, avg: docs.length ? docs.reduce((s, d) => s + d.len, 0) / docs.length : 0 };
+  }
   function recallSearch(notes, query, o = {}) {
     const B = RC.boost, q = recallWords(query), qs = new Set(q), daily = (R.folders.daily || "01-Daily") + "/", FW = CUES.fuzzy_weight;
     const terms = new Map([...qs].map(t => [t, 1]));
@@ -192,23 +218,17 @@ const VGRules = ((R) => {
     G.links.forEach(([a, b, k]) => { const m = k === "similar" ? sim : nbr; add(m, a, b); add(m, b, a); });
     const use = G.use || {}, umax = Math.max(1e-9, ...Object.values(use).map(v => Math.log1p(v)), 0) || 1;
     const near = recallNearTarget(query, notes.map(n => n.path)), nearSet = near ? new Set([...(nbr.get(near) || []), ...(sim.get(near) || [])]) : new Set();
-    const docs = [];
-    for (const n of notes) { const name = stemCase(n.path);
-      for (const [kind, heading, line, body, lang] of n.chunks) { if (o.codeOnly && kind !== "code") continue;
-        const tf = new Map(); recallWords(body).forEach(w => tf.set(w, (tf.get(w) || 0) + 1));
-        docs.push({ path: n.path, name, kind, heading, line, body, lang, tf, len: [...tf.values()].reduce((a, b) => a + b, 0), date: n.date || "" }); } }
+    const { docs, vocab, avg } = docSet(notes, o.codeOnly);
     if (!docs.length) return [];
-    const vocab = new Map(); docs.forEach(d => d.tf.forEach((_, w) => vocab.set(w, (vocab.get(w) || 0) + 1)));
     // a word the vault doesn't have: close spellings and longer words that start with it
     [...qs].forEach(t => { if (vocab.has(t) || /^\d+$/.test(t) || t.length < 4) return;
       [...vocab.keys()].filter(w => w.startsWith(t) || (t.length >= 5 && edit1(t, w))).sort((a, b) => vocab.get(b) - vocab.get(a)).slice(0, 3)
         .forEach(w => { if (!terms.has(w)) terms.set(w, FW); }); });
-    const avg = docs.reduce((s, d) => s + d.len, 0) / docs.length, N = docs.length, df = new Map();
+    const N = docs.length, df = new Map();
     terms.forEach((_, t) => df.set(t, docs.filter(d => d.tf.has(t)).length));
     const fuzzy = [...terms].filter(([, w]) => w === FW).map(([t]) => t), hits = [];
     for (const d of docs) {
-      const nw = new Set(recallWords(d.name)), hw = new Set(recallWords(d.heading)), pw = new Set(d.path.includes("/") ? recallWords(d.path.slice(0, d.path.lastIndexOf("/"))) : []);
-      const why = new Set(), L = d.len || 1; let score = 0;
+      const { nw, hw, pw } = d, why = new Set(), L = d.len || 1; let score = 0;
       terms.forEach((wt, t) => {
         const f = d.tf.get(t) || 0; if (!f && !nw.has(t) && !hw.has(t)) return;
         const n = df.get(t) || 0, idf = Math.log(1 + (N - n + 0.5) / (n + 0.5));
