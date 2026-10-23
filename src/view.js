@@ -762,10 +762,14 @@ function mountVaultGraph(root, DATA, opts) {
   }
   const blit = (kind, col, x, y, r) => ctx.drawImage(sprite(kind, col), x - r, y - r, 2 * r, 2 * r);
   let labelRects = [];
-  // Reserve a label's box, as it will be drawn: shifted inside the pane the way haloText shifts it
+  // the screen boxes of the solids and figures drawn this frame (iso.hit adds them), so note names keep off them
+  let bodies = [];
+  // where a label w wide starting at x is drawn: shifted inside the pane, the way haloText shifts it
+  const paneX = (x, w) => W > 40 ? Math.max(4, Math.min(W - 4 - Math.min(w, W - 8), x)) : x;
+  // Reserve a label's box, as it will be drawn
   const freeSpot = (x, y, w, h) => {
     if (opts.compact && labelRects.length > (W < 520 ? 8 : 16)) return false;
-    if (W > 40) x = Math.max(4, Math.min(W - 4 - Math.min(w, W - 8), x));
+    x = paneX(x, w);
     if (labelRects.some(r => x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1])) return false;
     labelRects.push([x, y, w, h]); return true;
   };
@@ -1364,7 +1368,7 @@ function mountVaultGraph(root, DATA, opts) {
     const dpr = Math.min(window.devicePixelRatio || 1, MOBILE ? 2 : 3);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
     ctx.clearRect(0, 0, W, H);   // the theme background can be see-through (Hearth cards): without this, frames smear
-    P.clear(); labelRects = []; spots = [];
+    P.clear(); labelRects = []; bodies = []; spots = [];
     return { dpr, R: rot(), litSet: lit(), font: css("--vg-font") || "system-ui, sans-serif", k: cam.k };
   }
   // Clickable areas a scene draws that aren't notes (a floor, a lever, a palette chip): spot(x, y, w, h, fn) each
@@ -1447,7 +1451,10 @@ function mountVaultGraph(root, DATA, opts) {
       const T = by(ys, Math.min(...ys)), B = by(ys, Math.max(...ys)), Lp = by(xs, Math.min(...xs)), Rp = by(xs, Math.max(...xs));
       return { top, T, Rp, B, Lp, c: { x: q.x, y: q.y - height }, hw: (Math.max(...xs) - Math.min(...xs)) / 2, hh: (Math.max(...ys) - Math.min(...ys)) / 2 };
     };
-    const hit = (q, hw, height) => ({ x: q.x, y: q.y - height / 2, r: Math.max(6, hw + 2, height / 2 + 2) });
+    // a solid or figure standing on q, hw wide each side and height tall: its hit spot, and its screen box (box: x, y,
+    // w, h, footprint included), which also goes in bodies so note names are placed off it
+    const hit = (q, hw, height) => { const foot = hw * ay / ax, box = [q.x - hw, q.y - height - foot, 2 * hw, height + 2 * foot]; bodies.push(box);
+      return { x: q.x, y: q.y - height / 2, r: Math.max(6, hw + 2, height / 2 + 2), box }; };
     const depthSort = (items, at) => items.sort((a, b) => at(a).y - at(b).y);   // farther (higher on screen) first
     return { p, lift, poly, rect, wall, slab, block, prism, hit, depthSort, shade, ax, ay };
   }
@@ -2257,11 +2264,7 @@ function mountVaultGraph(root, DATA, opts) {
       const text = w > 50 ? fitW(name, f, w - 20) : ""; if (!text) return;
       const x = (c[0].x + c[1].x) / 2, y = (c[0].y + c[1].y) / 2 - WH - 8, tw = ctx.measureText(text).width;
       if (freeSpot(x - tw / 2, y - 7, tw, 14)) haloText(text, x, y, ink, bg, f, "center"); });
-    const top = [...P.entries()].filter(([id]) => !byId[id].moc).sort((a, b) => importance(byId[b[0]]) - importance(byId[a[0]])).slice(0, k > 1.4 ? 140 : MOBILE ? 12 : 26);
-    top.forEach(([id, p]) => { const n = byId[id], f = `500 9.5px ${font}`;
-      const text = fitW(clip(n.name, 22), f, 150); if (!text) return;
-      const w = ctx.measureText(text).width;
-      if (freeSpot(p.x - w / 2, p.y + p.r + 1, w, 12)) haloText(text, p.x, p.y + p.r + 7, "#dbe7ff", bg, f, "center"); });
+    noteLabels([...P.keys()].filter(id => !byId[id].moc).sort((a, b) => importance(byId[b]) - importance(byId[a])), "#dbe7ff", bg, k > 1.4 ? 140 : MOBILE ? 12 : 26);
   }
   // ---- the palace from the front
   function drawPalaceFacade(now, M, R, litSet, font, k) {
@@ -2397,8 +2400,18 @@ function mountVaultGraph(root, DATA, opts) {
   const dots = (pred, col, r, R) => { for (const n of nodes) { if (!pred(n) || !mapShown(n)) continue; const p = scr(n.x, n.y, R); ctx.fillStyle = col(n); ctx.beginPath(); ctx.arc(p.x, p.y, r(n), 0, 2 * Math.PI); ctx.fill();
     P.set(n.id, { x: p.x, y: p.y, s: p.s, depth: -importance(n), r: Math.max(5, r(n) + 2), a: 1 }); } };
   const selRing = (R, col) => { if (!st.selected || !P.has(st.selected)) return; const p = P.get(st.selected); ctx.strokeStyle = col || UI.colour.selected; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 4, 0, 2 * Math.PI); ctx.stroke(); };
-  const noteLabels = (ids, fill, halo, max) => { ids.slice(0, max).forEach(id => { const p = P.get(id); if (!p) return; const t = clip(byId[id].name, 24), f = `500 10px ${css("--vg-font") || "system-ui"}`; ctx.font = f; const w = ctx.measureText(t).width;
-    if (freeSpot(p.x - w / 2, p.y + p.r + 1, w, 12)) haloText(t, p.x, p.y + p.r + 7, fill, halo, f, "center"); }); };
+  // Note names in map views: below the note's shape, else beside it (right, then left), else the same shortened; never
+  // over another shape drawn this frame (bodies, from iso.hit: blocks, towers, figures) or another label (freeSpot).
+  // A name with no free spot is left out. p.box (from iso.hit) is the shape's own box, the one the name goes around.
+  const overBody = (x, y, w, h) => bodies.some(b => x < b[0] + b[2] && x + w > b[0] && y < b[1] + b[3] && y + h > b[1]);
+  const noteLabels = (ids, fill, halo, max) => { const f = `500 10px ${css("--vg-font") || "system-ui"}`;
+    ids.slice(0, max).forEach(id => { const p = P.get(id); if (!p) return;
+      const own = p.box, bot = own ? own[1] + own[3] : p.y + p.r, left = own ? own[0] : p.x - p.r, right = own ? own[0] + own[2] : p.x + p.r;
+      for (const t of [clip(byId[id].name, 24), clip(byId[id].name, 12)]) { ctx.font = f; const w = ctx.measureText(t).width;
+        const at = [[p.x - w / 2, bot + 1, "center", p.x, bot + 7], [right + 4, p.y - 6, "left", right + 4, p.y], [left - 4 - w, p.y - 6, "right", left - 4, p.y]]
+          .find(([x, y]) => !overBody(paneX(x, w), y, w, 12) && freeSpot(x, y, w, 12));
+        if (at) { haloText(t, at[3], at[4], fill, halo, f, at[2]); return; }
+      } }); };
 
   // Weather: which topics are heating up or going quiet. Pressure comes from your dailies: a topic mentioned more
   // than usual over the last three weeks is a low (busy, L), quieter than usual a high (calm, H). A storm is a
