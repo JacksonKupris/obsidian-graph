@@ -44,6 +44,11 @@ const TOPICS = {
     notes: ["Server Backup", "VPN Setup", "Database Upgrade", "Monitoring Alerts", "SSL Certificates", "Disaster Recovery Plan"] },
   "Customer Support": { dir: "03-Resources/Support", tag: "activity/support", map: false,   // no map yet: "draft a map" and the chart mission
     notes: ["Refund Policy", "Ticket Triage", "Common Questions", "Escalation Process", "Support Macros"] },
+  // more topics, so a shuffled topic order (Randomize layout) is rarely the same one
+  "Fleet Maintenance": { dir: "02-Projects/Fleet", tag: "project/fleet", map: true,
+    notes: ["Tyre Checks", "Brake Service Schedule", "Battery Swaps", "Repair Log Template", "Parts Inventory"] },
+  "Marketing": { dir: "03-Resources/Marketing", tag: "activity/marketing", map: false,
+    notes: ["Spring Campaign", "Newsletter Plan", "Partner Shops", "Social Posts"] },
 };
 const PEOPLE = ["Ana Lopez", "Ben Carter", "Chloe Kim", "Dev Patel"];
 const all = Object.values(TOPICS).flatMap(t => t.notes);
@@ -125,7 +130,17 @@ if (process.argv.includes("--analyse")) {
   fs.mkdirSync(S, { recursive: true });
   for (const f of ["vault_graph.py", "vault_gaps.py", "moc_align.py", "vault_graph_rules.py"]) fs.copyFileSync(path.join(vault, F.scripts, f), path.join(S, f));
   fs.copyFileSync(path.join(vault, F.system, "vault_lib.py"), path.join(sys, "vault_lib.py"));
-  fs.writeFileSync(path.join(S, "vault_graph_rules.json"), JSON.stringify({ ...R, code_roots: [] }, null, 2));   // no code lens data: don't read this PC's repos
+  // a small code repo for the Code lens (never this PC's repos): commits over the last weeks to files the notes name
+  const code = path.join(path.dirname(tmp), "code"), repo = path.join(code, "rental-app");
+  fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+  const git = (args, env = {}) => execFileSync("git", ["-C", repo, "-c", "user.name=Sample", "-c", "user.email=sample@example.com", ...args], { stdio: "ignore", env: { ...process.env, ...env } });
+  git(["init", "-q"]);
+  [["src/booking.js", 30], ["src/payments.js", 24], ["src/booking.js", 12], ["src/map.js", 9], ["src/payments.js", 3]].forEach(([f, daysAgo], i) => {
+    fs.appendFileSync(path.join(repo, f), `// change ${i}\n`);
+    const when = new Date(TODAY - daysAgo * DAY).toISOString();
+    git(["add", "-A"]); git(["commit", "-q", "-m", `change ${i}`], { GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when });
+  });
+  fs.writeFileSync(path.join(S, "vault_graph_rules.json"), JSON.stringify({ ...R, code_roots: [code] }, null, 2));
   const py = process.platform === "win32" ? "python" : "python3";
   execFileSync(py, [path.join(S, "vault_graph.py")], { cwd: tmp, stdio: "inherit", env: { ...process.env, PYTHONIOENCODING: "utf-8" } });
   const data = JSON.parse(fs.readFileSync(path.join(tmp, R.files.data), "utf8"));

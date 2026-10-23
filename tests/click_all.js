@@ -40,7 +40,7 @@ const visible = el => { if (el.closest("[hidden]") || el.disabled || (el.checkVi
 const CLICKABLE = "button, a[href], [role=button], input[type=checkbox], summary, [data-id], [data-open], .vg-pitem";
 // a context's own controls: the picker's, the open drawer's (the toolbar behind it is covered by design), or the pane's
 const controls = ctx => [...((ctx && ctx.picker ? doc().querySelector(".vg-picker") : ctx && ctx.side ? doc().querySelector(".vg-side") : null) || root()).querySelectorAll(CLICKABLE)].filter(visible).filter(el => !el.matches(".vg-pq, .vg-picker-q, input[type=range], input[type=search], canvas"));
-const state = () => { const d = D(); return JSON.stringify([d.st.view, d.st.selected, d.st.focus, !!d.st.highlight, root().className, root().innerHTML.length,
+const state = () => { const d = D(); return JSON.stringify([d.st.view, d.st.selected, d.st.focus, !!d.st.highlight, d.st.palaceFloor, root().className, root().innerHTML.length,
   d.cam.k.toFixed(3), d.cam.tx.toFixed(1), d.cam.ty.toFixed(1), [...doc().querySelectorAll(".vg-root [aria-pressed=true], .vg-root [aria-selected=true]")].length]); };
 
 // ---- contexts: views, inspector kinds, lenses, picker tabs, palace floors, missions
@@ -63,9 +63,17 @@ async function enter(ctx) {
   if (ctx.side && !root().classList.contains("vg-side-open")) { doc().querySelector(".vg-toggle").click(); await sleep(250); }
   if (ctx.missions) { const g = doc().querySelector(".vg-gamebtn"); if (g && g.getAttribute("aria-pressed") !== "true") g.click(); await sleep(200); }
 }
+// wait until an element's slide or fade has finished (its CSS transitions and animations), or a second at most
+async function settled(sel) {
+  await sleep(40);
+  for (let i = 0; i < 48; i++) { const e = doc().querySelector(sel);
+    if (!e || !e.getAnimations({ subtree: true }).some(a => a.playState === "running")) return; await sleep(20); }
+}
 async function tidy(ctx) {
   doc().querySelectorAll(".vg-confirm, .vg-actmenu").forEach(x => x.remove());
-  if (!ctx.side && root().classList.contains("vg-side-open")) { doc().querySelector(".vg-toggle").click(); await sleep(150); }   // the drawer covers the toolbar while open
+  if (!ctx.side && root().classList.contains("vg-side-open")) { doc().querySelector(".vg-toggle").click(); await settled(".vg-side"); }   // the drawer covers the toolbar while open
+  // an inspector a write opened (Draft bridge, Create) stays over the next context's controls: close it, unless it's this context's
+  if (!ctx.select) { const x = [...doc().querySelectorAll(".vg-ins-close")].find(visible); if (x) { x.click(); await sleep(120); } }
   if (!ctx.picker && !doc().querySelector(".vg-picker").hidden) { doc().querySelector(".vg-picker-scrim").click(); await sleep(60); }
   if (!ctx.lens && !doc().querySelector(".vg-lens").hidden) { doc().querySelector(".vg-lens-close").click(); await sleep(60); }
   if (!doc().querySelector(".vg-timebar").hidden) { doc().querySelector(".vg-maptime").click(); await sleep(60); }

@@ -413,6 +413,7 @@
 .vg-root { --vg-tap: 32px; }
 .vg-root.is-mobile :is(.vg-btn, .vg-btn-sm, .vg-mx-cell, .vg-mx-name, .vg-tl-label, .vg-rv-chip, .vg-sandel, .vg-autobtn, .vg-dockbtn, .vg-visbtn, .vg-chip, .vg-linkish, .vg-fd-bar) { min-height: var(--vg-tap); }
 .vg-root.is-mobile .vg-ibtn { min-width: var(--vg-tap); min-height: var(--vg-tap); }
+.vg-root.is-mobile .vg-linkbtn { display: inline-flex; align-items: center; min-height: var(--vg-tap); }   /* a link-style button in a sentence */
 .vg-root.is-mobile .vg-autobtn, .vg-root.is-mobile .vg-dockbtn, .vg-root.is-mobile .vg-btn-sm { min-width: var(--vg-tap); }
 .vg-dock > * { flex-shrink: 0; }
 .vg-root .vg-form { width: min(620px, calc(100vw - 32px)); max-height: calc(100% - 32px); overflow-y: auto; }

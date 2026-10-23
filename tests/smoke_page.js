@@ -75,7 +75,7 @@ setTimeout(async () => {
         window.vaultGraph.destroy(); const el = document.getElementById("vg"); el.innerHTML = "";
         window.vaultGraph = mountVaultGraph(el, d, { writeNote: async () => "", openDaily: () => {}, openNote: () => {} });
         await sleep(300);
-        for (const k of lenses) {
+        for (const k of window.vaultGraph._debug.lenses()) {   // the trimmed vault's lenses (Code needs repos, for one)
           window.vaultGraph._debug.openLens(k); await sleep(40);
           const box = document.querySelector(".vg-lens:not([hidden])");
           const n = box ? [...box.querySelectorAll("button, a, input, select, summary")].filter(e => !e.closest("[hidden]") && !/close/.test(e.className) && e.offsetParent).length : 0;

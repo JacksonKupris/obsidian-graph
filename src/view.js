@@ -2961,7 +2961,8 @@ function mountVaultGraph(root, DATA, opts) {
       let a = a0; (kids.get(id) || []).slice().sort((x, y) => layoutSeed() ? topicRank(byId[x].cluster) - topicRank(byId[y].cluster) : byId[x].cluster - byId[y].cluster).forEach(c => { const span = (a1 - a0) * leafCount(c) / leafCount(id); place(c, a, a + span); a += span; }); };
     place("", -Math.PI / 2, 1.5 * Math.PI);
     const maxD = Math.max(1, ...depth.values()), beltR = (maxD + 1.4) * RING;
-    const lost = nodes.filter(n => keep(n) && !n.moc && !depth.has(n.id)).sort((a, b) => a.cluster - b.cluster || importance(b) - importance(a));
+    const lost = nodes.filter(n => keep(n) && !n.moc && !depth.has(n.id))
+      .sort((a, b) => (layoutSeed() ? topicRank(a.cluster) - topicRank(b.cluster) : a.cluster - b.cluster) || importance(b) - importance(a));   // the belt follows the seed too
     lost.forEach((n, i) => { const a = -Math.PI / 2 + 2 * Math.PI * i / Math.max(1, lost.length), r = beltR + (i % 3) * 22; pos.set(n.id, [r * Math.cos(a), r * Math.sin(a)]); });
     return { pos, depth, parent, maxD, lost, lostSet: new Set(lost.map(n => n.id)), beltR, RING, rootId };
   }
@@ -6573,7 +6574,9 @@ function mountVaultGraph(root, DATA, opts) {
       nodes.forEach(n => { const h = seededHash(n.id); n.x = (h % 400) - 200; n.y = ((h >>> 9) % 400) - 200; n.z = st.three ? n.z0 * 0.6 : 0; n.vx = n.vy = n.vz = 0; });
       alpha = 1; fitted = false; rebuild(false);
     } else {
-      layoutSeeds[v] = 1 + Math.floor(Math.random() * 1e9);
+      // map views place notes by topic order: a seed that gives the same order would change nothing, so roll again
+      const order = () => topicOrder().map(c => c.id).join(","), was = order();
+      for (let i = 0; i < 24; i++) { layoutSeeds[v] = 1 + Math.floor(Math.random() * 1e9); if (DATA.clusters.length < 2 || order() !== was) break; }
       if (neural()) brainLayout(true); else applyMapLayout(true);
     }
     syncLayoutBtns(); persistSoon(); toast("Layout randomized");
