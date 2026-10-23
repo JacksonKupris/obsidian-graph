@@ -24,6 +24,7 @@
   --vg-fs-xs: 11px; --vg-fs-sm: 12px; --vg-fs: 13px; --vg-fs-lg: 15px; --vg-fs-xl: 18px;
   --vg-ease: cubic-bezier(.2, .8, .2, 1); --vg-dur: .18s;
   --vg-side-w: 300px; --vg-ins-w: 320px;
+  --vg-under-today: 100px;   /* where overlays pinned under the toolbar go when the today strip spans the pane */
 
   position: relative; height: 100%; color: var(--vg-fg); font: var(--vg-fs)/1.45 var(--vg-font);
   container-type: inline-size; container-name: vg; overflow: hidden; outline: none;
@@ -244,11 +245,11 @@
   .vg-searchbtn { min-width: 0; } .vg-searchbtn span, .vg-searchbtn kbd, .vg-presetname { display: none; }
   .vg-legend { max-width: calc(100% - 20px); bottom: 42px; } .vg-status { max-width: calc(100% - 20px); }
   .has-inspector .vg-legend, .has-inspector .vg-status { display: none; }
-  /* the banner spans the pane here: the status pill goes under it instead of behind it */
-  .vg-root:has(> .vg-app .vg-today:not([hidden])) .vg-status, .vg-root:has(.vg-today:not([hidden])) .vg-status { top: 100px; }
+  /* the banner spans the pane here: the overlays pinned under the toolbar (status pill, floor bar) go under it instead of behind it */
+  .vg-root:has(.vg-today:not([hidden])) :is(.vg-status, .vg-floorbar) { top: var(--vg-under-today); }
 }
-/* an open inspector narrows the canvas: the today banner then reaches the status pill, so the pill goes under it */
-.vg-root.has-inspector:has(.vg-today:not([hidden])) .vg-status { top: 100px; }
+/* an open inspector narrows the canvas: the today banner then reaches the status pill and floor bar, so they go under it */
+.vg-root.has-inspector:has(.vg-today:not([hidden])) :is(.vg-status, .vg-floorbar) { top: var(--vg-under-today); }
 @keyframes vg-sheet-in { from { opacity: 0; transform: translateY(20px); } }
 @container vg (max-width: 460px) { .vg-legend { display: none; } }
 
@@ -972,8 +973,8 @@
 .vg-root .vg-ms-show.vg-more { min-width: 0; padding: 1px 8px; }
 
 /* palace floors: Front, then the floors top-down, over the palace only */
-.vg-root .vg-floorbar { display: none; }
-.vg-root.is-map[data-map="palace"] .vg-floorbar { display: flex; position: absolute; z-index: 3; left: 10px; top: 58px; gap: 2px; padding: 3px; border-radius: 10px;
+.vg-root .vg-floorbar { display: none; top: 58px; }
+.vg-root.is-map[data-map="palace"] .vg-floorbar { display: flex; position: absolute; z-index: 3; left: 10px; gap: 2px; padding: 3px; border-radius: 10px;
   background: color-mix(in srgb, var(--vg-raised) 88%, transparent); border: 1px solid var(--vg-border); backdrop-filter: blur(8px); flex-direction: column; }
 .vg-root .vg-floorbar .vg-segbtn { min-width: 44px; }
 .is-compact .vg-floorbar { display: none !important; }
