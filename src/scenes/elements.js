@@ -16,15 +16,16 @@
     blurb: "Topics as element groups, notes as elements; select one to see its bonds and the reactions waiting",
     toast: "Periodic table — a column per topic, its most relied-on notes down it; gas = active, liquid = current, solid = stale. Select an element for its bonds (links) and reactions (links worth making)",
     layout(geo) {
-      const pos = new Map(geo), cell = new Map(), groups = topicOrder().slice(0, EL.GROUPS);
-      // the classic shape: the outer groups run the full seven periods, the middle ones start lower
+      const pos = new Map(geo), cell = new Map(), groups = topicOrder().slice(0, EL.GROUPS), cols = Math.max(1, groups.length);
+      // the classic shape: the outer groups run the full seven periods, the middle ones start lower. The table is as wide
+      // as the topics there are and as deep as its longest column, so it fills the view
       const startRow = g => (g < 2 || g >= EL.GROUPS - 6 ? 0 : 3);
-      groups.forEach((c, g) => {
-        const ms = topicNotes(c.id, true).sort(byImportance).slice(0, EL.PERIODS - startRow(g));
-        ms.forEach((n, i) => { const x = (g - (EL.GROUPS - 1) / 2) * EL.CW, y = (startRow(g) + i - (EL.PERIODS - 1) / 2) * EL.CH; pos.set(n.id, [x, y]); cell.set(n.id, { g, p: startRow(g) + i }); });
-      });
-      const X = EL.GROUPS / 2 * EL.CW + 60, Y = EL.PERIODS / 2 * EL.CH + 60;
-      return { pos, cell, groups: groups.map(c => c.id), bounds: [[-X, -Y - 60], [X, Y], [-X, Y], [X, -Y]] };
+      const cells = groups.map((c, g) => topicNotes(c.id, true).sort(byImportance).slice(0, EL.PERIODS - startRow(g)));
+      const rows = Math.max(1, ...cells.map((ms, g) => startRow(g) + ms.length));
+      cells.forEach((ms, g) => ms.forEach((n, i) => { const x = (g - (cols - 1) / 2) * EL.CW, y = (startRow(g) + i - (rows - 1) / 2) * EL.CH;
+        pos.set(n.id, [x, y]); cell.set(n.id, { g, p: startRow(g) + i }); }));
+      const X = cols / 2 * EL.CW + 60, Y = rows / 2 * EL.CH + 60;
+      return { pos, cell, cols, rows, groups: groups.map(c => c.id), bounds: [[-X, -Y - 60], [X, Y], [-X, Y], [X, -Y]] };
     },
     fit: n => mapCache.elements && mapCache.elements.cell.has(n.id),
     lit: id => { const T = mapCache.elements; if (!T || !T.cell.has(id)) return null;
@@ -33,9 +34,9 @@
       const { R, litSet, font, k } = mapFrame(), T = mapCache.elements, iso = isoKit(R, k, "tilt");
       const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H)); g.addColorStop(0, "#1c1f2e"); g.addColorStop(1, "#0c0d14"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
       if (!T) return;
-      const [b0, b1] = T.bounds; iso.slab(b0[0], b0[1] + 60, b1[0] - b0[0], b1[1] - b0[1] - 60, Math.max(4, 14 * k), "#232634", null, null, "rgba(148,163,184,.25)");
-      // group headers along the back edge
-      T.groups.forEach((c, gi) => { const q = iso.p((gi - (EL.GROUPS - 1) / 2) * EL.CW, -(EL.PERIODS + 1) / 2 * EL.CH); topicLabel(c, clip(shortName(c), 24), q.x, q.y, EL.CW * k * 1.1, colorOf(c), "#0c0d14"); });
+      const [b0, b1] = T.bounds; iso.slab(b0[0], b0[1] + 20, b1[0] - b0[0], b1[1] - b0[1] - 20, Math.max(4, 14 * k), "#232634", null, null, "rgba(148,163,184,.25)");
+      // group headers along the back edge, clear of the first period (its blocks stand up into the row behind)
+      T.groups.forEach((c, gi) => { const q = iso.p((gi - (T.cols - 1) / 2) * EL.CW, b0[1] + 45); topicLabel(c, clip(shortName(c), 24), q.x, q.y, EL.CW * k * 0.95, colorOf(c), "#0c0d14"); });
       const sel = st.selected && T.cell.has(st.selected) ? st.selected : null;
       const tiles = [...T.cell.keys()].map(id => byId[id]).filter(n => n && mapShown(n)).map(n => [n, iso.p(n.x, n.y)]);
       iso.depthSort(tiles, t => t[1]);
