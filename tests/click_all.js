@@ -131,23 +131,30 @@ async function pass(mode, calls) {
       try { typeof el.click === "function" ? el.click() : el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window })); } catch (e) { errs.push(e.message); }
       out.clicks++;
       await sleep(160);
-      // follow-ups: an action menu (one item it hasn't tried yet, so across every "⋯" each action is reached), a
-      // confirm box (OK in the write pass, Cancel otherwise), a typed answer, a note picker
-      let menuAct = null;
-      for (let i = 0; i < 4; i++) {
-        const menu = doc().querySelector(".vg-actmenu");
-        if (menu && !menuAct) { const it = [...menu.querySelectorAll("[data-act]")].filter(b => !menuTried[mode].has(b.dataset.act))
-            .sort((a, b) => MENU_FIRST.indexOf(b.dataset.act) - MENU_FIRST.indexOf(a.dataset.act))[0];   // the write actions first
-          if (it) { menuAct = it.dataset.act; menuTried[mode].add(menuAct); it.click(); await sleep(160); continue; } }
+      // follow-ups: an action menu, a confirm box (OK in the write pass, Cancel otherwise), a typed answer, a note picker.
+      // A "⋯" menu has each action it offers clicked once per pass (write actions first), reopened for the next, so an
+      // action that only lives in a menu is still reached; each is credited with the writes it made
+      const untried = m => [...m.querySelectorAll("[data-act]")].filter(b => !menuTried[mode].has(b.dataset.act))
+        .sort((a, b) => MENU_FIRST.indexOf(b.dataset.act) - MENU_FIRST.indexOf(a.dataset.act));
+      let menuAct = null, mark = nCalls, reopened = 0;
+      const credit = () => { const made = calls.slice(mark).map(c => c[0]);
+        if (mode === "write" && menuAct && made.length) out.wiredAct[menuAct] = [...new Set([...(out.wiredAct[menuAct] || []), ...made])]; };
+      for (let i = 0; i < 48; i++) {
+        const menu = doc().querySelector(".vg-actmenu"), next = menu && untried(menu)[0];
+        if (next) { credit(); menuAct = next.dataset.act; mark = calls.length; menuTried[mode].add(menuAct); next.click(); await sleep(160); continue; }
+        if (menu) { menu.remove(); break; }   // everything in it tried already
         const box = doc().querySelector(".vg-confirm");
         if (box) { const ta = box.querySelector("textarea"); if (ta) ta.value = "click-all test"; box.querySelector(mode === "write" ? '[data-c="ok"]' : '[data-c="no"]').click(); await sleep(160); continue; }
         const pal = doc().querySelector(".vg-palette:not([hidden])");
         if (pal && mode === "write") { const it = pal.querySelector(".vg-pitem"); if (it) { it.click(); await sleep(160); continue; } }
+        // the menu closed after its action: open it again for the next one
+        if (menuAct && reopened < 12 && el.isConnected && visible(el)) { if (mode === "write") await sleep(250); credit(); menuAct = null; mark = calls.length; reopened++; el.click(); await sleep(160); continue; }
         break;
       }
       if (mode === "write") await sleep(250);
+      credit();
       const made = calls.slice(nCalls).map(c => c[0]);
-      const act = el.dataset.act || menuAct;
+      const act = el.dataset.act;
       if (mode === "write" && act && made.length) (out.wiredAct[act] = [...new Set([...(out.wiredAct[act] || []), ...made])]);
       if (errs.length) out.errors.push({ mode, ctx: ctx.name, control: label, error: errs.slice(0, 2).join(" / ") });
       if (mode === "write" && made.length) (out.wired[sig.split("#").slice(2, 4).join(" ") + " · " + label] = [...new Set(made)]);
