@@ -1349,7 +1349,10 @@ function mountVaultGraph(root, DATA, opts) {
     const week = Date.now() - 7 * 864e5;
     const cranes = new Set(nodes.filter(n => n.born && !n.ghost && b.has(n.id) && new Date(n.born + "T12:00") >= week).sort((x, y) => y.born.localeCompare(x.born)).slice(0, 15).map(n => n.id));
     const pos = new Map(geo); b.forEach((v, id) => pos.set(id, iso(v.gx, v.gy)));
-    return { b, districts, pos, cranes };
+    // the outline the camera frames: each building's top with room for its crane and name, and the streets round each district
+    const bounds = [...[...b.values()].map(v => { const [x, y] = iso(v.gx, v.gy); return [x, y - v.h - 30]; }),
+      ...districts.flatMap(d => [[-0.55, -0.55], [d.w + 0.55, -0.55], [d.w + 0.55, d.h + 0.55], [-0.55, d.h + 0.55]].map(([x, y]) => iso(d.bx + x, d.by + y)))];
+    return { b, districts, pos, cranes, bounds };
   }
 
   function applyMapLayout(animate) {
@@ -1905,11 +1908,9 @@ function mountVaultGraph(root, DATA, opts) {
       }
       const stale = staleFor(n, Q.stale_days), base0 = n.cluster >= 0 ? colorOf(n.cluster) : "#8b93a6";
       const col = stale ? hexMix(base0, "#5e626d", 0.72) : base0, h = B.h;
-      const up = ([x, y]) => [x, y - h * k];
-      const face = (pts, c) => { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fillStyle = c; ctx.fill(); };
-      face([lf, fr, up(fr), up(lf)], hexMix(col, "#000000", 0.42));
-      face([fr, rt, up(rt), up(fr)], hexMix(col, "#000000", 0.22));
-      face([up(bk), up(rt), up(fr), up(lf)], hexMix(col, "#ffffff", stale ? 0.05 : 0.18));
+      const up = ([x, y]) => [x, y - h * k], xy = ([x, y]) => ({ x, y });
+      // the tower: its roof pushed down to the street, through the shared prism (lit from the upper left like every solid)
+      prism([up(bk), up(rt), up(fr), up(lf)].map(xy), { x: 0, y: h * k }, hexMix(col, "#ffffff", stale ? 0.05 : 0.18));
       // windows: lit by recent activity (a stable pattern per note), dark otherwise
       const act = activity(n), floors = Math.max(1, Math.floor(h / 9)), px = 1.6 * Math.sqrt(k);
       if (px >= 1) for (let fl = 0; fl < floors; fl++) for (let side = 0; side < 2; side++) for (let w = 0; w < 2; w++) {
