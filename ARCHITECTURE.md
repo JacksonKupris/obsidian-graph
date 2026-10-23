@@ -1,0 +1,50 @@
+# How Vault Graph is built
+
+One system, not bolted-on parts: one state, shared rules, one action path, shared helpers. Tests enforce most of what follows (`tests/test_rules.js`), so a change that breaks a rule fails the build instead of drifting.
+
+## Layout
+
+| Path | What it is |
+|---|---|
+| `src/rules.js` | The rulebook (`VGRules`): what's stale or a record, what's a map and which topic it claims, food-web levels, mention names, quest and mission completion, scene-block words, search, the shared-state merge. Rule *data* (folder names, thresholds, patterns) comes from a vault's rules file, built in at `__RULES_JSON__`. |
+| `src/actions.js` | The one set of note actions (`VGActions`): Open, Focus, Link to…, Add to map, Still current, Add reference, Complete/Cancel tasks, Archive, Copy. |
+| `src/view.js`, `src/view.css` | The renderer (`mountVaultGraph`): every view, lens, panel and the inspector. Shared by the plugin and the standalone page. |
+| `src/scenes/*.js` | Map views as components; the build puts each in its own scope at the `/*@scenes*/` marker. |
+| `src/plugin.js` | The Obsidian plugin shell: views, sidebar, settings, write actions, the live merge. |
+| `config/rules.json` | Default rule data (the sample vault's). A vault keeps its own copy; deploy checks it has every key this one has. |
+| `build.js` | Joins the sources into `main.js` (rules + actions + view + scenes + plugin), `styles.css`, `manifest.json`, and `rules.js` (the rulebook alone, for a vault's own checks). Also builds the standalone page. |
+| `tests/` | `run.js` (fast: build, `test_rules.js`, `smoke_page.js`), plus `click_all.js`, `layout_random.js`, `shots.js`, `polish_loop.js`. All run on `fixtures/` by default, or a real vault with `--vault`. `env.js` decides which. |
+| `fixtures/` | `make_sample.js` generates the sample vault and, with `--analyse`, its graph data (`sample-graph.json`). |
+| `scripts/deploy.js` | Build with a vault's rules, test on its data, install, run the vault's own checks, reload in Obsidian. |
+
+## Rules
+
+- **Rules live in one place.** Rule data is a vault's rules file; rule code is `src/rules.js`. The analysis (Python, in the vault for now) reads the same rules file. Change a rule there, never in a view.
+- **Folder and file names** (inbox, daily, people, archive, skip, reports, scenes, cache, tooling folders, excluded folders; the data, analysis, dismissed and shared files) are in the rules file's `folders` and `files`. A test fails on a vault folder name in the code. Another vault edits that one block.
+
+## One action path
+
+- **Writes go through the plugin's `WRITE_ACTIONS`**, and those touch the vault only through `WRITE_PRIMITIVES` (`ioProcess`, `ioModify`, `ioFrontMatter`, `ioCreate`, `ioRename`…), which record each change. So every action can be undone: `VGActions.run` puts an Undo button on the message that confirms it (graph toast, sidebar notice), and an undo is refused if a file changed since. The undo list is this session's last 20 actions.
+- Each action waits for Obsidian to re-index the change, re-merges the state once and redraws every surface (graphs, local pane, home cards, note embeds, sidebar) before it returns.
+- A note in the inbox joins the graph once a topic note links to it, unless it's tagged `meta/*` or `type/report`. Links are written with `linkText()`, so same-name notes don't steal them.
+
+## One state
+
+- **Data is always live.** The plugin keeps one merged state (`graphData()`) that every surface redraws from: the analysis output plus Obsidian's own index (`liveMerge`), so links, tasks, tags, maps, new and deleted notes show at once. The desktop plugin re-runs the analysis 30 s after the last edit. There is no manual refresh step.
+- **Shared state across devices** (review, quests, XP, saved views) is one synced file. Each save merges with the file on disk (`VGRules.mergeShared`, three-way, against what this view last read or wrote), and each device also keeps a ledger of its marks (`ledgerAdd` / `applyLedgers`), so a device whose copy Sync dropped loses nothing.
+
+## Shared parts, not per-surface copies
+
+- `src/actions.js` is rendered by the inspector, the suggestions sidebar, every lens row's "⋯" menu and the missions panel; a test fails if a surface builds its own archive or close-all-tasks again.
+- Task lists stay open across redraws (`toggleTasks`); map labels stay inside the pane (`haloText` / `freeSpot` / `fitW`).
+- Empty states point to a next step (`emptyNext`); the smoke test fails on a lens with nothing to click, on a 6-note vault and an empty one.
+
+## Scenes
+
+- **Scenes are components.** Each registers itself with `scene(key, {...})` (name, icon, layout, draw, legend, today strip, highlight, fit, `iso`, `press`). 3D goes through the shared iso kit (`isoKit(R, k, "iso" | "tilt")`: project, wall, slab, block, hit, depth sort).
+- Scenes share helpers instead of their own copies (a test enforces it): `topicNotes`, `topicBusy`, `topicPair`, `topicsWithNotes`, `daylight`, `topicLabel`, `backdrop`, `scatter`, `byImportance` / `byInfluence`, the `walker` figure, `windowSprite`, `MOTION`, `gridDims` and `chance`. Colours that carry a meaning, timings and sizes are in the renderer's one `UI` settings object.
+- **Scenes written in notes**: a ` ```vault-graph-scene ` block (YAML) in any note becomes a view. Its words are listed once in `src/rules.js` (`SCENE_WHEN`, `SCENE_PARTS`, `sceneSpec`); the renderer builds the scene from shared parts (`specScene`). A test fails if a word has no part.
+
+## What still lives in the vault
+
+The analysis (`vault_graph.py`, `vault_gaps.py`, `moc_align.py`, `vault_graph_rules.py`, and `vault_lib.py`) is Python in the vault, where the vault's maintenance reports use it too. The desktop plugin runs it (`files.analysis` in the rules). Moving it here, with the vault-specific choices as plugin settings, is the next step.

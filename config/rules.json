@@ -1,0 +1,252 @@
+{
+  "_about": "The one source for Vault Graph rule data. Read by vault_graph.py (Python) and embedded into vault_graph_rules.js by the build (graph page + plugin). Patterns must be valid in both Python re and JS RegExp. hub_name/not_map_name are case-insensitive. A map may live in 00-Inbox (where Create map writes it). context_suffix: a '<Topic> - Context' note is also named by its topic in prose (mentions). trophic_*: food-web levels are by rank of out-share (cuts = share of linked notes below each level); notes with fewer links than trophic_min_degree stay off the bottom and top levels. provisional_tops: notes there join the graph once a topic note links to them (a note created for a wanted link); reports and exports there stay out. provisional_skip_tags: provisional notes with these tags (vault maintenance, reports) never join. folders: this vault's folder names (reports: where automated reports go, out of the inbox), read by every part (analysis, graph, plugin, actions); another vault changes them here (and the folder names in not_map_tops / provisional_tops). files: the content log (each note's last content change) lives in the plugin folder, whose name is the plugin's id (jk-vault-graph: a published plugin is called vault-graph, and Obsidian swapped this one for it); out of recent-files lists; each analysis run copies it to content_backup, which the plugin and the analysis read when a plugin reinstall has removed the folder. recall: the recall search's tuning (boosts for a match in the name, heading or code; journals and link lists ranked lower; synonyms; stop words), read by _System/vault_recall.py and the plugin's VGRules.recall.",
+  "folders": {
+    "inbox": "00-Inbox",
+    "daily": "01-Daily",
+    "people": "04-People",
+    "archive": "05-Archive",
+    "skip": [
+      "_templates",
+      "_System",
+      "00-Inbox",
+      "Excalidraw",
+      "05-Archive"
+    ],
+    "reports": "_System/Reports",
+    "scenes": "_System/Vault Graph Scenes",
+    "cache": ".cache/vault-graph",
+    "scripts": "_scripts",
+    "system": "_System",
+    "templates": "_templates",
+    "exclude": [
+      "03-Resources/System-Admin/dotfiles"
+    ],
+    "_about_exclude": "Never analysed or scanned (a folder managed somewhere else). scripts/system/templates: the vault's tooling folders, left out of link suggestions and of re-analysis on edit.",
+    "_about_cache": "Generated files only this PC needs (the graph page, screenshots, the search index, test output). A dot-folder, so Obsidian Sync leaves it out; _scripts/out keeps only what the phone reads (vault-graph.json)."
+  },
+  "files": {
+    "content_log": ".obsidian/plugins/jk-vault-graph/content-log.json",
+    "content_backup": "_scripts/content-log.json",
+    "device_ledgers": "_scripts/vault-graph-devices",
+    "data": "_scripts/out/vault-graph.json",
+    "analysis": "_scripts/vault_graph.py",
+    "dismissed": "_scripts/dismissed-suggestions.json",
+    "shared": "_scripts/vault-graph-shared.json",
+    "_about": "data: the analysis output every device reads (synced); analysis: the script the desktop plugin runs; dismissed / shared: the plugin's synced state (dismissed pairs; review, quests and saved views)."
+  },
+  "code_roots": [
+    "~/Documents/VSCode",
+    "~/Projects"
+  ],
+  "stale_days": 180,
+  "stub_words": 80,
+  "record_tags": "^(status/(done|archived|cancelled)|type/(release-notes|meeting|report))$",
+  "record_paths": "(^|/)(Release-Notes|Transaction-Updates)/",
+  "dated_name": "\\d{4}-\\d{2}-\\d{2}",
+  "hub_name": "(hub|index|moc|people|dashboard|kanban)$|^(01-daily|home)$",
+  "not_map_name": "\\btasks?\\b|\\bepic\\b|release notes|\\barchive\\b",
+  "not_map_tops": [
+    "05-Archive",
+    "_System",
+    "_templates",
+    "01-Daily",
+    "Start Here",
+    ".trash",
+    "_scripts"
+  ],
+  "map_min_claim": 3,
+  "map_min_cover": 0.3,
+  "context_suffix": "\\s*-\\s*Context$",
+  "trophic_cuts": [
+    0.15,
+    0.4,
+    0.7,
+    0.9
+  ],
+  "trophic_min_degree": 3,
+  "provisional_tops": [
+    "00-Inbox"
+  ],
+  "provisional_skip_tags": "^(meta/|type/report$)",
+  "recall": {
+    "boost": {
+      "name": 2.0,
+      "heading": 1.5,
+      "code": 1.4,
+      "daily": 0.6,
+      "links": 0.35
+    },
+    "stop": "a an and are as at be by for from has have in is it its of on or that the this to was were will with i you we",
+    "synonyms": {
+      "command": [
+        "cmd",
+        "commands",
+        "cli",
+        "powershell",
+        "bash",
+        "shell"
+      ],
+      "query": [
+        "sql",
+        "select",
+        "queries"
+      ],
+      "insert": [
+        "inserts"
+      ],
+      "connect": [
+        "connection",
+        "connecting",
+        "login",
+        "ssh"
+      ],
+      "fix": [
+        "fixed",
+        "resolve",
+        "resolved",
+        "solution",
+        "workaround"
+      ],
+      "error": [
+        "errors",
+        "exception",
+        "failed",
+        "failure"
+      ]
+    },
+    "per_note": 2,
+    "cues": {
+      "_about": "How people describe what they half-remember. kinds: a word in the query that names the kind of thing prefers chunks of that kind (code in those languages, tables, task lists, images, errors). time: phrases that set a date range (soft: in range ranks higher). people come from the people folder. The cue words still count as words. Each kind's text pattern is tested line by line, case-insensitive, by both engines. usage_boost: notes you rely on (links in, opens) rank a little higher among near-equal hits. near_words: 'near <note name>' boosts notes linked to that note. related: how many notes similar in meaning to the top hits follow them (the analysis's 'similar' links).",
+      "kinds": {
+        "command": {
+          "words": [
+            "command",
+            "commands",
+            "cmd",
+            "powershell",
+            "bash",
+            "shell",
+            "script",
+            "terminal",
+            "cli"
+          ],
+          "langs": [
+            "powershell",
+            "ps1",
+            "bash",
+            "sh",
+            "shell",
+            "zsh",
+            "cmd",
+            "bat",
+            "console"
+          ]
+        },
+        "query": {
+          "words": [
+            "sql",
+            "query",
+            "queries",
+            "insert",
+            "select",
+            "update",
+            "delete",
+            "statement"
+          ],
+          "langs": [
+            "sql",
+            "mysql",
+            "postgres",
+            "postgresql"
+          ],
+          "text": "\\b(select|insert into|update|delete from)\\b"
+        },
+        "code": {
+          "words": [
+            "code",
+            "function",
+            "snippet",
+            "regex",
+            "python",
+            "javascript",
+            "js",
+            "react"
+          ],
+          "langs": [
+            "js",
+            "javascript",
+            "ts",
+            "typescript",
+            "jsx",
+            "tsx",
+            "python",
+            "py",
+            "java",
+            "json",
+            "yaml"
+          ]
+        },
+        "table": {
+          "words": [
+            "table",
+            "spreadsheet",
+            "columns",
+            "rows"
+          ],
+          "text": "^\\s*\\|.*\\|\\s*$"
+        },
+        "tasks": {
+          "words": [
+            "todo",
+            "todos",
+            "task",
+            "tasks",
+            "checklist",
+            "steps"
+          ],
+          "text": "^\\s*[-*] \\[[ xX-]\\]"
+        },
+        "image": {
+          "words": [
+            "screenshot",
+            "image",
+            "picture",
+            "photo",
+            "diagram"
+          ],
+          "text": "!\\[\\[[^\\]]+\\.(png|jpe?g|gif|webp|svg|excalidraw)"
+        },
+        "error": {
+          "words": [
+            "error",
+            "errors",
+            "exception",
+            "failed",
+            "failure",
+            "crash",
+            "broken",
+            "bug"
+          ],
+          "text": "\\b(error|exception|failed|traceback|stack trace|5\\d\\d|4\\d\\d)\\b"
+        }
+      },
+      "kind_boost": 1.8,
+      "time_boost": 2.0,
+      "time_miss": 0.45,
+      "person_boost": 1.6,
+      "folder_boost": 1.3,
+      "fuzzy_weight": 0.7,
+      "usage_boost": 0.25,
+      "near_boost": 1.6,
+      "near_words": [
+        "near",
+        "next to",
+        "related to",
+        "around",
+        "linked to",
+        "close to"
+      ],
+      "related": 3
+    }
+  }
+}

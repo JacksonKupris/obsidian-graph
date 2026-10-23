@@ -1,0 +1,3871 @@
+{
+ "vault": "Sample Vault",
+ "date": "2026-10-23",
+ "since": "2025-10-23",
+ "recent_days": 30,
+ "has_usage": false,
+ "dailies_used": 74,
+ "said_unlinked": [
+  [
+   "03-Resources/Support/Escalation Process.md",
+   15
+  ],
+  [
+   "02-Projects/Rental App/Booking Flow.md",
+   10
+  ],
+  [
+   "02-Projects/Rental App/App Store Release.md",
+   9
+  ],
+  [
+   "02-Projects/Rental App/Map Screen.md",
+   9
+  ],
+  [
+   "02-Projects/Warehouse/Supplier List.md",
+   9
+  ],
+  [
+   "03-Resources/Infrastructure/Database Upgrade.md",
+   9
+  ],
+  [
+   "03-Resources/Infrastructure/SSL Certificates.md",
+   9
+  ],
+  [
+   "03-Resources/Support/Common Questions.md",
+   9
+  ],
+  [
+   "03-Resources/Support/Refund Policy.md",
+   9
+  ],
+  [
+   "02-Projects/Rental App/Login Timeout Bug.md",
+   8
+  ],
+  [
+   "02-Projects/Rental App/Offline Mode.md",
+   8
+  ],
+  [
+   "02-Projects/Warehouse/Reorder Rules.md",
+   8
+  ],
+  [
+   "02-Projects/Rental App/API Design.md",
+   7
+  ],
+  [
+   "02-Projects/Rental App/Push Notifications.md",
+   7
+  ],
+  [
+   "03-Resources/Infrastructure/VPN Setup.md",
+   7
+  ],
+  [
+   "02-Projects/Rental App/Payment Integration.md",
+   6
+  ],
+  [
+   "03-Resources/Infrastructure/Monitoring Alerts.md",
+   6
+  ],
+  [
+   "03-Resources/Infrastructure/Server Backup.md",
+   6
+  ],
+  [
+   "02-Projects/Warehouse/Stock Transfer Procedure.md",
+   5
+  ],
+  [
+   "02-Projects/Warehouse/Barcode Scanner Setup.md",
+   4
+  ]
+ ],
+ "wanted": [
+  {
+   "id": "wanted:spare parts catalogue",
+   "name": "Spare Parts Catalogue",
+   "refs": [
+    "03-Resources/Support/Escalation Process.md",
+    "03-Resources/Support/Refund Policy.md",
+    "03-Resources/Support/Ticket Triage.md"
+   ],
+   "creatable": true
+  }
+ ],
+ "series": [],
+ "rhythm": {
+  "0": {
+   "wd": [
+    12,
+    9,
+    11,
+    18,
+    23,
+    4,
+    6
+   ],
+   "mo": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    40,
+    43,
+    0,
+    0
+   ]
+  },
+  "1": {
+   "wd": [
+    5,
+    8,
+    8,
+    6,
+    6,
+    4,
+    4
+   ],
+   "mo": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    22,
+    19,
+    0,
+    0
+   ]
+  },
+  "2": {
+   "wd": [
+    14,
+    14,
+    12,
+    2,
+    4,
+    2,
+    0
+   ],
+   "mo": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    19,
+    29,
+    0,
+    0
+   ]
+  },
+  "3": {
+   "wd": [
+    7,
+    5,
+    7,
+    11,
+    12,
+    1,
+    1
+   ],
+   "mo": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    21,
+    23,
+    0,
+    0
+   ]
+  }
+ },
+ "nodes": [
+  {
+   "id": "02-Projects/Rental App - Context.md",
+   "name": "Rental App - Context",
+   "cluster": 0,
+   "bc": 0,
+   "folder": "02-Projects",
+   "mentions": 3,
+   "recent": 2,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 1,
+   "outlinks": 3,
+   "broken": 0,
+   "tasks": 0,
+   "words": 78,
+   "age": 16,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "meta/context"
+   ],
+   "born": "2026-07-25",
+   "edited": "2026-10-07"
+  },
+  {
+   "id": "02-Projects/Rental App/API Design.md",
+   "name": "API Design",
+   "cluster": 0,
+   "bc": 0.0047,
+   "folder": "02-Projects/Rental App",
+   "mentions": 9,
+   "recent": 4,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 2,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 123,
+   "age": 14,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "project/rental-app"
+   ],
+   "born": "2026-08-03",
+   "edited": "2026-10-09"
+  },
+  {
+   "id": "02-Projects/Rental App/App Store Release.md",
+   "name": "App Store Release",
+   "cluster": 0,
+   "bc": 0.0047,
+   "folder": "02-Projects/Rental App",
+   "mentions": 12,
+   "recent": 7,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 2,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 121,
+   "age": 3,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "project/rental-app"
+   ],
+   "born": "2026-08-15",
+   "edited": "2026-10-20"
+  },
+  {
+   "id": "02-Projects/Rental App/Booking Flow.md",
+   "name": "Booking Flow",
+   "cluster": 0,
+   "bc": 0.00974,
+   "folder": "02-Projects/Rental App",
+   "mentions": 13,
+   "recent": 11,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 3,
+   "outlinks": 3,
+   "broken": 0,
+   "tasks": 0,
+   "words": 135,
+   "age": 5,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "status/in-progress",
+    "project/rental-app"
+   ],
+   "born": "2026-08-24",
+   "edited": "2026-10-18"
+  },
+  {
+   "id": "02-Projects/Rental App/Login Timeout Bug.md",
+   "name": "Login Timeout Bug",
+   "cluster": 0,
+   "bc": 0.01142,
+   "folder": "02-Projects/Rental App",
+   "mentions": 10,
+   "recent": 10,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 3,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 130,
+   "age": 0,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "project/rental-app"
+   ],
+   "born": "2026-08-06",
+   "edited": "2026-10-23"
+  },
+  {
+   "id": "02-Projects/Rental App/Map Screen.md",
+   "name": "Map Screen",
+   "cluster": 0,
+   "bc": 0.00907,
+   "folder": "02-Projects/Rental App",
+   "mentions": 11,
+   "recent": 7,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 3,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 123,
+   "age": 7,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "project/rental-app"
+   ],
+   "born": "2026-08-09",
+   "edited": "2026-10-16"
+  },
+  {
+   "id": "02-Projects/Rental App/Offline Mode.md",
+   "name": "Offline Mode",
+   "cluster": 0,
+   "bc": 0.00437,
+   "folder": "02-Projects/Rental App",
+   "mentions": 10,
+   "recent": 9,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 2,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 110,
+   "age": 0,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "project/rental-app"
+   ],
+   "born": "2026-08-12",
+   "edited": "2026-10-23"
+  },
+  {
+   "id": "02-Projects/Rental App/Payment Integration.md",
+   "name": "Payment Integration",
+   "cluster": 0,
+   "bc": 0.00571,
+   "folder": "02-Projects/Rental App",
+   "mentions": 7,
+   "recent": 3,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 3,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 1,
+   "words": 139,
+   "age": 26,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "project/rental-app"
+   ],
+   "born": "2026-08-21",
+   "edited": "2026-09-27",
+   "taskAge": 63,
+   "taskItems": [
+    [
+     "Review payment integration with Ben",
+     "2026-08-21"
+    ]
+   ]
+  },
+  {
+   "id": "02-Projects/Rental App/Push Notifications.md",
+   "name": "Push Notifications",
+   "cluster": 0,
+   "bc": 0.00672,
+   "folder": "02-Projects/Rental App",
+   "mentions": 8,
+   "recent": 5,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 3,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 111,
+   "age": 1,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "project/rental-app"
+   ],
+   "born": "2026-08-18",
+   "edited": "2026-10-22"
+  },
+  {
+   "id": "02-Projects/Warehouse - Context.md",
+   "name": "Warehouse - Context",
+   "cluster": 1,
+   "bc": 0,
+   "folder": "02-Projects",
+   "mentions": 0,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 1,
+   "outlinks": 3,
+   "broken": 0,
+   "tasks": 0,
+   "words": 73,
+   "age": 90,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "meta/context"
+   ],
+   "born": "2026-07-25",
+   "edited": "2026-07-25"
+  },
+  {
+   "id": "02-Projects/Warehouse/Barcode Scanner Setup.md",
+   "name": "Barcode Scanner Setup",
+   "cluster": 1,
+   "bc": 0.00353,
+   "folder": "02-Projects/Warehouse",
+   "mentions": 4,
+   "recent": 3,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 3,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 1,
+   "words": 136,
+   "age": 25,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "project/warehouse"
+   ],
+   "born": "2026-08-21",
+   "edited": "2026-09-28",
+   "taskAge": 63,
+   "taskItems": [
+    [
+     "Review barcode scanner setup with Ben",
+     "2026-08-21"
+    ]
+   ]
+  },
+  {
+   "id": "02-Projects/Warehouse/Inventory Counts.md",
+   "name": "Inventory Counts",
+   "cluster": 1,
+   "bc": 0.00403,
+   "folder": "02-Projects/Warehouse",
+   "mentions": 4,
+   "recent": 4,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 3,
+   "outlinks": 3,
+   "broken": 0,
+   "tasks": 0,
+   "words": 120,
+   "age": 2,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "status/in-progress",
+    "project/warehouse"
+   ],
+   "born": "2026-08-24",
+   "edited": "2026-10-21"
+  },
+  {
+   "id": "02-Projects/Warehouse/Reorder Rules.md",
+   "name": "Reorder Rules",
+   "cluster": 1,
+   "bc": 0.00605,
+   "folder": "02-Projects/Warehouse",
+   "mentions": 13,
+   "recent": 12,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 3,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 116,
+   "age": 3,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "project/warehouse"
+   ],
+   "born": "2026-08-12",
+   "edited": "2026-10-20"
+  },
+  {
+   "id": "02-Projects/Warehouse/Shelf Layout.md",
+   "name": "Shelf Layout",
+   "cluster": 1,
+   "bc": 0.00605,
+   "folder": "02-Projects/Warehouse",
+   "mentions": 0,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 3,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 124,
+   "age": 400,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "project/warehouse"
+   ],
+   "born": "2025-08-29",
+   "edited": "2025-09-18"
+  },
+  {
+   "id": "02-Projects/Warehouse/Stock Transfer Procedure.md",
+   "name": "Stock Transfer Procedure",
+   "cluster": 1,
+   "bc": 0.00353,
+   "folder": "02-Projects/Warehouse",
+   "mentions": 7,
+   "recent": 3,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 3,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 120,
+   "age": 19,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "project/warehouse"
+   ],
+   "born": "2026-08-18",
+   "edited": "2026-10-04"
+  },
+  {
+   "id": "02-Projects/Warehouse/Supplier List.md",
+   "name": "Supplier List",
+   "cluster": 1,
+   "bc": 0.00101,
+   "folder": "02-Projects/Warehouse",
+   "mentions": 13,
+   "recent": 10,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 2,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 119,
+   "age": 1,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "project/warehouse"
+   ],
+   "born": "2026-08-15",
+   "edited": "2026-10-22"
+  },
+  {
+   "id": "03-Resources/Customer Support - Context.md",
+   "name": "Customer Support - Context",
+   "cluster": 3,
+   "bc": 0,
+   "folder": "03-Resources",
+   "mentions": 4,
+   "recent": 3,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 1,
+   "outlinks": 3,
+   "broken": 0,
+   "tasks": 0,
+   "words": 78,
+   "age": 0,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "meta/context"
+   ],
+   "born": "2026-07-25",
+   "edited": "2026-10-23"
+  },
+  {
+   "id": "03-Resources/Infrastructure - Context.md",
+   "name": "Infrastructure - Context",
+   "cluster": 2,
+   "bc": 0.00067,
+   "folder": "03-Resources",
+   "mentions": 0,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 2,
+   "outlinks": 3,
+   "broken": 0,
+   "tasks": 0,
+   "words": 68,
+   "age": 90,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "meta/context"
+   ],
+   "born": "2026-07-25",
+   "edited": "2026-07-25"
+  },
+  {
+   "id": "03-Resources/Infrastructure/Backup Restore Test.md",
+   "name": "Backup Restore Test",
+   "cluster": 2,
+   "bc": 0,
+   "folder": "03-Resources/Infrastructure",
+   "mentions": 0,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 0,
+   "outlinks": 3,
+   "broken": 0,
+   "tasks": 0,
+   "words": 115,
+   "age": 40,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "technology/servers"
+   ],
+   "born": "2026-09-13",
+   "edited": "2026-09-13"
+  },
+  {
+   "id": "03-Resources/Infrastructure/Database Upgrade.md",
+   "name": "Database Upgrade",
+   "cluster": 2,
+   "bc": 0.00672,
+   "folder": "03-Resources/Infrastructure",
+   "mentions": 12,
+   "recent": 8,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 4,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 122,
+   "age": 4,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "technology/servers"
+   ],
+   "born": "2026-08-18",
+   "edited": "2026-10-19"
+  },
+  {
+   "id": "03-Resources/Infrastructure/Disaster Recovery Plan.md",
+   "name": "Disaster Recovery Plan",
+   "cluster": 2,
+   "bc": 0.00101,
+   "folder": "03-Resources/Infrastructure",
+   "mentions": 0,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 2,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 118,
+   "age": 400,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "technology/servers"
+   ],
+   "born": "2025-08-29",
+   "edited": "2025-09-18"
+  },
+  {
+   "id": "03-Resources/Infrastructure/Monitoring Alerts.md",
+   "name": "Monitoring Alerts",
+   "cluster": 2,
+   "bc": 0.00101,
+   "folder": "03-Resources/Infrastructure",
+   "mentions": 6,
+   "recent": 3,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 2,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 120,
+   "age": 17,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "technology/servers"
+   ],
+   "born": "2026-08-15",
+   "edited": "2026-10-06"
+  },
+  {
+   "id": "03-Resources/Infrastructure/SSL Certificates.md",
+   "name": "SSL Certificates",
+   "cluster": 2,
+   "bc": 0.00101,
+   "folder": "03-Resources/Infrastructure",
+   "mentions": 10,
+   "recent": 8,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 2,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 118,
+   "age": 4,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "technology/servers"
+   ],
+   "born": "2026-08-12",
+   "edited": "2026-10-19"
+  },
+  {
+   "id": "03-Resources/Infrastructure/Server Backup.md",
+   "name": "Server Backup",
+   "cluster": 2,
+   "bc": 0.00302,
+   "folder": "03-Resources/Infrastructure",
+   "mentions": 8,
+   "recent": 4,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 3,
+   "outlinks": 3,
+   "broken": 0,
+   "tasks": 0,
+   "words": 114,
+   "age": 0,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "status/in-progress",
+    "technology/servers"
+   ],
+   "born": "2026-08-24",
+   "edited": "2026-10-23"
+  },
+  {
+   "id": "03-Resources/Infrastructure/VPN Setup.md",
+   "name": "VPN Setup",
+   "cluster": 2,
+   "bc": 0.00672,
+   "folder": "03-Resources/Infrastructure",
+   "mentions": 12,
+   "recent": 8,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 4,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 1,
+   "words": 135,
+   "age": 2,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "technology/servers"
+   ],
+   "born": "2026-08-21",
+   "edited": "2026-10-21",
+   "taskAge": 63,
+   "taskItems": [
+    [
+     "Review vpn setup with Dev",
+     "2026-08-21"
+    ]
+   ]
+  },
+  {
+   "id": "03-Resources/Personal/Cycling Training Plan.md",
+   "name": "Cycling Training Plan",
+   "cluster": -1,
+   "bc": 0,
+   "folder": "03-Resources/Personal",
+   "mentions": 0,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 0,
+   "outlinks": 0,
+   "broken": 0,
+   "tasks": 0,
+   "words": 51,
+   "age": 10,
+   "refs": false,
+   "isolated": true,
+   "tags": [],
+   "born": "2026-10-13",
+   "edited": "2026-10-13"
+  },
+  {
+   "id": "03-Resources/Release Notes 2026-03-02.md",
+   "name": "Release Notes 2026-03-02",
+   "cluster": 0,
+   "bc": 0,
+   "folder": "03-Resources",
+   "mentions": 0,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 0,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 12,
+   "age": 235,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "type/release-notes"
+   ],
+   "born": "2026-03-02",
+   "edited": "2026-03-02"
+  },
+  {
+   "id": "03-Resources/Support/Common Questions.md",
+   "name": "Common Questions",
+   "cluster": 3,
+   "bc": 0.00134,
+   "folder": "03-Resources/Support",
+   "mentions": 9,
+   "recent": 8,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 3,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 116,
+   "age": 1,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "activity/support"
+   ],
+   "born": "2026-08-18",
+   "edited": "2026-10-22"
+  },
+  {
+   "id": "03-Resources/Support/Escalation Process.md",
+   "name": "Escalation Process",
+   "cluster": 3,
+   "bc": 0.00134,
+   "folder": "03-Resources/Support",
+   "mentions": 16,
+   "recent": 11,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 2,
+   "outlinks": 3,
+   "broken": 1,
+   "tasks": 0,
+   "words": 129,
+   "age": 0,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "activity/support"
+   ],
+   "born": "2026-08-15",
+   "edited": "2026-10-23"
+  },
+  {
+   "id": "03-Resources/Support/Refund Policy.md",
+   "name": "Refund Policy",
+   "cluster": 3,
+   "bc": 0.0037,
+   "folder": "03-Resources/Support",
+   "mentions": 11,
+   "recent": 9,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 4,
+   "outlinks": 4,
+   "broken": 1,
+   "tasks": 0,
+   "words": 139,
+   "age": 1,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "status/in-progress",
+    "activity/support"
+   ],
+   "born": "2026-08-24",
+   "edited": "2026-10-22"
+  },
+  {
+   "id": "03-Resources/Support/Support Macros.md",
+   "name": "Support Macros",
+   "cluster": 3,
+   "bc": 0,
+   "folder": "03-Resources/Support",
+   "mentions": 0,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 2,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 119,
+   "age": 400,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "activity/support"
+   ],
+   "born": "2025-08-29",
+   "edited": "2025-09-18"
+  },
+  {
+   "id": "03-Resources/Support/Ticket Triage.md",
+   "name": "Ticket Triage",
+   "cluster": 3,
+   "bc": 0.0037,
+   "folder": "03-Resources/Support",
+   "mentions": 4,
+   "recent": 4,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 3,
+   "outlinks": 3,
+   "broken": 1,
+   "tasks": 1,
+   "words": 145,
+   "age": 11,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "activity/support"
+   ],
+   "born": "2026-08-21",
+   "edited": "2026-10-12",
+   "taskAge": 63,
+   "taskItems": [
+    [
+     "Review ticket triage with Chloe",
+     "2026-08-21"
+    ]
+   ]
+  },
+  {
+   "id": "03-Resources/Support/Warranty Claims.md",
+   "name": "Warranty Claims",
+   "cluster": 3,
+   "bc": 0,
+   "folder": "03-Resources/Support",
+   "mentions": 0,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 3,
+   "outlinks": 1,
+   "broken": 0,
+   "tasks": 0,
+   "words": 5,
+   "age": 15,
+   "refs": false,
+   "isolated": false,
+   "tags": [
+    "activity/support"
+   ],
+   "born": "2026-10-08",
+   "edited": "2026-10-08"
+  },
+  {
+   "id": "03-Resources/Warehouse Handbook (duplicate to merge).md",
+   "name": "Warehouse Handbook (duplicate to merge)",
+   "cluster": 1,
+   "bc": 0,
+   "folder": "03-Resources",
+   "mentions": 0,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 0,
+   "outlinks": 2,
+   "broken": 0,
+   "tasks": 0,
+   "words": 61,
+   "age": 25,
+   "refs": false,
+   "isolated": false,
+   "tags": [],
+   "born": "2026-09-28",
+   "edited": "2026-09-28"
+  },
+  {
+   "id": "04-People/Ana Lopez.md",
+   "name": "Ana Lopez",
+   "person": true,
+   "cluster": -1,
+   "bc": 0,
+   "folder": "04-People",
+   "mentions": 21,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 0,
+   "outlinks": 4,
+   "broken": 0,
+   "tasks": 0,
+   "words": 0,
+   "age": 0,
+   "refs": true,
+   "isolated": false
+  },
+  {
+   "id": "04-People/Ben Carter.md",
+   "name": "Ben Carter",
+   "person": true,
+   "cluster": -1,
+   "bc": 0,
+   "folder": "04-People",
+   "mentions": 18,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 0,
+   "outlinks": 4,
+   "broken": 0,
+   "tasks": 0,
+   "words": 0,
+   "age": 0,
+   "refs": true,
+   "isolated": false
+  },
+  {
+   "id": "04-People/Chloe Kim.md",
+   "name": "Chloe Kim",
+   "person": true,
+   "cluster": -1,
+   "bc": 0,
+   "folder": "04-People",
+   "mentions": 18,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 0,
+   "outlinks": 1,
+   "broken": 0,
+   "tasks": 0,
+   "words": 0,
+   "age": 0,
+   "refs": true,
+   "isolated": false
+  },
+  {
+   "id": "04-People/Dev Patel.md",
+   "name": "Dev Patel",
+   "person": true,
+   "cluster": -1,
+   "bc": 0,
+   "folder": "04-People",
+   "mentions": 23,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 0,
+   "outlinks": 1,
+   "broken": 0,
+   "tasks": 0,
+   "words": 0,
+   "age": 0,
+   "refs": true,
+   "isolated": false
+  },
+  {
+   "id": "02-Projects/Rental App/Rental App MOC.md",
+   "name": "Rental App",
+   "moc": true,
+   "cluster": 0,
+   "bc": 0,
+   "folder": "02-Projects/Rental App",
+   "mentions": 0,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 0,
+   "outlinks": 6,
+   "broken": 0,
+   "tasks": 0,
+   "words": 0,
+   "age": 0,
+   "refs": true,
+   "isolated": false
+  },
+  {
+   "id": "02-Projects/Warehouse/Warehouse MOC.md",
+   "name": "Warehouse",
+   "moc": true,
+   "cluster": 1,
+   "bc": 0,
+   "folder": "02-Projects/Warehouse",
+   "mentions": 0,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 0,
+   "outlinks": 4,
+   "broken": 0,
+   "tasks": 0,
+   "words": 0,
+   "age": 0,
+   "refs": true,
+   "isolated": false
+  },
+  {
+   "id": "03-Resources/Infrastructure/Infrastructure MOC.md",
+   "name": "Infrastructure",
+   "moc": true,
+   "cluster": 2,
+   "bc": 0,
+   "folder": "03-Resources/Infrastructure",
+   "mentions": 0,
+   "recent": 0,
+   "opens": 0,
+   "opens90": 0,
+   "inlinks": 0,
+   "outlinks": 4,
+   "broken": 0,
+   "tasks": 0,
+   "words": 0,
+   "age": 0,
+   "refs": true,
+   "isolated": false
+  }
+ ],
+ "links": [
+  {
+   "source": "02-Projects/Rental App - Context.md",
+   "target": "02-Projects/Rental App/Booking Flow.md",
+   "w": 2,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App - Context.md",
+   "target": "02-Projects/Rental App/Payment Integration.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App - Context.md",
+   "target": "02-Projects/Rental App/Push Notifications.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/API Design.md",
+   "target": "02-Projects/Rental App/Booking Flow.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/API Design.md",
+   "target": "02-Projects/Rental App/Login Timeout Bug.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/API Design.md",
+   "target": "02-Projects/Rental App/Map Screen.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/API Design.md",
+   "target": "02-Projects/Rental App/Payment Integration.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/App Store Release.md",
+   "target": "02-Projects/Rental App/Map Screen.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/App Store Release.md",
+   "target": "02-Projects/Rental App/Offline Mode.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/App Store Release.md",
+   "target": "02-Projects/Rental App/Payment Integration.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/App Store Release.md",
+   "target": "02-Projects/Rental App/Push Notifications.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/Booking Flow.md",
+   "target": "02-Projects/Rental App/Login Timeout Bug.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/Booking Flow.md",
+   "target": "02-Projects/Rental App/Payment Integration.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/Booking Flow.md",
+   "target": "02-Projects/Rental App/Push Notifications.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/Login Timeout Bug.md",
+   "target": "02-Projects/Rental App/Map Screen.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/Login Timeout Bug.md",
+   "target": "02-Projects/Rental App/Offline Mode.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/Login Timeout Bug.md",
+   "target": "03-Resources/Release Notes 2026-03-02.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/Map Screen.md",
+   "target": "02-Projects/Rental App/Offline Mode.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/Map Screen.md",
+   "target": "03-Resources/Release Notes 2026-03-02.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/Offline Mode.md",
+   "target": "02-Projects/Rental App/Push Notifications.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Rental App/Payment Integration.md",
+   "target": "02-Projects/Rental App/Push Notifications.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse - Context.md",
+   "target": "02-Projects/Warehouse/Barcode Scanner Setup.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse - Context.md",
+   "target": "02-Projects/Warehouse/Inventory Counts.md",
+   "w": 2,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse - Context.md",
+   "target": "02-Projects/Warehouse/Stock Transfer Procedure.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse/Barcode Scanner Setup.md",
+   "target": "02-Projects/Warehouse/Inventory Counts.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse/Barcode Scanner Setup.md",
+   "target": "02-Projects/Warehouse/Shelf Layout.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse/Barcode Scanner Setup.md",
+   "target": "02-Projects/Warehouse/Stock Transfer Procedure.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse/Barcode Scanner Setup.md",
+   "target": "02-Projects/Warehouse/Supplier List.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse/Inventory Counts.md",
+   "target": "02-Projects/Warehouse/Reorder Rules.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse/Inventory Counts.md",
+   "target": "02-Projects/Warehouse/Shelf Layout.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse/Inventory Counts.md",
+   "target": "02-Projects/Warehouse/Stock Transfer Procedure.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse/Reorder Rules.md",
+   "target": "02-Projects/Warehouse/Shelf Layout.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse/Reorder Rules.md",
+   "target": "02-Projects/Warehouse/Stock Transfer Procedure.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse/Reorder Rules.md",
+   "target": "02-Projects/Warehouse/Supplier List.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse/Reorder Rules.md",
+   "target": "03-Resources/Warehouse Handbook (duplicate to merge).md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse/Shelf Layout.md",
+   "target": "02-Projects/Warehouse/Supplier List.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse/Shelf Layout.md",
+   "target": "03-Resources/Warehouse Handbook (duplicate to merge).md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse/Stock Transfer Procedure.md",
+   "target": "02-Projects/Warehouse/Supplier List.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Customer Support - Context.md",
+   "target": "03-Resources/Support/Common Questions.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Customer Support - Context.md",
+   "target": "03-Resources/Support/Refund Policy.md",
+   "w": 2,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Customer Support - Context.md",
+   "target": "03-Resources/Support/Ticket Triage.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure - Context.md",
+   "target": "03-Resources/Infrastructure/Backup Restore Test.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure - Context.md",
+   "target": "03-Resources/Infrastructure/Database Upgrade.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure - Context.md",
+   "target": "03-Resources/Infrastructure/Server Backup.md",
+   "w": 2,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure - Context.md",
+   "target": "03-Resources/Infrastructure/VPN Setup.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Backup Restore Test.md",
+   "target": "03-Resources/Infrastructure/Database Upgrade.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Backup Restore Test.md",
+   "target": "03-Resources/Infrastructure/VPN Setup.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Database Upgrade.md",
+   "target": "03-Resources/Infrastructure/Monitoring Alerts.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Database Upgrade.md",
+   "target": "03-Resources/Infrastructure/SSL Certificates.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Database Upgrade.md",
+   "target": "03-Resources/Infrastructure/Server Backup.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Database Upgrade.md",
+   "target": "03-Resources/Infrastructure/VPN Setup.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Disaster Recovery Plan.md",
+   "target": "03-Resources/Infrastructure/Monitoring Alerts.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Disaster Recovery Plan.md",
+   "target": "03-Resources/Infrastructure/SSL Certificates.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Disaster Recovery Plan.md",
+   "target": "03-Resources/Infrastructure/Server Backup.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Disaster Recovery Plan.md",
+   "target": "03-Resources/Infrastructure/VPN Setup.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Monitoring Alerts.md",
+   "target": "03-Resources/Infrastructure/SSL Certificates.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Monitoring Alerts.md",
+   "target": "03-Resources/Infrastructure/VPN Setup.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure/SSL Certificates.md",
+   "target": "03-Resources/Infrastructure/Server Backup.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Server Backup.md",
+   "target": "03-Resources/Infrastructure/VPN Setup.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Support/Common Questions.md",
+   "target": "03-Resources/Support/Escalation Process.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Support/Common Questions.md",
+   "target": "03-Resources/Support/Refund Policy.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Support/Common Questions.md",
+   "target": "03-Resources/Support/Support Macros.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Support/Common Questions.md",
+   "target": "03-Resources/Support/Ticket Triage.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Support/Escalation Process.md",
+   "target": "03-Resources/Support/Refund Policy.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Support/Escalation Process.md",
+   "target": "03-Resources/Support/Support Macros.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Support/Escalation Process.md",
+   "target": "03-Resources/Support/Ticket Triage.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Support/Escalation Process.md",
+   "target": "03-Resources/Support/Warranty Claims.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Support/Refund Policy.md",
+   "target": "03-Resources/Support/Support Macros.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Support/Refund Policy.md",
+   "target": "03-Resources/Support/Ticket Triage.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Support/Refund Policy.md",
+   "target": "03-Resources/Support/Warranty Claims.md",
+   "w": 2,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Support/Support Macros.md",
+   "target": "03-Resources/Support/Ticket Triage.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "03-Resources/Support/Ticket Triage.md",
+   "target": "03-Resources/Support/Warranty Claims.md",
+   "w": 1,
+   "kind": "link"
+  },
+  {
+   "source": "02-Projects/Warehouse/Stock Transfer Procedure.md",
+   "target": "03-Resources/Support/Ticket Triage.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-09-23",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-23.md",
+     "Finished the stock transfer procedure changes"
+    ],
+    [
+     "2026-09-23",
+     "01-Daily/2026/09-September/Journal/2026-09-23.md",
+     "Talked with Dev Patel about Stock Transfer Procedure and Ticket Triage."
+    ]
+   ],
+   "pa": [
+    "Stock Transfer Procedure",
+    "Most questions about warehouse come up during the weekly review, and the answers end up here. When something in warehouse breaks, the first check is the last…"
+   ],
+   "pb": [
+    "Ticket Triage",
+    "Most questions about customer support come up during the weekly review, and the answers end up here. When something in customer support breaks, the first che…"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/API Design.md",
+   "target": "02-Projects/Warehouse/Inventory Counts.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-10-09",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-09.md",
+     "Finished the inventory counts changes"
+    ],
+    [
+     "2026-10-09",
+     "01-Daily/2026/10-October/Journal/2026-10-09.md",
+     "Talked with Dev Patel about Inventory Counts and API Design."
+    ]
+   ],
+   "pa": [
+    "Notes",
+    "The rental app checklist is short on purpose: anything longer gets skipped under pressure. When something in rental app breaks, the first check is the last c…"
+   ],
+   "pb": [
+    "Notes",
+    "Most questions about warehouse come up during the weekly review, and the answers end up here. The warehouse work depends on clear owners and a short list of …"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/Payment Integration.md",
+   "target": "02-Projects/Warehouse/Stock Transfer Procedure.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-09-17",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-17.md",
+     "Finished the stock transfer procedure changes"
+    ],
+    [
+     "2026-09-17",
+     "01-Daily/2026/09-September/Journal/2026-09-17.md",
+     "Talked with Chloe Kim about Stock Transfer Procedure and Payment Integration."
+    ]
+   ],
+   "pa": [
+    "Notes",
+    "We agreed to keep the rental app notes current after each change, so the team can find the latest decision. Customers notice rental app problems before we do…"
+   ],
+   "pb": [
+    "Notes",
+    "We agreed to keep the warehouse notes current after each change, so the team can find the latest decision. When something in warehouse breaks, the first chec…"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/API Design.md",
+   "target": "02-Projects/Warehouse/Stock Transfer Procedure.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-09-15",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-15.md",
+     "Finished the api design changes"
+    ],
+    [
+     "2026-09-15",
+     "01-Daily/2026/09-September/Journal/2026-09-15.md",
+     "Talked with Chloe Kim about API Design and Stock Transfer Procedure."
+    ]
+   ],
+   "pa": [
+    "Notes",
+    "The rental app checklist is short on purpose: anything longer gets skipped under pressure. When something in rental app breaks, the first check is the last c…"
+   ],
+   "pb": [
+    "Stock Transfer Procedure",
+    "Most questions about warehouse come up during the weekly review, and the answers end up here. When something in warehouse breaks, the first check is the last…"
+   ]
+  },
+  {
+   "source": "02-Projects/Warehouse/Supplier List.md",
+   "target": "03-Resources/Support/Refund Policy.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "3× together in daily notes",
+   "ev": [
+    [
+     "2026-10-22",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-22.md",
+     "Finished the supplier list changes"
+    ],
+    [
+     "2026-10-22",
+     "01-Daily/2026/10-October/Journal/2026-10-22.md",
+     "Talked with Dev Patel about Supplier List and Refund Policy."
+    ],
+    [
+     "2026-09-20",
+     "01-Daily/2026/09-September/Journal/2026-09-20.md",
+     "Talked with Ana Lopez about Refund Policy and Supplier List."
+    ]
+   ],
+   "pa": [
+    "Notes",
+    "Most questions about warehouse come up during the weekly review, and the answers end up here. When something in warehouse breaks, the first check is the last…"
+   ],
+   "pb": [
+    "Notes",
+    "Most questions about customer support come up during the weekly review, and the answers end up here. We agreed to keep the customer support notes current aft…"
+   ]
+  },
+  {
+   "source": "03-Resources/Customer Support - Context.md",
+   "target": "03-Resources/Support/Escalation Process.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-10-23",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-23.md",
+     "Customer Support"
+    ],
+    [
+     "2026-09-16",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-16.md",
+     "Customer Support"
+    ]
+   ],
+   "pa": [
+    "Customer Support - Context",
+    "The customer support checklist is short on purpose: anything longer gets skipped under pressure. Most questions about customer support come up during the wee…"
+   ],
+   "pb": [
+    "Escalation Process",
+    "Most questions about customer support come up during the weekly review, and the answers end up here. The customer support checklist is short on purpose: anyt…"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/Booking Flow.md",
+   "target": "03-Resources/Infrastructure/VPN Setup.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "3× together in daily notes",
+   "ev": [
+    [
+     "2026-10-05",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-05.md",
+     "Finished the vpn setup changes"
+    ],
+    [
+     "2026-10-05",
+     "01-Daily/2026/10-October/Journal/2026-10-05.md",
+     "Talked with Ana Lopez about VPN Setup and Booking Flow."
+    ],
+    [
+     "2026-09-12",
+     "01-Daily/2026/09-September/Journal/2026-09-12.md",
+     "Talked with Ana Lopez about VPN Setup and Booking Flow."
+    ]
+   ],
+   "pa": [
+    "Booking Flow",
+    "When something in rental app breaks, the first check is the last change that went out. We agreed to keep the rental app notes current after each change, so t…"
+   ],
+   "pb": [
+    "VPN Setup",
+    "Customers notice infrastructure problems before we do, so support tickets are an early signal. We agreed to keep the infrastructure notes current after each …"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/API Design.md",
+   "target": "02-Projects/Rental App/Push Notifications.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-09-18",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-18.md",
+     "Finished the push notifications changes"
+    ],
+    [
+     "2026-09-18",
+     "01-Daily/2026/09-September/Journal/2026-09-18.md",
+     "Talked with Ana Lopez about Push Notifications and API Design."
+    ]
+   ],
+   "pa": [
+    "Notes",
+    "The rental app checklist is short on purpose: anything longer gets skipped under pressure. When something in rental app breaks, the first check is the last c…"
+   ],
+   "pb": [
+    "Notes",
+    "The rental app checklist is short on purpose: anything longer gets skipped under pressure. The rental app checklist is short on purpose: anything longer gets…"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/App Store Release.md",
+   "target": "03-Resources/Infrastructure/Server Backup.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-09-16",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-16.md",
+     "Finished the server backup changes"
+    ],
+    [
+     "2026-09-16",
+     "01-Daily/2026/09-September/Journal/2026-09-16.md",
+     "Talked with Ben Carter about Server Backup and App Store Release."
+    ]
+   ],
+   "pa": [
+    "App Store Release",
+    "When something in rental app breaks, the first check is the last change that went out. Most questions about rental app come up during the weekly review, and …"
+   ],
+   "pb": [
+    "Server Backup",
+    "The infrastructure work depends on clear owners and a short list of next steps. Customers notice infrastructure problems before we do, so support tickets are…"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/API Design.md",
+   "target": "03-Resources/Support/Refund Policy.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-09-29",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-29.md",
+     "Finished the api design changes"
+    ],
+    [
+     "2026-09-29",
+     "01-Daily/2026/09-September/Journal/2026-09-29.md",
+     "Talked with Chloe Kim about API Design and Refund Policy."
+    ]
+   ],
+   "pa": [
+    "API Design",
+    "We agreed to keep the rental app notes current after each change, so the team can find the latest decision. Customers notice rental app problems before we do…"
+   ],
+   "pb": [
+    "Notes",
+    "Most questions about customer support come up during the weekly review, and the answers end up here. We agreed to keep the customer support notes current aft…"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/Payment Integration.md",
+   "target": "03-Resources/Support/Escalation Process.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-09-14",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-14.md",
+     "Finished the payment integration changes"
+    ],
+    [
+     "2026-09-14",
+     "01-Daily/2026/09-September/Journal/2026-09-14.md",
+     "Talked with Ben Carter about Payment Integration and Escalation Process."
+    ]
+   ],
+   "pa": [
+    "Payment Integration",
+    "Customers notice rental app problems before we do, so support tickets are an early signal. The rental app work depends on clear owners and a short list of ne…"
+   ],
+   "pb": [
+    "Notes",
+    "Customers notice customer support problems before we do, so support tickets are an early signal. We agreed to keep the customer support notes current after e…"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/App Store Release.md",
+   "target": "02-Projects/Rental App/Login Timeout Bug.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-10-01",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-01.md",
+     "Finished the app store release changes"
+    ],
+    [
+     "2026-10-01",
+     "01-Daily/2026/10-October/Journal/2026-10-01.md",
+     "Talked with Ben Carter about App Store Release and Login Timeout Bug."
+    ]
+   ],
+   "pa": [
+    "App Store Release",
+    "When something in rental app breaks, the first check is the last change that went out. Most questions about rental app come up during the weekly review, and …"
+   ],
+   "pb": [
+    "Login Timeout Bug",
+    "We agreed to keep the rental app notes current after each change, so the team can find the latest decision. Customers notice rental app problems before we do…"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/Login Timeout Bug.md",
+   "target": "03-Resources/Infrastructure/VPN Setup.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-10-21",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-21.md",
+     "Finished the vpn setup changes"
+    ],
+    [
+     "2026-10-21",
+     "01-Daily/2026/10-October/Journal/2026-10-21.md",
+     "Talked with Ana Lopez about VPN Setup and Login Timeout Bug."
+    ]
+   ],
+   "pa": [
+    "Login Timeout Bug",
+    "We agreed to keep the rental app notes current after each change, so the team can find the latest decision. Customers notice rental app problems before we do…"
+   ],
+   "pb": [
+    "VPN Setup",
+    "Customers notice infrastructure problems before we do, so support tickets are an early signal. We agreed to keep the infrastructure notes current after each …"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/Map Screen.md",
+   "target": "03-Resources/Infrastructure/VPN Setup.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-10-12",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-12.md",
+     "Finished the map screen changes"
+    ],
+    [
+     "2026-10-12",
+     "01-Daily/2026/10-October/Journal/2026-10-12.md",
+     "Talked with Dev Patel about Map Screen and VPN Setup."
+    ]
+   ],
+   "pa": [
+    "Notes",
+    "Most questions about rental app come up during the weekly review, and the answers end up here. We agreed to keep the rental app notes current after each chan…"
+   ],
+   "pb": [
+    "VPN Setup",
+    "Customers notice infrastructure problems before we do, so support tickets are an early signal. We agreed to keep the infrastructure notes current after each …"
+   ]
+  },
+  {
+   "source": "02-Projects/Warehouse/Reorder Rules.md",
+   "target": "03-Resources/Infrastructure/Database Upgrade.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-10-13",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-13.md",
+     "Finished the database upgrade changes"
+    ],
+    [
+     "2026-10-13",
+     "01-Daily/2026/10-October/Journal/2026-10-13.md",
+     "Talked with Dev Patel about Database Upgrade and Reorder Rules."
+    ]
+   ],
+   "pa": [
+    "Notes",
+    "The warehouse work depends on clear owners and a short list of next steps. Customers notice warehouse problems before we do, so support tickets are an early …"
+   ],
+   "pb": [
+    "Database Upgrade",
+    "The infrastructure checklist is short on purpose: anything longer gets skipped under pressure. When something in infrastructure breaks, the first check is th…"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/Offline Mode.md",
+   "target": "03-Resources/Support/Escalation Process.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-10-23",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-23.md",
+     "Finished the escalation process changes"
+    ],
+    [
+     "2026-10-23",
+     "01-Daily/2026/10-October/Journal/2026-10-23.md",
+     "Talked with Ben Carter about Escalation Process and Offline Mode."
+    ]
+   ],
+   "pa": [
+    "Notes",
+    "The rental app checklist is short on purpose: anything longer gets skipped under pressure. Customers notice rental app problems before we do, so support tick…"
+   ],
+   "pb": [
+    "Escalation Process",
+    "Most questions about customer support come up during the weekly review, and the answers end up here. The customer support checklist is short on purpose: anyt…"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/Booking Flow.md",
+   "target": "02-Projects/Warehouse/Reorder Rules.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-09-24",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-24.md",
+     "Finished the reorder rules changes"
+    ],
+    [
+     "2026-09-24",
+     "01-Daily/2026/09-September/Journal/2026-09-24.md",
+     "Talked with Chloe Kim about Reorder Rules and Booking Flow."
+    ]
+   ],
+   "pa": [
+    "Booking Flow",
+    "When something in rental app breaks, the first check is the last change that went out. We agreed to keep the rental app notes current after each change, so t…"
+   ],
+   "pb": [
+    "Reorder Rules",
+    "We agreed to keep the warehouse notes current after each change, so the team can find the latest decision. Customers notice warehouse problems before we do, …"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/Booking Flow.md",
+   "target": "03-Resources/Support/Escalation Process.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-09-25",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-25.md",
+     "Finished the booking flow changes"
+    ],
+    [
+     "2026-09-25",
+     "01-Daily/2026/09-September/Journal/2026-09-25.md",
+     "Talked with Ana Lopez about Booking Flow and Escalation Process."
+    ]
+   ],
+   "pa": [
+    "Booking Flow",
+    "When something in rental app breaks, the first check is the last change that went out. We agreed to keep the rental app notes current after each change, so t…"
+   ],
+   "pb": [
+    "Notes",
+    "Customers notice customer support problems before we do, so support tickets are an early signal. We agreed to keep the customer support notes current after e…"
+   ]
+  },
+  {
+   "source": "04-People/Ana Lopez.md",
+   "target": "02-Projects/Rental App - Context.md",
+   "w": 1,
+   "kind": "person"
+  },
+  {
+   "source": "04-People/Ana Lopez.md",
+   "target": "02-Projects/Warehouse - Context.md",
+   "w": 1,
+   "kind": "person"
+  },
+  {
+   "source": "04-People/Ana Lopez.md",
+   "target": "03-Resources/Customer Support - Context.md",
+   "w": 1,
+   "kind": "person"
+  },
+  {
+   "source": "04-People/Ana Lopez.md",
+   "target": "03-Resources/Infrastructure - Context.md",
+   "w": 1,
+   "kind": "person"
+  },
+  {
+   "source": "04-People/Ben Carter.md",
+   "target": "02-Projects/Rental App - Context.md",
+   "w": 1,
+   "kind": "person"
+  },
+  {
+   "source": "04-People/Ben Carter.md",
+   "target": "02-Projects/Warehouse - Context.md",
+   "w": 1,
+   "kind": "person"
+  },
+  {
+   "source": "04-People/Ben Carter.md",
+   "target": "03-Resources/Customer Support - Context.md",
+   "w": 1,
+   "kind": "person"
+  },
+  {
+   "source": "04-People/Ben Carter.md",
+   "target": "03-Resources/Infrastructure - Context.md",
+   "w": 1,
+   "kind": "person"
+  },
+  {
+   "source": "04-People/Chloe Kim.md",
+   "target": "03-Resources/Infrastructure - Context.md",
+   "w": 1,
+   "kind": "person"
+  },
+  {
+   "source": "04-People/Dev Patel.md",
+   "target": "03-Resources/Customer Support - Context.md",
+   "w": 1,
+   "kind": "person"
+  },
+  {
+   "source": "03-Resources/Support/Escalation Process.md",
+   "target": "wanted:spare parts catalogue",
+   "w": 1,
+   "kind": "wanted"
+  },
+  {
+   "source": "03-Resources/Support/Refund Policy.md",
+   "target": "wanted:spare parts catalogue",
+   "w": 1,
+   "kind": "wanted"
+  },
+  {
+   "source": "03-Resources/Support/Ticket Triage.md",
+   "target": "wanted:spare parts catalogue",
+   "w": 1,
+   "kind": "wanted"
+  },
+  {
+   "source": "02-Projects/Rental App/Rental App MOC.md",
+   "target": "02-Projects/Rental App/App Store Release.md",
+   "w": 1,
+   "kind": "moc"
+  },
+  {
+   "source": "02-Projects/Rental App/Rental App MOC.md",
+   "target": "02-Projects/Rental App/Booking Flow.md",
+   "w": 1,
+   "kind": "moc"
+  },
+  {
+   "source": "02-Projects/Rental App/Rental App MOC.md",
+   "target": "02-Projects/Rental App/Map Screen.md",
+   "w": 1,
+   "kind": "moc"
+  },
+  {
+   "source": "02-Projects/Rental App/Rental App MOC.md",
+   "target": "02-Projects/Rental App/Offline Mode.md",
+   "w": 1,
+   "kind": "moc"
+  },
+  {
+   "source": "02-Projects/Rental App/Rental App MOC.md",
+   "target": "02-Projects/Rental App/Payment Integration.md",
+   "w": 1,
+   "kind": "moc"
+  },
+  {
+   "source": "02-Projects/Rental App/Rental App MOC.md",
+   "target": "02-Projects/Rental App/Push Notifications.md",
+   "w": 1,
+   "kind": "moc"
+  },
+  {
+   "source": "02-Projects/Warehouse/Warehouse MOC.md",
+   "target": "02-Projects/Warehouse/Barcode Scanner Setup.md",
+   "w": 1,
+   "kind": "moc"
+  },
+  {
+   "source": "02-Projects/Warehouse/Warehouse MOC.md",
+   "target": "02-Projects/Warehouse/Inventory Counts.md",
+   "w": 1,
+   "kind": "moc"
+  },
+  {
+   "source": "02-Projects/Warehouse/Warehouse MOC.md",
+   "target": "02-Projects/Warehouse/Stock Transfer Procedure.md",
+   "w": 1,
+   "kind": "moc"
+  },
+  {
+   "source": "02-Projects/Warehouse/Warehouse MOC.md",
+   "target": "02-Projects/Warehouse/Supplier List.md",
+   "w": 1,
+   "kind": "moc"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Infrastructure MOC.md",
+   "target": "03-Resources/Infrastructure/Database Upgrade.md",
+   "w": 1,
+   "kind": "moc"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Infrastructure MOC.md",
+   "target": "03-Resources/Infrastructure/Monitoring Alerts.md",
+   "w": 1,
+   "kind": "moc"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Infrastructure MOC.md",
+   "target": "03-Resources/Infrastructure/Server Backup.md",
+   "w": 1,
+   "kind": "moc"
+  },
+  {
+   "source": "03-Resources/Infrastructure/Infrastructure MOC.md",
+   "target": "03-Resources/Infrastructure/VPN Setup.md",
+   "w": 1,
+   "kind": "moc"
+  }
+ ],
+ "mocs": [
+  {
+   "id": "02-Projects/Rental App/Rental App MOC.md",
+   "title": "Rental App",
+   "nav": false,
+   "clusters": [
+    0
+   ],
+   "members": [
+    "02-Projects/Rental App/App Store Release.md",
+    "02-Projects/Rental App/Booking Flow.md",
+    "02-Projects/Rental App/Map Screen.md",
+    "02-Projects/Rental App/Offline Mode.md",
+    "02-Projects/Rental App/Payment Integration.md",
+    "02-Projects/Rental App/Push Notifications.md"
+   ],
+   "missing": {
+    "0": [
+     "02-Projects/Rental App/Login Timeout Bug.md",
+     "02-Projects/Rental App/API Design.md",
+     "02-Projects/Rental App - Context.md",
+     "03-Resources/Release Notes 2026-03-02.md"
+    ]
+   }
+  },
+  {
+   "id": "02-Projects/Warehouse/Warehouse MOC.md",
+   "title": "Warehouse",
+   "nav": false,
+   "clusters": [
+    1
+   ],
+   "members": [
+    "02-Projects/Warehouse/Barcode Scanner Setup.md",
+    "02-Projects/Warehouse/Inventory Counts.md",
+    "02-Projects/Warehouse/Stock Transfer Procedure.md",
+    "02-Projects/Warehouse/Supplier List.md"
+   ],
+   "missing": {
+    "1": [
+     "02-Projects/Warehouse/Reorder Rules.md",
+     "02-Projects/Warehouse/Shelf Layout.md",
+     "02-Projects/Warehouse - Context.md",
+     "03-Resources/Warehouse Handbook (duplicate to merge).md"
+    ]
+   }
+  },
+  {
+   "id": "03-Resources/Infrastructure/Infrastructure MOC.md",
+   "title": "Infrastructure",
+   "nav": false,
+   "clusters": [
+    2
+   ],
+   "members": [
+    "03-Resources/Infrastructure/Database Upgrade.md",
+    "03-Resources/Infrastructure/Monitoring Alerts.md",
+    "03-Resources/Infrastructure/Server Backup.md",
+    "03-Resources/Infrastructure/VPN Setup.md"
+   ],
+   "missing": {
+    "2": [
+     "03-Resources/Infrastructure/Disaster Recovery Plan.md",
+     "03-Resources/Infrastructure/SSL Certificates.md",
+     "03-Resources/Infrastructure - Context.md",
+     "03-Resources/Infrastructure/Backup Restore Test.md"
+    ]
+   }
+  }
+ ],
+ "clusters": [
+  {
+   "id": 0,
+   "name": "Rental App · Booking Flow",
+   "keywords": "App · Rental · Release",
+   "stack": "Rental App",
+   "label": "Rental App",
+   "size": 10,
+   "folder": "02-Projects/Rental App",
+   "core": [
+    "Booking Flow",
+    "Login Timeout Bug",
+    "Map Screen"
+   ]
+  },
+  {
+   "id": 1,
+   "name": "Warehouse · Barcode",
+   "keywords": "Warehouse · Barcode · Counts",
+   "stack": "Warehouse",
+   "label": "Warehouse",
+   "size": 8,
+   "folder": "02-Projects/Warehouse",
+   "core": [
+    "Inventory Counts",
+    "Barcode Scanner Setup",
+    "Reorder Rules"
+   ]
+  },
+  {
+   "id": 2,
+   "name": "Servers · Backup · Infrastructure",
+   "keywords": "Infrastructure · Backup · Alerts",
+   "stack": "Servers",
+   "label": "Infrastructure",
+   "size": 8,
+   "folder": "03-Resources/Infrastructure",
+   "core": [
+    "Database Upgrade",
+    "Server Backup",
+    "VPN Setup"
+   ]
+  },
+  {
+   "id": 3,
+   "name": "Support · Claims",
+   "keywords": "Claims · Common · Escalation",
+   "stack": "",
+   "label": null,
+   "size": 7,
+   "folder": "03-Resources/Support",
+   "core": [
+    "Refund Policy",
+    "Ticket Triage",
+    "Common Questions"
+   ]
+  }
+ ],
+ "gaps": [
+  {
+   "a": 0,
+   "b": 1,
+   "links": 0,
+   "comentions": 8,
+   "suggest": [
+    [
+     "02-Projects/Rental App/API Design.md",
+     "02-Projects/Warehouse/Inventory Counts.md",
+     2
+    ],
+    [
+     "02-Projects/Rental App/Payment Integration.md",
+     "02-Projects/Warehouse/Stock Transfer Procedure.md",
+     2
+    ],
+    [
+     "02-Projects/Rental App/API Design.md",
+     "02-Projects/Warehouse/Stock Transfer Procedure.md",
+     2
+    ]
+   ]
+  },
+  {
+   "a": 0,
+   "b": 2,
+   "links": 0,
+   "comentions": 9,
+   "suggest": [
+    [
+     "02-Projects/Rental App/Booking Flow.md",
+     "03-Resources/Infrastructure/VPN Setup.md",
+     3
+    ],
+    [
+     "02-Projects/Rental App/App Store Release.md",
+     "03-Resources/Infrastructure/Server Backup.md",
+     2
+    ],
+    [
+     "02-Projects/Rental App/Login Timeout Bug.md",
+     "03-Resources/Infrastructure/VPN Setup.md",
+     2
+    ]
+   ]
+  },
+  {
+   "a": 0,
+   "b": 3,
+   "links": 0,
+   "comentions": 8,
+   "suggest": [
+    [
+     "02-Projects/Rental App/API Design.md",
+     "03-Resources/Support/Refund Policy.md",
+     2
+    ],
+    [
+     "02-Projects/Rental App/Payment Integration.md",
+     "03-Resources/Support/Escalation Process.md",
+     2
+    ],
+    [
+     "02-Projects/Rental App/Offline Mode.md",
+     "03-Resources/Support/Escalation Process.md",
+     2
+    ]
+   ]
+  },
+  {
+   "a": 1,
+   "b": 3,
+   "links": 0,
+   "comentions": 5,
+   "suggest": [
+    [
+     "02-Projects/Warehouse/Stock Transfer Procedure.md",
+     "03-Resources/Support/Ticket Triage.md",
+     2
+    ],
+    [
+     "02-Projects/Warehouse/Supplier List.md",
+     "03-Resources/Support/Refund Policy.md",
+     3
+    ]
+   ]
+  }
+ ],
+ "quality": {
+  "stub_words": 80,
+  "stale_days": 180
+ },
+ "pairs": [
+  [
+   0,
+   1,
+   0,
+   8
+  ],
+  [
+   0,
+   2,
+   0,
+   9
+  ],
+  [
+   0,
+   3,
+   0,
+   8
+  ],
+  [
+   1,
+   2,
+   0,
+   2
+  ],
+  [
+   1,
+   3,
+   0,
+   5
+  ]
+ ],
+ "snapshots": [],
+ "timeline": {
+  "weeks": [
+   "2026-04-27",
+   "2026-05-04",
+   "2026-05-11",
+   "2026-05-18",
+   "2026-05-25",
+   "2026-06-01",
+   "2026-06-08",
+   "2026-06-15",
+   "2026-06-22",
+   "2026-06-29",
+   "2026-07-06",
+   "2026-07-13",
+   "2026-07-20",
+   "2026-07-27",
+   "2026-08-03",
+   "2026-08-10",
+   "2026-08-17",
+   "2026-08-24",
+   "2026-08-31",
+   "2026-09-07",
+   "2026-09-14",
+   "2026-09-21",
+   "2026-09-28",
+   "2026-10-05",
+   "2026-10-12",
+   "2026-10-19"
+  ],
+  "clusters": {
+   "0": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    8,
+    15,
+    10,
+    13,
+    16,
+    11,
+    10
+   ],
+   "1": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    6,
+    8,
+    12,
+    3,
+    4,
+    7
+   ],
+   "2": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    8,
+    8,
+    2,
+    13,
+    7,
+    8
+   ],
+   "3": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    7,
+    10,
+    6,
+    4,
+    10,
+    7
+   ]
+  },
+  "notes": {
+   "03-Resources/Support/Escalation Process.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    4,
+    3,
+    1,
+    0,
+    6,
+    2
+   ],
+   "02-Projects/Rental App/Booking Flow.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    0,
+    4,
+    1,
+    5,
+    1,
+    0
+   ],
+   "02-Projects/Warehouse/Reorder Rules.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    2,
+    5,
+    0,
+    2,
+    3
+   ],
+   "02-Projects/Warehouse/Supplier List.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    3,
+    4,
+    1,
+    2,
+    2
+   ],
+   "02-Projects/Rental App/App Store Release.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    3,
+    0,
+    3,
+    0,
+    3,
+    1
+   ],
+   "03-Resources/Infrastructure/Database Upgrade.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    2,
+    0,
+    4,
+    2,
+    2
+   ],
+   "03-Resources/Infrastructure/VPN Setup.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    2,
+    0,
+    3,
+    3,
+    2
+   ],
+   "02-Projects/Rental App/Map Screen.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    1,
+    1,
+    2,
+    1,
+    4,
+    0
+   ],
+   "03-Resources/Support/Refund Policy.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    1,
+    3,
+    0,
+    2,
+    3
+   ],
+   "02-Projects/Rental App/Offline Mode.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    2,
+    2,
+    1,
+    4
+   ],
+   "03-Resources/Infrastructure/SSL Certificates.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    3,
+    2,
+    2
+   ],
+   "02-Projects/Rental App/Login Timeout Bug.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    3,
+    2,
+    3
+   ],
+   "02-Projects/Rental App/API Design.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    4,
+    1,
+    2,
+    2,
+    0,
+    0
+   ],
+   "03-Resources/Support/Common Questions.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    3,
+    2,
+    2,
+    1,
+    1
+   ],
+   "02-Projects/Rental App/Push Notifications.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    2,
+    0,
+    1,
+    2,
+    0,
+    2
+   ],
+   "03-Resources/Infrastructure/Server Backup.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    3,
+    0,
+    1,
+    0,
+    2
+   ],
+   "02-Projects/Rental App/Payment Integration.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    4,
+    3,
+    0,
+    0,
+    0,
+    0
+   ],
+   "02-Projects/Warehouse/Stock Transfer Procedure.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    4,
+    2,
+    1,
+    0,
+    0,
+    0
+   ],
+   "03-Resources/Infrastructure/Monitoring Alerts.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    3,
+    0,
+    1,
+    2,
+    0,
+    0
+   ],
+   "02-Projects/Warehouse/Barcode Scanner Setup.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    1,
+    2,
+    0,
+    0,
+    0
+   ],
+   "03-Resources/Customer Support - Context.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    0,
+    1,
+    0,
+    1
+   ],
+   "03-Resources/Support/Ticket Triage.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    0,
+    1,
+    1,
+    0
+   ],
+   "02-Projects/Warehouse/Inventory Counts.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    0,
+    2
+   ],
+   "02-Projects/Rental App - Context.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    1,
+    0,
+    1,
+    0,
+    0
+   ]
+  }
+ },
+ "followthrough": {
+  "items": [
+   {
+    "d": "2026-09-11",
+    "t": "Finish the database upgrade changes",
+    "s": "later",
+    "w": "2026-09-22",
+    "m": "Infrastructure Finished the server backup changes Reviewed database upgrade with Dev",
+    "c": 1
+   },
+   {
+    "d": "2026-09-11",
+    "t": "Start the barcode scanner setup rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-09-14",
+    "t": "Finish the app store release changes",
+    "s": "next",
+    "w": "2026-09-15",
+    "m": "Rental App Finished the app store release changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-14",
+    "t": "Start the offline mode rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-09-15",
+    "t": "Finish the escalation process changes",
+    "s": "next",
+    "w": "2026-09-16",
+    "m": "Customer Support Finished the escalation process changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-15",
+    "t": "Start the database upgrade rollout",
+    "s": "later",
+    "w": "2026-09-22",
+    "m": "Infrastructure Reviewed database upgrade with Dev",
+    "c": 0
+   },
+   {
+    "d": "2026-09-16",
+    "t": "Finish the ssl certificates changes",
+    "s": "later",
+    "w": "2026-09-22",
+    "m": "Infrastructure Finished the ssl certificates changes",
+    "c": 1
+   },
+   {
+    "d": "2026-09-16",
+    "t": "Start the monitoring alerts rollout",
+    "s": "later",
+    "w": "2026-09-18",
+    "m": "Infrastructure Finished the monitoring alerts changes",
+    "c": 1
+   },
+   {
+    "d": "2026-09-17",
+    "t": "Finish the monitoring alerts changes",
+    "s": "next",
+    "w": "2026-09-18",
+    "m": "Infrastructure Finished the monitoring alerts changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-17",
+    "t": "Start the payment integration rollout",
+    "s": "later",
+    "w": "2026-09-25",
+    "m": "Rental App Finished the payment integration changes",
+    "c": 1
+   },
+   {
+    "d": "2026-09-18",
+    "t": "Finish the map screen changes",
+    "s": "next",
+    "w": "2026-09-21",
+    "m": "Rental App Finished the map screen changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-18",
+    "t": "Start the vpn setup rollout",
+    "s": "next",
+    "w": "2026-09-21",
+    "m": "Infrastructure Finished the vpn setup changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-21",
+    "t": "Finish the ssl certificates changes",
+    "s": "next",
+    "w": "2026-09-22",
+    "m": "Infrastructure Finished the ssl certificates changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-21",
+    "t": "Start the escalation process rollout",
+    "s": "later",
+    "w": "2026-09-25",
+    "m": "Rental App Reviewed escalation process with Ana",
+    "c": 0
+   },
+   {
+    "d": "2026-09-22",
+    "t": "Finish the api design changes",
+    "s": "later",
+    "w": "2026-09-29",
+    "m": "Rental App Finished the api design changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-22",
+    "t": "Start the common questions rollout",
+    "s": "later",
+    "w": "2026-09-24",
+    "m": "Customer Support Finished the common questions changes",
+    "c": 1
+   },
+   {
+    "d": "2026-09-23",
+    "t": "Finish the common questions changes",
+    "s": "next",
+    "w": "2026-09-24",
+    "m": "Customer Support Finished the common questions changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-23",
+    "t": "Start the ticket triage rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-09-24",
+    "t": "Finish the payment integration changes",
+    "s": "next",
+    "w": "2026-09-25",
+    "m": "Rental App Finished the payment integration changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-24",
+    "t": "Start the server backup rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-09-25",
+    "t": "Finish the refund policy changes",
+    "s": "next",
+    "w": "2026-09-28",
+    "m": "Customer Support Finished the refund policy changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-25",
+    "t": "Start the refund policy rollout",
+    "s": "next",
+    "w": "2026-09-28",
+    "m": "Customer Support Finished the refund policy changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-28",
+    "t": "Finish the ssl certificates changes",
+    "s": "later",
+    "w": "2026-10-06",
+    "m": "Infrastructure Finished the database upgrade changes Reviewed ssl certificates with Ben",
+    "c": 1
+   },
+   {
+    "d": "2026-09-28",
+    "t": "Start the common questions rollout",
+    "s": "carried",
+    "w": null,
+    "m": "",
+    "c": 1
+   },
+   {
+    "d": "2026-09-29",
+    "t": "Finish the supplier list changes",
+    "s": "next",
+    "w": "2026-09-30",
+    "m": "Warehouse Finished the reorder rules changes Reviewed supplier list with Ana",
+    "c": 0
+   },
+   {
+    "d": "2026-09-29",
+    "t": "Start the push notifications rollout",
+    "s": "carried",
+    "w": null,
+    "m": "",
+    "c": 1
+   },
+   {
+    "d": "2026-09-30",
+    "t": "Finish the map screen changes",
+    "s": "next",
+    "w": "2026-10-01",
+    "m": "Rental App Finished the map screen changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-30",
+    "t": "Start the booking flow rollout",
+    "s": "later",
+    "w": "2026-10-05",
+    "m": "Infrastructure Reviewed booking flow with Ana",
+    "c": 0
+   },
+   {
+    "d": "2026-10-01",
+    "t": "Finish the supplier list changes",
+    "s": "next",
+    "w": "2026-10-02",
+    "m": "Warehouse Finished the supplier list changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-01",
+    "t": "Start the escalation process rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-10-02",
+    "t": "Finish the common questions changes",
+    "s": "later",
+    "w": "2026-10-09",
+    "m": "Customer Support Finished the common questions changes",
+    "c": 1
+   },
+   {
+    "d": "2026-10-02",
+    "t": "Start the common questions rollout",
+    "s": "later",
+    "w": "2026-10-09",
+    "m": "Customer Support Finished the common questions changes",
+    "c": 1
+   },
+   {
+    "d": "2026-10-05",
+    "t": "Finish the monitoring alerts changes",
+    "s": "next",
+    "w": "2026-10-06",
+    "m": "Infrastructure Finished the monitoring alerts changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-05",
+    "t": "Start the ssl certificates rollout",
+    "s": "next",
+    "w": "2026-10-06",
+    "m": "Infrastructure Reviewed ssl certificates with Ben",
+    "c": 0
+   },
+   {
+    "d": "2026-10-06",
+    "t": "Finish the booking flow changes",
+    "s": "next",
+    "w": "2026-10-07",
+    "m": "Rental App Finished the booking flow changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-06",
+    "t": "Start the offline mode rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-10-07",
+    "t": "Finish the server backup changes",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-10-07",
+    "t": "Start the map screen rollout",
+    "s": "later",
+    "w": "2026-10-12",
+    "m": "Rental App Finished the map screen changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-08",
+    "t": "Finish the common questions changes",
+    "s": "next",
+    "w": "2026-10-09",
+    "m": "Customer Support Finished the common questions changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-08",
+    "t": "Start the push notifications rollout",
+    "s": "carried",
+    "w": null,
+    "m": "",
+    "c": 1
+   },
+   {
+    "d": "2026-10-09",
+    "t": "Finish the ticket triage changes",
+    "s": "next",
+    "w": "2026-10-12",
+    "m": "Customer Support Finished the ticket triage changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-09",
+    "t": "Start the push notifications rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-10-12",
+    "t": "Finish the escalation process changes",
+    "s": "next",
+    "w": "2026-10-13",
+    "m": "Customer Support Finished the escalation process changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-12",
+    "t": "Start the vpn setup rollout",
+    "s": "later",
+    "w": "2026-10-21",
+    "m": "Infrastructure Finished the vpn setup changes",
+    "c": 1
+   },
+   {
+    "d": "2026-10-13",
+    "t": "Finish the vpn setup changes",
+    "s": "later",
+    "w": "2026-10-21",
+    "m": "Infrastructure Finished the vpn setup changes",
+    "c": 1
+   },
+   {
+    "d": "2026-10-13",
+    "t": "Start the reorder rules rollout",
+    "s": "later",
+    "w": "2026-10-20",
+    "m": "Warehouse Finished the reorder rules changes",
+    "c": 1
+   },
+   {
+    "d": "2026-10-14",
+    "t": "Finish the login timeout bug changes",
+    "s": "next",
+    "w": "2026-10-15",
+    "m": "Rental App Finished the login timeout bug changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-14",
+    "t": "Start the escalation process rollout",
+    "s": "next",
+    "w": "2026-10-15",
+    "m": "Customer Support Reviewed escalation process with Chloe",
+    "c": 0
+   },
+   {
+    "d": "2026-10-15",
+    "t": "Finish the app store release changes",
+    "s": "next",
+    "w": "2026-10-16",
+    "m": "Rental App Finished the app store release changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-15",
+    "t": "Start the vpn setup rollout",
+    "s": "later",
+    "w": "2026-10-21",
+    "m": "Infrastructure Finished the vpn setup changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-16",
+    "t": "Finish the offline mode changes",
+    "s": "next",
+    "w": "2026-10-19",
+    "m": "Rental App Finished the offline mode changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-16",
+    "t": "Start the common questions rollout",
+    "s": "carried",
+    "w": null,
+    "m": "",
+    "c": 1
+   },
+   {
+    "d": "2026-10-19",
+    "t": "Finish the reorder rules changes",
+    "s": "next",
+    "w": "2026-10-20",
+    "m": "Warehouse Finished the reorder rules changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-19",
+    "t": "Start the server backup rollout",
+    "s": "carried",
+    "w": null,
+    "m": "",
+    "c": 1
+   },
+   {
+    "d": "2026-10-20",
+    "t": "Finish the inventory counts changes",
+    "s": "next",
+    "w": "2026-10-21",
+    "m": "Warehouse Finished the inventory counts changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-20",
+    "t": "Start the app store release rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-10-21",
+    "t": "Finish the push notifications changes",
+    "s": "next",
+    "w": "2026-10-22",
+    "m": "Rental App Finished the push notifications changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-21",
+    "t": "Start the refund policy rollout",
+    "s": "next",
+    "w": "2026-10-22",
+    "m": "Warehouse Reviewed refund policy with Dev",
+    "c": 0
+   },
+   {
+    "d": "2026-10-22",
+    "t": "Finish the common questions changes",
+    "s": "pending",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-10-22",
+    "t": "Start the offline mode rollout",
+    "s": "next",
+    "w": "2026-10-23",
+    "m": "Customer Support Reviewed offline mode with Ben",
+    "c": 0
+   }
+  ],
+  "standups": 31,
+  "days": 150
+ },
+ "near_dupes": [],
+ "code": {
+  "repos": [],
+  "roots": []
+ },
+ "scenes": [
+  {
+   "path": "_System/Vault Graph Scenes/Night Market (scene).md",
+   "i": 0,
+   "raw": {
+    "name": "Night market",
+    "blurb": "Stalls by topic",
+    "place": "rows",
+    "angle": "tilt",
+    "entity": [
+     {
+      "when": "stale",
+      "as": "gem"
+     },
+     {
+      "when": "else",
+      "as": "tower"
+     }
+    ]
+   }
+  }
+ ],
+ "changes": {
+  "since": null
+ }
+}
