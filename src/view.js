@@ -37,6 +37,7 @@ function mountVaultGraph(root, DATA, opts) {
   // stays) is made once. Topic colours are PALETTE / NEON above.
   const UI = Object.freeze({
     colour: { selected: "#fde047", tasks: "#f87171", skin: "#fde7c8" },
+    light: { left: 0.35, right: 0.5, slope: 0.12 },                   // the one light (upper left): how much a 3D face turned this way darkens
     time: { toast: 2800, toastUndo: 8000, wave: 380, skipDays: 14 },   // ms; wave = the click ripple crossing one link
     size: { labelTop: 14, hubLeaves: 8, focal: 900, near: 40 },        // labels drawn, leaves that make a hub, 3D camera
     focusAlpha: [1, 0.95, 0.7, 0.5, 0.35],                            // fade by links away from the focused note
@@ -1376,7 +1377,8 @@ function mountVaultGraph(root, DATA, opts) {
   // in world units. Hit spots come from iso.hit, so clicks, hover and the inspector work the same as in flat scenes.
   //   const iso = isoKit(R, k, "iso" | "tilt");  iso.p(x, y, z) -> screen point   iso.rect(x, y, w, h) -> 4 corners (back, right, front, left)
   //   iso.poly(pts, fill, stroke, lw)  iso.wall(a, b, h, fill, stroke)  iso.slab(x, y, w, h, thick, top, sideL, sideR, edge)
-  //   iso.block(p, size, height, colour, edge) -> faces   iso.hit(p, halfWidth, height)   iso.depthSort(items, item -> point)
+  //   iso.block(p, size, height, colour, edge) -> faces   iso.prism(front, d, colour, o) (any solid; see prism)
+  //   iso.hit(p, halfWidth, height)   iso.depthSort(items, item -> point)
   // The angles 3D scenes share: "iso" turns the plane 45° and tilts it (floors, towns); "tilt" only leans it back, so
   // rows and columns stay square to you (tables, boards). Each is a 2x2 matrix from flat screen offsets to the angled ones.
   const ISO_VIEWS = { iso: [0.62, -0.62, 0.36, 0.36], tilt: [0.92, 0, 0, 0.58], flat: [1, 0, 0, 1] };   // flat: top-down, blocks show as squares
@@ -1397,6 +1399,31 @@ function mountVaultGraph(root, DATA, opts) {
     const b = $(".vg-anglebtn"); if (!b) return; const a = isoAngle();
     b.hidden = !a; if (a) b.querySelector(".vg-tlabel").textContent = ANGLES.find(([k]) => k === a)[1];
   }
+  // shadeOf(colour, t): colour darkened by t (0..1); a colour that isn't #rrggbb shades a neutral blue-grey
+  const shadeOf = (c, t) => hexMix(/^#[0-9a-f]{6}$/i.test(c) ? c : "#a5b4cf", "#000000", t);
+  // prism(front, d, colour, o): a flat shape (screen points in order round it) pushed back along d (a screen offset)
+  // into a solid. Draws the side faces that look toward you, shaded by the one light (UI.light: up = colour, turned
+  // left / right / a top leaning right = darker), then the front face, and returns the back outline. Every solid is
+  // one of these (a note's block, a floor slab, the palace's body and roof), so faces always meet and are lit alike.
+  // Opaque faces get a hairline in their own colour, so no anti-aliasing seam shows between them.
+  //   o.faces { up, left, right, slope }: colours instead of the shaded ones   o.front: the front face's colour
+  //   o.edge, o.lw: the front face's outline   o.sides: outline the side faces too
+  function prism(front, d, colour, o = {}) {
+    const n = front.length, back = front.map(q => ({ x: q.x + d.x, y: q.y + d.y }));
+    let area = 0; front.forEach((q, i) => { const r = front[(i + 1) % n]; area += q.x * r.y - r.x * q.y; });
+    const turn = area > 0 ? 1 : -1;   // which way round the outline goes, so each edge's outer side is known
+    const face = (pts, fill, edge, lw) => { ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)); ctx.closePath();
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      const line = edge || (/^#[0-9a-f]{6}$/i.test(fill || "") ? fill : null);
+      if (line) { ctx.strokeStyle = line; ctx.lineWidth = edge ? lw || 1 : 0.75; ctx.lineJoin = "round"; ctx.stroke(); } };
+    front.forEach((a, i) => { const b = front[(i + 1) % n], ex = b.x - a.x, ey = b.y - a.y, len = Math.hypot(ex, ey); if (len < 0.01) return;
+      const nx = turn * ey / len, ny = -turn * ex / len;   // the edge's outward normal
+      if (nx * d.x + ny * d.y <= 0.001) return;           // a face turned away, behind the front
+      const kind = ny < -0.5 ? (nx > 0.15 ? "slope" : "up") : nx < 0.15 ? "left" : "right", f = o.faces || {};   // a face square to you counts as left
+      face([a, b, back[(i + 1) % n], back[i]], f[kind] || (kind === "up" ? colour : shadeOf(colour, UI.light[kind])), o.sides ? o.edge : null, o.lw); });
+    face(front, o.front || colour, o.edge, o.lw);
+    return back;
+  }
   function isoKit(R, k, view) {
     const m = ISO_VIEWS[(isoAngle() && st.angles[st.view]) || view || "iso"], ax = (Math.abs(m[0]) + Math.abs(m[1])) / 2, ay = (Math.abs(m[2]) + Math.abs(m[3])) / 2 || m[3];
     const p = (x, y, z = 0) => { const a = scr(x, y, R), u = a.x - W / 2, v = a.y - H / 2; return { x: W / 2 + m[0] * u + m[1] * v, y: H / 2 + m[2] * u + m[3] * v - z * k, s: a.s }; };
@@ -1405,26 +1432,24 @@ function mountVaultGraph(root, DATA, opts) {
       if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); } };
     const rect = (x, y, w, h) => [p(x, y), p(x + w, y), p(x + w, y + h), p(x, y + h)];
     const wall = (a, b, h, fill, stroke) => poly([a, b, lift(b, h), lift(a, h)], fill, stroke);
-    const shade = (c, t) => hexMix(/^#[0-9a-f]{6}$/i.test(c) ? c : "#a5b4cf", "#000000", t);
-    // a slab: its top, and the two front sides showing its thickness (px)
-    const slab = (x, y, w, h, thick, top, sideL, sideR, edge) => { const c = rect(x, y, w, h), drop = q => ({ x: q.x, y: q.y + thick });
-      poly([c[3], c[2], drop(c[2]), drop(c[3])], sideL || shade(top, 0.3)); poly([c[2], c[1], drop(c[1]), drop(c[2])], sideR || shade(top, 0.45)); poly(c, top, edge); return c; };
+    const shade = shadeOf;
+    // a slab: its top, and the front sides showing its thickness (px)
+    const slab = (x, y, w, h, thick, top, sideL, sideR, edge) => { const c = rect(x, y, w, h);
+      prism(c, { x: 0, y: thick }, top, { faces: { left: sideL, right: sideR }, edge }); return c; };
     // a box standing on screen point q: size = its footprint's side (px, before the angle), height (px). Draws the
     // sides that face you, then the top; returns the top's corners (T/Rp/B/Lp = highest/right/lowest/left), its centre c
     // and half extents hw/hh
     const block = (q, size, height, colour, edge) => {
       const h = size / 2, foot = [[-h, -h], [h, -h], [h, h], [-h, h]].map(([u, v]) => ({ x: q.x + m[0] * u + m[1] * v, y: q.y + m[2] * u + m[3] * v }));
-      const top = foot.map(f => lift(f, height)), cy = q.y;
-      foot.forEach((f, i) => { const g = foot[(i + 1) % 4]; if ((f.y + g.y) / 2 <= cy + 0.01) return;   // a back face
-        const left = (f.x + g.x) / 2 < q.x - 0.5; poly([f, g, top[(i + 1) % 4], top[i]], shade(colour, left ? 0.35 : 0.5)); });
-      poly(top, colour, edge, 0.7);
+      const top = foot.map(f => lift(f, height));
+      prism(top, { x: 0, y: height }, colour, { edge, lw: 0.7 });
       const ys = top.map(t => t.y), xs = top.map(t => t.x), by = (f, v) => top[f.indexOf(v)];
       const T = by(ys, Math.min(...ys)), B = by(ys, Math.max(...ys)), Lp = by(xs, Math.min(...xs)), Rp = by(xs, Math.max(...xs));
       return { top, T, Rp, B, Lp, c: { x: q.x, y: q.y - height }, hw: (Math.max(...xs) - Math.min(...xs)) / 2, hh: (Math.max(...ys) - Math.min(...ys)) / 2 };
     };
     const hit = (q, hw, height) => ({ x: q.x, y: q.y - height / 2, r: Math.max(6, hw + 2, height / 2 + 2) });
     const depthSort = (items, at) => items.sort((a, b) => at(a).y - at(b).y);   // farther (higher on screen) first
-    return { p, lift, poly, rect, wall, slab, block, hit, depthSort, shade, ax, ay };
+    return { p, lift, poly, rect, wall, slab, block, prism, hit, depthSort, shade, ax, ay };
   }
 
   // ---- parts every scene shares: one figure and one set of motions. A scene picks them by name, so a zombie, the
@@ -2128,7 +2153,7 @@ function mountVaultGraph(root, DATA, opts) {
     const cracks = [];
     bays.forEach((a, i) => { const b = bays[i + 1]; if (b && b.floor === a.floor) { const pr = topicPair(a.c, b.c); if (pr.gap && !pr.links) cracks.push(b); } });
     const top = -(levels.length - (hasBase ? 1 : 0)) * FH;
-    return { facade: true, bays, pos, win, cracks, FW, FH, levels, hasBase, top, bounds: [[-FW / 2 - 40, top - 330], [FW / 2 + 190, (hasBase ? BASE_H + 40 : 40)]] };
+    return { facade: true, bays, pos, win, cracks, FW, FH, levels, hasBase, top, bounds: [[-FW / 2 - 40, top - 390], [FW / 2 + 190, (hasBase ? BASE_H + 40 : 40)]] };
   }
   function drawPalace(now) {
     const { R, litSet, font, k } = mapFrame(), M = mapCache.palace;
@@ -2247,26 +2272,32 @@ function mountVaultGraph(root, DATA, opts) {
     ctx.fillStyle = night ? "#15161c" : "#5b6b4a"; ctx.fillRect(0, g0.y, W, H - g0.y);
     ctx.fillStyle = night ? "#22242c" : "#8a8f86"; ctx.fillRect(0, g0.y, W, Math.max(2, 8 * k));
     const stone = night ? "#4a443c" : dusk ? "#c9a983" : "#e4d8c0", stoneDark = night ? "#3a352f" : dusk ? "#a98a68" : "#cbbd9f", line = night ? "rgba(0,0,0,.45)" : "rgba(80,60,40,.45)";
-    // depth: the right side wall and the roof's top, seen at an angle (oblique: depth goes up and to the right)
-    const dx = Math.max(8, 150 * k * 0.55), dy = -Math.max(5, 150 * k * 0.32), hd = (q, t = 1) => ({ x: q.x + dx * t, y: q.y + dy * t });
-    const poly0 = (pts, fill, stroke) => { ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); } };
-    ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse((L.x + Rr.x) / 2 + dx * 0.6, g0.y + 6, (Rr.x - L.x) * 0.62, Math.max(6, 22 * k), 0, 0, 2 * Math.PI); ctx.fill();   // shadow
-    const sideTop = { x: Rr.x, y: L.y }, sideBot = { x: Rr.x, y: g0.y };
-    poly0([sideTop, hd(sideTop), hd(sideBot), sideBot], stoneDark, line);
-    for (let f = 0; f <= M.levels.length - (M.hasBase ? 1 : 0); f++) { const y = scr(0, -f * M.FH, R).y; ctx.strokeStyle = line; ctx.beginPath(); ctx.moveTo(Rr.x, y); ctx.lineTo(Rr.x + dx, y + dy); ctx.stroke();   // ledges round the corner
+    // depth: the building and its roof are solids pushed back up and to the right (oblique), through the shared prism
+    const d = { x: Math.max(8, 150 * k * 0.55), y: -Math.max(5, 150 * k * 0.32) }, roof = night ? "#3b352e" : dusk ? "#9c8064" : "#b9ab90";
+    ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse((L.x + Rr.x) / 2 + d.x * 0.6, g0.y + 6, (Rr.x - L.x) * 0.62, Math.max(6, 22 * k), 0, 0, 2 * Math.PI); ctx.fill();   // shadow
+    // the body: its front is the facade (the bays go on it below), its right side the side wall
+    prism([{ x: L.x, y: L.y }, { x: Rr.x, y: L.y }, { x: Rr.x, y: g0.y }, { x: L.x, y: g0.y }], d, stone, { faces: { right: stoneDark, up: roof }, edge: line, sides: true });
+    for (let f = 0; f <= M.levels.length - (M.hasBase ? 1 : 0); f++) { const y = scr(0, -f * M.FH, R).y; ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Rr.x, y); ctx.lineTo(Rr.x + d.x, y + d.y); ctx.stroke();   // ledges round the corner
       for (let w = 1; w <= 3 && f < M.levels.length - (M.hasBase ? 1 : 0); w++) { const t = w / 4, wy = y - M.FH * k * 0.62, wh = M.FH * k * 0.34;   // side windows
-        ctx.fillStyle = night ? "#2c3e5c" : "#8fb0c6"; ctx.beginPath(); ctx.moveTo(Rr.x + dx * t - 4 * k, wy + dy * t); ctx.lineTo(Rr.x + dx * t + 6 * k, wy + dy * (t + 0.05)); ctx.lineTo(Rr.x + dx * t + 6 * k, wy + wh + dy * (t + 0.05)); ctx.lineTo(Rr.x + dx * t - 4 * k, wy + wh + dy * t); ctx.fill(); } }
-    poly0([{ x: L.x, y: L.y }, hd({ x: L.x, y: L.y }), hd(sideTop), sideTop], night ? "#3b352e" : "#b9ab90", line);   // roof top
-    // the body, roof and dome
-    ctx.fillStyle = stone; ctx.fillRect(L.x, L.y, Rr.x - L.x, g0.y - L.y);
-    const midX = scr(0, 0, R).x, roofY = L.y, span = (Rr.x - L.x) / 2;
-    ctx.fillStyle = stoneDark; ctx.beginPath(); ctx.moveTo(L.x - 10 * k, roofY); ctx.lineTo(midX, roofY - Math.min(140, span * 0.22)); ctx.lineTo(Rr.x + 10 * k, roofY); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = line; ctx.lineWidth = 1.5; ctx.stroke();
-    const domeR = Math.min(120, span * 0.16), domeY = roofY - Math.min(140, span * 0.22) + 4, dg = ctx.createRadialGradient(midX - domeR * 0.35, domeY - domeR * 0.55, domeR * 0.1, midX, domeY, domeR * 1.1);
-    dg.addColorStop(0, night ? "#9fb0cf" : "#e3f1f9"); dg.addColorStop(1, night ? "#3b4763" : "#6f97b0"); ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(midX, roofY - Math.min(140, span * 0.22) + 4, domeR, Math.PI, 0); ctx.fill(); ctx.stroke();
-    // flags: the topics busiest this month fly from the roof
+        ctx.fillStyle = night ? "#2c3e5c" : "#8fb0c6"; ctx.beginPath(); ctx.moveTo(Rr.x + d.x * t - 4 * k, wy + d.y * t); ctx.lineTo(Rr.x + d.x * t + 6 * k, wy + d.y * (t + 0.05)); ctx.lineTo(Rr.x + d.x * t + 6 * k, wy + wh + d.y * (t + 0.05)); ctx.lineTo(Rr.x + d.x * t - 4 * k, wy + wh + d.y * t); ctx.fill(); } }
+    // the roof: a pediment pushed back the depth of the building, sitting on the walls, its eaves just over them
+    const midX = scr(0, 0, R).x, roofY = L.y, span = (Rr.x - L.x) / 2, eave = 10 * k, fascia = Math.max(2, 7 * k);
+    const xl = L.x - eave, xr = Rr.x + eave, apex = { x: midX, y: roofY - fascia - Math.min(140, span * 0.22) };
+    ctx.fillStyle = "rgba(0,0,0,.14)"; ctx.beginPath(); ctx.moveTo(Rr.x, roofY); ctx.lineTo(Rr.x + d.x, roofY + d.y); ctx.lineTo(Rr.x + d.x, roofY + d.y + fascia * 1.6); ctx.lineTo(Rr.x, roofY + fascia * 1.6); ctx.fill();   // the eave's shadow on the side wall
+    prism([{ x: xl, y: roofY }, { x: xl, y: roofY - fascia }, apex, { x: xr, y: roofY - fascia }, { x: xr, y: roofY }], d, roof, { front: stoneDark, edge: line, sides: true, lw: 1.2 });
+    ctx.fillStyle = "rgba(0,0,0,.12)"; ctx.fillRect(L.x, roofY, Rr.x - L.x, Math.max(2, 4 * k));   // and under the cornice
+    // the dome: a drum standing on the middle of the ridge, the dome on the drum, lit from the left like the rest
+    const domeR = Math.min(120, span * 0.16), ridge = { x: apex.x + d.x / 2, y: apex.y + d.y / 2 + domeR * 0.12 }, drumH = domeR * 0.35, base = domeR * 0.22;
+    const drum = ctx.createLinearGradient(ridge.x - domeR, 0, ridge.x + domeR, 0); drum.addColorStop(0, stone); drum.addColorStop(1, stoneDark);
+    ctx.fillStyle = drum; ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ridge.x - domeR, ridge.y - drumH); ctx.lineTo(ridge.x - domeR, ridge.y);
+    ctx.ellipse(ridge.x, ridge.y, domeR, base, 0, Math.PI, 0, true); ctx.lineTo(ridge.x + domeR, ridge.y - drumH); ctx.closePath(); ctx.fill(); ctx.stroke();
+    const domeY = ridge.y - drumH, dg = ctx.createRadialGradient(ridge.x - domeR * 0.35, domeY - domeR * 0.55, domeR * 0.1, ridge.x, domeY, domeR * 1.1);
+    dg.addColorStop(0, night ? "#9fb0cf" : "#e3f1f9"); dg.addColorStop(1, night ? "#3b4763" : "#6f97b0"); ctx.fillStyle = dg;
+    ctx.beginPath(); ctx.arc(ridge.x, domeY, domeR, Math.PI, 0); ctx.ellipse(ridge.x, domeY, domeR, base, 0, 0, Math.PI); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // flags: the topics busiest this month fly from the roof: one on the dome, the others standing on the pediment
     const busy = M.bays.filter(b => !b.base).map(b => [b, topicBusy(b.c)]).sort((a, b) => b[1] - a[1]).slice(0, 3);
-    busy.forEach(([b], i) => { const fx = midX + (i - 1) * span * 0.55, fy = roofY - (i === 1 ? Math.min(140, span * 0.22) + domeR : 10 * k), wave = reducedMotion() ? 0 : Math.sin(now / 300 + i) * 4;
+    const onPediment = x => apex.y + Math.min(1, Math.abs(x - midX) / (xr - midX)) * (roofY - fascia - apex.y);
+    busy.forEach(([b], i) => { const fx = i === 1 ? ridge.x : midX + (i - 1) * span * 0.55, fy = i === 1 ? domeY - domeR : onPediment(fx), wave = reducedMotion() ? 0 : Math.sin(now / 300 + i) * 4;
       ctx.strokeStyle = "#3f3a33"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy - 46); ctx.stroke();
       ctx.fillStyle = colorOf(b.c); ctx.beginPath(); ctx.moveTo(fx, fy - 46); ctx.quadraticCurveTo(fx + 16, fy - 44 + wave, fx + 30, fy - 40); ctx.lineTo(fx, fy - 32); ctx.fill(); });
     // floors: a cornice, bays between pilasters, the topic's name on its cornice; a click on the wall goes inside
