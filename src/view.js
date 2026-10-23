@@ -37,6 +37,7 @@ function mountVaultGraph(root, DATA, opts) {
   // stays) is made once. Topic colours are PALETTE / NEON above.
   const UI = Object.freeze({
     colour: { selected: "#fde047", tasks: "#f87171", skin: "#fde7c8" },
+    light: { left: 0.35, right: 0.5, slope: 0.12 },                   // the one light (upper left): how much a 3D face turned this way darkens
     time: { toast: 2800, toastUndo: 8000, wave: 380, skipDays: 14 },   // ms; wave = the click ripple crossing one link
     size: { labelTop: 14, hubLeaves: 8, focal: 900, near: 40 },        // labels drawn, leaves that make a hub, 3D camera
     focusAlpha: [1, 0.95, 0.7, 0.5, 0.35],                            // fade by links away from the focused note
@@ -680,6 +681,8 @@ function mountVaultGraph(root, DATA, opts) {
       x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); });
     Object.assign(cam, saved);
     if (x0 === Infinity) return;
+    // framed below the toolbar, and below the today strip too when this view has one, so nothing sits behind them
+    const padTop = (opts.compact ? 48 : 64) + (!opts.compact && !replay && !todayHidden.has(st.view) && todayFor(st.view) ? 40 : 0), pad = opts.compact || W < 500 ? 12 : 40;
     // a scene drawn through the iso kit: frame the turned, tilted picture, and move the camera in flat units
     const Mi = isoScene(), isoOn = !!Mi;
     if (isoOn) { let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
@@ -691,13 +694,11 @@ function mountVaultGraph(root, DATA, opts) {
       pts.forEach(q => { const u = q.x - W / 2, v = q.y - H / 2, X = Mi[0] * u + Mi[1] * v, Y = Mi[2] * u + Mi[3] * v;
         a0 = Math.min(a0, X); a1 = Math.max(a1, X); b0 = Math.min(b0, Y - 40); b1 = Math.max(b1, Y + 20); });
       if (a0 === Infinity) return;
-      const padTop = opts.compact ? 48 : 64, pad = opts.compact || W < 500 ? 12 : 40;
       const k = Math.min(opts.compact ? 1.8 : 4, Math.max(0.05, Math.min((W - 2 * pad) / Math.max(a1 - a0, 1), (H - padTop - pad) / Math.max(b1 - b0, 1))));
       const cx = (a0 + a1) / 2 * k, cy = (b0 + b1) / 2 * k - (padTop - pad) / 2, det = Mi[0] * Mi[3] - Mi[1] * Mi[2];   // flat offset whose angled image is -(cx, cy)
       animateTo({ k, tx: -(Mi[3] * cx - Mi[1] * cy) / det, ty: -(-Mi[2] * cx + Mi[0] * cy) / det }, ms == null ? 500 : ms);
       return;
     }
-    const padTop = opts.compact ? 48 : 64, pad = opts.compact || W < 500 ? 12 : 40;
     const k = Math.min(opts.compact ? 1.8 : 4, Math.max(0.05, Math.min((W - 2 * pad) / Math.max(x1 - x0, 1), (H - padTop - pad) / Math.max(y1 - y0, 1))));
     animateTo({ k, tx: -((x0 + x1) / 2 - W / 2) * k, ty: -((y0 + y1) / 2 - H / 2) * k + (padTop - pad) / 2, ...(pivot || {}) }, ms == null ? 500 : ms);
   }
@@ -761,10 +762,14 @@ function mountVaultGraph(root, DATA, opts) {
   }
   const blit = (kind, col, x, y, r) => ctx.drawImage(sprite(kind, col), x - r, y - r, 2 * r, 2 * r);
   let labelRects = [];
-  // Reserve a label's box, as it will be drawn: shifted inside the pane the way haloText shifts it
+  // the screen boxes of the solids and figures drawn this frame (iso.hit adds them), so note names keep off them
+  let bodies = [];
+  // where a label w wide starting at x is drawn: shifted inside the pane, the way haloText shifts it
+  const paneX = (x, w) => W > 40 ? Math.max(4, Math.min(W - 4 - Math.min(w, W - 8), x)) : x;
+  // Reserve a label's box, as it will be drawn
   const freeSpot = (x, y, w, h) => {
     if (opts.compact && labelRects.length > (W < 520 ? 8 : 16)) return false;
-    if (W > 40) x = Math.max(4, Math.min(W - 4 - Math.min(w, W - 8), x));
+    x = paneX(x, w);
     if (labelRects.some(r => x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1])) return false;
     labelRects.push([x, y, w, h]); return true;
   };
@@ -1344,7 +1349,10 @@ function mountVaultGraph(root, DATA, opts) {
     const week = Date.now() - 7 * 864e5;
     const cranes = new Set(nodes.filter(n => n.born && !n.ghost && b.has(n.id) && new Date(n.born + "T12:00") >= week).sort((x, y) => y.born.localeCompare(x.born)).slice(0, 15).map(n => n.id));
     const pos = new Map(geo); b.forEach((v, id) => pos.set(id, iso(v.gx, v.gy)));
-    return { b, districts, pos, cranes };
+    // the outline the camera frames: each building's top with room for its crane and name, and the streets round each district
+    const bounds = [...[...b.values()].map(v => { const [x, y] = iso(v.gx, v.gy); return [x, y - v.h - 30]; }),
+      ...districts.flatMap(d => [[-0.55, -0.55], [d.w + 0.55, -0.55], [d.w + 0.55, d.h + 0.55], [-0.55, d.h + 0.55]].map(([x, y]) => iso(d.bx + x, d.by + y)))];
+    return { b, districts, pos, cranes, bounds };
   }
 
   function applyMapLayout(animate) {
@@ -1363,7 +1371,7 @@ function mountVaultGraph(root, DATA, opts) {
     const dpr = Math.min(window.devicePixelRatio || 1, MOBILE ? 2 : 3);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
     ctx.clearRect(0, 0, W, H);   // the theme background can be see-through (Hearth cards): without this, frames smear
-    P.clear(); labelRects = []; spots = [];
+    P.clear(); labelRects = []; bodies = []; spots = [];
     return { dpr, R: rot(), litSet: lit(), font: css("--vg-font") || "system-ui, sans-serif", k: cam.k };
   }
   // Clickable areas a scene draws that aren't notes (a floor, a lever, a palette chip): spot(x, y, w, h, fn) each
@@ -1376,7 +1384,8 @@ function mountVaultGraph(root, DATA, opts) {
   // in world units. Hit spots come from iso.hit, so clicks, hover and the inspector work the same as in flat scenes.
   //   const iso = isoKit(R, k, "iso" | "tilt");  iso.p(x, y, z) -> screen point   iso.rect(x, y, w, h) -> 4 corners (back, right, front, left)
   //   iso.poly(pts, fill, stroke, lw)  iso.wall(a, b, h, fill, stroke)  iso.slab(x, y, w, h, thick, top, sideL, sideR, edge)
-  //   iso.block(p, size, height, colour, edge) -> faces   iso.hit(p, halfWidth, height)   iso.depthSort(items, item -> point)
+  //   iso.block(p, size, height, colour, edge) -> faces   iso.prism(front, d, colour, o) (any solid; see prism)
+  //   iso.hit(p, halfWidth, height)   iso.depthSort(items, item -> point)
   // The angles 3D scenes share: "iso" turns the plane 45° and tilts it (floors, towns); "tilt" only leans it back, so
   // rows and columns stay square to you (tables, boards). Each is a 2x2 matrix from flat screen offsets to the angled ones.
   const ISO_VIEWS = { iso: [0.62, -0.62, 0.36, 0.36], tilt: [0.92, 0, 0, 0.58], flat: [1, 0, 0, 1] };   // flat: top-down, blocks show as squares
@@ -1397,6 +1406,31 @@ function mountVaultGraph(root, DATA, opts) {
     const b = $(".vg-anglebtn"); if (!b) return; const a = isoAngle();
     b.hidden = !a; if (a) b.querySelector(".vg-tlabel").textContent = ANGLES.find(([k]) => k === a)[1];
   }
+  // shadeOf(colour, t): colour darkened by t (0..1); a colour that isn't #rrggbb shades a neutral blue-grey
+  const shadeOf = (c, t) => hexMix(/^#[0-9a-f]{6}$/i.test(c) ? c : "#a5b4cf", "#000000", t);
+  // prism(front, d, colour, o): a flat shape (screen points in order round it) pushed back along d (a screen offset)
+  // into a solid. Draws the side faces that look toward you, shaded by the one light (UI.light: up = colour, turned
+  // left / right / a top leaning right = darker), then the front face, and returns the back outline. Every solid is
+  // one of these (a note's block, a floor slab, the palace's body and roof), so faces always meet and are lit alike.
+  // Opaque faces get a hairline in their own colour, so no anti-aliasing seam shows between them.
+  //   o.faces { up, left, right, slope }: colours instead of the shaded ones   o.front: the front face's colour
+  //   o.edge, o.lw: the front face's outline   o.sides: outline the side faces too
+  function prism(front, d, colour, o = {}) {
+    const n = front.length, back = front.map(q => ({ x: q.x + d.x, y: q.y + d.y }));
+    let area = 0; front.forEach((q, i) => { const r = front[(i + 1) % n]; area += q.x * r.y - r.x * q.y; });
+    const turn = area > 0 ? 1 : -1;   // which way round the outline goes, so each edge's outer side is known
+    const face = (pts, fill, edge, lw) => { ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)); ctx.closePath();
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      const line = edge || (/^#[0-9a-f]{6}$/i.test(fill || "") ? fill : null);
+      if (line) { ctx.strokeStyle = line; ctx.lineWidth = edge ? lw || 1 : 0.75; ctx.lineJoin = "round"; ctx.stroke(); } };
+    front.forEach((a, i) => { const b = front[(i + 1) % n], ex = b.x - a.x, ey = b.y - a.y, len = Math.hypot(ex, ey); if (len < 0.01) return;
+      const nx = turn * ey / len, ny = -turn * ex / len;   // the edge's outward normal
+      if (nx * d.x + ny * d.y <= 0.001) return;           // a face turned away, behind the front
+      const kind = ny < -0.5 ? (nx > 0.15 ? "slope" : "up") : nx < 0.15 ? "left" : "right", f = o.faces || {};   // a face square to you counts as left
+      face([a, b, back[(i + 1) % n], back[i]], f[kind] || (kind === "up" ? colour : shadeOf(colour, UI.light[kind])), o.sides ? o.edge : null, o.lw); });
+    face(front, o.front || colour, o.edge, o.lw);
+    return back;
+  }
   function isoKit(R, k, view) {
     const m = ISO_VIEWS[(isoAngle() && st.angles[st.view]) || view || "iso"], ax = (Math.abs(m[0]) + Math.abs(m[1])) / 2, ay = (Math.abs(m[2]) + Math.abs(m[3])) / 2 || m[3];
     const p = (x, y, z = 0) => { const a = scr(x, y, R), u = a.x - W / 2, v = a.y - H / 2; return { x: W / 2 + m[0] * u + m[1] * v, y: H / 2 + m[2] * u + m[3] * v - z * k, s: a.s }; };
@@ -1405,26 +1439,27 @@ function mountVaultGraph(root, DATA, opts) {
       if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); } };
     const rect = (x, y, w, h) => [p(x, y), p(x + w, y), p(x + w, y + h), p(x, y + h)];
     const wall = (a, b, h, fill, stroke) => poly([a, b, lift(b, h), lift(a, h)], fill, stroke);
-    const shade = (c, t) => hexMix(/^#[0-9a-f]{6}$/i.test(c) ? c : "#a5b4cf", "#000000", t);
-    // a slab: its top, and the two front sides showing its thickness (px)
-    const slab = (x, y, w, h, thick, top, sideL, sideR, edge) => { const c = rect(x, y, w, h), drop = q => ({ x: q.x, y: q.y + thick });
-      poly([c[3], c[2], drop(c[2]), drop(c[3])], sideL || shade(top, 0.3)); poly([c[2], c[1], drop(c[1]), drop(c[2])], sideR || shade(top, 0.45)); poly(c, top, edge); return c; };
+    const shade = shadeOf;
+    // a slab: its top, and the front sides showing its thickness (px)
+    const slab = (x, y, w, h, thick, top, sideL, sideR, edge) => { const c = rect(x, y, w, h);
+      prism(c, { x: 0, y: thick }, top, { faces: { left: sideL, right: sideR }, edge }); return c; };
     // a box standing on screen point q: size = its footprint's side (px, before the angle), height (px). Draws the
     // sides that face you, then the top; returns the top's corners (T/Rp/B/Lp = highest/right/lowest/left), its centre c
     // and half extents hw/hh
     const block = (q, size, height, colour, edge) => {
       const h = size / 2, foot = [[-h, -h], [h, -h], [h, h], [-h, h]].map(([u, v]) => ({ x: q.x + m[0] * u + m[1] * v, y: q.y + m[2] * u + m[3] * v }));
-      const top = foot.map(f => lift(f, height)), cy = q.y;
-      foot.forEach((f, i) => { const g = foot[(i + 1) % 4]; if ((f.y + g.y) / 2 <= cy + 0.01) return;   // a back face
-        const left = (f.x + g.x) / 2 < q.x - 0.5; poly([f, g, top[(i + 1) % 4], top[i]], shade(colour, left ? 0.35 : 0.5)); });
-      poly(top, colour, edge, 0.7);
+      const top = foot.map(f => lift(f, height));
+      prism(top, { x: 0, y: height }, colour, { edge, lw: 0.7 });
       const ys = top.map(t => t.y), xs = top.map(t => t.x), by = (f, v) => top[f.indexOf(v)];
       const T = by(ys, Math.min(...ys)), B = by(ys, Math.max(...ys)), Lp = by(xs, Math.min(...xs)), Rp = by(xs, Math.max(...xs));
       return { top, T, Rp, B, Lp, c: { x: q.x, y: q.y - height }, hw: (Math.max(...xs) - Math.min(...xs)) / 2, hh: (Math.max(...ys) - Math.min(...ys)) / 2 };
     };
-    const hit = (q, hw, height) => ({ x: q.x, y: q.y - height / 2, r: Math.max(6, hw + 2, height / 2 + 2) });
+    // a solid or figure standing on q, hw wide each side and height tall: its hit spot, and its screen box (box: x, y,
+    // w, h, footprint included), which also goes in bodies so note names are placed off it
+    const hit = (q, hw, height) => { const foot = hw * ay / ax, box = [q.x - hw, q.y - height - foot, 2 * hw, height + 2 * foot]; bodies.push(box);
+      return { x: q.x, y: q.y - height / 2, r: Math.max(6, hw + 2, height / 2 + 2), box }; };
     const depthSort = (items, at) => items.sort((a, b) => at(a).y - at(b).y);   // farther (higher on screen) first
-    return { p, lift, poly, rect, wall, slab, block, hit, depthSort, shade, ax, ay };
+    return { p, lift, poly, rect, wall, slab, block, prism, hit, depthSort, shade, ax, ay };
   }
 
   // ---- parts every scene shares: one figure and one set of motions. A scene picks them by name, so a zombie, the
@@ -1873,11 +1908,9 @@ function mountVaultGraph(root, DATA, opts) {
       }
       const stale = staleFor(n, Q.stale_days), base0 = n.cluster >= 0 ? colorOf(n.cluster) : "#8b93a6";
       const col = stale ? hexMix(base0, "#5e626d", 0.72) : base0, h = B.h;
-      const up = ([x, y]) => [x, y - h * k];
-      const face = (pts, c) => { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fillStyle = c; ctx.fill(); };
-      face([lf, fr, up(fr), up(lf)], hexMix(col, "#000000", 0.42));
-      face([fr, rt, up(rt), up(fr)], hexMix(col, "#000000", 0.22));
-      face([up(bk), up(rt), up(fr), up(lf)], hexMix(col, "#ffffff", stale ? 0.05 : 0.18));
+      const up = ([x, y]) => [x, y - h * k], xy = ([x, y]) => ({ x, y });
+      // the tower: its roof pushed down to the street, through the shared prism (lit from the upper left like every solid)
+      prism([up(bk), up(rt), up(fr), up(lf)].map(xy), { x: 0, y: h * k }, hexMix(col, "#ffffff", stale ? 0.05 : 0.18));
       // windows: lit by recent activity (a stable pattern per note), dark otherwise
       const act = activity(n), floors = Math.max(1, Math.floor(h / 9)), px = 1.6 * Math.sqrt(k);
       if (px >= 1) for (let fl = 0; fl < floors; fl++) for (let side = 0; side < 2; side++) for (let w = 0; w < 2; w++) {
@@ -1968,7 +2001,8 @@ function mountVaultGraph(root, DATA, opts) {
         pos.set(n.id, [x, y]); plant.set(n.id, stageOf(n)); });
       b.stats = { ever: b.ms.filter(n => plant.get(n.id) === 4).length, wilt: b.ms.filter(n => !n.ghost && staleFor(n, Q.stale_days)).length };
     });
-    return { beds, pos, plant };
+    // the beds' corners, so the camera frames whole beds (names and edges), not just the plants in them
+    return { beds, pos, plant, bounds: beds.flatMap(b => [[b.x, b.y - 8], [b.x + b.w, b.y + b.h]]) };
   }
   function drawGarden(now) {
     const { R, litSet, font, k } = mapFrame(), G = mapCache.garden;
@@ -2128,7 +2162,7 @@ function mountVaultGraph(root, DATA, opts) {
     const cracks = [];
     bays.forEach((a, i) => { const b = bays[i + 1]; if (b && b.floor === a.floor) { const pr = topicPair(a.c, b.c); if (pr.gap && !pr.links) cracks.push(b); } });
     const top = -(levels.length - (hasBase ? 1 : 0)) * FH;
-    return { facade: true, bays, pos, win, cracks, FW, FH, levels, hasBase, top, bounds: [[-FW / 2 - 40, top - 330], [FW / 2 + 190, (hasBase ? BASE_H + 40 : 40)]] };
+    return { facade: true, bays, pos, win, cracks, FW, FH, levels, hasBase, top, bounds: [[-FW / 2 - 40, top - 390], [FW / 2 + 190, (hasBase ? BASE_H + 40 : 40)]] };
   }
   function drawPalace(now) {
     const { R, litSet, font, k } = mapFrame(), M = mapCache.palace;
@@ -2231,11 +2265,7 @@ function mountVaultGraph(root, DATA, opts) {
       const text = w > 50 ? fitW(name, f, w - 20) : ""; if (!text) return;
       const x = (c[0].x + c[1].x) / 2, y = (c[0].y + c[1].y) / 2 - WH - 8, tw = ctx.measureText(text).width;
       if (freeSpot(x - tw / 2, y - 7, tw, 14)) haloText(text, x, y, ink, bg, f, "center"); });
-    const top = [...P.entries()].filter(([id]) => !byId[id].moc).sort((a, b) => importance(byId[b[0]]) - importance(byId[a[0]])).slice(0, k > 1.4 ? 140 : MOBILE ? 12 : 26);
-    top.forEach(([id, p]) => { const n = byId[id], f = `500 9.5px ${font}`;
-      const text = fitW(clip(n.name, 22), f, 150); if (!text) return;
-      const w = ctx.measureText(text).width;
-      if (freeSpot(p.x - w / 2, p.y + p.r + 1, w, 12)) haloText(text, p.x, p.y + p.r + 7, "#dbe7ff", bg, f, "center"); });
+    noteLabels([...P.keys()].filter(id => !byId[id].moc).sort((a, b) => importance(byId[b]) - importance(byId[a])), "#dbe7ff", bg, k > 1.4 ? 140 : MOBILE ? 12 : 26);
   }
   // ---- the palace from the front
   function drawPalaceFacade(now, M, R, litSet, font, k) {
@@ -2247,26 +2277,32 @@ function mountVaultGraph(root, DATA, opts) {
     ctx.fillStyle = night ? "#15161c" : "#5b6b4a"; ctx.fillRect(0, g0.y, W, H - g0.y);
     ctx.fillStyle = night ? "#22242c" : "#8a8f86"; ctx.fillRect(0, g0.y, W, Math.max(2, 8 * k));
     const stone = night ? "#4a443c" : dusk ? "#c9a983" : "#e4d8c0", stoneDark = night ? "#3a352f" : dusk ? "#a98a68" : "#cbbd9f", line = night ? "rgba(0,0,0,.45)" : "rgba(80,60,40,.45)";
-    // depth: the right side wall and the roof's top, seen at an angle (oblique: depth goes up and to the right)
-    const dx = Math.max(8, 150 * k * 0.55), dy = -Math.max(5, 150 * k * 0.32), hd = (q, t = 1) => ({ x: q.x + dx * t, y: q.y + dy * t });
-    const poly0 = (pts, fill, stroke) => { ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); } };
-    ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse((L.x + Rr.x) / 2 + dx * 0.6, g0.y + 6, (Rr.x - L.x) * 0.62, Math.max(6, 22 * k), 0, 0, 2 * Math.PI); ctx.fill();   // shadow
-    const sideTop = { x: Rr.x, y: L.y }, sideBot = { x: Rr.x, y: g0.y };
-    poly0([sideTop, hd(sideTop), hd(sideBot), sideBot], stoneDark, line);
-    for (let f = 0; f <= M.levels.length - (M.hasBase ? 1 : 0); f++) { const y = scr(0, -f * M.FH, R).y; ctx.strokeStyle = line; ctx.beginPath(); ctx.moveTo(Rr.x, y); ctx.lineTo(Rr.x + dx, y + dy); ctx.stroke();   // ledges round the corner
+    // depth: the building and its roof are solids pushed back up and to the right (oblique), through the shared prism
+    const d = { x: Math.max(8, 150 * k * 0.55), y: -Math.max(5, 150 * k * 0.32) }, roof = night ? "#3b352e" : dusk ? "#9c8064" : "#b9ab90";
+    ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse((L.x + Rr.x) / 2 + d.x * 0.6, g0.y + 6, (Rr.x - L.x) * 0.62, Math.max(6, 22 * k), 0, 0, 2 * Math.PI); ctx.fill();   // shadow
+    // the body: its front is the facade (the bays go on it below), its right side the side wall
+    prism([{ x: L.x, y: L.y }, { x: Rr.x, y: L.y }, { x: Rr.x, y: g0.y }, { x: L.x, y: g0.y }], d, stone, { faces: { right: stoneDark, up: roof }, edge: line, sides: true });
+    for (let f = 0; f <= M.levels.length - (M.hasBase ? 1 : 0); f++) { const y = scr(0, -f * M.FH, R).y; ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Rr.x, y); ctx.lineTo(Rr.x + d.x, y + d.y); ctx.stroke();   // ledges round the corner
       for (let w = 1; w <= 3 && f < M.levels.length - (M.hasBase ? 1 : 0); w++) { const t = w / 4, wy = y - M.FH * k * 0.62, wh = M.FH * k * 0.34;   // side windows
-        ctx.fillStyle = night ? "#2c3e5c" : "#8fb0c6"; ctx.beginPath(); ctx.moveTo(Rr.x + dx * t - 4 * k, wy + dy * t); ctx.lineTo(Rr.x + dx * t + 6 * k, wy + dy * (t + 0.05)); ctx.lineTo(Rr.x + dx * t + 6 * k, wy + wh + dy * (t + 0.05)); ctx.lineTo(Rr.x + dx * t - 4 * k, wy + wh + dy * t); ctx.fill(); } }
-    poly0([{ x: L.x, y: L.y }, hd({ x: L.x, y: L.y }), hd(sideTop), sideTop], night ? "#3b352e" : "#b9ab90", line);   // roof top
-    // the body, roof and dome
-    ctx.fillStyle = stone; ctx.fillRect(L.x, L.y, Rr.x - L.x, g0.y - L.y);
-    const midX = scr(0, 0, R).x, roofY = L.y, span = (Rr.x - L.x) / 2;
-    ctx.fillStyle = stoneDark; ctx.beginPath(); ctx.moveTo(L.x - 10 * k, roofY); ctx.lineTo(midX, roofY - Math.min(140, span * 0.22)); ctx.lineTo(Rr.x + 10 * k, roofY); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = line; ctx.lineWidth = 1.5; ctx.stroke();
-    const domeR = Math.min(120, span * 0.16), domeY = roofY - Math.min(140, span * 0.22) + 4, dg = ctx.createRadialGradient(midX - domeR * 0.35, domeY - domeR * 0.55, domeR * 0.1, midX, domeY, domeR * 1.1);
-    dg.addColorStop(0, night ? "#9fb0cf" : "#e3f1f9"); dg.addColorStop(1, night ? "#3b4763" : "#6f97b0"); ctx.fillStyle = dg; ctx.beginPath(); ctx.arc(midX, roofY - Math.min(140, span * 0.22) + 4, domeR, Math.PI, 0); ctx.fill(); ctx.stroke();
-    // flags: the topics busiest this month fly from the roof
+        ctx.fillStyle = night ? "#2c3e5c" : "#8fb0c6"; ctx.beginPath(); ctx.moveTo(Rr.x + d.x * t - 4 * k, wy + d.y * t); ctx.lineTo(Rr.x + d.x * t + 6 * k, wy + d.y * (t + 0.05)); ctx.lineTo(Rr.x + d.x * t + 6 * k, wy + wh + d.y * (t + 0.05)); ctx.lineTo(Rr.x + d.x * t - 4 * k, wy + wh + d.y * t); ctx.fill(); } }
+    // the roof: a pediment pushed back the depth of the building, sitting on the walls, its eaves just over them
+    const midX = scr(0, 0, R).x, roofY = L.y, span = (Rr.x - L.x) / 2, eave = 10 * k, fascia = Math.max(2, 7 * k);
+    const xl = L.x - eave, xr = Rr.x + eave, apex = { x: midX, y: roofY - fascia - Math.min(140, span * 0.22) };
+    ctx.fillStyle = "rgba(0,0,0,.14)"; ctx.beginPath(); ctx.moveTo(Rr.x, roofY); ctx.lineTo(Rr.x + d.x, roofY + d.y); ctx.lineTo(Rr.x + d.x, roofY + d.y + fascia * 1.6); ctx.lineTo(Rr.x, roofY + fascia * 1.6); ctx.fill();   // the eave's shadow on the side wall
+    prism([{ x: xl, y: roofY }, { x: xl, y: roofY - fascia }, apex, { x: xr, y: roofY - fascia }, { x: xr, y: roofY }], d, roof, { front: stoneDark, edge: line, sides: true, lw: 1.2 });
+    ctx.fillStyle = "rgba(0,0,0,.12)"; ctx.fillRect(L.x, roofY, Rr.x - L.x, Math.max(2, 4 * k));   // and under the cornice
+    // the dome: a drum standing on the middle of the ridge, the dome on the drum, lit from the left like the rest
+    const domeR = Math.min(120, span * 0.16), ridge = { x: apex.x + d.x / 2, y: apex.y + d.y / 2 + domeR * 0.12 }, drumH = domeR * 0.35, base = domeR * 0.22;
+    const drum = ctx.createLinearGradient(ridge.x - domeR, 0, ridge.x + domeR, 0); drum.addColorStop(0, stone); drum.addColorStop(1, stoneDark);
+    ctx.fillStyle = drum; ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ridge.x - domeR, ridge.y - drumH); ctx.lineTo(ridge.x - domeR, ridge.y);
+    ctx.ellipse(ridge.x, ridge.y, domeR, base, 0, Math.PI, 0, true); ctx.lineTo(ridge.x + domeR, ridge.y - drumH); ctx.closePath(); ctx.fill(); ctx.stroke();
+    const domeY = ridge.y - drumH, dg = ctx.createRadialGradient(ridge.x - domeR * 0.35, domeY - domeR * 0.55, domeR * 0.1, ridge.x, domeY, domeR * 1.1);
+    dg.addColorStop(0, night ? "#9fb0cf" : "#e3f1f9"); dg.addColorStop(1, night ? "#3b4763" : "#6f97b0"); ctx.fillStyle = dg;
+    ctx.beginPath(); ctx.arc(ridge.x, domeY, domeR, Math.PI, 0); ctx.ellipse(ridge.x, domeY, domeR, base, 0, 0, Math.PI); ctx.closePath(); ctx.fill(); ctx.stroke();
+    // flags: the topics busiest this month fly from the roof: one on the dome, the others standing on the pediment
     const busy = M.bays.filter(b => !b.base).map(b => [b, topicBusy(b.c)]).sort((a, b) => b[1] - a[1]).slice(0, 3);
-    busy.forEach(([b], i) => { const fx = midX + (i - 1) * span * 0.55, fy = roofY - (i === 1 ? Math.min(140, span * 0.22) + domeR : 10 * k), wave = reducedMotion() ? 0 : Math.sin(now / 300 + i) * 4;
+    const onPediment = x => apex.y + Math.min(1, Math.abs(x - midX) / (xr - midX)) * (roofY - fascia - apex.y);
+    busy.forEach(([b], i) => { const fx = i === 1 ? ridge.x : midX + (i - 1) * span * 0.55, fy = i === 1 ? domeY - domeR : onPediment(fx), wave = reducedMotion() ? 0 : Math.sin(now / 300 + i) * 4;
       ctx.strokeStyle = "#3f3a33"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy - 46); ctx.stroke();
       ctx.fillStyle = colorOf(b.c); ctx.beginPath(); ctx.moveTo(fx, fy - 46); ctx.quadraticCurveTo(fx + 16, fy - 44 + wave, fx + 30, fy - 40); ctx.lineTo(fx, fy - 32); ctx.fill(); });
     // floors: a cornice, bays between pilasters, the topic's name on its cornice; a click on the wall goes inside
@@ -2365,8 +2401,18 @@ function mountVaultGraph(root, DATA, opts) {
   const dots = (pred, col, r, R) => { for (const n of nodes) { if (!pred(n) || !mapShown(n)) continue; const p = scr(n.x, n.y, R); ctx.fillStyle = col(n); ctx.beginPath(); ctx.arc(p.x, p.y, r(n), 0, 2 * Math.PI); ctx.fill();
     P.set(n.id, { x: p.x, y: p.y, s: p.s, depth: -importance(n), r: Math.max(5, r(n) + 2), a: 1 }); } };
   const selRing = (R, col) => { if (!st.selected || !P.has(st.selected)) return; const p = P.get(st.selected); ctx.strokeStyle = col || UI.colour.selected; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 4, 0, 2 * Math.PI); ctx.stroke(); };
-  const noteLabels = (ids, fill, halo, max) => { ids.slice(0, max).forEach(id => { const p = P.get(id); if (!p) return; const t = clip(byId[id].name, 24), f = `500 10px ${css("--vg-font") || "system-ui"}`; ctx.font = f; const w = ctx.measureText(t).width;
-    if (freeSpot(p.x - w / 2, p.y + p.r + 1, w, 12)) haloText(t, p.x, p.y + p.r + 7, fill, halo, f, "center"); }); };
+  // Note names in map views: below the note's shape, else beside it (right, then left), else the same shortened; never
+  // over another shape drawn this frame (bodies, from iso.hit: blocks, towers, figures) or another label (freeSpot).
+  // A name with no free spot is left out. p.box (from iso.hit) is the shape's own box, the one the name goes around.
+  const overBody = (x, y, w, h) => bodies.some(b => x < b[0] + b[2] && x + w > b[0] && y < b[1] + b[3] && y + h > b[1]);
+  const noteLabels = (ids, fill, halo, max) => { const f = `500 10px ${css("--vg-font") || "system-ui"}`;
+    ids.slice(0, max).forEach(id => { const p = P.get(id); if (!p) return;
+      const own = p.box, bot = own ? own[1] + own[3] : p.y + p.r, left = own ? own[0] : p.x - p.r, right = own ? own[0] + own[2] : p.x + p.r;
+      for (const t of [clip(byId[id].name, 24), clip(byId[id].name, 12)]) { ctx.font = f; const w = ctx.measureText(t).width;
+        const at = [[p.x - w / 2, bot + 1, "center", p.x, bot + 7], [right + 4, p.y - 6, "left", right + 4, p.y], [left - 4 - w, p.y - 6, "right", left - 4, p.y]]
+          .find(([x, y]) => !overBody(paneX(x, w), y, w, 12) && freeSpot(x, y, w, 12));
+        if (at) { haloText(t, at[3], at[4], fill, halo, f, at[2]); return; }
+      } }); };
 
   // Weather: which topics are heating up or going quiet. Pressure comes from your dailies: a topic mentioned more
   // than usual over the last three weeks is a low (busy, L), quieter than usual a high (calm, H). A storm is a

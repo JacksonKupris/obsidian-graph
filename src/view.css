@@ -24,6 +24,9 @@
   --vg-fs-xs: 11px; --vg-fs-sm: 12px; --vg-fs: 13px; --vg-fs-lg: 15px; --vg-fs-xl: 18px;
   --vg-ease: cubic-bezier(.2, .8, .2, 1); --vg-dur: .18s;
   --vg-side-w: 300px; --vg-ins-w: 320px;
+  /* overlays pinned over the canvas: --vg-under-bar is just under the toolbar (its buttons grow in a narrow pane and on
+     a phone, see below); --vg-under-today is under the today strip, for when the strip spans the pane */
+  --vg-under-bar: 52px;
 
   position: relative; height: 100%; color: var(--vg-fg); font: var(--vg-fs)/1.45 var(--vg-font);
   container-type: inline-size; container-name: vg; overflow: hidden; outline: none;
@@ -37,7 +40,8 @@
   border-radius: 4px; background: var(--vg-raised); color: var(--vg-muted); white-space: nowrap; }
 
 /* ---------- layout ---------- */
-.vg-app { display: grid; grid-template-columns: var(--vg-side-w) minmax(0, 1fr) auto; height: 100%; }
+.vg-app { --vg-under-today: calc(var(--vg-under-bar) + 42px);   /* here, so it follows the pane's --vg-under-bar */
+  display: grid; grid-template-columns: var(--vg-side-w) minmax(0, 1fr) auto; height: 100%; }
 .vg-side-hidden .vg-app { grid-template-columns: 0 minmax(0, 1fr) auto; }
 .vg-side-hidden .vg-side { visibility: hidden; }
 .vg-side { background: var(--vg-panel); border-right: 1px solid var(--vg-line); display: flex; flex-direction: column; min-height: 0; }
@@ -149,7 +153,7 @@
 .vg-mitem:hover, .vg-mitem:focus-visible { background: var(--vg-hover); outline: none; }
 .vg-mitem[aria-checked="true"] b::after { content: " ✓"; color: var(--vg-accent); }
 
-.vg-focusbar { position: absolute; top: 52px; left: 50%; transform: translateX(-50%); z-index: 3; display: flex; gap: 10px; align-items: center;
+.vg-focusbar { position: absolute; top: var(--vg-under-bar); left: 50%; transform: translateX(-50%); z-index: 3; display: flex; gap: 10px; align-items: center;
   max-width: calc(100% - 20px); padding: 6px 8px 6px 12px; background: var(--vg-raised); border: 1px solid var(--vg-line);
   border-radius: 99px; box-shadow: var(--vg-shadow); white-space: nowrap; font-size: var(--vg-fs-sm); }
 .vg-fb-text { overflow: hidden; text-overflow: ellipsis; }
@@ -171,7 +175,7 @@
 .vg-lg-grad { width: 42px; height: 7px; border-radius: 4px; background: linear-gradient(90deg, var(--vg-cold), #f59e0b, #f97316, #ef4444); }
 .vg-lg-line { width: 18px; border-top: 2px solid var(--vg-muted); opacity: .6; }
 .vg-lg-line.is-gap { border-top: 2px dashed var(--vg-gap); opacity: 1; } .vg-lg-line.is-sim { border-top: 2px dashed var(--vg-sim); opacity: 1; }
-.vg-status { position: absolute; right: 10px; top: 50px; z-index: 2; display: flex; align-items: center; gap: 6px; padding: 4px 9px;
+.vg-status { position: absolute; right: 10px; top: var(--vg-under-bar); z-index: 2; display: flex; align-items: center; gap: 6px; padding: 4px 9px;
   border-radius: 99px; background: color-mix(in srgb, var(--vg-raised) 88%, transparent); border: 1px solid var(--vg-line);
   font-size: var(--vg-fs-xs); color: var(--vg-muted); max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vg-spin { width: 10px; height: 10px; border: 2px solid var(--vg-line); border-top-color: var(--vg-accent); border-radius: 50%; animation: vg-spin .8s linear infinite; }
@@ -234,7 +238,7 @@
 
 /* ---------- narrow panes: sidebar becomes a drawer, inspector a bottom sheet ---------- */
 @container vg (max-width: 760px) {
-  .vg-app, .vg-side-hidden .vg-app { grid-template-columns: minmax(0, 1fr); }
+  .vg-app, .vg-side-hidden .vg-app { grid-template-columns: minmax(0, 1fr); --vg-under-bar: 56px; }
   .vg-side { position: absolute; z-index: 8; left: 0; top: 0; bottom: 0; width: min(var(--vg-side-w), 88%); visibility: visible;
     transform: translateX(-102%); transition: transform var(--vg-dur) var(--vg-ease); box-shadow: var(--vg-shadow); }
   .vg-side-hidden .vg-side { visibility: visible; }
@@ -244,11 +248,11 @@
   .vg-searchbtn { min-width: 0; } .vg-searchbtn span, .vg-searchbtn kbd, .vg-presetname { display: none; }
   .vg-legend { max-width: calc(100% - 20px); bottom: 42px; } .vg-status { max-width: calc(100% - 20px); }
   .has-inspector .vg-legend, .has-inspector .vg-status { display: none; }
-  /* the banner spans the pane here: the status pill goes under it instead of behind it */
-  .vg-root:has(> .vg-app .vg-today:not([hidden])) .vg-status, .vg-root:has(.vg-today:not([hidden])) .vg-status { top: 100px; }
+  /* the banner spans the pane here: the overlays pinned under the toolbar (status pill, floor bar) go under it instead of behind it */
+  .vg-root:has(.vg-today:not([hidden])) :is(.vg-status, .vg-floorbar) { top: var(--vg-under-today); }
 }
-/* an open inspector narrows the canvas: the today banner then reaches the status pill, so the pill goes under it */
-.vg-root.has-inspector:has(.vg-today:not([hidden])) .vg-status { top: 100px; }
+/* an open inspector narrows the canvas: the today banner then reaches the status pill and floor bar, so they go under it */
+.vg-root.has-inspector:has(.vg-today:not([hidden])) :is(.vg-status, .vg-floorbar) { top: var(--vg-under-today); }
 @keyframes vg-sheet-in { from { opacity: 0; transform: translateY(20px); } }
 @container vg (max-width: 460px) { .vg-legend { display: none; } }
 
@@ -307,7 +311,7 @@
 .vg-ev-line { font-size: var(--vg-fs-xs); line-height: 1.4; }
 
 /* path finder */
-.vg-pathbar { top: 52px; max-width: calc(100% - 20px); }
+.vg-pathbar { top: var(--vg-under-bar); max-width: calc(100% - 20px); }
 .vg-focusbar:not([hidden]) ~ .vg-pathbar { top: 96px; }
 .vg-path-steps { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; min-width: 0; }
 .vg-root .vg-path-step { padding: 1px 8px; border-radius: 99px; white-space: nowrap; font-size: var(--vg-fs-xs); font-weight: 600;
@@ -356,8 +360,8 @@
 .is-neural[data-vision="thermal"] { --vg-hud: #fbbf24; }
 .is-neural[data-vision="crt"] { --vg-hud: #7dd3fc; }
 .vg-hud .c { position: absolute; width: 22px; height: 22px; border: 0 solid var(--vg-hud); opacity: .7; }
-.vg-hud .tl { top: 52px; left: 10px; border-top-width: 1.5px; border-left-width: 1.5px; }
-.vg-hud .tr { top: 52px; right: 10px; border-top-width: 1.5px; border-right-width: 1.5px; }
+.vg-hud .tl { top: var(--vg-under-bar); left: 10px; border-top-width: 1.5px; border-left-width: 1.5px; }
+.vg-hud .tr { top: var(--vg-under-bar); right: 10px; border-top-width: 1.5px; border-right-width: 1.5px; }
 .vg-hud .bl { bottom: 10px; left: 10px; border-bottom-width: 1.5px; border-left-width: 1.5px; }
 .vg-hud .br { bottom: 10px; right: 10px; border-bottom-width: 1.5px; border-right-width: 1.5px; }
 .vg-hud-title, .vg-hud-tele { position: absolute; display: flex; flex-direction: column; text-shadow: 0 0 8px color-mix(in srgb, var(--vg-hud) 60%, transparent); }
@@ -419,8 +423,7 @@
 .vg-root .vg-keys { border-collapse: collapse; width: 100%; font-size: var(--vg-fs-sm); }
 .vg-root .vg-keys td { padding: 4px 6px; border-top: 1px solid var(--vg-line); vertical-align: top; }
 .vg-root .vg-keys td:first-child { white-space: nowrap; color: var(--vg-muted); }   /* the dock scrolls sideways; its buttons keep their labels whole */
-.is-mobile .vg-focusbar, .is-mobile .vg-pathbar { top: 58px; }
-.is-mobile .vg-status { top: 58px; }
+.vg-root.is-mobile .vg-app { --vg-under-bar: 58px; }
 
 @container vg (max-width: 760px) {
   .vg-sheet-handle { display: block; width: calc(100% + 28px); height: 24px; margin: -12px -14px 0; cursor: ns-resize; touch-action: none; position: relative; }
@@ -430,7 +433,6 @@
   .vg-seglabel { display: none; }
   .vg-root .vg-segbtn { padding: 0 8px; }
   .is-neural .vg-hud-title { display: none; }
-  .is-neural .vg-hud .tl, .is-neural .vg-hud .tr { top: 56px; }
   .is-neural .vg-hud-tele { bottom: 52px; left: 12px; max-width: calc(100% - 24px); }
   .is-neural.has-inspector .vg-hud-tele, .is-neural.has-inspector .vg-vision { display: none; }
   .is-neural .vg-hud-tele.is-idle, .is-neural .vg-status { display: none; }
@@ -445,7 +447,7 @@
   .vg-fb-depth > .vg-muted { display: none; }
 }
 .vg-sw-t { display: flex; gap: 6px; align-items: center; }
-.is-neural .vg-canvas:has(.vg-focusbar:not([hidden])) .vg-hud-title { top: 100px; }
+.is-neural .vg-canvas:has(.vg-focusbar:not([hidden])) .vg-hud-title { top: var(--vg-under-today); }
 .vg-badge.is-live { background: color-mix(in srgb, var(--vg-ok) 16%, transparent); color: var(--vg-ok); }
 
 /* room for a floating status bar (Obsidian desktop: the plugin sets --vg-bottom) */
@@ -481,7 +483,7 @@
 .vg-embed .vg-root { --vg-bottom: 0px !important; }
 
 /* ---------- lenses (Views menu) ---------- */
-.vg-lens { position: absolute; z-index: 5; top: 52px; left: 10px; right: 10px; bottom: calc(10px + var(--vg-bottom, 0px)); display: flex; flex-direction: column;
+.vg-lens { position: absolute; z-index: 5; top: var(--vg-under-bar); left: 10px; right: 10px; bottom: calc(10px + var(--vg-bottom, 0px)); display: flex; flex-direction: column;
   background: color-mix(in srgb, var(--vg-raised) 94%, transparent); border: 1px solid var(--vg-line); border-radius: var(--vg-r); box-shadow: var(--vg-shadow);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: vg-sheet-in var(--vg-dur) var(--vg-ease); }
 /* wide pane: the lens sits beside the view (lensBeside() in the view, same width), so a row it reveals is in sight */
@@ -605,7 +607,7 @@
 .vg-pb-stats b { color: var(--vg-fg); font-variant-numeric: tabular-nums; }
 .vg-pb-flag { font-size: var(--vg-fs-xs); color: var(--vg-warn); font-weight: 600; }
 @container vg (max-width: 760px) {
-  .vg-lens { top: 56px; left: 6px; right: 6px; }
+  .vg-lens { left: 6px; right: 6px; }
   .vg-lensbtn .vg-presetname { display: none; }
   .vg-tl-row { grid-template-columns: 42% 1fr; }
 }
@@ -763,10 +765,10 @@
 
 /* physics controls */
 .vg-pausepill { display: none; }
-.is-cosmos .vg-pausepill:not([hidden]) { display: inline-flex; position: absolute; z-index: 4; left: 50%; transform: translateX(-50%); top: 56px;
+.is-cosmos .vg-pausepill:not([hidden]) { display: inline-flex; position: absolute; z-index: 4; left: 50%; transform: translateX(-50%); top: var(--vg-under-bar);
   padding: 5px 12px; border-radius: 99px; font: 700 11px var(--vg-mono); letter-spacing: .1em; color: #1a1205; background: #fbbf24; box-shadow: 0 4px 16px rgba(0, 0, 0, .4); }
 /* replay: the vault growing note by note */
-.vg-replay { position: absolute; z-index: 4; left: 50%; transform: translateX(-50%); top: 56px; display: flex; gap: 10px; align-items: center;
+.vg-replay { position: absolute; z-index: 4; left: 50%; transform: translateX(-50%); top: var(--vg-under-bar); display: flex; gap: 10px; align-items: center;
   padding: 6px 8px 6px 14px; border-radius: 99px; background: color-mix(in srgb, var(--vg-panel) 88%, transparent); border: 1px solid var(--vg-line);
   box-shadow: var(--vg-shadow-sm); font-size: var(--vg-fs-sm); backdrop-filter: blur(6px); }
 .vg-replay-date { font-variant-numeric: tabular-nums; min-width: 92px; }
@@ -841,7 +843,7 @@
 .vg-root .vg-mapitem b { display: inline-flex; align-items: center; gap: 6px; }
 
 /* today strip: one line about what this view says right now, and one thing to do */
-.vg-root .vg-today { position: absolute; z-index: 3; top: 58px; left: 50%; transform: translateX(-50%); max-width: min(760px, calc(100% - 24px));
+.vg-root .vg-today { position: absolute; z-index: 3; top: var(--vg-under-bar); left: 50%; transform: translateX(-50%); max-width: min(760px, calc(100% - 24px));
   display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 14px; border-radius: 999px; font-size: var(--vg-fs-sm);
   background: color-mix(in srgb, var(--vg-raised) 88%, transparent); border: 1px solid var(--vg-border); box-shadow: 0 6px 20px rgba(0,0,0,.18); backdrop-filter: blur(8px); }
 .vg-root .vg-today-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; cursor: pointer; }
@@ -972,8 +974,8 @@
 .vg-root .vg-ms-show.vg-more { min-width: 0; padding: 1px 8px; }
 
 /* palace floors: Front, then the floors top-down, over the palace only */
-.vg-root .vg-floorbar { display: none; }
-.vg-root.is-map[data-map="palace"] .vg-floorbar { display: flex; position: absolute; z-index: 3; left: 10px; top: 58px; gap: 2px; padding: 3px; border-radius: 10px;
+.vg-root .vg-floorbar { display: none; top: var(--vg-under-bar); }
+.vg-root.is-map[data-map="palace"] .vg-floorbar { display: flex; position: absolute; z-index: 3; left: 10px; gap: 2px; padding: 3px; border-radius: 10px;
   background: color-mix(in srgb, var(--vg-raised) 88%, transparent); border: 1px solid var(--vg-border); backdrop-filter: blur(8px); flex-direction: column; }
 .vg-root .vg-floorbar .vg-segbtn { min-width: 44px; }
 .is-compact .vg-floorbar { display: none !important; }
@@ -990,7 +992,7 @@
 /* the time-lapse bar and the sand palette share the bottom: the palette moves up while the bar is open */
 .vg-root.is-map[data-map="sand"]:has(.vg-timebar:not([hidden])) .vg-sandbar { bottom: calc(100px + var(--vg-bottom, 0px)); }
 /* a narrow pane's inspector is a bottom sheet: the palette moves up under the toolbar so both stay usable */
-@container vg (max-width: 760px) { .vg-root.is-map[data-map="sand"].has-inspector .vg-sandbar { top: 56px; bottom: auto; } }
+@container vg (max-width: 760px) { .vg-root.is-map[data-map="sand"].has-inspector .vg-sandbar { top: var(--vg-under-bar); bottom: auto; } }
 /* a lens drawer and the missions panel share the right side: the panel steps aside while a lens is open */
 .vg-root.has-lens .vg-missions { display: none !important; }
 /* Panels that are flex columns with a height cap (the picker, the lens drawer): their header, tab and tool rows keep
