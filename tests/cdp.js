@@ -26,7 +26,7 @@ function forwardPhone(port) {
 }
 
 async function open(o) {
-  const port = o.port || 9334;
+  const port = (o.port || 9334) + Number(process.env.VG_PORT_OFFSET || 0);   // VG_PORT_OFFSET: two runs side by side (two worktrees)
   let proc = null, tmp = null, prof = null;
   if (o.phone) forwardPhone(port);
   else {
