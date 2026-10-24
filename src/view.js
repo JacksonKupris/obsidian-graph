@@ -681,8 +681,10 @@ function mountVaultGraph(root, DATA, opts) {
       x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); });
     Object.assign(cam, saved);
     if (x0 === Infinity) return;
-    // framed below the toolbar, and below the today strip too when this view has one, so nothing sits behind them
-    const padTop = (opts.compact ? 48 : 64) + (!opts.compact && !replay && !todayHidden.has(st.view) && todayFor(st.view) ? 40 : 0), pad = opts.compact || W < 500 ? 12 : 40;
+    // framed below the overlay line under the toolbar, and below the today strip too when this view has one, so nothing
+    // sits behind them: the CSS's own numbers (--vg-under-bar, --vg-today-h), read live since they change with the pane's size
+    const line = v => parseFloat(getComputedStyle(wrap).getPropertyValue(v)) || 0;
+    const padTop = opts.compact ? 48 : line("--vg-under-bar") + 12 + (!replay && !todayHidden.has(st.view) && todayFor(st.view) ? line("--vg-today-h") : 0), pad = opts.compact || W < 500 ? 12 : 40;
     // a scene drawn through the iso kit: frame the turned, tilted picture, and move the camera in flat units
     const Mi = isoScene(), isoOn = !!Mi;
     if (isoOn) { let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;

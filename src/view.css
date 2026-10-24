@@ -25,8 +25,9 @@
   --vg-ease: cubic-bezier(.2, .8, .2, 1); --vg-dur: .18s;
   --vg-side-w: 300px; --vg-ins-w: 320px;
   /* overlays pinned over the canvas: --vg-under-bar is just under the toolbar (its buttons grow in a narrow pane and on
-     a phone, see below); --vg-under-today is under the today strip, for when the strip spans the pane */
-  --vg-under-bar: 52px;
+     a phone, see below); --vg-under-today is under the today strip (--vg-today-h tall with its gap), for when the strip
+     spans the pane. The camera frames each view below the same lines (fit() reads them). */
+  --vg-under-bar: 52px; --vg-today-h: 42px;
 
   position: relative; height: 100%; color: var(--vg-fg); font: var(--vg-fs)/1.45 var(--vg-font);
   container-type: inline-size; container-name: vg; overflow: hidden; outline: none;
@@ -40,7 +41,7 @@
   border-radius: 4px; background: var(--vg-raised); color: var(--vg-muted); white-space: nowrap; }
 
 /* ---------- layout ---------- */
-.vg-app { --vg-under-today: calc(var(--vg-under-bar) + 42px);   /* here, so it follows the pane's --vg-under-bar */
+.vg-app { --vg-under-today: calc(var(--vg-under-bar) + var(--vg-today-h));   /* here, so it follows the pane's --vg-under-bar */
   display: grid; grid-template-columns: var(--vg-side-w) minmax(0, 1fr) auto; height: 100%; }
 .vg-side-hidden .vg-app { grid-template-columns: 0 minmax(0, 1fr) auto; }
 .vg-side-hidden .vg-side { visibility: hidden; }
