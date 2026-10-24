@@ -25,7 +25,9 @@ const VGActions = (() => {
   const isArchived = id => id.startsWith(ARCHIVE + "/");
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
   const mapOf = (c, n) => (c.data && n.cluster != null ? VGRules.mapForCluster(c.data.mocs || [], n.cluster) : null);
-  const isHolder = p => /(moc|hub|index)$/i.test(nameOf(p));   // where references live (Link Conventions)
+  // where references live (Link Conventions): a note the graph treats as a map (a system's map, a MOC), or a hub or
+  // index by name
+  const isHolder = (p, c) => ((c && c.data && c.data.mocs) || []).some(m => m.id === p) || /(moc|hub|index)$/i.test(nameOf(p));
 
   // In display order. `when` decides if the note gets it; `ask` (optional) is the confirmation; `run` does it and
   // returns the message for c.done. group: "main" first, then "fix" (what the note needs), then "end" (closing it out).
@@ -64,7 +66,7 @@ const VGActions = (() => {
     { key: "reference", group: "fix", icon: "file", label: () => "Add reference", title: () => "Point it at the map or hub that holds its links",
       when: (n, c) => n.refs === false && !!c.api.addReference && !!c.pick && !n.ghost,
       run: async (n, c) => {
-        const holder = await c.pick("Reference holder (a MOC, hub or index)…", isHolder);
+        const holder = await c.pick("Reference holder (a map, hub or index)…", p => isHolder(p, c));
         if (!holder) return null;
         await c.api.addReference(n.id, holder);
         return `Added ${nameOf(holder)} as a reference of ${n.name}`;

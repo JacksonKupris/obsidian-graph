@@ -110,6 +110,13 @@ for (const f of ["view.js", "plugin.js"]) {
   check("archived notes aren't archived again", VGActions.forNote({ ...note, id: "05-Archive/x/Plan.md" }, ctx).some(a => a.key === "archive"), false);
   check("archive keeps the folder", VGActions.archiveFolder("02-Projects/x/Plan.md"), "05-Archive/02-Projects/x");
   check("root note archives to 05-Archive", VGActions.archiveFolder("Plan.md"), "05-Archive");
+  // Add reference offers holders: any note the graph treats as a map (a system's map has a plain name), or a hub or index
+  {
+    let offered = null;
+    const rctx = { ...ctx, data: { ...ctx.data, mocs: [map, { id: "02-Systems/Kiosk/Kiosk.md", clusters: [1], members: [] }] },
+      pick: async (ph, f) => { offered = ["02-Systems/Kiosk/Kiosk.md", "x/Odoo Hub.md", "x/Release Notes Index.md", "x/Plain Note.md"].map(f); return null; } };
+    VGActions.run("reference", note, rctx).then(() => check("Add reference offers maps, hubs and indexes as holders", offered, [true, true, true, false]));
+  }
   // problems: each is paired with a real action, shown with its fix where it can run and without one where it can't
   VGActions.PROBLEMS.forEach(p => { if (!VGActions.ACTIONS.some(a => a.key === p.fix)) fails.push(`problem ${p.key}: fix "${p.fix}" isn't an action`); });
   const sick = { ...note, inlinks: 0, outlinks: 3, words: 12 }, qctx = { ...ctx, data: { ...ctx.data, quality: { stale_days: R.stale_days, stub_words: R.stub_words } } };
