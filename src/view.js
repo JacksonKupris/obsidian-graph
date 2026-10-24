@@ -681,8 +681,10 @@ function mountVaultGraph(root, DATA, opts) {
       x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); });
     Object.assign(cam, saved);
     if (x0 === Infinity) return;
-    // framed below the toolbar, and below the today strip too when this view has one, so nothing sits behind them
-    const padTop = (opts.compact ? 48 : 64) + (!opts.compact && !replay && !todayHidden.has(st.view) && todayFor(st.view) ? 40 : 0), pad = opts.compact || W < 500 ? 12 : 40;
+    // framed below the overlay line under the toolbar, and below the today strip too when this view has one, so nothing
+    // sits behind them: the CSS's own numbers (--vg-under-bar, --vg-today-h), read live since they change with the pane's size
+    const line = v => parseFloat(getComputedStyle(wrap).getPropertyValue(v)) || 0;
+    const padTop = opts.compact ? 48 : line("--vg-under-bar") + 12 + (!replay && !todayHidden.has(st.view) && todayFor(st.view) ? line("--vg-today-h") : 0), pad = opts.compact || W < 500 ? 12 : 40;
     // a scene drawn through the iso kit: frame the turned, tilted picture, and move the camera in flat units
     const Mi = isoScene(), isoOn = !!Mi;
     if (isoOn) { let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
@@ -764,6 +766,7 @@ function mountVaultGraph(root, DATA, opts) {
   let labelRects = [];
   // the screen boxes of the solids and figures drawn this frame (iso.hit adds them), so note names keep off them
   let bodies = [];
+  const body = box => { bodies.push(box); return box; };   // record a shape drawn this frame: [x, y, w, h] on screen
   // where a label w wide starting at x is drawn: shifted inside the pane, the way haloText shifts it
   const paneX = (x, w) => W > 40 ? Math.max(4, Math.min(W - 4 - Math.min(w, W - 8), x)) : x;
   // Reserve a label's box, as it will be drawn
@@ -1456,7 +1459,7 @@ function mountVaultGraph(root, DATA, opts) {
     };
     // a solid or figure standing on q, hw wide each side and height tall: its hit spot, and its screen box (box: x, y,
     // w, h, footprint included), which also goes in bodies so note names are placed off it
-    const hit = (q, hw, height) => { const foot = hw * ay / ax, box = [q.x - hw, q.y - height - foot, 2 * hw, height + 2 * foot]; bodies.push(box);
+    const hit = (q, hw, height) => { const foot = hw * ay / ax, box = body([q.x - hw, q.y - height - foot, 2 * hw, height + 2 * foot]);
       return { x: q.x, y: q.y - height / 2, r: Math.max(6, hw + 2, height / 2 + 2), box }; };
     const depthSort = (items, at) => items.sort((a, b) => at(a).y - at(b).y);   // farther (higher on screen) first
     return { p, lift, poly, rect, wall, slab, block, prism, hit, depthSort, shade, ax, ay };
@@ -1928,12 +1931,13 @@ function mountVaultGraph(root, DATA, opts) {
       if (n.tasks > 0) { const cx = (up(bk)[0] + up(fr)[0]) / 2, cy = (up(bk)[1] + up(fr)[1]) / 2, blink = reducedMotion() || Math.sin(now / 380 + hash(id) % 7) > 0.2;   // open tasks: a beacon
         ctx.fillStyle = blink ? "#ef4444" : "rgba(239,68,68,.25)"; ctx.beginPath(); ctx.arc(cx, cy - 2, Math.max(1.2, 1.8 * Math.sqrt(k)), 0, 2 * Math.PI); ctx.fill(); }
       if (id === st.selected) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); [up(bk), up(rt), up(fr), up(lf)].forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.stroke(); }
-      P.set(id, { x: (lf[0] + rt[0]) / 2, y: fr[1] - (h * k) / 2 - (fr[1] - bk[1]) / 4, s: base.s, depth: -(B.gx + B.gy), r: Math.max(6, Math.max(rt[0] - lf[0], h * k) / 2), a: on ? 1 : 0.3 });
+      P.set(id, { x: (lf[0] + rt[0]) / 2, y: fr[1] - (h * k) / 2 - (fr[1] - bk[1]) / 4, s: base.s, depth: -(B.gx + B.gy), r: Math.max(6, Math.max(rt[0] - lf[0], h * k) / 2), a: on ? 1 : 0.3,
+        box: body([lf[0], up(bk)[1], rt[0] - lf[0], fr[1] - up(bk)[1]]) });   // the tower's screen box, so names keep off it
     });
     ctx.globalAlpha = 1;
     // town halls: each district's map stands in its plaza (click it like any note); no map = an empty plaza with a sign
     C.districts.forEach(d => { if (d.c < 0) return; const [x, y] = pt(d.bx + d.w / 2, d.by + d.h - 0.55, 0), s = Math.max(4, 9 * k);
-      if (!d.hall) { if (k > 0.45) haloText("no map yet", x, y, "#fbbf24", "#0b0e20", `700 ${Math.round(Math.max(8, Math.min(11, 9 * k)))}px ${font}`, "center"); return; }
+      if (!d.hall) return;   // its "no map yet" sign goes with the names below
       ctx.globalAlpha = !litSet || litSet.has(d.hall) ? 1 : 0.3;
       ctx.fillStyle = "#e5e7eb"; ctx.fillRect(x - s, y - s * 1.1, s * 2, s * 1.1);
       ctx.fillStyle = "#cbd5e1"; ctx.beginPath(); ctx.arc(x, y - s * 1.1, s * 0.75, Math.PI, 0); ctx.fill();
@@ -1949,18 +1953,16 @@ function mountVaultGraph(root, DATA, opts) {
       ctx.strokeStyle = "rgba(255,217,119,.75)"; ctx.lineWidth = 1.4;
       [...nb[st.selected]].filter(id => C.b.has(id) && visible(byId[id])).forEach(id => { const [x, y] = top(id); ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo((sx + x) / 2, Math.min(sy, y) - 40, x, y); ctx.stroke(); });
     }
-    // district names on the ground, then the tallest buildings' names
+    // district names on the ground (and a plaza with no town hall says so), then the tallest buildings' names
     C.districts.forEach(d => {
       const [x, y] = pt(d.bx + d.w / 2, d.by + d.h + 0.4, 0), name = d.c === -2 ? "PLANNED (NOT WRITTEN YET)" : d.c < 0 ? "OUTSKIRTS" : clip(shortName(d.c), k > 0.8 ? 26 : 18).toUpperCase() + (d.dark && k > 0.8 ? ` · ${d.dark} DARK` : "");   // zoomed out: short names only
       const f = `700 10.5px ${font}`; ctx.font = f; const w = ctx.measureText(name).width;
       if (freeSpot(x - w / 2, y - 7, w, 14)) haloText(name, x, y, "#c7cbe0", "#0b0e20", f, "center");
+      if (d.c < 0 || d.hall || k <= 0.45) return;
+      const [sx, sy] = pt(d.bx + d.w / 2, d.by + d.h - 0.55, 0), sf = `700 ${Math.round(Math.max(8, Math.min(11, 9 * k)))}px ${font}`; ctx.font = sf; const sw = ctx.measureText("no map yet").width;
+      if (freeSpot(sx - sw / 2, sy - 7, sw, 14)) haloText("no map yet", sx, sy, "#fbbf24", "#0b0e20", sf, "center");
     });
-    lot.slice().sort((a, b) => b[1].h - a[1].h).slice(0, MOBILE ? 12 : 28).forEach(([id, B]) => {
-      const n = byId[id], p = P.get(id); if (!p || n.ghost) return;
-      const text = clip(n.name, 24), f = `600 10.5px ${font}`; ctx.font = f; const w = ctx.measureText(text).width;
-      const y = p.y - p.r - 6;
-      if (freeSpot(p.x - w / 2, y - 7, w, 14)) haloText(text, p.x, y, "#f2f3fa", "#0b0e20", f, "center");
-    });
+    noteLabels(lot.filter(([id]) => !byId[id].ghost).sort((a, b) => b[1].h - a[1].h).map(([id]) => id), "#f2f3fa", "#0b0e20", MOBILE ? 12 : 28);
   }
 
   // Garden: a digital garden, where notes grow from seed to evergreen. Each topic is a bed; a note's stage comes from
@@ -2278,7 +2280,7 @@ function mountVaultGraph(root, DATA, opts) {
     ctx.fillStyle = night ? "#22242c" : "#8a8f86"; ctx.fillRect(0, g0.y, W, Math.max(2, 8 * k));
     const stone = night ? "#4a443c" : dusk ? "#c9a983" : "#e4d8c0", stoneDark = night ? "#3a352f" : dusk ? "#a98a68" : "#cbbd9f", line = night ? "rgba(0,0,0,.45)" : "rgba(80,60,40,.45)";
     // depth: the building and its roof are solids pushed back up and to the right (oblique), through the shared prism
-    const d = { x: Math.max(8, 150 * k * 0.55), y: -Math.max(5, 150 * k * 0.32) }, roof = night ? "#3b352e" : dusk ? "#9c8064" : "#b9ab90";
+    const d = { x: Math.max(8, 150 * k * 0.55), y: -Math.max(5, 150 * k * 0.32) }, roof = night ? "#3b352e" : dusk ? "#866850" : "#b9ab90";   // a step darker than the pediment at every hour
     ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse((L.x + Rr.x) / 2 + d.x * 0.6, g0.y + 6, (Rr.x - L.x) * 0.62, Math.max(6, 22 * k), 0, 0, 2 * Math.PI); ctx.fill();   // shadow
     // the body: its front is the facade (the bays go on it below), its right side the side wall
     prism([{ x: L.x, y: L.y }, { x: Rr.x, y: L.y }, { x: Rr.x, y: g0.y }, { x: L.x, y: g0.y }], d, stone, { faces: { right: stoneDark, up: roof }, edge: line, sides: true });
@@ -2297,7 +2299,7 @@ function mountVaultGraph(root, DATA, opts) {
     ctx.fillStyle = drum; ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ridge.x - domeR, ridge.y - drumH); ctx.lineTo(ridge.x - domeR, ridge.y);
     ctx.ellipse(ridge.x, ridge.y, domeR, base, 0, Math.PI, 0, true); ctx.lineTo(ridge.x + domeR, ridge.y - drumH); ctx.closePath(); ctx.fill(); ctx.stroke();
     const domeY = ridge.y - drumH, dg = ctx.createRadialGradient(ridge.x - domeR * 0.35, domeY - domeR * 0.55, domeR * 0.1, ridge.x, domeY, domeR * 1.1);
-    dg.addColorStop(0, night ? "#9fb0cf" : "#e3f1f9"); dg.addColorStop(1, night ? "#3b4763" : "#6f97b0"); ctx.fillStyle = dg;
+    dg.addColorStop(0, night ? "#9fb0cf" : dusk ? "#f6dccb" : "#e3f1f9"); dg.addColorStop(1, night ? "#3b4763" : dusk ? "#7c6a8c" : "#6f97b0"); ctx.fillStyle = dg;   // the dome reflects the sky
     ctx.beginPath(); ctx.arc(ridge.x, domeY, domeR, Math.PI, 0); ctx.ellipse(ridge.x, domeY, domeR, base, 0, 0, Math.PI); ctx.closePath(); ctx.fill(); ctx.stroke();
     // flags: the topics busiest this month fly from the roof: one on the dome, the others standing on the pediment
     const busy = M.bays.filter(b => !b.base).map(b => [b, topicBusy(b.c)]).sort((a, b) => b[1] - a[1]).slice(0, 3);
@@ -2401,15 +2403,15 @@ function mountVaultGraph(root, DATA, opts) {
   const dots = (pred, col, r, R) => { for (const n of nodes) { if (!pred(n) || !mapShown(n)) continue; const p = scr(n.x, n.y, R); ctx.fillStyle = col(n); ctx.beginPath(); ctx.arc(p.x, p.y, r(n), 0, 2 * Math.PI); ctx.fill();
     P.set(n.id, { x: p.x, y: p.y, s: p.s, depth: -importance(n), r: Math.max(5, r(n) + 2), a: 1 }); } };
   const selRing = (R, col) => { if (!st.selected || !P.has(st.selected)) return; const p = P.get(st.selected); ctx.strokeStyle = col || UI.colour.selected; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 4, 0, 2 * Math.PI); ctx.stroke(); };
-  // Note names in map views: below the note's shape, else beside it (right, then left), else the same shortened; never
+  // Note names in map views: below the note's shape, else beside it (right, then left), else above, else the same shortened; never
   // over another shape drawn this frame (bodies, from iso.hit: blocks, towers, figures) or another label (freeSpot).
   // A name with no free spot is left out. p.box (from iso.hit) is the shape's own box, the one the name goes around.
   const overBody = (x, y, w, h) => bodies.some(b => x < b[0] + b[2] && x + w > b[0] && y < b[1] + b[3] && y + h > b[1]);
   const noteLabels = (ids, fill, halo, max) => { const f = `500 10px ${css("--vg-font") || "system-ui"}`;
     ids.slice(0, max).forEach(id => { const p = P.get(id); if (!p) return;
-      const own = p.box, bot = own ? own[1] + own[3] : p.y + p.r, left = own ? own[0] : p.x - p.r, right = own ? own[0] + own[2] : p.x + p.r;
+      const own = p.box, top = own ? own[1] : p.y - p.r, bot = own ? own[1] + own[3] : p.y + p.r, left = own ? own[0] : p.x - p.r, right = own ? own[0] + own[2] : p.x + p.r;
       for (const t of [clip(byId[id].name, 24), clip(byId[id].name, 12)]) { ctx.font = f; const w = ctx.measureText(t).width;
-        const at = [[p.x - w / 2, bot + 1, "center", p.x, bot + 7], [right + 4, p.y - 6, "left", right + 4, p.y], [left - 4 - w, p.y - 6, "right", left - 4, p.y]]
+        const at = [[p.x - w / 2, bot + 1, "center", p.x, bot + 7], [right + 4, p.y - 6, "left", right + 4, p.y], [left - 4 - w, p.y - 6, "right", left - 4, p.y], [p.x - w / 2, top - 13, "center", p.x, top - 7]]
           .find(([x, y]) => !overBody(paneX(x, w), y, w, 12) && freeSpot(x, y, w, 12));
         if (at) { haloText(t, at[3], at[4], fill, halo, f, at[2]); return; }
       } }); };
