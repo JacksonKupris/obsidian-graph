@@ -2280,7 +2280,7 @@ function mountVaultGraph(root, DATA, opts) {
     ctx.fillStyle = night ? "#22242c" : "#8a8f86"; ctx.fillRect(0, g0.y, W, Math.max(2, 8 * k));
     const stone = night ? "#4a443c" : dusk ? "#c9a983" : "#e4d8c0", stoneDark = night ? "#3a352f" : dusk ? "#a98a68" : "#cbbd9f", line = night ? "rgba(0,0,0,.45)" : "rgba(80,60,40,.45)";
     // depth: the building and its roof are solids pushed back up and to the right (oblique), through the shared prism
-    const d = { x: Math.max(8, 150 * k * 0.55), y: -Math.max(5, 150 * k * 0.32) }, roof = night ? "#3b352e" : dusk ? "#9c8064" : "#b9ab90";
+    const d = { x: Math.max(8, 150 * k * 0.55), y: -Math.max(5, 150 * k * 0.32) }, roof = night ? "#3b352e" : dusk ? "#866850" : "#b9ab90";   // a step darker than the pediment at every hour
     ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse((L.x + Rr.x) / 2 + d.x * 0.6, g0.y + 6, (Rr.x - L.x) * 0.62, Math.max(6, 22 * k), 0, 0, 2 * Math.PI); ctx.fill();   // shadow
     // the body: its front is the facade (the bays go on it below), its right side the side wall
     prism([{ x: L.x, y: L.y }, { x: Rr.x, y: L.y }, { x: Rr.x, y: g0.y }, { x: L.x, y: g0.y }], d, stone, { faces: { right: stoneDark, up: roof }, edge: line, sides: true });
@@ -2299,7 +2299,7 @@ function mountVaultGraph(root, DATA, opts) {
     ctx.fillStyle = drum; ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ridge.x - domeR, ridge.y - drumH); ctx.lineTo(ridge.x - domeR, ridge.y);
     ctx.ellipse(ridge.x, ridge.y, domeR, base, 0, Math.PI, 0, true); ctx.lineTo(ridge.x + domeR, ridge.y - drumH); ctx.closePath(); ctx.fill(); ctx.stroke();
     const domeY = ridge.y - drumH, dg = ctx.createRadialGradient(ridge.x - domeR * 0.35, domeY - domeR * 0.55, domeR * 0.1, ridge.x, domeY, domeR * 1.1);
-    dg.addColorStop(0, night ? "#9fb0cf" : "#e3f1f9"); dg.addColorStop(1, night ? "#3b4763" : "#6f97b0"); ctx.fillStyle = dg;
+    dg.addColorStop(0, night ? "#9fb0cf" : dusk ? "#f6dccb" : "#e3f1f9"); dg.addColorStop(1, night ? "#3b4763" : dusk ? "#7c6a8c" : "#6f97b0"); ctx.fillStyle = dg;   // the dome reflects the sky
     ctx.beginPath(); ctx.arc(ridge.x, domeY, domeR, Math.PI, 0); ctx.ellipse(ridge.x, domeY, domeR, base, 0, 0, Math.PI); ctx.closePath(); ctx.fill(); ctx.stroke();
     // flags: the topics busiest this month fly from the roof: one on the dome, the others standing on the pediment
     const busy = M.bays.filter(b => !b.base).map(b => [b, topicBusy(b.c)]).sort((a, b) => b[1] - a[1]).slice(0, 3);
