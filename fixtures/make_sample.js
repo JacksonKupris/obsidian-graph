@@ -4,7 +4,7 @@
 // links to notes not written yet, short notes others rely on, tasks, code, a scene block).
 //   node fixtures/make_sample.js                     writes fixtures/sample-vault/ (dates relative to today)
 //   node fixtures/make_sample.js --analyse [--vault <dir>]
-//       also runs the analysis (the vault's Python scripts, until they move here) on a copy of it and writes
+//       also runs this repo's analysis (analysis/*.py) on a copy of it and writes
 //       fixtures/sample-graph.json, the graph data the browser tests load
 const fs = require("fs"), os = require("os"), path = require("path"), { execFileSync } = require("child_process");
 const OUT = path.join(__dirname, "sample-vault");
@@ -123,12 +123,12 @@ console.log(`Wrote ${files.size} notes to ${path.relative(process.cwd(), OUT)}`)
 if (process.argv.includes("--analyse")) {
   const i = process.argv.indexOf("--vault"), local = path.join(__dirname, "..", "local.json");
   const vault = i > 0 ? process.argv[i + 1] : fs.existsSync(local) ? JSON.parse(fs.readFileSync(local, "utf8")).vault : null;
-  if (!vault) { console.error("--analyse needs --vault <dir> (or local.json's vault): the analysis scripts are still in the vault"); process.exit(2); }
+  if (!vault) { console.error("--analyse needs --vault <dir> (or local.json's vault): the analysis uses that vault's _System/vault_lib.py"); process.exit(2); }
   const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "vg-sample-")), "Sample Vault");
   fs.cpSync(OUT, tmp, { recursive: true });
   const S = path.join(tmp, F.scripts), sys = path.join(tmp, F.system);
   fs.mkdirSync(S, { recursive: true });
-  for (const f of ["vault_graph.py", "vault_gaps.py", "moc_align.py", "vault_graph_rules.py"]) fs.copyFileSync(path.join(vault, F.scripts, f), path.join(S, f));
+  for (const f of fs.readdirSync(path.join(__dirname, "..", "analysis")).filter(f => f.endsWith(".py"))) fs.copyFileSync(path.join(__dirname, "..", "analysis", f), path.join(S, f));   // this repo's analysis
   fs.copyFileSync(path.join(vault, F.system, "vault_lib.py"), path.join(sys, "vault_lib.py"));
   // a small code repo for the Code lens (never this PC's repos): commits over the last weeks to files the notes name
   const code = path.join(path.dirname(tmp), "code"), repo = path.join(code, "rental-app");

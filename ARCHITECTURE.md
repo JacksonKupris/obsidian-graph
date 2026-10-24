@@ -15,11 +15,12 @@ One system, not bolted-on parts: one state, shared rules, one action path, share
 | `build.js` | Joins the sources into `main.js` (rules + actions + view + scenes + plugin), `styles.css`, `manifest.json`, and `rules.js` (the rulebook alone, for a vault's own checks). Also builds the standalone page. |
 | `tests/` | `run.js` (fast: build, `test_rules.js`, `smoke_page.js`), plus `click_all.js`, `layout_random.js`, `shots.js`, `polish_loop.js`. All run on `fixtures/` by default, or a real vault with `--vault`. `env.js` decides which. |
 | `fixtures/` | `make_sample.js` generates the sample vault and, with `--analyse`, its graph data (`sample-graph.json`). |
+| `analysis/` | The Python analysis (graph data, map and gap analysis), installed into the vault by deploy. |
 | `scripts/deploy.js` | Build with a vault's rules, test on its data, install, run the vault's own checks, reload in Obsidian. |
 
 ## Rules
 
-- **Rules live in one place.** Rule data is a vault's rules file; rule code is `src/rules.js`. The analysis (Python, in the vault for now) reads the same rules file. Change a rule there, never in a view.
+- **Rules live in one place.** Rule data is a vault's rules file; rule code is `src/rules.js`. The analysis (`analysis/vault_graph_rules.py`) reads the same rules file. Change a rule there, never in a view.
 - **Folder and file names** (inbox, daily, people, archive, skip, reports, scenes, cache, tooling folders, excluded folders; the data, analysis, dismissed and shared files) are in the rules file's `folders` and `files`. A test fails on a vault folder name in the code. Another vault edits that one block.
 
 ## One action path
@@ -45,6 +46,8 @@ One system, not bolted-on parts: one state, shared rules, one action path, share
 - Scenes share helpers instead of their own copies (a test enforces it): `topicNotes`, `topicBusy`, `topicPair`, `topicsWithNotes`, `daylight`, `topicLabel`, `backdrop`, `scatter`, `byImportance` / `byInfluence`, the `walker` figure, `windowSprite`, `MOTION`, `gridDims` and `chance`. Colours that carry a meaning, timings and sizes are in the renderer's one `UI` settings object.
 - **Scenes written in notes**: a ` ```vault-graph-scene ` block (YAML) in any note becomes a view. Its words are listed once in `src/rules.js` (`SCENE_WHEN`, `SCENE_PARTS`, `sceneSpec`); the renderer builds the scene from shared parts (`specScene`). A test fails if a word has no part.
 
-## What still lives in the vault
+## The analysis
 
-The analysis (`vault_graph.py`, `vault_gaps.py`, `moc_align.py`, `vault_graph_rules.py`, and `vault_lib.py`) is Python in the vault, where the vault's maintenance reports use it too. The desktop plugin runs it (`files.analysis` in the rules). Moving it here, with the vault-specific choices as plugin settings, is the next step.
+`analysis/` is the Python analysis: `vault_graph.py` writes the graph data every device reads (topics, gaps, bridges, follow-through, the weekly State of the Vault note with `--state`); `vault_gaps.py` and `moc_align.py` are the gap and map analysis the vault's reports also use; `vault_graph_rules.py` reads the same rules file as `src/rules.js`. Deploy installs them into the vault's scripts folder, where the desktop plugin runs them (`files.analysis`) and Sync carries them to every PC; it refuses to overwrite a vault copy edited since the last deploy (`vault-graph-deployed.json` records what it installed).
+
+They still use the vault's `_System/vault_lib.py` (file listing, link patterns, the cache folder), which the vault's other tools share. Making the analysis stand alone (that small core here, vault-specific choices as plugin settings) is what using the plugin in another vault needs next.
