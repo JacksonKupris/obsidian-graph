@@ -54,6 +54,7 @@ const VGRules = ((R) => {
   // How prose names a note (vault_gaps._mention_matcher counts these, "Link mentions" links them): its title,
   // the topic of a "<Topic> - Context" note, and its aliases
   const CONTEXT_SUFFIX = new RegExp(R.context_suffix, "i");
+  const isContextNote = name => CONTEXT_SUFFIX.test(name), contextTopic = name => name.replace(CONTEXT_SUFFIX, "");
   // A title counts only when it's distinctive (2+ words, or an acronym, CamelCase, digit or underscore word) and not
   // too generic (mention_stop); an alias always counts. vault_graph_rules.mention_names is the same rule.
   const MENTION_STOP = new Set((R.mention_stop || []).map(s => s.toLowerCase()));
@@ -500,6 +501,6 @@ const VGRules = ((R) => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
-  return { RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord,isStale, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, claims, mentionNames, trophicLevels, joinsWhenLinked,
+  return { RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord,isStale, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, questDone, missionValid, missionProgress, missionDone, missionOpen, graph };
 })(__RULES_JSON__);

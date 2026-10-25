@@ -5613,16 +5613,16 @@ function mountVaultGraph(root, DATA, opts) {
     return `<p class="vg-muted vg-lens-note">Each bar is a folder, split by topic. One colour = the folder matches a topic; many colours = the folder mixes topics.</p>${bars}
       <div class="vg-list-h">Possibly misfiled <span class="vg-count">${odd.length}</span></div>
       ${odd.sort((a, b) => b[0].bc - a[0].bc).slice(0, 40).map(([n, h]) => `<div class="vg-sugg">${noteRow(n.id, `in ${esc(top(n.id))} · its topic lives in <b>${esc(h)}</b>`)}
-        ${opts.moveNote && !h.startsWith("Start Here") ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-move="${esc(n.id)}" data-to="${esc(h)}">Move to ${esc(h.split("/").pop())}</button></span>` : ""}</div>`).join("") || emptyNext("Nothing looks misfiled.", "lens:triage")}`;
+        ${opts.moveNote && !VGRules.RULES.not_map_tops.includes(h.split("/")[0]) ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-move="${esc(n.id)}" data-to="${esc(h)}">Move to ${esc(h.split("/").pop())}</button></span>` : ""}</div>`).join("") || emptyNext("Nothing looks misfiled.", "lens:triage")}`;
   }
 
   function lensProjects() {
-    const ctx = nodes.filter(n => !special(n) && / - Context$/.test(n.name)).sort((a, b) => b.recent - a.recent || b.mentions - a.mentions);
+    const ctx = nodes.filter(n => !special(n) && VGRules.isContextNote(n.name)).sort((a, b) => b.recent - a.recent || b.mentions - a.mentions);
     if (!ctx.length) return emptyNext(`No "… - Context" notes yet.`, "new:context");
     const state = n => n.recent > 0 ? ["Active", "is-ok"] : staleFor(n, Q.stale_days) ? ["Stale", "is-warn"] : ["Quiet", ""];
     return `<div class="vg-pb">${ctx.map(n => { const [s, cls] = state(n), m = inMoc(n.id);
       return `<div class="vg-pb-card" style="--c:${colorOf(n.cluster)}"><button class="vg-pb-main" data-id="${esc(n.id)}"><span class="vg-pb-top"><span class="vg-pb-state ${cls}">${s}</span><span class="vg-muted">${n.age}d since edit</span></span>
-        <b class="vg-pb-name">${esc(n.name.replace(/ - Context$/, ""))}</b><span class="vg-item-sub">${esc(clusterName(n.cluster))}</span>
+        <b class="vg-pb-name">${esc(VGRules.contextTopic(n.name))}</b><span class="vg-item-sub">${esc(clusterName(n.cluster))}</span>
         <span class="vg-pb-stats"><span><b>${n.recent}</b> last ${DATA.recent_days}d</span><span><b>${n.mentions}</b> mentions</span><span><b>${n.tasks}</b> open tasks</span><span><b>${nb[n.id].size}</b> links</span></span>
         ${m === false ? `<span class="vg-pb-flag">not in its map</span>` : ""}</button>
         <span class="vg-pb-acts">${opts.openNote ? `<button class="vg-btn vg-btn-sm" data-open="${esc(n.id)}">${icon("open", 12)} Open</button>` : ""}
@@ -6005,7 +6005,10 @@ function mountVaultGraph(root, DATA, opts) {
   // Code ↔ docs: git history (paths and dates only) against the files and components your notes name
   function lensCode() {
     const C = DATA.code; if (!C || !C.repos || !C.repos.length) return `<div class="vg-empty">No git repos found${C && C.roots && C.roots.length ? ` in ${esc(C.roots.join(" or "))}` : ""}.</div>`;
-    const short = p => p.replace(/^OdooERP\/my-app\/src\//, "").replace(/^OdooERP\//, "");
+    // paths shown without the folders every area shares (a lone repo's name, its src/)
+    const lead = (() => { const ps = (C.areas || []).map(a => a[0].split("/")); let k = 0;
+      while (ps.length > 1 && ps.every(p => p.length > k + 1 && p[k] === ps[0][k])) k++; return k ? ps[0].slice(0, k).join("/") + "/" : ""; })();
+    const short = p => (lead && p.startsWith(lead) ? p.slice(lead.length) : p);
     const docRow = (rel, sub) => { const n = byId[rel], name = rel.split("/").pop().replace(/\.md$/, "");
       return `<button class="vg-item" ${n ? `data-id="${esc(rel)}"` : opts.openNote ? `data-open="${esc(rel)}"` : ""}><span class="vg-dot" style="background:${n ? dotOf(rel) : "var(--vg-muted)"}"></span><span class="vg-item-main"><span>${esc(name)}</span><span class="vg-item-sub">${sub}</span></span></button>`; };
     const area = a => `<div class="vg-cd-area"><span class="vg-cd-path" title="${esc(a[0])}">${esc(short(a[0]))}</span><span class="vg-muted">${a[1]} commits · 90d · ${a[2]} · year · ${plural(a[4], "file")} · last ${shortDate(a[3])}</span></div>`;
@@ -6018,7 +6021,7 @@ function mountVaultGraph(root, DATA, opts) {
       ${undoc.slice(0, 20).map(area).join("") || `<div class="vg-empty">Every busy folder has at least one note.</div>`}
       ${hotFiles.length ? `<details class="vg-ft-more"><summary>Busiest files no note mentions <span class="vg-count">${hotFiles.length}</span></summary>${hotFiles.map(f => `<div class="vg-cd-area"><span class="vg-cd-path" title="${esc(f[0])}">${esc(short(f[0]))}</span><span class="vg-muted">${f[2]} commits · 90d · ${f[1]} · year · last ${shortDate(f[3])}</span></div>`).join("")}</details>` : ""}
       <div class="vg-list-h">Docs behind their code <span class="vg-count">${C.behind.length}</span></div>
-      <p class="vg-muted vg-lens-note">Commits to the files a note names, made after the note was last edited. Release notes, scopes of work and dated notes are left out: they describe the code as it was. Edit dates come from file timestamps, and the 2026-08-12 tag migration touched most notes, so older docs may be further behind than shown.</p>
+      <p class="vg-muted vg-lens-note">Commits to the files a note names, made after the note was last edited. Release notes, scopes of work and dated notes are left out: they describe the code as it was. Edit dates come from file timestamps: a bulk edit (a tag migration, say) makes older docs look current.</p>
       ${C.behind.slice(0, 30).map(b => `<div class="vg-cd-doc">${docRow(b[0], `last edited ${shortDate(b[1])} · ${plural(b[2], "commit")} since`)}
         <div class="vg-cd-files">${b[3].map(r => `<span title="${esc(r[0])}">${esc(r[0].split("/").slice(-2).join("/"))} <b>+${r[1]}</b></span>`).join("")}</div></div>`).join("") || `<div class="vg-empty">No doc is behind its code.</div>`}
       <details class="vg-ft-more"><summary>Busiest folders and the notes that cover them <span class="vg-count">${covered.length}</span></summary>${covered.map(a => `${area(a)}<div class="vg-cd-covers">${a[5].slice(0, 6).map(r => docRow(r, "")).join("")}${a[5].length > 6 ? `<span class="vg-muted">+${a[5].length - 6} more</span>` : ""}</div>`).join("")}</details>`;
