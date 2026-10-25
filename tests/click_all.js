@@ -96,7 +96,7 @@ function contexts() {
   pick("note", n => notes.includes(n) && !n.tasks);
   pick("map", n => n.moc); pick("unwritten note", n => n.ghost); pick("person", n => n.person);
   d.lenses().forEach(k => cs.push({ name: "lens " + k, view: "2d", lens: k }));
-  ["views", "lenses", "style", "health"].forEach(t => cs.push({ name: "picker " + t, view: "2d", picker: t }));
+  ["views", "scenes", "lenses", "style", "health"].forEach(t => cs.push({ name: "picker " + t, view: "2d", picker: t }));
   for (let f = 0; f < 6; f++) cs.push({ name: "palace floor " + f, view: "palace", floor: f });
   cs.push({ name: "missions panel", view: "2d", missions: true });
   if (root().matches(".vg-root") && drawerPane()) cs.push({ name: "side drawer", view: "2d", side: true });   // a narrow pane's side panels

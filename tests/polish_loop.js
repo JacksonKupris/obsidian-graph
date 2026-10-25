@@ -56,7 +56,7 @@ async function audit(mobile) {
   await tab.ev(`${D}.setView("2d")`); await sleep(800);
   for (const k of await tab.ev(`${D}.lenses()`)) { await tab.ev(`${D}.openLens(${JSON.stringify(k)})`); await sleep(400); await take("lens " + k); }
   await tab.ev("(() => { const c = document.querySelector('.vg-lens:not([hidden]) .vg-lens-close'); if (c) c.click(); })()");
-  for (const t of ["views", "lenses", "style", "health"]) {
+  for (const t of ["views", "scenes", "lenses", "style", "health"]) {
     await tab.ev(`(() => { const p = document.querySelector('.vg-picker'); if (p.hidden) document.querySelector('.vg-pickbtn').click(); const b = document.querySelector('.vg-picker-tab[data-tab="${t}"]'); if (b) b.click(); })()`);
     await sleep(300); await take("picker " + t); }
   await tab.ev("(() => { const x = document.querySelector('.vg-picker-x'); if (x) x.click(); })()");

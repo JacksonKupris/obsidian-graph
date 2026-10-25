@@ -1223,8 +1223,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
     await this.ioFrontMatter(file, fm => { fm.reviewed = today(); });
   }
 
-  // Cosmos bodies, missions, saved views and review skips live in a vault file so every device shares them.
-  // "Not for me" on a quest or mission: an open graph applies it (and refills); otherwise it goes into the shared
+  // Cosmos bodies, today's picks, XP, saved views and review skips live in a vault file so every device shares them.
+  // "Not for me" on a Today item: an open graph applies it (and refills today's three); otherwise it goes into the shared
   // game file, which the graph honours when it next opens. Either way it's hidden on every device.
   async hideGameItem(key) {
     const view = this.app.workspace.getLeavesOfType(VIEW_TYPE).map(l => l.view).find(v => v && v.handle && v.handle.hideGameItem);
@@ -1499,7 +1499,7 @@ function liveMerge(app, data, since) {
     const f = vault.getAbstractFileByPath(n.id);
     n.age = contentAge(app, n.id, 0);
   }
-  // Maps the analysis hasn't seen yet (Create map, or by hand) are maps at once -- missions, quests, City's town halls
+  // Maps the analysis hasn't seen yet (Create map, or by hand) are maps at once -- the Today list, City's town halls
   // and "no map" all see them. Same rules as the analysis (VGRules.isMapCandidate + claims, from vault_graph_rules.json),
   // so a map never shows here and then vanishes at the next refresh. Its topic is the cluster most of its links point
   // into, and only a topic with no map yet: one map per topic.

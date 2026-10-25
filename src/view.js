@@ -288,7 +288,7 @@ function mountVaultGraph(root, DATA, opts) {
           <button class="vg-ibtn vg-savebtn" title="Save this view (it appears under Saved, and as a constellation in Cosmos)">${icon("star")}<span class="vg-tlabel">Save view</span></button>
           <button class="vg-ibtn vg-timebtn vg-maptime" aria-pressed="false" title="Time-lapse: the vault as it was, month by month (T)">${icon("clock")}<span class="vg-tlabel">Time-lapse</span></button>
         </span>
-        <button class="vg-ibtn vg-gamebtn" aria-pressed="false" title="Missions and quests (G)" aria-label="Missions and quests">${icon("flag")}<span class="vg-tlabel">Missions</span></button>
+        <button class="vg-ibtn vg-gamebtn" aria-pressed="false" title="Today (G)" aria-label="Today">${icon("flag")}<span class="vg-tlabel">Today</span></button>
         <span class="vg-spacer"></span>
         <div class="vg-seg vg-depthseg vg-compact-only" role="group" aria-label="Local depth">
           <button class="vg-segbtn" data-depth="1" aria-pressed="true">1</button><button class="vg-segbtn" data-depth="2" aria-pressed="false">2</button>
@@ -3497,13 +3497,13 @@ function mountVaultGraph(root, DATA, opts) {
     { keys: ["Tab", "Shift Tab"], label: "Next or previous linked note", prevent: true, match: e => e.key === "Tab", when: () => st.selected, run: e => cycleNeighbour(e.shiftKey ? -1 : 1) },
     { keys: ["+", "−"], label: "Zoom in or out", match: e => "+=-_".includes(e.key) && e.key.length === 1, run: e => zoomBy("+=".includes(e.key) ? 1.25 : 0.8) },
     { keys: ["0"], label: "Fit everything on screen", run: () => fit(neural() ? n => !special(n) : null) },
-    { keys: ["M"], label: "Choose a view", run: () => openPicker("views") },
+    { keys: ["M"], label: "Choose a view", run: () => openPicker() },
     { keys: ["3"], label: "Switch 2D and 3D (in a 3D scene: flat, tilt, iso)", run: () => isoAngle() ? cycleAngle() : setView(st.view === "3d" ? "2d" : "3d") },
     { keys: ["N"], label: "Neural view", run: () => setView(neural() ? "3d" : "neural") },
     { keys: ["C"], label: "Cosmos view", run: () => setView(isCosmos() ? "2d" : "cosmos") },
     { keys: ["R"], label: "Replay how the vault grew", run: () => toggleReplay() },
     { keys: ["T"], label: "Time slider", run: () => toggleTimebar($(".vg-timebar").hidden) },
-    { keys: ["G"], label: "Missions", when: () => !opts.compact, run: () => setMissionsShown(!root.classList.contains("show-missions"), true) },
+    { keys: ["G"], label: "Today", when: () => !opts.compact, run: () => setMissionsShown(!root.classList.contains("show-missions"), true) },
     { keys: ["Space"], label: "Pause or play (Cosmos)", prevent: true, match: e => e.key === " ", when: () => isCosmos(), run: () => setPaused(!st.paused) },
     { keys: ["?"], label: "This list", match: e => e.key === "?", run: () => showKeys() },
   ];
@@ -4144,7 +4144,7 @@ function mountVaultGraph(root, DATA, opts) {
       if (p.fix) VGActions.render(r, [p.fix], n, c, { btn: "vg-btn vg-btn-sm" });
       rows.appendChild(r); });
   }
-  // "⋯" on a note's row in a lens or the missions panel: the same actions as the inspector, in a menu
+  // "⋯" on a note's row in a lens or the Today panel: the same actions as the inspector, in a menu
   const moreBtn = id => byId[id] && !byId[id].ghost && VGActions.forNote(byId[id], actionCtx()).length
     ? `<button class="vg-btn vg-btn-sm vg-more" data-more="${esc(id)}" title="All actions for this note" aria-label="All actions for ${esc(byId[id].name)}">⋯</button>` : "";
   // fixSlot(id, problem): where a lens row offers the fix for the problem the lens is about (VGActions.problems);
@@ -4477,7 +4477,7 @@ function mountVaultGraph(root, DATA, opts) {
   // as "stale") swallows matching notes into a review queue; a REPULSOR pushes a topic out of the way.
   // Automatic: comets (notes in recent dailies), wormholes (link suggestions), an asteroid belt (notes
   // to write) and a nebula (unlinked notes). Placing bodies only changes the view; anything that writes
-  // to a note asks, as everywhere else. Missions and achievements are computed from real vault changes.
+  // to a note asks, as everywhere else. XP and achievements come from real vault changes.
   const BODY = {
     star: { label: "Star", glyph: "☀", hint: "A note or MOC — linked notes orbit it by link distance", mass: 1 },
     planet: { label: "Planet", glyph: "◍", hint: "A search — tag:, folder:, cluster:, moc: or words — matching notes become moons", mass: 0.5 },
@@ -5064,7 +5064,7 @@ function mountVaultGraph(root, DATA, opts) {
     cos.bodies.push({ id: "bh" + Date.now().toString(36), type: "blackhole", x: -40, y: -470, target: "stale", name: "" });
   }
 
-  // ---- game layer: missions and achievements, all measured from the vault itself
+  // ---- game layer: XP, ranks, streak and achievements over the Today list, all measured from the vault itself
   const RANKS = [[0, "Cadet"], [50, "Navigator"], [150, "Cartographer"], [300, "Astronomer"], [600, "Architect"]];
   const rankOfXp = xp => RANKS.filter(r => xp >= r[0]).pop()[1];
   const ACH = [
@@ -5304,7 +5304,7 @@ function mountVaultGraph(root, DATA, opts) {
       if (k === "draftmap") return opts.writeNote && clusterById[arg] ? `<button class="vg-btn vg-btn-sm" data-draftmap="${arg}">${icon("plus", 12)} Draft a map for ${esc(shortName(+arg))}</button>` : "";
       if (k === "daily") return opts.openDaily ? `<button class="vg-btn vg-btn-sm" data-next="daily">${icon("open", 12)} Today's daily note</button>` : "";
       if (k === "new") return opts.writeNote && NEW_KINDS[arg] ? `<button class="vg-btn vg-btn-sm" data-next="${s}">${icon("plus", 12)} ${NEW_KINDS[arg].label}</button>` : "";
-      return `<button class="vg-btn vg-btn-sm" data-next="search">${icon("search", 12)} Search notes</button>`; };
+      return `<button class="vg-btn vg-btn-sm" data-next="${k === "search" ? esc(s) : "search"}">${icon("search", 12)} Search notes</button>`; };   // "search:<words>" opens on them
     const bs = steps.map(btn).filter(Boolean);
     if (!bs.length) bs.push(btn("search"));
     return `<div class="vg-empty">${text}</div><div class="vg-ins-actions vg-empty-next">${bs.join("")}</div>`;
@@ -5321,7 +5321,7 @@ function mountVaultGraph(root, DATA, opts) {
     context: { label: "New project context", ask: "Project name", folder: () => FOLDERS.inbox, suffix: " - Context", tag: "meta/context", extra: "" },
   };
   async function runNext(step) {
-    if (step === "search") { closeLens(); openPalette(); return; }
+    if (step.startsWith("search")) { closeLens(); closeMenu(); openPalette(step.includes(":") ? { query: step.slice(7) } : undefined); return; }
     if (step === "daily") { opts.openDaily(); return; }
     const K = NEW_KINDS[step.split(":")[1]]; if (!K) return;
     const name = await confirmBox(K.label, `A note in ${esc(K.folder())}.`, "Create", K.ask);
@@ -6106,9 +6106,9 @@ function mountVaultGraph(root, DATA, opts) {
     if (palMode && palMode.pick) palMode.pick(null);   // a pick still waiting: it was abandoned
     palMode = mode && (mode.pathFrom || mode.pickFor || mode.linkFrom || mode.pick) ? mode : null;
     const p = $(".vg-palette"); p.hidden = false;
-    const input = $(".vg-pq"); input.value = "";
+    const input = $(".vg-pq"); input.value = (mode && mode.query) || "";
     input.placeholder = palMode && palMode.pick ? palMode.placeholder || "Choose a note…" : palMode && palMode.linkFrom ? `Link “${byId[palMode.linkFrom].name}” from which note?` : palMode && palMode.pickFor ? "Which note or MOC is this star?" : palMode ? `Path from “${byId[palMode.pathFrom].name}” to…` : "Search notes and clusters…";
-    renderPalette(""); input.focus();
+    renderPalette(input.value); input.focus();
   }
   function closePalette() {
     if (palMode && palMode.pick) { const r = palMode.pick; palMode = null; r(null); }   // closed without choosing
@@ -6274,10 +6274,12 @@ function mountVaultGraph(root, DATA, opts) {
   // ---------------------------------------------------------------- the Views picker: graphs, maps, lenses and styles in one place
   // One button, one panel (a popover under the button on wide panes, a bottom sheet on phones): tabs, big tiles, a filter
   const GRAPH_INFO = { "2d": ["hub", "2D", "Force layout: topics, influence and gaps"], "3d": ["layers", "3D", "The same graph in depth; drag to turn it"],
-    neural: ["brain", "Neural", "Topics as brain lobes, links firing between them"], cosmos: ["orbit", "Cosmos", "Maps become stars; place planets and fly missions"] };
-  // network graphs and scenes share one tab; Display = style presets + node size/colour, layers, saved views (was the
-  // sidebar's View tab); Health = the overlays (was the sidebar's Health tab)
-  const PICK_TABS = [["views", "Views"], ["lenses", "Lenses"], ["style", "Display"], ["health", "Health"]];
+    neural: ["brain", "Neural", "Topics as brain lobes, links firing between them"], cosmos: ["orbit", "Cosmos", "Maps become stars; place planets and fly between them"] };
+  // Map = the graph itself (2D, 3D), the main way in; Scenes = the gallery of picture views (neural, cosmos, the maps,
+  // the analysis pictures, the playful ones, your own scene blocks); Display = style presets + node size/colour,
+  // layers, saved views; Health = the overlays
+  const PICK_TABS = [["views", "Map"], ["scenes", "Scenes"], ["lenses", "Lenses"], ["style", "Display"], ["health", "Health"]];
+  const CORE_VIEWS = new Set(["2d", "3d"]);
   const PANEL_TABS = new Set(["style", "health"]);
   const PICK_TOOLS = [["vg-lassobtn", "lasso", "Lasso"], ["vg-replaybtn", "play", "Replay"], ["vg-savebtn", "star", "Save view"], ["vg-timebtn", "clock", "Time-lapse"],
     ["randomize", "sparkles", "Randomize layout"], ["resetlayout", "refresh", "Reset layout"]];
@@ -6299,17 +6301,17 @@ function mountVaultGraph(root, DATA, opts) {
   let pickTab = null;
   function pickItems() {
     const out = [];
-    Object.entries(GRAPH_INFO).forEach(([k, [ic, name, hint]]) => { if (!(opts.compact && k === "cosmos")) out.push({ tab: "views", k, ic, name, hint, on: st.view === k, run: () => setView(k) }); });
-    Object.entries(MAPS).forEach(([k, name]) => out.push({ tab: "views", k, ic: MAP_INFO[k][0], name, hint: MAP_INFO[k][1], on: st.view === k, run: () => setView(k) }));
+    Object.entries(GRAPH_INFO).forEach(([k, [ic, name, hint]]) => { if (!(opts.compact && k === "cosmos")) out.push({ tab: CORE_VIEWS.has(k) ? "views" : "scenes", k, ic, name, hint, on: st.view === k, run: () => setView(k) }); });
+    Object.entries(MAPS).forEach(([k, name]) => out.push({ tab: "scenes", k, ic: MAP_INFO[k][0], name, hint: MAP_INFO[k][1], on: st.view === k, run: () => setView(k) }));
     if (!opts.compact) Object.entries(LENSES).forEach(([k, l]) => out.push({ tab: "lenses", k, ic: "grid", name: l.name, hint: l.hint, on: lensKey === k, run: () => openLens(k) }));
     Object.entries(PRESETS).forEach(([k, p]) => out.push({ tab: "style", k, ic: "sparkles", name: p.name, hint: p.hint, on: st.preset === k, run: () => applyPreset(k) }));
     out.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));   // A–Z within every tab
-    if (opts.writeNote && !opts.compact) out.push({ tab: "views", k: "newscene", ic: "plus", name: "New scene", hint: "Your own view, written in a note", on: false, run: () => newScene() });
+    if (opts.writeNote && !opts.compact) out.push({ tab: "scenes", k: "newscene", ic: "plus", name: "New scene", hint: "Your own view, written in a note", on: false, run: () => newScene() });
     return out;
   }
-  // The views tab in groups (a view not named here lands in "More"); Recent first when there's history
+  // The Scenes gallery in groups (a scene not named here lands in "More"); Recent first when there's history
   const VIEW_GROUPS = [
-    ["Graph", ["2d", "3d", "neural", "cosmos"]],
+    ["Space", ["neural", "cosmos"]],
     ["Maps", ["subway", "topo", "city", "garden", "palace", "weather", "ships", "rings", "sky", "realm"]],
     ["Analysis", ["foodweb", "alchemy", "lineage", "ripples", "clock", "radar", "elements"]],
     ["Playful", ["zombie", "sand"]],
@@ -6334,15 +6336,16 @@ function mountVaultGraph(root, DATA, opts) {
     const hit = i => (i.name + " " + i.hint).toLowerCase().includes(q);
     $$(".vg-ppanel").forEach(x => x.hidden = !!q || x.dataset.ppanel !== pickTab);
     $(".vg-picker-tiles").innerHTML = q
-      ? tabs.map(([t, name]) => { const xs = items.filter(i => i.tab === t && hit(i)); return xs.length ? `<div class="vg-list-h">${name}</div><div class="vg-tiles">${xs.map(tile).join("")}</div>` : ""; }).join("") || `<div class="vg-empty">No view matches “${esc(q)}”.</div>`
-      : pickTab === "views" ? viewGroups(items.filter(i => i.tab === "views")).map(([name, xs]) => `<div class="vg-list-h">${name}</div><div class="vg-tiles">${xs.map(tile).join("")}</div>`).join("")
+      ? tabs.map(([t, name]) => { const xs = items.filter(i => i.tab === t && hit(i)); return xs.length ? `<div class="vg-list-h">${name}</div><div class="vg-tiles">${xs.map(tile).join("")}</div>` : ""; }).join("") || emptyNext(`No view matches “${esc(q)}”.`, "search:" + q)
+      : pickTab === "scenes" ? viewGroups(items.filter(i => i.tab === "scenes")).map(([name, xs]) => `<div class="vg-list-h">${name}</div><div class="vg-tiles">${xs.map(tile).join("")}</div>`).join("")
       : items.some(i => i.tab === pickTab) ? `${pickTab === "style" ? `<div class="vg-list-h">Styles</div>` : ""}<div class="vg-tiles">${items.filter(i => i.tab === pickTab).map(tile).join("")}</div>` : "";
     $$(".vg-picker-tab").forEach(b => b.onclick = () => { pickTab = b.dataset.tab; $(".vg-picker-q").value = ""; renderPicker(); });
+    wireNext($(".vg-picker-tiles"));
     $$(".vg-picker-body .vg-tile").forEach(b => b.onclick = () => { const it = items.find(i => i.tab === b.dataset.tab && i.k === b.dataset.k); pickTab = it.tab; closeMenu(); it.run(); });
   }
   function openPicker(tab) {
     const p = $(".vg-picker"), b = $(".vg-pickbtn");
-    pickTab = tab || (lensKey ? "lenses" : "views");
+    pickTab = tab || (lensKey ? "lenses" : CORE_VIEWS.has(st.view) ? "views" : "scenes");
     $(".vg-picker-q").value = ""; renderPicker();
     $(".vg-picker-tools").innerHTML = tools().map(([c, ic, name]) => `<button class="vg-btn" data-tool="${c}">${icon(ic, 14)} ${name}</button>`).join("");
     $$(".vg-picker-tools [data-tool]").forEach(x => x.onclick = () => { closeMenu(); runTool(x.dataset.tool); });
@@ -6615,7 +6618,7 @@ function mountVaultGraph(root, DATA, opts) {
   else if (isCosmos()) { if (!cos.bodies.length) seedCosmos(); cosmosCapture(); alpha = 0.6; }
   else if (restored) alpha = 0.05;   // known layout: settle gently instead of re-exploding
   else for (let i = 0; i < 120 && alpha > 0.005; i++) tick();   // pre-settle so the first frame isn't a hairball
-  // Missions and quests take ~85 ms to work out: do it once the graph is on screen, not during the opening zoom
+  // Today's picks and achievements take ~85 ms to work out: do it once the graph is on screen, not during the opening zoom
   let gameTimer = 0;
   function updateGameSoon() {
     if (opts.compact || gameTimer) return;
@@ -6647,7 +6650,7 @@ function mountVaultGraph(root, DATA, opts) {
       dirty = true; kick();
     },
     record(text) { logDiscovery(text); },
-    hideGameItem,   // the sidebar's "Not for me" on a quest or mission   // actions taken elsewhere (sidebar) count toward XP and quests
+    hideGameItem,   // the sidebar's "Not for me" on a Today item   // actions taken elsewhere (sidebar) count toward XP and quests
     // in-note embeds: show only some clusters (a MOC's topics), or switch view
     showClusters(ids) {
       st.hiddenClusters = new Set([-1, ...DATA.clusters.map(c => c.id).filter(c => !ids.includes(c))]);
