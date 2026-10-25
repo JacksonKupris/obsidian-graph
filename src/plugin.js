@@ -306,7 +306,7 @@ class VaultGraphSuggestView extends ItemView {
       m.open();
     });
   }
-  safeName(s) { return String(s).replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 120); }
+  safeName(s) { return VGRules.safeName(s); }
   // The context the shared note actions (vault_graph_actions.js) run in here: the same buttons, confirmations and
   // results as the graph's inspector. Each write publishes the new state, which redraws this sidebar too.
   actionCtx(data) {
@@ -494,7 +494,7 @@ class VaultGraphSuggestView extends ItemView {
   }
 }
 // local date, not UTC: in Central time the UTC date rolls over at 7 PM, which dated notes and quests a day early
-const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+const { today, localDay } = VGRules;   // the shared date rules (this device's calendar day)
 // Every plugin method that writes to the vault. onload wraps each so it announces the change when done (every open
 // surface redraws); viewActions hands the same methods to every graph surface. A new write action goes in this list.
 const WRITE_ACTIONS = ["linkNotes", "writeNote", "appendSection", "moveNote", "setTaskStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
@@ -510,7 +510,6 @@ const STATE_WRITERS = ["saveContentSoon", "writeShared", "recordLedger", "writeL
 // "- [ ] text" -> [prefix "- [", mark, "] ", text]; the mark is " " open, "x" done, "-" cancelled
 const TASK_LINE = /^(\s*(?:[-*+]|\d+[.)]) \[)(.)(\] )(.*)$/;   // - [ ] x, and numbered: 1. [ ] x (Obsidian counts both)
 const NOTE_STATUS = { x: "status/done", "-": "status/cancelled" };
-const localDay = d => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);   // a Date's local calendar day
 // An action's result as a notice; with an Undo button (and longer on screen) when the action can be undone
 function undoNotice(msg, undo) {
   if (!undo) { new Notice(msg); return; }
@@ -665,6 +664,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // surface before returning, so the caller (a button) and everything else see the same, current state
   // The outermost action opens an undo entry; actions it calls (addToMap -> appendSection) add to it. Two actions
   // running at the same moment share one entry, so undoing it undoes both.
+  pythonCmd() { return this.settings.python || (process.platform === "win32" ? "python" : "python3"); }   // the setting, else the platform's
+
   wrapWriteActions() {
     this.undoLog = []; this.undoSeq = 0;
     // every vault write counts, so an action that wrote nothing (a preview, a check) neither waits for the index nor redraws
@@ -850,7 +851,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     this.refreshing = true;
     this.updateStatus();
     const { execFile } = require("child_process");
-    const python = this.settings.python || (process.platform === "win32" ? "python" : "python3");
+    const python = this.pythonCmd();
     if (!quiet) new Notice("Vault Graph: analysing the vault…");
     execFile(python, [this.settings.script], { cwd: this.app.vault.adapter.getBasePath(), timeout: 300000 },
       (err, stdout, stderr) => {
@@ -1011,7 +1012,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     if (!(file instanceof TFile)) { new Notice(`Not found: ${notePath}`); throw new Error("missing note"); }
     // Never add a link the note already has: by resolved path, or by a same-name copy (wikilinks resolve by name)
     const cache = this.app.metadataCache, have = cache.resolvedLinks[file.path] || {};
-    const stem = p => p.split("/").pop().replace(/\.md$/i, "").toLowerCase();
+    const stem = VGRules.stem;
     const haveNames = new Set(Object.keys(have).map(stem));
     const linked = line => {
       const m = line.match(/\[\[([^\]|#]+)/);
@@ -1138,7 +1139,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const data = await this.graphData(), c = data && data.clusters.find(k => k.id === clusterId);
     if (!c) throw new Error("that topic is gone");
     const members = data.nodes.filter(x => x.cluster === clusterId && !x.person && !x.moc && !x.ghost).sort((x, y) => (y.bc || 0) - (x.bc || 0));
-    const name = c.label || c.name, path = `${VGRules.folders.inbox}/${String(name).replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 120)} Hub.md`;
+    const name = c.label || c.name, path = `${VGRules.folders.inbox}/${VGRules.safeName(name)} Hub.md`;
     return this.writeNote(path, `---\ncreated: ${today()}\ntags:\n  - meta/hub\n---\n# ${name} Hub\n\nTopic cluster C${c.id} as of ${today()} (${members.length} notes).\n\n` +
       `${MARKER} — edit above this line; everything below is regenerated %%\n\n## All notes\n${members.map(x => `- ${this.linkText(x.id, path)}`).join("\n")}\n`, { mode: "create", open: true });
   }
@@ -1219,10 +1220,10 @@ module.exports = class VaultGraphPlugin extends Plugin {
       console.error = oe; window.removeEventListener("error", onErr); window.removeEventListener("unhandledrejection", onErr);
       if (handle) handle.destroy(); host.remove();
     }
-    this.settings.lastSelfTest = { sig: await this.buildSig(), date: today10(), errors: errors.length }; await this.saveSettings();
+    this.settings.lastSelfTest = { sig: await this.buildSig(), date: today(), errors: errors.length }; await this.saveSettings();
     if (auto && !errors.length) return;   // quiet when all is well
-    const now0 = new Date(), stamp = `${today10()} ${String(now0.getHours()).padStart(2, "0")}${String(now0.getMinutes()).padStart(2, "0")}`;
-    const md = ["---", `created: ${today10()}`, "type: report", "tags:", "  - meta/cleanup", "---", "",
+    const now0 = new Date(), stamp = `${today()} ${String(now0.getHours()).padStart(2, "0")}${String(now0.getMinutes()).padStart(2, "0")}`;
+    const md = ["---", `created: ${today()}`, "type: report", "tags:", "  - meta/cleanup", "---", "",
       `# Vault Graph self-test ${stamp}`, "", auto ? "_Ran by itself after a plugin update._" : "", "",
       errors.length ? `**${errors.length} error(s)**: ${errors.slice(0, 5).map(e => "`" + e.slice(0, 160).replace(/`/g, "'") + "`").join(" · ")}` : "**No errors.**", "",
       "| View | Result | Switch | Frame | Notes drawn | Today strip |", "|---|---|---|---|---|---|", ...rows, "", "| Lens | Result | Size | Empty message |", "|---|---|---|---|", ...lensRows, ""].join("\n");
@@ -1238,7 +1239,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const notes = this.app.vault.getMarkdownFiles().filter(f => f.path.startsWith(`${VGRules.folders.reports}/State of the Vault `)).sort((a, b) => b.path.localeCompare(a.path));
     if (!notes.length) { new Notice("No State of the vault note yet: run the analysis with --state (the Friday gardener does)"); return; }
     const leaf = await this.open(), v = leaf.view; await sleep(1200); if (!v.handle) return;
-    const was = v.handle._debug.st.view, day = today10(), lines = [];
+    const was = v.handle._debug.st.view, day = today(), lines = [];
     for (const w of ["weather", "radar", "foodweb"]) {
       v.handle.setView(w); await sleep(3200);
       const name = `attachments/state-${day}-${w}.png`;
@@ -1252,7 +1253,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   async noteContent(file) {
     const h = fingerprint(await this.app.vault.cachedRead(file)), e = CONTENT.log[file.path];
     if (e && e.h === h) return;
-    CONTENT.log[file.path] = { h, since: today10() };
+    CONTENT.log[file.path] = { h, since: today() };
     this.saveContentSoon();
   }
   // The content log on disk (the analysis rewrites it each run; Sync brings another device's) merged into this one:
@@ -1399,7 +1400,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     return this.mocReportFile().then(file => new Promise((resolve, reject) => {
       if (!file) return reject(new Error("no report"));
       const { execFile } = require("child_process");
-      const python = this.settings.python || (process.platform === "win32" ? "python" : "python3");
+      const python = this.pythonCmd();
       execFile(python, [this.settings.script.replace("vault_graph.py", "moc_align.py"), "--apply", file.path], { cwd: this.app.vault.adapter.getBasePath(), timeout: 300000 },
         (err, stdout, stderr) => { if (err) { new Notice(`MOC apply failed: ${(stderr || err.message).slice(0, 300)}`, 10000); reject(err); } else { new Notice("MOC alignment applied:\n" + stdout.slice(0, 400), 8000); resolve(stdout); } });
     }));
@@ -1455,8 +1456,7 @@ function fingerprint(text) {
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
   return h.toString(16).padStart(8, "0");
 }
-const today10 = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
-const daysSince = iso => Math.max(0, Math.round((Date.parse(today10() + "T12:00") - Date.parse(iso + "T12:00")) / 864e5));
+const daysSince = iso => Math.max(0, Math.round((Date.parse(today() + "T12:00") - Date.parse(iso + "T12:00")) / 864e5));
 // age = days since the content changed, or since it was last confirmed current ("Still current" stamps `reviewed:`)
 function contentAge(app, path, fallback) {
   const e = CONTENT.log[path], f = app.vault.getAbstractFileByPath(path);
@@ -1507,7 +1507,7 @@ function liveMerge(app, data, since) {
     byId.set(n.id, n); added.push(n);
   }
   const isNote = id => byId.has(id) && !byId.get(id).person && !byId.get(id).moc;
-  const key = (a, b) => (a < b ? a + "|" + b : b + "|" + a);
+  const key = VGRules.pairKey;
   const old = new Set(data.links.filter(l => l.kind === "link").map(l => key(l.source, l.target)));
   const now = new Map(), inl = new Map(), outl = new Map();
   for (const [src, targets] of Object.entries(resolved)) {
@@ -1586,7 +1586,7 @@ function liveMerge(app, data, since) {
   data.nodes = [...byId.values()];
   // Maps: members = the analysis's members (links + Dataview) plus whatever the map links to now, so a note
   // added to a map since the run stops being suggested for it. Same-name copies count as members too.
-  const stem = id => id.split("/").pop().replace(/\.md$/i, "").toLowerCase();
+  const stem = VGRules.stem;
   let mapAdds = 0;
   for (const m of data.mocs || []) {
     const members = new Set(m.members || []);
@@ -1618,8 +1618,7 @@ function addRelatedLine(text, line) {
     if (lines[at + 1] !== undefined && lines[at + 1].trim() !== "" && !lines[at + 1].startsWith("- ")) lines.splice(at + 1, 0, "");
     return lines.join(nl);
   }
-  const today = today10();   // local date (see today() above)
-  const section = [`## Related (added ${today})`, "", line, ""];
+  const section = [`## Related (added ${today()})`, "", line, ""];
   const footer = lines.findIndex((l, i) => l === "---" && (lines[i + 1] || "").trim() === "" && (lines[i + 2] || "").startsWith("**Related Standups**"));
   if (footer >= 0) { lines.splice(footer, 0, ...section); return lines.join(nl); }
   while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();

@@ -56,9 +56,7 @@ function mountVaultGraph(root, DATA, opts) {
   const clusterTag = c => clusterById[c] ? `C${c} · ${clusterName(c)}` : "unclustered";
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
   // local date, not UTC: in Central time the UTC date rolls over at 7 PM, which dated notes and quests a day early
-  const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
-  const localDay = d => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);   // a Date's local calendar day
-  const safeName = s => String(s).replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 120);
+  const { today, localDay, safeName } = VGRules;   // the shared date and file-name rules
   const ICON = {
     menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',

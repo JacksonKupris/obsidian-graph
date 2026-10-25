@@ -19,6 +19,12 @@ const VGRules = ((R) => {
   const isRecord = n => (n.tags || []).some(t => RECORD_TAG.test(t)) || RECORD_PATH.test(n.id) || DATED.test(n.name || "");
   const isStale = (n, days = R.stale_days) => !!n && !isRecord(n) && n.age > days;
 
+  // this device's calendar day (not UTC's): what "today" and every dated heading or stamp mean
+  const localDay = d => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+  const today = () => localDay(new Date());
+  // a title as a file name: nothing a path or a wikilink can't hold, at most 120 characters
+  const safeName = s => String(s).replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 120);
+
   // Notes match by name, lower-cased: wikilinks resolve by basename, so a same-name copy is the same note
   const stemCase = id => String(id || "").split("/").pop().replace(/\.md$/i, "");
   const stem = id => stemCase(id).toLowerCase();
@@ -501,6 +507,6 @@ const VGRules = ((R) => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
-  return { RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord,isStale, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+  return { RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, questDone, missionValid, missionProgress, missionDone, missionOpen, graph };
 })(__RULES_JSON__);
