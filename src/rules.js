@@ -46,7 +46,7 @@ const VGRules = ((R) => {
   const HUB_NAME = new RegExp(R.hub_name, "i"), NOT_MAP_NAME = new RegExp(R.not_map_name, "i"), NOT_MAP_TOPS = new Set(R.not_map_tops);
   function isMapCandidate(id, frontmatter) {
     const fm = frontmatter || {}, name = stemCase(id);
-    if (!id.includes("/") || NOT_MAP_TOPS.has(id.split("/")[0]) || id.includes("/10-Archive/") || NOT_MAP_NAME.test(name)) return false;
+    if (!id.includes("/") || NOT_MAP_TOPS.has(id.split("/")[0]) || id.includes("/" + R.folders.archive + "/") || NOT_MAP_NAME.test(name)) return false;
     const tags = [].concat(fm.tags || []).map(t => String(t).replace(/^#/, ""));
     return tags.includes("meta/moc") || String(fm.type || "").toLowerCase() === "moc" || HUB_NAME.test(name);
   }
@@ -122,10 +122,12 @@ const VGRules = ((R) => {
     return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
   }
   function recallChunks(text) {
-    const body = String(text).replace(/\r\n/g, "\n").replace(/^---\n[\s\S]*?\n---\n/, ""), out = [];
-    let heading = "", buf = [], start = 1, code = null, lang = "", cstart = 0, cbuf = [];
+    // line numbers count from the top of the file, frontmatter included (the line Obsidian opens at)
+    const all = String(text).replace(/\r\n/g, "\n"), fm = all.match(/^---\n[\s\S]*?\n---\n/), skip = fm ? fm[0].split("\n").length - 1 : 0;
+    const body = fm ? all.slice(fm[0].length) : all, out = [];
+    let heading = "", buf = [], start = 1 + skip, code = null, lang = "", cstart = 0, cbuf = [];
     body.split("\n").forEach((line, k) => {
-      const i = k + 1, f = line.match(/^(```+|~~~+)\s*([\w+\-#.]*)/);
+      const i = k + 1 + skip, f = line.match(/^(```+|~~~+)\s*([\w+\-#.]*)/);
       if (code !== null) { if (f && line.trim().startsWith(code.slice(0, 3))) { out.push(["code", heading, cstart, cbuf.join("\n"), lang]); code = null; } else cbuf.push(line); return; }
       if (f) { code = f[1]; lang = f[2].toLowerCase(); cstart = i; cbuf = []; return; }
       const h = line.match(/^(#{1,6})\s+(.*)/);

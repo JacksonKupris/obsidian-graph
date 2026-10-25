@@ -251,7 +251,7 @@ def report() -> str:
         L.append("")
 
     # 6. bridges for the top gaps
-    L += ["## Bridge notes for the biggest gaps", "", "_Drafts a note in `00-Inbox/` with `type: bridge` and `bridges:` pointing at both MOCs; "
+    L += ["## Bridge notes for the biggest gaps", "", f"_Drafts a note in `{vl.FOLDERS['inbox']}/` with `type: bridge` and `bridges:` pointing at both MOCs; "
           "the graph puts bridge notes in the Neural core. File it once it's written._", ""]
     for gp in a["gaps"][:5]:
         i, j = gp["ids"]
@@ -443,7 +443,7 @@ def apply(report_path: str) -> int:
                 done.append(f"skipped bridge {act['name_a']} ↔ itself")
                 continue
             name = f"Bridge — {act['name_a']} ↔ {act['name_b']}"
-            p = vl.VAULT / "00-Inbox" / (re.sub(r'[\\/:*?"<>|#^\[\]]', "", name) + ".md")
+            p = vl.VAULT / vl.FOLDERS["inbox"] / (re.sub(r'[\\/:*?"<>|#^\[\]]', "", name) + ".md")
             if p.exists():
                 done.append(f"skipped {vl.rel(p)} (exists)")
                 continue

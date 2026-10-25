@@ -37,7 +37,7 @@ def is_record(n: dict) -> bool:
 
 def is_map_candidate(r: str, tags: set, doc_type: str = "") -> bool:
     """Could this note be a topic map? Same rule as VGRules.isMapCandidate."""
-    if "/" not in r or r.split("/")[0] in NOT_MAP_TOPS or "/10-Archive/" in r or NOT_MAP_NAME_RE.search(Path(r).stem):
+    if "/" not in r or r.split("/")[0] in NOT_MAP_TOPS or f"/{FOLDERS['archive']}/" in r or NOT_MAP_NAME_RE.search(Path(r).stem):
         return False
     return "meta/moc" in tags or str(doc_type).lower() == "moc" or bool(HUB_NAME_RE.search(Path(r).stem))
 

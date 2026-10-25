@@ -48,7 +48,7 @@ function dir() {
 
 // the vault's notes as the plugin's search reads them (VGRules.recallChunks), for tests that search
 function notes() {
-  const VGRules = new Function(`${fs.readFileSync(path.join(ROOT, "src", "rules.js"), "utf8").replace("__RULES_JSON__", JSON.stringify(rules))}; return VGRules;`)();
+  const VGRules = new Function(`${build.rulesSource(rules)}; return VGRules;`)();
   const dir = module.exports.dir(), list = [];
   const skip = new Set([".obsidian", ".trash", ".git", ".cache", "node_modules", rules.folders.templates]);
   const walk = d => fs.readdirSync(d, { withFileTypes: true }).forEach(e => {

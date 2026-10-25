@@ -8,7 +8,7 @@ const fs = require("fs"), path = require("path"), { execFileSync } = require("ch
 const env = require("./env"), S = path.join(env.ROOT, "src");
 const PY = process.platform === "win32" ? "python" : "python3";   // Linux has no plain "python"
 const R = env.rules;
-const VGRules = new Function(`${fs.readFileSync(path.join(S, "rules.js"), "utf8").replace("__RULES_JSON__", JSON.stringify(R))}; return VGRules;`)();
+const VGRules = new Function(`${require("../build").rulesSource(R)}; return VGRules;`)();
 const fails = [];
 const check = (name, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) fails.push(`${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`); };
 
@@ -22,6 +22,13 @@ check("dated name is a record", VGRules.isStale({ ...old, name: "Fix 2026-01-02"
 check("release notes folder", VGRules.isStale({ ...old, id: "03-Resources/Release-Notes/x.md" }), false);
 check("young note", VGRules.isStale({ ...old, age: 3 }), false);
 check("custom days", VGRules.isStale({ ...old, age: 40 }, 30), true);
+// a map candidate: a tagged map in a topic folder, never in the archive (the rules file's folder, at any depth)
+const moc = { tags: ["meta/moc"] }, A = R.folders.archive;
+check("a tagged map is a map", VGRules.isMapCandidate("02-Systems/Kiosk/Kiosk.md", moc), true);
+check("an archived map isn't", VGRules.isMapCandidate(`${A}/Kiosk/Old Kiosk.md`, moc), false);
+{ const r = { ...R, not_map_name: R.not_map_name + "|x$&y$'z" };   // the build puts rule data in as written, "$" and all
+  check("a rule pattern with $ survives the build", new Function(`${require("../build").rulesSource(r)}; return VGRules;`)().RULES.not_map_name, r.not_map_name); }
+check("a map archived inside a folder isn't",VGRules.isMapCandidate(`02-Systems/Kiosk/${A}/Old Kiosk.md`, moc), false);
 
 const map = { id: "M.md", title: "M", nav: false, clusters: [1], members: ["x/Alpha.md"], missing: {} };
 check("on map by path", VGRules.onMap(map, "x/Alpha.md"), true);
@@ -118,6 +125,8 @@ for (const f of ["view.js", "plugin.js"]) {
   check("archived notes aren't archived again", VGActions.forNote({ ...note, id: "05-Archive/x/Plan.md" }, ctx).some(a => a.key === "archive"), false);
   check("archive keeps the folder", VGActions.archiveFolder("02-Projects/x/Plan.md"), "05-Archive/02-Projects/x");
   check("root note archives to 05-Archive", VGActions.archiveFolder("Plan.md"), "05-Archive");
+  // search: a chunk's line is the file's line, frontmatter included (where Obsidian opens the note)
+  check("search: chunk lines count the frontmatter", VGRules.recallChunks("---\ntags:\n  - a\n---\nIntro text that is long enough to be a chunk.\n## Part\nBody text under the heading, long enough to count.\n").map(c => c[2]), [5, 6]);
   // search: a misspelled word's correction counts only for that word, so the chunk with both words wins
   {
     const mk = (path, text) => ({ path, date: "", chunks: VGRules.recallChunks(text) });
