@@ -148,5 +148,118 @@ const VGEngine = (() => {
     return Object.fromEntries(nodes.map(v => [v, bc[v] * scale]));
   }
 
-  return { pyCmp, pyRandom, louvain, absorbSmall, betweenness };
+  // ---- sums: math.fsum (Shewchuk's exact partials, then one correctly rounded result), and dot products with it.
+  // Python's math.sumprod gives this same correctly rounded sum for float32 vectors (checked on 20,000 pairs of this
+  // vault's embeddings), so meaning scores match to the last bit.
+  function fsum(xs) {
+    const partials = [];
+    for (let x of xs) {
+      let i = 0;
+      for (let y of partials) {
+        if (Math.abs(x) < Math.abs(y)) [x, y] = [y, x];
+        const hi = x + y, lo = y - (hi - x);
+        if (lo) partials[i++] = lo;
+        x = hi;
+      }
+      partials.length = i; partials.push(x);
+    }
+    let n = partials.length, hi = 0, lo = 0;
+    if (n > 0) {
+      hi = partials[--n];
+      while (n > 0) { const x = hi, y = partials[--n]; hi = x + y; const yr = hi - x; lo = y - yr; if (lo !== 0) break; }
+      if (n > 0 && ((lo < 0 && partials[n - 1] < 0) || (lo > 0 && partials[n - 1] > 0))) { const y = lo * 2, x = hi + y, yr = x - hi; if (y === yr) hi = x; }
+    }
+    return hi;
+  }
+  const dot = (a, b) => { const p = new Array(a.length); for (let i = 0; i < a.length; i++) p[i] = a[i] * b[i]; return fsum(p); };
+
+  // ---- note names (vault_gaps._name, _series_key): Python's \d is any Unicode digit, so \p{Nd} here
+  const stemOf = r => { const base = String(r).split("/").pop(), i = base.lastIndexOf("."); return i > 0 ? base.slice(0, i) : base; };
+  const DATED = /\p{Nd}{4}-\p{Nd}{2}(-\p{Nd}{2})?/u, DATED_G = /\p{Nd}{4}-\p{Nd}{2}(-\p{Nd}{2})?/gu, SERIES_G = /[\p{Nd}\s_\-–—()]+/gu;
+  // the series a dated note belongs to: "Transaction Updates 2026-05-05" -> "transaction updates"; "" when undated
+  const seriesKey = r => { const name = stemOf(r); return DATED.test(name) ? name.replace(DATED_G, " ").replace(SERIES_G, " ").trim().toLowerCase() : ""; };
+
+  // ---- embeddings (vault_gaps.load_embeddings): the Smart Connections plugin's index, if it has one.
+  // *.ajson files are append-only logs of `"<key>": {...},` lines (the last one wins; null = deleted). Each source's
+  // embedding.default.<file>.file_i is a slot in the binary file <file>: float32 vectors of the model's dims.
+  function parseAjson(text) {
+    const out = new Map();
+    for (const raw of String(text).split("\n")) {
+      const line = raw.trim().replace(/,$/, ""); if (!line) continue;
+      try { const o = JSON.parse("{" + line + "}"), k = Object.keys(o); if (k.length) out.set(k[k.length - 1], o[k[k.length - 1]]); } catch (e) { /* a torn line */ }
+    }
+    return out;
+  }
+  // files: { sources: smart_sources.ajson text, models: embedding_models.ajson text, blob(name) -> Uint8Array | null };
+  // notes: the paths to keep. Returns Map path -> Float64Array (the float32 values), in the log's order.
+  function embeddings(files, notes) {
+    const want = notes instanceof Set ? notes : new Set(notes), vectors = new Map();
+    if (!files || files.sources == null || files.models == null) return vectors;
+    const dims = new Set([...parseAjson(files.models).values()].filter(m => m && m.dims).map(m => m.dims));
+    if (dims.size !== 1) return vectors;   // several models: which file is whose can't be told
+    const d = [...dims][0], blobs = new Map();
+    for (const value of parseAjson(files.sources).values()) {
+      if (!(value && want.has(value.path))) continue;
+      const refs = ((value.embedding || {}).default) || {};
+      for (const [file, ref] of Object.entries(refs)) {
+        if (!(ref && typeof ref === "object" && "file_i" in ref) || /[\/\\]/.test(file)) continue;
+        if (!blobs.has(file)) blobs.set(file, files.blob(file) || new Uint8Array(0));
+        const b = blobs.get(file), at = ref.file_i * d * 4;
+        if (at + d * 4 > b.length) continue;   // a slot past the end: written after the file was read
+        const view = new DataView(b.buffer, b.byteOffset + at, d * 4), v = new Float64Array(d);
+        for (let i = 0; i < d; i++) v[i] = view.getFloat32(i * 4, true);
+        vectors.set(value.path, v);
+      }
+    }
+    return vectors;
+  }
+  // each note's k nearest in meaning: [[score, path]] best first, ties by the larger path (heapq.nlargest on tuples).
+  // sameName false leaves out same-name copies (the similar-notes report).
+  function topNeighbours(vectors, k, sameName = true) {
+    const paths = sorted(vectors.keys()), scores = new Map(paths.map(p => [p, []]));
+    for (let i = 0; i < paths.length; i++) { const p = paths[i], vp = vectors.get(p), sp = scores.get(p);
+      for (let j = i + 1; j < paths.length; j++) { const q = paths[j], d = dot(vp, vectors.get(q)); sp.push([d, q]); scores.get(q).push([d, p]); } }
+    const low = p => stemOf(p).toLowerCase(), out = new Map();
+    for (const [p, list] of scores) out.set(p, list.filter(x => sameName || low(x[1]) !== low(p)).sort((a, b) => b[0] - a[0] || pyCmp(b[1], a[1])).slice(0, k));
+    return out;
+  }
+
+  // ---- the graph topics are found in (vault_gaps.cohesion_graph): links, plus weaker ties links miss: consecutive
+  // notes of a dated series, mutual nearest-in-meaning notes, and each note's two closest notes in the same folder
+  const SERIES_W = 1.0, SEMANTIC_W = 0.45, FOLDER_W = 0.3, FOLDER_MAX = 60, SEMANTIC_TOP_K = 5;
+  function cohesionGraph(graph, knowledge, vectors) {
+    const g = new Map(), row = a => { if (!g.has(a)) g.set(a, new Map()); return g.get(a); };
+    for (const [r, nbrs] of Object.entries(graph)) for (const [t, w] of Object.entries(nbrs)) { const m = row(r); m.set(t, (m.get(t) || 0) + w); }
+    const tie = (a, b, w) => { if (a === b) return; const ma = row(a), mb = row(b); ma.set(b, (ma.get(b) || 0) + w); mb.set(a, (mb.get(a) || 0) + w); };
+    const series = new Map();
+    for (const r of knowledge) { const key = seriesKey(r); if (key) { if (!series.has(key)) series.set(key, []); series.get(key).push([stemOf(r).match(DATED)[0], r]); } }
+    for (const members of series.values()) if (members.length >= 2) {
+      members.sort((a, b) => pyCmp(a[0], b[0]) || pyCmp(a[1], b[1]));
+      for (let i = 1; i < members.length; i++) tie(members[i - 1][1], members[i][1], SERIES_W);
+    }
+    if (vectors && vectors.size) {
+      const top = topNeighbours(vectors, SEMANTIC_TOP_K);
+      for (const [p, near] of top) for (const [, q] of near) if (pyCmp(p, q) < 0 && (top.get(q) || []).some(([, q2]) => q2 === p)) tie(p, q, SEMANTIC_W);
+      const folders = new Map();
+      for (const r of vectors.keys()) if (r.split("/").slice(1).join("/").includes("/")) { const f = r.slice(0, r.lastIndexOf("/")); if (!folders.has(f)) folders.set(f, []); folders.get(f).push(r); }
+      for (const ms of folders.values()) {
+        if (ms.length < 3 || ms.length > FOLDER_MAX) continue;
+        const inF = new Set(ms);
+        for (const p of ms) {
+          const near = top.get(p) || [];
+          near.filter(([, q]) => inF.has(q)).sort((a, b) => b[0] - a[0] || pyCmp(b[1], a[1])).slice(0, 2).forEach(([, q]) => tie(p, q, FOLDER_W));
+          if (!near.some(([, q]) => inF.has(q))) {   // nothing close enough: its nearest folder-mate
+            let best = null, bd = -Infinity;
+            for (const q of ms) { if (q === p) continue; const d = dot(vectors.get(p), vectors.get(q)); if (d > bd) { best = q; bd = d; } }
+            tie(p, best, FOLDER_W);
+          }
+        }
+      }
+    }
+    const out = {};
+    for (const r of sorted(g.keys())) { const nb = g.get(r); if (!nb.size) continue; out[r] = {}; for (const t of sorted(nb.keys())) out[r][t] = nb.get(t); }
+    return out;
+  }
+
+  return { pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph };
 })();
