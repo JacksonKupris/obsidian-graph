@@ -288,27 +288,48 @@ def _snapshot(path: Path, trash: Path):
             shutil.copy2(path, dest)
 
 
+def _fm_tags(block: str):
+    """The tags list as YAML reads it (a single tag is a list of one); None when the frontmatter doesn't parse."""
+    fm = vg._parse_fm(block)
+    if not isinstance(fm, dict):
+        return None
+    tags = fm.get("tags")
+    return [] if tags is None else [tags] if isinstance(tags, str) else list(tags) if isinstance(tags, list) else None
+
+
 def _add_fm_tag(text: str, tag: str) -> str:
+    """The note with `tag` added to its frontmatter tags. Any form of `tags:` (a list, [a, b], a single tag) is
+    rewritten as one list with every tag it had; a frontmatter this can't read safely raises ValueError, untouched."""
     m = vg.FRONTMATTER_RE.match(text)
     if not m:
         return f"---\ntags:\n  - {tag}\n---\n" + text
-    if tag in vg._tags(text):
-        return text
     fm = m.group(1)
+    old = _fm_tags(fm)
+    if old is None:
+        raise ValueError("its frontmatter or tags don't parse")
+    if tag in old:
+        return text
     lines = fm.split("\n")
-    for i, l in enumerate(lines):
-        if re.match(r"^tags:\s*$", l.rstrip("\r")):
-            j = i + 1   # match the indentation of the existing list items
-            indent = re.match(r"^(\s*)-", lines[j]).group(1) if j < len(lines) and re.match(r"^\s*-", lines[j]) else "  "
-            while j < len(lines) and re.match(r"^\s*-", lines[j]):
-                j += 1
-            nl = "\r" if lines[i].endswith("\r") else ""
-            lines.insert(j, f"{indent}- {tag}{nl}")
-            break
+    nl = "\r" if lines and lines[0].endswith("\r") else ""
+    start = next((i for i, l in enumerate(lines) if re.match(r"^tags:", l)), None)
+    if start is None:
+        lines.append(f"tags:{nl}")
+        start = end = len(lines) - 1
+        end += 1
+    elif re.match(r"^tags:\s*\S", lines[start]):   # [a, b] or a single tag on the key's line
+        if re.match(r"^tags:\s*\[", lines[start]) and not lines[start].rstrip().endswith("]"):
+            raise ValueError("its tags list spans several lines")
+        end = start + 1
     else:
-        lines.append(f"tags:\n  - {tag}")
+        end = start + 1
+        while end < len(lines) and re.match(r"^\s*-", lines[end]):
+            end += 1
+    items = [l for l in lines[start + 1:end] if re.match(r"^\s*-", l)]
+    indent = re.match(r"^(\s*)-", items[0]).group(1) if items else "  "
+    lines[start:end] = [f"tags:{nl}"] + [f"{indent}- {t}{nl}" for t in [*old, tag]]
     new = "\n".join(lines)
-    assert vg.yaml.safe_load(new), "frontmatter no longer parses"
+    if _fm_tags(new) != [*old, tag]:   # every tag the note had is still there, plus the new one
+        raise ValueError("its tags couldn't be rewritten safely")
     return text[:m.start(1)] + new + text[m.end(1):]
 
 
@@ -351,8 +372,13 @@ def apply(report_path: str) -> int:
             if act["tag"] in vg._tags(vl.read_text(p)):
                 already += 1
                 continue
+            try:
+                tagged = _add_fm_tag(vl.read_text(p), act["tag"])
+            except ValueError as e:
+                done.append(f"skipped tag on {act['path']} ({e}; add {act['tag']} by hand)")
+                continue
             _snapshot(p, trash)
-            p.write_text(_add_fm_tag(vl.read_text(p), act["tag"]), encoding="utf-8", newline="")
+            p.write_text(tagged, encoding="utf-8", newline="")
             done.append(f"tagged {act['path']} {act['tag']}")
         elif op == "move":
             p = vl.VAULT / act["path"]; dest = vl.VAULT / act["to"] / p.name

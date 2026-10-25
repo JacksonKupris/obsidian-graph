@@ -209,14 +209,14 @@ for (const f of ["view.js", "plugin.js"]) {
     // what the New scene form writes (sceneYaml) reads back as the same scene once parsed as YAML, as Obsidian does
     {
       const o = { name: "Night #1: market", blurb: "Stalls", group: "topic", place: "rows", angle: "tilt", wall: "activity",
-        entity: [{ when: "stale", as: "gem", motion: "orbit", colour: "#abcdef" }, { when: "else", as: "tower" }], events: [{ verb: "spark", target: "unlinked", every: "tasks" }, { verb: "spar", every: "activity" }] };
+        entity: [{ when: "stale", as: "gem", motion: "orbit", colour: "#abcdef" }, { when: "else", as: "tower" }], events: [{ verb: "spark", target: "unlinked", every: "tasks", colour: "#f00" }, { verb: "spar", every: "activity" }] };
       let parsed = null;
       try { parsed = JSON.parse(execFileSync(PY, ["-c", "import sys, json, yaml; print(json.dumps(yaml.safe_load(sys.stdin.read())))"], { input: VGRules.sceneYaml(o), encoding: "utf8", stdio: ["pipe", "pipe", "ignore"] })); }
       catch (e) { console.log("  (skipped the scene block round trip: needs Python with PyYAML)"); }
       const back = parsed && VGRules.sceneSpec(parsed);
       if (back) check("a written scene block reads back without errors", back.errors, []);
-      if (back) check("a written scene block reads back the same", [back.spec.name, back.spec.place, back.spec.angle, back.spec.wall, back.spec.entity.map(r => [r.when, r.as, r.motion, r.colour]), back.spec.events.map(e => [e.verb, e.target, e.every])],
-        ["Night #1: market", "rows", "tilt", "activity", [["stale", "gem", "orbit", "#abcdef"], ["else", "tower", "none", null]], [["spark", "unlinked", "tasks"], ["spar", null, "activity"]]]);
+      if (back) check("a written scene block reads back the same", [back.spec.name, back.spec.place, back.spec.angle, back.spec.wall, back.spec.entity.map(r => [r.when, r.as, r.motion, r.colour]), back.spec.events.map(e => [e.verb, e.target, e.every, e.colour])],
+        ["Night #1: market", "rows", "tilt", "activity", [["stale", "gem", "orbit", "#abcdef"], ["else", "tower", "none", null]], [["spark", "unlinked", "tasks", "#f00"], ["spar", null, "activity", null]]]);
     }
     // two devices writing the shared game file keep each other's changes (mergeShared, used by the plugin's saveShared)
     {

@@ -326,7 +326,7 @@ const VGRules = ((R) => {
       o.entity.forEach(r => { out.push(r.when === "else" ? `  - else: ${r.as}` : `  - when: ${r.when}\n    as: ${r.as}`);
         if (r.colour) out.push(`    colour: ${q(r.colour)}`); if (r.motion && r.motion !== "none") out.push(`    motion: ${r.motion}`); if (r.label) out.push(`    label: ${q(r.label)}`); }); }
     if ((o.events || []).length) { out.push("events:");
-      o.events.forEach(e => { out.push(`  - every: ${e.every}`, `    do: ${e.verb}${e.target ? " nearest " + e.target : ""}`); if (e.from && e.from !== "current") out.push(`    from: ${e.from}`); }); }
+      o.events.forEach(e => { out.push(`  - every: ${e.every}`, `    do: ${e.verb}${e.target ? " nearest " + e.target : ""}`); if (e.from && e.from !== "current") out.push(`    from: ${e.from}`); if (e.colour) out.push(`    colour: ${q(e.colour)}`); }); }
     return out.join("\n");
   }
 
