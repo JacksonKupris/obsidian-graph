@@ -11,7 +11,8 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vg-build-"));
 for (const [f, text] of Object.entries(build.buildPlugin(env.rules))) fs.writeFileSync(path.join(dir, f), text);
 
 const steps = [["main.js", ["--check", path.join(dir, "main.js")]], ["rules.js", [path.join(dir, "rules.js")]],
-  ["test_rules.js", [path.join(__dirname, "test_rules.js"), ...env.args]], ["test_cdp.js", [path.join(__dirname, "test_cdp.js")]], ["smoke_page.js", [path.join(__dirname, "smoke_page.js"), ...env.args]]];
+  ["test_rules.js", [path.join(__dirname, "test_rules.js"), ...env.args]], ["test_cdp.js", [path.join(__dirname, "test_cdp.js")]],
+  ["test_pick.js", [path.join(__dirname, "test_pick.js"), ...env.args]],["smoke_page.js", [path.join(__dirname, "smoke_page.js"), ...env.args]]];
 let failed = 0;
 for (const [name, args] of steps) {
   const r = spawnSync(process.execPath, args, { encoding: "utf8", timeout: 10 * 60 * 1000 });

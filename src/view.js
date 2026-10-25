@@ -3250,12 +3250,14 @@ function mountVaultGraph(root, DATA, opts) {
   const closeDrawer = () => { if (narrow()) root.classList.remove("vg-side-open"); };
 
   // ---------------------------------------------------------------- pointer (mouse, pen, touch)
+  // the notes a pointer can reach: what's drawn (map views also draw unlinked notes, through mapShown)
+  const pickable = () => mapView() ? nodes.filter(mapShown) : active;
   const hit = (mx, my) => {
     // closest centre relative to size wins; depth only breaks near-ties (a tiny node in front
     // of a big one must not steal clicks aimed at the big one's centre). Touch gets a bigger target.
     const slop = MOBILE ? 12 : 4;
     let best = null, bestScore = Infinity;
-    for (const n of active) {
+    for (const n of pickable()) {
       const p = P.get(n.id); if (!p || p.r == null || p.a < 0.15) continue;
       const d = Math.hypot(p.x - mx, p.y - my);
       if (d > p.r + slop) continue;
@@ -3423,7 +3425,7 @@ function mountVaultGraph(root, DATA, opts) {
   function finishLasso(d, x, y) {
     lassoEl.hidden = true;
     const [x0, x1] = [Math.min(d.x0, x), Math.max(d.x0, x)], [y0, y1] = [Math.min(d.y0, y), Math.max(d.y0, y)];
-    const ids = active.filter(n => { const p = P.get(n.id); return p && p.a > 0.2 && p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && !n.ghost; }).map(n => n.id);
+    const ids = pickable().filter(n => { const p = P.get(n.id); return p && p.a > 0.2 && p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && !n.ghost; }).map(n => n.id);
     setLassoMode(false);
     if (!ids.length) return;
     st.multi = new Set(ids); select(null); showMulti(); dirty = true; kick();
