@@ -2055,7 +2055,7 @@ function mountVaultGraph(root, DATA, opts) {
     ctx.globalAlpha = 1;
     // bees fly between flowering notes along their links (pollination); wilting plants drop leaves
     const gz = G.life || (G.life = { bees: [], leaves: [] }), gdt = tickOf(gz, now);
-    const flowers = G.beds.flatMap(b => b.ms).filter(n => P.has(n.id) && !n.ghost && n.age <= Q.stale_days && activity(n) > 0.3);
+    const flowers = G.beds.flatMap(b => b.ms).filter(n => P.has(n.id) && !n.ghost && !staleFor(n, Q.stale_days) && activity(n) > 0.3);
     const pool = flowers.length ? flowers : G.beds.flatMap(b => b.ms).filter(n => P.has(n.id) && G.plant.get(n.id) >= 3);
     while (pool.length && gz.bees.length < Math.min(12, Math.max(3, pool.length))) { const a = pool[Math.floor(Math.random() * pool.length)]; gz.bees.push({ from: a.id, to: a.id, t: 1, dur: 1 }); }
     gz.bees.forEach(bee => { bee.t += gdt / bee.dur;
@@ -2066,7 +2066,7 @@ function mountVaultGraph(root, DATA, opts) {
       const e = bee.t < 0.15 ? 0 : (bee.t - 0.15) / 0.85, x = A.x + (B.x - A.x) * e + Math.sin(now / 90 + bee.dur) * 2, y = A.y + (B.y - A.y) * e - Math.sin(e * Math.PI) * 24 - 8 * u;   // hovers, then hops over
       ctx.fillStyle = "rgba(255,255,255,.75)"; const wing = 2.2 + Math.abs(Math.sin(now / 25)) * 1.5; ctx.beginPath(); ctx.ellipse(x - 1, y - 2, wing, 1.2, -0.5, 0, 2 * Math.PI); ctx.ellipse(x + 1, y - 2, wing, 1.2, 0.5, 0, 2 * Math.PI); ctx.fill();
       ctx.fillStyle = "#facc15"; ctx.beginPath(); ctx.ellipse(x, y, 2.6, 1.8, 0, 0, 2 * Math.PI); ctx.fill(); ctx.fillStyle = "#1c1917"; ctx.fillRect(x - 0.6, y - 1.7, 1.2, 3.4); });
-    G.beds.flatMap(b => b.ms).forEach(n => { if (n.ghost || n.age <= Q.stale_days || !P.has(n.id) || gz.leaves.length > 60 || !chance(0.6, gdt)) return;
+    G.beds.flatMap(b => b.ms).forEach(n => { if (n.ghost || !staleFor(n, Q.stale_days) || !P.has(n.id) || gz.leaves.length > 60 || !chance(0.6, gdt)) return;
       const q = P.get(n.id); gz.leaves.push({ x: q.x, y: q.y - 6 * u, t: 0, sway: Math.random() * 6 }); });
     gz.leaves = gz.leaves.filter(l => (l.t += gdt) < 3200);
     gz.leaves.forEach(l => { const f = l.t / 3200, x = l.x + Math.sin(l.t / 400 + l.sway) * 6, y = l.y + f * 34 * u;
@@ -3837,7 +3837,7 @@ function mountVaultGraph(root, DATA, opts) {
     reviewIdx = Math.min(reviewIdx, items.length - 1);
     const it = items[reviewIdx];
     const primary = it.kind === "link" && opts.linkNotes ? `<button class="vg-btn vg-btn-primary" data-r="do">${icon("link", 14)} Link</button>`
-      : it.kind === "map" && opts.appendSection ? `<button class="vg-btn vg-btn-primary" data-r="do">${icon("plus", 14)} Add</button>`
+      : it.kind === "map" && canAddToMap() ? `<button class="vg-btn vg-btn-primary" data-r="do">${icon("plus", 14)} Add</button>`
       : it.kind === "write" && opts.writeNote ? `<button class="vg-btn vg-btn-primary" data-r="do">${icon("file", 14)} Create</button>`
       : it.kind === "hub" && opts.openNote ? `<button class="vg-btn vg-btn-primary" data-r="do">${icon("open", 14)} Open</button>` : "";
     box.innerHTML = card("Today's review", `${reviewIdx + 1} of ${items.length} · one small improvement at a time`,
@@ -3963,7 +3963,7 @@ function mountVaultGraph(root, DATA, opts) {
     $(".vg-clusters").innerHTML = DATA.clusters.filter(c => !q || [c.name, c.label || "", c.keywords || "", ...c.core].some(x => x.toLowerCase().includes(q)))
       .map(c => {
         const off = st.hiddenClusters.has(c.id), ms = nodes.filter(n => n.cluster === c.id);
-        const healthy = ms.length ? Math.round(100 * ms.filter(n => n.words >= Q.stub_words && n.age <= Q.stale_days && n.broken === 0).length / ms.length) : 0;
+        const healthy = ms.length ? Math.round(100 * ms.filter(n => n.words >= Q.stub_words && !staleFor(n, Q.stale_days) && n.broken === 0).length / ms.length) : 0;
         return `<div class="vg-cluster ${off ? "is-off" : ""}" data-c="${c.id}">
           <button class="vg-item vg-cl-main" data-c="${c.id}" title="Show this cluster">
             <span class="vg-dot" style="background:${colorOf(c.id)}"></span>
@@ -4171,9 +4171,10 @@ function mountVaultGraph(root, DATA, opts) {
     const listed = true, mid = byId[m.id] ? m.id : null;
     return `<div class="vg-mapline ${listed ? "" : "is-missing"}"><span class="vg-hex" style="--c:${colorOf(byId[id].cluster)}"></span>
       <span>${listed ? "Listed in" : "Not listed in its map"} ${mid ? `<button class="vg-linkbtn" data-id="${esc(m.id)}">${esc(m.title)}</button>` : esc(m.title)}</span>
-      ${!listed && opts.appendSection ? `<button class="vg-btn vg-btn-sm" data-addmap="${esc(m.id)}" data-note="${esc(id)}">${icon("plus", 12)} Add</button>` : ""}</div>`;
+      ${!listed && canAddToMap() ? `<button class="vg-btn vg-btn-sm" data-addmap="${esc(m.id)}" data-note="${esc(id)}">${icon("plus", 12)} Add</button>` : ""}</div>`;
   }
   // the plugin's shared "add to map" action when there is one (sidebar and graph write the same lines)
+  const canAddToMap = () => !!(opts.addToMap || opts.appendSection);   // every Add-to-map button asks this
   const addToMapAction = (mocId, ids) => opts.addToMap ? opts.addToMap(mocId, ids)
     : opts.appendSection(mocId, `## Also in this topic (added ${today()})`, ids.map(i => `- ${mdLink(i, mocId)}`));
   async function addToMap(mocId, ids, button) {
@@ -4202,10 +4203,10 @@ function mountVaultGraph(root, DATA, opts) {
       <div class="vg-muted vg-ins-path">${esc(n.id)}</div>
       <div class="vg-ins-actions vg-wrap"><span class="vg-noteacts"></span>
         <button class="vg-btn" data-act="missing">${icon("target", 14)} Light up missing</button>
-        ${opts.appendSection && miss.length ? `<button class="vg-btn" data-act="addall">${icon("plus", 14)} Add top ${Math.min(10, miss.length)}</button>` : ""}</div>
+        ${canAddToMap() && miss.length ? `<button class="vg-btn" data-act="addall">${icon("plus", 14)} Add top ${Math.min(10, miss.length)}</button>` : ""}</div>
       <div class="vg-ins-sec"><div class="vg-ins-h">Maps</div>${m.clusters.map(c => `<button class="vg-chip is-btn" data-c="${c}" style="--c:${colorOf(c)}">${esc((clusterById[c] || { name: "?" }).name)} · ${(clusterById[c] || { size: 0 }).size - (m.missing[c] || []).length}/${(clusterById[c] || { size: 0 }).size}</button>`).join(" ")}</div>
       <div class="vg-ins-sec"><div class="vg-ins-h">In the topic, not in the map <span class="vg-count">${miss.length}</span></div>
-      ${miss.slice(0, 40).map(i => `<div class="vg-sugg">${noteRow(i, `#${rankOf[i] || "—"} influence`)}${opts.appendSection ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-addmap="${esc(n.id)}" data-note="${esc(i)}">${icon("plus", 12)} Add</button></span>` : ""}</div>`).join("") || `<div class="vg-empty">Everything in this topic is listed.</div>`}</div>`;
+      ${miss.slice(0, 40).map(i => `<div class="vg-sugg">${noteRow(i, `#${rankOf[i] || "—"} influence`)}${canAddToMap() ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-addmap="${esc(n.id)}" data-note="${esc(i)}">${icon("plus", 12)} Add</button></span>` : ""}</div>`).join("") || `<div class="vg-empty">Everything in this topic is listed.</div>`}</div>`;
     box.querySelector(".vg-ins-close").onclick = () => select(null);
     noteActions(n, box.querySelector(".vg-noteacts"), ["open", "copy", "current", "archive"]);
     box.querySelector('[data-act="missing"]').onclick = () => showMocMissing(n.id);
@@ -4783,7 +4784,7 @@ function mountVaultGraph(root, DATA, opts) {
   }
   function healthNow(b) {   // share of a system's notes that are mapped, linked and current
     const ids = bodyCaptured.get(b.id) || []; if (!ids.length) return null;
-    const s = ids.reduce((acc, id) => { const n = byId[id], m = inMoc(id); return acc + ((m === null ? 0.5 : m ? 1 : 0) + (nb[id].size >= 2 ? 1 : 0) + (n.age <= Q.stale_days ? 1 : 0)) / 3; }, 0);
+    const s = ids.reduce((acc, id) => { const n = byId[id], m = inMoc(id); return acc + ((m === null ? 0.5 : m ? 1 : 0) + (nb[id].size >= 2 ? 1 : 0) + (!staleFor(n, Q.stale_days) ? 1 : 0)) / 3; }, 0);
     return Math.round(100 * s / ids.length);
   }
   const STARFIELD = Array.from({ length: 260 }, (_, i) => { const h = hash("star" + i); return [(h % 10000) / 10000, ((h >>> 14) % 10000) / 10000, 0.3 + ((h >>> 7) % 70) / 100, (h >>> 3) % 3]; });
@@ -5027,7 +5028,7 @@ function mountVaultGraph(root, DATA, opts) {
     if (q("query")) q("query").onchange = e => { b.target = e.target.value.trim(); changed(); };
     q("light").onclick = () => setHighlight(new Set(got), bodyName(b));
     box.querySelectorAll("[data-bhr]").forEach(x => x.onclick = async e => { e.stopPropagation(); const id = x.dataset.bhr;
-      try { await opts.stampReviewed(id); byId[id].age = 0; logDiscovery(`Reviewed ${byId[id].name}`); toast(`${byId[id].name} marked reviewed`, "ok"); changed(); } catch (err) { toast("Couldn't update the note", "warn"); } });
+      if (await VGActions.run("current", byId[id], actionCtx(), e)) changed(); });
     box.querySelectorAll("[data-bha]").forEach(x => x.onclick = async e => { e.stopPropagation(); const id = x.dataset.bha;
       if (await VGActions.run("archive", byId[id], actionCtx(), e)) { cos.kept = [...(cos.kept || []), id]; changed(); } });
     box.querySelectorAll("[data-bhk]").forEach(x => x.onclick = e => { e.stopPropagation(); cos.kept = [...new Set([...(cos.kept || []), x.dataset.bhk])]; logDiscovery(`Kept ${byId[x.dataset.bhk].name}`); changed(); });
@@ -5111,7 +5112,7 @@ function mountVaultGraph(root, DATA, opts) {
     const notes = nodes.filter(n => !special(n)), iso = notes.filter(n => n.isolated).length;
     const big = DATA.clusters.filter(c => c.size >= 6), size = big.reduce((s, c) => s + c.size, 0);
     const covered = big.reduce((s, c) => { const m = mocOf[c.id]; return s + (m ? c.size - (m.missing[c.id] || []).length : 0); }, 0);
-    const fresh = notes.filter(n => n.age <= Q.stale_days).length / Math.max(1, notes.length);
+    const fresh = notes.filter(n => !staleFor(n, Q.stale_days)).length / Math.max(1, notes.length);
     return Math.round(100 * (0.4 * (1 - iso / Math.max(1, notes.length)) + 0.35 * (size ? covered / size : 0) + 0.25 * fresh));
   }
   const questDone = q => VGRules.questDone(q, liveGraph);
@@ -5177,7 +5178,7 @@ function mountVaultGraph(root, DATA, opts) {
     ACH.forEach(a => { if (!cos.ach[a.id] && a.test()) { cos.ach[a.id] = today(); if (announce) { toast(`Achievement unlocked: ${a.name}`, "ok"); celebrate(a.name); } } });
     renderMissions(); persistSoon();
   }
-  const canDo = m => (m.kind === "wormhole" && opts.linkNotes) || (m.kind === "chart" && opts.writeNote) || (m.kind === "drift" && opts.appendSection)
+  const canDo = m => (m.kind === "wormhole" && opts.linkNotes) || (m.kind === "chart" && opts.writeNote) || (m.kind === "drift" && canAddToMap())
     || m.kind === "nebula" || (m.kind === "horizon" && opts.openNote) || m.kind === "expedition";
   const doLabel = m => ({ wormhole: "LINK", chart: "CREATE MAP", drift: "ADD 5", nebula: "PICK ONE", horizon: "OPEN NEXT", expedition: "NEXT STEP" }[m.kind] || "DO IT");
   async function doMission(m, btn) {
@@ -5195,9 +5196,7 @@ function mountVaultGraph(root, DATA, opts) {
       if (next) { reveal(next); toast("Link this note to something it belongs with — its suggestions are below"); }
     } else if (m.kind === "horizon") {
       const next = m.baseline.find(id => byId[id] && staleFor(byId[id], Q.stale_days));
-      if (next && opts.stampReviewed && await confirmBox("Still current?", `<b>${esc(byId[next].name)}</b> hasn't been edited in ${byId[next].age} days. Mark it reviewed? (Cancel opens it instead.)`, "Reviewed")) {
-        await opts.stampReviewed(next); byId[next].age = 0; toast(`Reviewed ${byId[next].name}`, "ok");
-      } else if (next) opts.openNote(next, false);
+      if (next && !(opts.stampReviewed && await VGActions.run("current", byId[next], actionCtx()))) opts.openNote(next, false);   // not marked: open it instead
     } else if (m.kind === "expedition") expeditionStep(m, btn);
     updateGame(true);
   }
@@ -5263,12 +5262,11 @@ function mountVaultGraph(root, DATA, opts) {
       // do the step, not just point at it
       if (q.kind === "link" && q.a && q.b && byId[q.a] && byId[q.b] && opts.linkNotes) {
         if (await confirmBox("Link these notes", `Link <b>${esc(byId[q.a].name)}</b> ↔ <b>${esc(byId[q.b].name)}</b>? A line is added to the staler note's Related section.`, "Link")) await actOnSuggestion("link", q.a, q.b, b);
-      } else if (q.kind === "map" && q.id && opts.appendSection) {
+      } else if (q.kind === "map" && q.id && canAddToMap()) {
         const mocId = q.key.split("|")[1];
         if (await confirmBox("Add to map", `Add <b>${esc((byId[q.id] || {}).name || q.id)}</b> to its map?`, "Add")) await addToMap(mocId, [q.id], b);
       } else if (q.kind === "hub" && q.id && opts.stampReviewed) {
-        if (await confirmBox("Still current?", `Mark <b>${esc(byId[q.id].name)}</b> reviewed? This stamps <code>reviewed:</code> in its frontmatter.`, "Reviewed")) {
-          await opts.stampReviewed(q.id); byId[q.id].age = 0; review.done = { ...(review.done || {}), [q.key]: today() }; persistSoon(); toast(`Reviewed ${byId[q.id].name}`, "ok"); }
+        if (await VGActions.run("current", byId[q.id], actionCtx())) { review.done = { ...(review.done || {}), [q.key]: today() }; persistSoon(); }
       } else if (q.ids && q.ids.length > 1) { setHighlight(new Set(q.ids), q.title); select(q.ids[0]); fit(n => q.ids.includes(n.id)); }
       else if (q.ids && q.ids[0]) reveal(q.ids[0]);
       updateGame(true); });
@@ -5697,7 +5695,7 @@ function mountVaultGraph(root, DATA, opts) {
   // Map tree: every map (MOC) with its topics, what it lists and what it's missing, fixable in place
   function lensMapTree() {
     if (!mocs.length) return emptyNext("No maps (MOCs) yet.", "draftmap:" + (DATA.clusters.slice().sort((a, b) => b.size - a.size)[0] || {}).id, "lens:blind");
-    const row = (id, extra, add) => byId[id] ? `<div class="vg-sugg">${noteRow(id, extra)}${add && opts.appendSection ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-addmap="${esc(add)}|${esc(id)}">${icon("plus", 12)} Add</button></span>` : ""}</div>` : "";
+    const row = (id, extra, add) => byId[id] ? `<div class="vg-sugg">${noteRow(id, extra)}${add && canAddToMap() ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-addmap="${esc(add)}|${esc(id)}">${icon("plus", 12)} Add</button></span>` : ""}</div>` : "";
     const cards = mocs.map(m => {
       const miss = m.clusters.flatMap(c => (m.missing[c] || []).filter(id => byId[id]));
       const inTopics = m.members.filter(id => byId[id] && m.clusters.includes(byId[id].cluster)), other = m.members.filter(id => byId[id] && !m.clusters.includes(byId[id].cluster));
@@ -5712,7 +5710,7 @@ function mountVaultGraph(root, DATA, opts) {
       return `<div class="vg-mt"><div class="vg-mt-head"><button class="vg-item" data-id="${esc(m.id)}"><i class="vg-lg-hex"></i><span class="vg-item-main"><span>${esc(m.title)}</span>
           <span class="vg-item-sub">${plural(m.clusters.length, "topic")} · ${plural(m.members.length, "link")}${other.length ? ` · ${other.length} outside its topics` : ""}</span></span></button>
           <span class="vg-mt-cover" title="${cover}% of its topics' notes are listed"><i style="width:${cover}%;background:${cover >= 80 ? "var(--vg-ok)" : cover >= 50 ? "var(--vg-warn)" : "var(--vg-gap)"}"></i></span><span class="vg-count">${cover}%</span>
-          ${miss.length && opts.appendSection ? `<button class="vg-btn vg-btn-sm" data-addall="${esc(m.id)}">Add all ${miss.length}</button>` : ""}</div>${topics}</div>`;
+          ${miss.length && canAddToMap() ? `<button class="vg-btn vg-btn-sm" data-addall="${esc(m.id)}">Add all ${miss.length}</button>` : ""}</div>${topics}</div>`;
     });
     const order = mocs.map((m, i) => [i, m.clusters.flatMap(c => m.missing[c] || []).length]).sort((a, b) => b[1] - a[1]).map(([i]) => cards[i]);
     const unmapped = DATA.clusters.filter(c => !mocOf[c.id] && c.size >= 6).sort((a, b) => b.size - a.size);
@@ -6120,11 +6118,10 @@ function mountVaultGraph(root, DATA, opts) {
       if (Rp.rootId) return { text: `Centred on ${byId[Rp.rootId].name} · ${Rp.lost.length} notes out of reach from it`, label: "Back to your maps", run: centre(null) };
       const deep = notes.filter(n => (Rp.depth.get(n.id) || 0) >= 4).length, x = Rp.lost.slice().sort(byImportance)[0], mm = x && mocOf[x.cluster];
       if (!x) return { text: `Every note is reachable from your maps · ${deep} are 4+ clicks deep`, label: "", run: null };
-      return { text: `${Rp.lost.length} notes no link reaches · ${deep} are 4+ clicks deep · most relied-on lost note: ${x.name}`, label: mm && opts.appendSection ? `Add to ${mm.title}` : "Show it",
-        run: async () => { if (!(mm && opts.appendSection)) return reveal(x.id);
+      return { text: `${Rp.lost.length} notes no link reaches · ${deep} are 4+ clicks deep · most relied-on lost note: ${x.name}`, label: mm && canAddToMap() ? `Add to ${mm.title}` : "Show it",
+        run: async () => { if (!(mm && canAddToMap())) return reveal(x.id);
           if (!await confirmBox("Add to its map", `Add <b>${esc(x.name)}</b> to <b>${esc(mm.title)}</b> under “Also in this topic”? It becomes 2 clicks from your maps.`, "Add")) return;
-          try { await addToMapAction(mm.id, [x.id]); logDiscovery(`Added ${x.name} to ${mm.title}`); toast("Added", "ok"); }
-          catch (e) { toast("Couldn't add it", "warn"); } } }; }
+          await addToMap(mm.id, [x.id]); } }; }
     if (v === "alchemy") { const open = mapCache.alchemy ? mapCache.alchemy.rx.filter(x => !x.done) : []; if (!open.length) return null;
       const x = open.find(r => st.selected && (r.a.id === st.selected || r.b.id === st.selected)) || open[al.idx % open.length];
       return { text: `⚗ ${REACTIONS[x.type][0]}: ${x.a.name} + ${x.b.name} · ${x.why} · ${open.length} waiting · ${plural(alScore.get(), "reaction")} run`, label: "React", run: () => alRun(x) }; }

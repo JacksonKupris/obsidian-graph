@@ -69,10 +69,18 @@ const banned = [
   [/function (questDone|stillValid)\b|const liveDone = q => \{/, "quest/mission rule (use VGRules.questDone / missionValid)"],
   [/find\(\w+ => !\w+\.nav && \w+\.clusters\.includes/, "map-for-cluster (use VGRules.mapForCluster)"],
   [/outlinks \+ 0\.5\)/, "food-web level (use VGRules.trophicLevels)"],
+  [/opts\.stampReviewed\(/, "reviewed stamp (use VGActions.run(\"current\", ...): one confirm, Undo and announcement)"],
+  [/(?<!isRecord\(n\) && n\.)\bage\s*(<=|>)\s*(Q\.)?stale_days/, "stale rule (use VGRules.isStale: records are never stale)"],
 ];
 for (const f of ["view.js", "plugin.js"]) {
   const src = fs.readFileSync(path.join(S, f), "utf8");
   for (const [re, what] of banned) if (re.test(src)) fails.push(`${f} has its own ${what}`);
+}
+// adding to a map goes through addToMap (which also updates the open view), gated on canAddToMap()
+{
+  const src = fs.readFileSync(path.join(S, "view.js"), "utf8");
+  check("only addToMap calls the map write", (src.match(/addToMapAction\(/g) || []).length, 1);
+  check("Add-to-map buttons ask canAddToMap()", (src.match(/opts\.appendSection\b/g) || []).length, 5);   // the comment, canAddToMap, the fallback write, Log update ×2
 }
 
 // ---- 4. one action path: every vault write in the plugin sits in a WRITE_PRIMITIVES method (which records it for
