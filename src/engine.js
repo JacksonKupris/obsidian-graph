@@ -261,6 +261,43 @@ const VGEngine = (() => {
     return out;
   }
 
+  // ---- the notes topics are found among, and their links (vault_gaps.load_vault, the topic part)
+  // notes: [{ path, tags }] (tags as frontmatterTags gives them); links: { path: [resolved .md targets] };
+  // o: { daily, people, skip: [top folders], isHub(path, tags), joinsWhenLinked(path, tags) } from this vault's rules.
+  // Not daily notes, skipped folders, people or hubs; an inbox note joins once a topic note links to it; catch-all
+  // task lists (30+ links, half of them to notes that link nowhere else) are dropped like hubs.
+  // -> { knowledge: [paths], hubs: [paths], graph: {path: {path: links}} (linked notes only, in order) }
+  const CATCHALL_MIN_LINKS = 30;
+  function topicGraph(notes, links, o) {
+    const skip = new Set(o.skip || []), tagsOf = new Map(notes.map(n => [n.path, n.tags || []]));
+    const knowledge = new Set(), hubs = new Set(), people = new Set();
+    for (const { path } of notes) {
+      const top = path.split("/")[0], tags = tagsOf.get(path);
+      if (top === o.daily || skip.has(top)) continue;
+      if (top === o.people) (o.isHub(path, tags) ? hubs : people).add(path);
+      else (o.isHub(path, tags) ? hubs : knowledge).add(path);
+    }
+    for (const r of [...knowledge]) for (const t of links[r] || []) {
+      if (knowledge.has(t) || !tagsOf.has(t)) continue;
+      const tags = tagsOf.get(t);
+      if (o.joinsWhenLinked(t, tags) && !o.isHub(t, tags)) knowledge.add(t);
+    }
+    const adj = new Map([...knowledge].map(r => [r, new Map()]));
+    for (const { path: r } of notes) {
+      if (!knowledge.has(r)) continue;
+      for (const t of new Set(links[r] || [])) if (knowledge.has(t) && t !== r) { bump(adj.get(r), t); bump(adj.get(t), r); }
+    }
+    const catchalls = [...knowledge].filter(r => adj.get(r).size >= CATCHALL_MIN_LINKS && [...adj.get(r).keys()].filter(t => adj.get(t).size === 1).length >= 0.5 * adj.get(r).size);
+    for (const r of catchalls) { for (const t of adj.get(r).keys()) adj.get(t).delete(r); adj.delete(r); knowledge.delete(r); hubs.add(r); }
+    const linked = sorted([...knowledge].filter(r => adj.get(r).size)), graph = {};
+    const inLinked = new Set(linked);
+    for (const r of linked) { graph[r] = {}; for (const t of sorted(adj.get(r).keys())) if (inLinked.has(t)) graph[r][t] = adj.get(r).get(t); }
+    return { knowledge: sorted(knowledge), hubs: sorted(hubs), graph };
+  }
+  // a note's topic tags from its frontmatter, as the analysis reads them: lower case, without periodic ones
+  const frontmatterTags = fm => { let t = fm && typeof fm === "object" ? fm.tags : null; if (typeof t === "string") t = [t]; if (!Array.isArray(t)) return [];
+    return [...new Set(t.filter(x => x).map(x => String(x).trim().toLowerCase()).filter(x => !x.endsWith("/standup") && x !== "daily"))]; };
+
   // ---- topic names (vault_gaps._cluster_names, _readable_names, _stacks, _label, stable_cluster_ids)
   // Python counts characters by code point (slices, len); these helpers do the same
   const cps = t => Array.from(String(t)), cpLen = t => cps(t).length, cpSlice = (t, a, b) => cps(t).slice(a, b).join("");
@@ -406,5 +443,5 @@ const VGEngine = (() => {
   }
 
   return { pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
-    noteWords, topicWords, topicsOf, cleanTitle, readableNames, stacks, withStack, label, stableIds, titleCase };
+    noteWords, topicWords, topicsOf, topicGraph, frontmatterTags, cleanTitle, readableNames, stacks, withStack, label, stableIds, titleCase };
 })();

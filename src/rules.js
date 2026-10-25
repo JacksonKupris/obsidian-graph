@@ -62,6 +62,9 @@ const VGRules = (() => {
     return tags.includes("meta/moc") || String(fm.type || "").toLowerCase() === "moc" || HUB_NAME.test(name);
   }
   const isHubName = id => HUB_NAME.test(stemCase(id));
+  // a hub: shown, never clustered (a map or hub by tag, a hub by name, a dashboard at the vault's top level)
+  const ROOT_HUBS = new Set(R.root_hubs || []);
+  const isHub = (id, tags) => [].concat(tags || []).some(t => /^#?meta\/(hub|moc)$/i.test(String(t))) || ROOT_HUBS.has(id) || isHubName(id);
   // How prose names a note (vault_gaps._mention_matcher counts these, "Link mentions" links them): its title,
   // the topic of a "<Topic> - Context" note, and its aliases
   const CONTEXT_SUFFIX = new RegExp(R.context_suffix, "i");
@@ -548,7 +551,7 @@ const VGRules = (() => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
-  return { RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+  return { RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)

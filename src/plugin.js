@@ -1149,6 +1149,39 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // Mark a note reviewed: `reviewed: <today>` in its frontmatter (which also updates its edit date).
   // Self-test: opens every view and lens in the main graph, watching for errors and timing each, and writes a
   // short report. A view that breaks shows up here instead of as a blank pane found by hand weeks later.
+  // ---- the analysis engine on this vault's live index (ROADMAP phase 4): topics from Obsidian's own links and
+  // frontmatter and the Smart Connections index, with no Python. Topic ids carry on from the last analysis's topics.
+  async engineTopics() {
+    const ignored = [].concat((this.app.vault.getConfig && this.app.vault.getConfig("userIgnoreFilters")) || []).map(p => String(p).replace(/\/?$/, "/"));
+    const files = this.app.vault.getMarkdownFiles().filter(f => ![...EXCLUDE_PREFIXES, ...ignored].some(p => f.path.startsWith(p)));
+    const notes = files.map(f => ({ path: f.path, tags: VGEngine.frontmatterTags((this.app.metadataCache.getFileCache(f) || {}).frontmatter) }));
+    const resolved = this.app.metadataCache.resolvedLinks || {};
+    const links = Object.fromEntries(files.map(f => [f.path, Object.keys(resolved[f.path] || {}).filter(t => t.endsWith(".md") && t !== f.path)]));
+    const F = VGRules.folders;
+    const T = VGEngine.topicGraph(notes, links, { daily: F.daily, people: F.people, skip: F.skip, isHub: VGRules.isHub, joinsWhenLinked: VGRules.joinsWhenLinked });
+    const vectors = await this.smartVectors(T.knowledge);
+    const coh = VGEngine.cohesionGraph(T.graph, T.knowledge, vectors), topics = VGEngine.topicsOf(VGEngine.absorbSmall(VGEngine.louvain(coh), coh));
+    const data = await this.graphData(), prev = {};
+    ((data && data.nodes) || []).forEach(n => { if (n.cluster >= 0 && !n.ghost && !n.person) (prev[n.cluster] = prev[n.cluster] || []).push(n.id); });
+    const raw = {};
+    for (const m of topics) for (const r of m) { const f = this.app.vault.getAbstractFileByPath(r); if (f instanceof TFile) raw[r] = await this.app.vault.cachedRead(f); }
+    const tags = Object.fromEntries(notes.map(n => [n.path, n.tags]));
+    const ids = VGEngine.stableIds(topics, prev), kw = VGEngine.topicWords(topics, raw), labels = topics.map(m => VGEngine.label(m, T.graph, tags)), st = VGEngine.stacks(topics, tags);
+    const names = VGEngine.readableNames(topics, kw, labels.map(l => l.core)).map((n, i) => VGEngine.withStack(n, st[i]));
+    return { topics: topics.map((m, i) => ({ id: ids[i], size: m.length, name: names[i], stack: st[i], keywords: kw[i], ...labels[i], members: m })),
+      bc: VGEngine.betweenness(T.graph), knowledge: T.knowledge.length, vectors: vectors.size };
+  }
+  // the Smart Connections index (.smart-env), read for the engine: its logs, then each vector file they name
+  async smartVectors(notes) {
+    const A = this.app.vault.adapter, base = ".smart-env", text = async p => { try { return await A.read(p); } catch (e) { return null; } };
+    const sources = await text(`${base}/smart_sources/smart_sources.ajson`), models = await text(`${base}/embedding_models/embedding_models.ajson`);
+    if (sources == null || models == null) return new Map();
+    const blobs = {}, files = new Set();
+    for (const v of VGEngine.parseAjson(sources).values()) Object.keys(((v && v.embedding) || {}).default || {}).forEach(f => files.add(f));
+    for (const f of files) if (!/[\/\\]/.test(f)) { try { blobs[f] = new Uint8Array(await A.readBinary(`${base}/smart_sources/${f}`)); } catch (e) { blobs[f] = null; } }
+    return VGEngine.embeddings({ sources, models, blob: f => blobs[f] }, notes);
+  }
+
   async selfTest(auto) {
     // Runs in a hidden, off-screen graph so it never takes over the one you're using. After each plugin update it runs
     // once by itself (desktop) and stays quiet unless something broke; the command always writes a report.
@@ -1184,9 +1217,16 @@ module.exports = class VaultGraphPlugin extends Plugin {
     this.settings.lastSelfTest = { sig: await this.buildSig(), date: today(), errors: errors.length }; await this.saveSettings();
     if (auto && !errors.length) return;   // quiet when all is well
     const now0 = new Date(), stamp = `${today()} ${String(now0.getHours()).padStart(2, "0")}${String(now0.getMinutes()).padStart(2, "0")}`;
+    // the engine's topics on the live index, against the last analysis's
+    let engine;
+    try { const E = await this.engineTopics(), at = new Map(), D = await this.graphData();
+      E.topics.forEach(t => t.members.forEach(r => at.set(r, t.id)));
+      const both = ((D && D.nodes) || []).filter(n => !n.ghost && !n.person && n.cluster >= 0 && at.has(n.id)), same = both.filter(n => at.get(n.id) === n.cluster).length;
+      engine = `**Engine topics:** ${same} of ${both.length} notes in the same topic as the analysis · ${E.topics.length} topics from ${E.knowledge} notes and ${E.vectors} embeddings.`;
+    } catch (e) { engine = `**Engine topics:** didn't run: ${(e && e.message) || e}`; }
     const md = ["---", `created: ${today()}`, "type: report", "tags:", "  - meta/cleanup", "---", "",
       `# Vault Graph self-test ${stamp}`, "", auto ? "_Ran by itself after a plugin update._" : "", "",
-      errors.length ? `**${errors.length} error(s)**: ${errors.slice(0, 5).map(e => "`" + e.slice(0, 160).replace(/`/g, "'") + "`").join(" · ")}` : "**No errors.**", "",
+      errors.length ? `**${errors.length} error(s)**: ${errors.slice(0, 5).map(e => "`" + e.slice(0, 160).replace(/`/g, "'") + "`").join(" · ")}` : "**No errors.**", "", engine, "",
       "| View | Result | Switch | Frame | Notes drawn | Today strip |", "|---|---|---|---|---|---|", ...rows, "", "| Lens | Result | Size | Empty message |", "|---|---|---|---|", ...lensRows, ""].join("\n");
     await this.writeNote(`${VGRules.folders.reports}/Vault Graph Self-test ${stamp}.md`, md, { mode: "create", open: !auto });
     new Notice(errors.length ? `Vault Graph self-test: ${errors.length} error(s), see ${VGRules.folders.reports}` : "Vault Graph self-test: all clear", errors.length ? 10000 : 4000);
