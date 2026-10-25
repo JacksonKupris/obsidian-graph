@@ -343,7 +343,54 @@ const VGRules = ((R) => {
     return out.join("\n");
   }
 
-  // A daily quest is done once the vault shows it, wherever the change was made
+  // ---- Today: the one list of next steps. It replaced three overlapping lists (the review queue, the daily quests
+  // and the missions). Each item is one action (VGActions.TODAY does it); the graph view, its game panel and the
+  // sidebar all show this list, and questDone says when an item has been done, wherever it was done.
+  //   todayList(data, { review, hidden, today, skipDays }) -> [{ key, kind, title, why, ids, score, xp, ...fields }]
+  // data: the graph data (graph_data() or the plugin's liveMerge of it; the view passes its live copy).
+  // kinds: link (a suggested pair; from = the staler note, which gets the Related line), map (a note its topic's map
+  // doesn't list), write (a note 3+ notes link to that doesn't exist), hub (a relied-on note gone quiet, or one you
+  // pinned), chart (a topic of 6+ notes with no map), adopt (a note nothing links to a topic).
+  const TODAY_XP = { link: 10, map: 6, write: 12, hub: 4, chart: 25, adopt: 8 };
+  const fnv = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; };
+  function todayList(data, o = {}) {
+    const nodes = data.nodes || [], byId = new Map(nodes.map(n => [n.id, n])), mocs = (data.mocs || []).filter(m => !m.nav);
+    const mapIds = new Set((data.mocs || []).map(m => m.id)), plain = n => !!n && !n.person && !n.ghost && !mapIds.has(n.id);
+    const name = id => (byId.get(id) || {}).name || stemCase(id);
+    const ranked = nodes.filter(n => plain(n) && !n.isolated).sort((a, b) => (b.bc || 0) - (a.bc || 0)).map(n => n.id);
+    const rank = new Map(ranked.map((id, i) => [id, i + 1]));
+    const review = o.review || {}, day = o.today || localDay(new Date()), skipDays = o.skipDays || 14;
+    const skipped = k => !!(review.skipped && review.skipped[k]) && (Date.parse(day) - Date.parse(review.skipped[k])) / 864e5 < skipDays;
+    const hidden = new Set(o.hidden || []), out = [], seen = new Set();
+    const add = it => { if (seen.has(it.key) || hidden.has(it.key) || skipped(it.key)) return; seen.add(it.key); out.push({ xp: TODAY_XP[it.kind] || 5, ...it }); };
+    (data.links || []).forEach(l => {
+      if ((l.kind !== "gap" && l.kind !== "similar") || !byId.get(l.source) || !byId.get(l.target)) return;
+      const [a, b] = [l.source, l.target], from = (byId.get(b).age || 0) > (byId.get(a).age || 0) ? b : a;
+      add({ key: `link|${a}|${b}`, kind: "link", a, b, from, to: from === a ? b : a, names: [name(a), name(b)], ids: [a, b], title: `Link ${name(a)} ↔ ${name(b)}`, why: l.why || "", score: 3 + (l.ev ? l.ev.length : 0) });
+    });
+    mocs.forEach(m => (m.clusters || []).forEach(c => ((m.missing || {})[c] || []).slice(0, 3).forEach(id => { if (!byId.get(id)) return;
+      const r = rank.get(id);
+      add({ key: `map|${m.id}|${id}`, kind: "map", m: m.id, mapTitle: m.title, id, name: name(id), ids: [id, m.id], title: `Add ${name(id)} to ${m.title}`, why: `It's in the topic this map covers${r ? ` (#${r} by influence)` : ""}`, score: 2 + (r ? 30 / r : 0) }); })));
+    (data.wanted || []).filter(w => w.creatable && (w.refs || []).length >= 3).forEach(w =>
+      add({ key: `write|${w.id}`, kind: "write", id: w.id, name: w.name, refs: w.refs, ids: [w.id], title: `Write “${w.name}”`, why: `${w.refs.length} notes link to it, but it doesn't exist`, score: 1 + w.refs.length / 3 }));
+    (review.pinned || []).filter(id => byId.get(id)).forEach(id => add({ key: `pin|${id}`, kind: "hub", id, name: name(id), ids: [id], title: `Review ${name(id)}`, why: "You asked to review this", score: 9 }));
+    ranked.slice(0, 60).map(id => byId.get(id)).filter(n => n.recent === 0 && (!data.has_usage || n.opens90 === 0)).slice(0, 8).forEach(n =>
+      add({ key: `review|${n.id}`, kind: "hub", id: n.id, name: n.name, ids: [n.id], title: `Review ${n.name}`, why: `#${rank.get(n.id)} by influence, quiet for ${data.recent_days || 30}+ days`, score: 1.5 }));
+    (data.clusters || []).filter(c => c.size >= 6 && !mapForCluster(mocs, c.id)).slice(0, 3).forEach(c =>
+      add({ key: `chart|${c.id}`, kind: "chart", c: c.id, name: c.label || c.name, ids: nodes.filter(n => n.cluster === c.id).map(n => n.id), title: `Give ${c.label || c.name} a map`, why: `${c.size} notes, and no map lists them`, score: 2.5 }));
+    nodes.filter(n => plain(n) && n.isolated).sort((a, b) => (b.words || 0) - (a.words || 0)).slice(0, 5).forEach(n =>
+      add({ key: `adopt|${n.id}`, kind: "adopt", id: n.id, name: n.name, ids: [n.id], title: `Link ${n.name} to its topic`, why: "Nothing links it to a topic note yet", score: 1.2 }));
+    // best first; ties in a different order each day (seeded by the date), the same order all day
+    const seed = fnv(day);
+    return out.sort((a, b) => b.score - a.score || (fnv(a.key) ^ seed) - (fnv(b.key) ^ seed));
+  }
+  // Today's picks: the first three items, kept for the day so they can be ticked off (the XP layer counts them)
+  const todayPick = (list, n = 3) => { const picked = [], kinds = new Set();
+    for (const it of list) { if (picked.length >= n) break; if (kinds.has(it.kind) && list.length > 2 * n) continue; kinds.add(it.kind); picked.push(it); }
+    for (const it of list) { if (picked.length >= n) break; if (!picked.includes(it)) picked.push(it); }
+    return picked.map(it => ({ ...it, done: false })); };
+
+  // A Today item is done once the vault shows it, wherever the change was made
   function questDone(q, g) {
     if (q.done) return true;
     if (q.kind === "link") return !!(q.a && q.b && g.node(q.a)) && g.linked(q.a, q.b);
@@ -352,33 +399,22 @@ const VGRules = ((R) => {
       return m ? onMap(m, q.id) : true;   // a map that's gone or no longer a topic map: nothing left to do
     }
     if (q.kind === "write") return !g.wanted(q.id);   // gone from "wanted" = written (here or elsewhere)
+    if (q.kind === "chart") return !!g.mapForCluster(q.c);
+    if (q.kind === "adopt") return !g.node(q.id) || !g.node(q.id).isolated;
     if (q.kind === "hub" && q.id && g.node(q.id) && g.node(q.id).age === 0) return true;   // reviewed/edited today
     return g.reviewed(q.key);
   }
 
-  // A mission or quest built on a suggestion that no longer exists (relinked elsewhere, dismissed, or the
-  // analysis no longer finds the pair related, topic gone) is dropped, not left as a dead end
+  // A pick built on something that no longer exists (a pair relinked elsewhere or dismissed, a topic or map gone, a
+  // note deleted) is dropped, not left as a dead end
   function missionValid(m, g) {
     if (m.kind === "wormhole" || m.kind === "link") return !!(m.a && m.b && g.node(m.a) && g.node(m.b)) && (g.linked(m.a, m.b) || g.suggested(m.a, m.b));
     if (m.kind === "chart" || m.kind === "expedition") return g.hasCluster(m.c);
     if (m.kind === "drift") return !!g.mapById(m.m);
+    if (m.kind === "map") return !!g.mapById(m.m || String(m.key || "").split("|")[1]);
+    if (m.kind === "adopt" || m.kind === "hub") return !!g.node(m.id);
     return true;
   }
-  // [done, needed] for a mission; the view awards it when done >= needed
-  function missionProgress(m, g, stepsOf) {
-    const base = (m.baseline || []).filter(id => g.node(id));
-    if (m.kind === "wormhole" || m.kind === "link") return [g.node(m.a) && g.linked(m.a, m.b) ? 1 : 0, 1];
-    if (m.kind === "nebula") return [Math.min(3, base.filter(id => !g.node(id).isolated).length), 3];
-    if (m.kind === "chart") return [g.mapForCluster(m.c) ? 1 : 0, 1];
-    if (m.kind === "drift") { const mm = g.mapById(m.m); return [Math.min(5, mm ? (m.baseline || []).filter(id => onMap(mm, id)).length : 0), 5]; }
-    if (m.kind === "expedition" && stepsOf) { const s = stepsOf(m); return [s.filter(x => x.done).length, s.length]; }
-    if (m.kind === "horizon") return [Math.min(3, base.filter(id => !isStale(g.node(id))).length), 3];
-    return [0, 1];
-  }
-  const missionDone = (m, g, stepsOf) => { const [d, n] = missionProgress(m, g, stepsOf); return d >= n; };
-  // worth showing in a list: still valid and not already achieved
-  const missionOpen = (m, g, stepsOf) => missionValid(m, g) && !missionDone(m, g, stepsOf);
-
   // The standard graph over a data object (graph_data(), or the plugin's liveMerge of it). Built per call:
   // callers rebuild after data changes rather than holding a copy that can drift.
   function graph(data, extra = {}) {
@@ -508,5 +544,5 @@ const VGRules = ((R) => {
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
   return { RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
-    SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, questDone, missionValid, missionProgress, missionDone, missionOpen, graph };
+    SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
 })(__RULES_JSON__);

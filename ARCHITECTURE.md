@@ -6,7 +6,7 @@ One system, not bolted-on parts: one state, shared rules, one action path, share
 
 | Path | What it is |
 |---|---|
-| `src/rules.js` | The rulebook (`VGRules`): what's stale or a record, what's a map and which topic it claims, food-web levels, mention names, quest and mission completion, scene-block words, search, the shared-state merge. Rule *data* (folder names, thresholds, patterns) comes from a vault's rules file, built in at `__RULES_JSON__`. |
+| `src/rules.js` | The rulebook (`VGRules`): what's stale or a record, what's a map and which topic it claims, food-web levels, mention names, the Today list (`todayList`, `todayPick`) and when an item is done, scene-block words, search, the shared-state merge. Rule *data* (folder names, thresholds, patterns) comes from a vault's rules file, built in at `__RULES_JSON__`. |
 | `src/actions.js` | The one set of note actions (`VGActions`): Open, Focus, Link to…, Add to map, Still current, Add reference, Complete/Cancel tasks, Archive, Copy. |
 | `src/view.js`, `src/view.css` | The renderer (`mountVaultGraph`): every view, lens, panel and the inspector. Shared by the plugin and the standalone page. |
 | `src/scenes/*.js` | Map views as components; the build puts each in its own scope at the `/*@scenes*/` marker. |
@@ -32,11 +32,12 @@ One system, not bolted-on parts: one state, shared rules, one action path, share
 ## One state
 
 - **Data is always live.** The plugin keeps one merged state (`graphData()`) that every surface redraws from: the analysis output plus Obsidian's own index (`liveMerge`), so links, tasks, tags, maps, new and deleted notes show at once. The desktop plugin re-runs the analysis 30 s after the last edit. There is no manual refresh step.
-- **Shared state across devices** (review, quests, XP, saved views) is one synced file. Each save merges with the file on disk (`VGRules.mergeShared`, three-way, against what this view last read or wrote), and each device also keeps a ledger of its marks (`ledgerAdd` / `applyLedgers`), so a device whose copy Sync dropped loses nothing.
+- **Shared state across devices** (review skips, today's three, XP, saved views) is one synced file. Each save merges with the file on disk (`VGRules.mergeShared`, three-way, against what this view last read or wrote), and each device also keeps a ledger of its marks (`ledgerAdd` / `applyLedgers`), so a device whose copy Sync dropped loses nothing.
 
 ## Shared parts, not per-surface copies
 
-- `src/actions.js` is rendered by the inspector, the suggestions sidebar, every lens row's "⋯" menu and the missions panel; a test fails if a surface builds its own archive or close-all-tasks again.
+- `src/actions.js` is rendered by the inspector, the suggestions sidebar, every lens row's "⋯" menu and the Today panel; a test fails if a surface builds its own archive or close-all-tasks again.
+- **One list of next steps.** `VGRules.todayList(data)` ranks every suggestion (link a pair, add a note to its map, write a wanted note, review a quiet relied-on note, give a topic a map, link an unlinked note); `VGActions.TODAY` does each one. The graph's Insights card, its game panel and the sidebar draw that list; today's three are its first three (`todayPick`), kept for the day for XP. It replaced the review queue, daily quests and missions, which were three overlapping lists. A test fails if a surface builds its own list again.
 - Task lists stay open across redraws (`toggleTasks`); map labels stay inside the pane (`haloText` / `freeSpot` / `fitW`).
 - Empty states point to a next step (`emptyNext`); the smoke test fails on a lens with nothing to click, on a 6-note vault and an empty one.
 

@@ -285,11 +285,6 @@ class VaultGraphSuggestView extends ItemView {
     catch (e) { new Notice(`${label} didn't work: ${e.message || e}`); }
   }
   // Link two notes, writing the Related line into the staler one (linking it is a touch, so it stops being stale)
-  linkPair(byId, a, b, why) {
-    const na = byId.get(a), nb = byId.get(b);
-    const [from, to] = na && nb && (nb.age || 0) > (na.age || 0) ? [b, a] : [a, b];
-    return this.plugin.linkNotes(from, to, why || "suggested by Vault Graph");
-  }
   // Fuzzy picker over the vault's notes; resolves to a TFile, or null when cancelled
   pickNote(placeholder, filter) {
     return new Promise(resolve => {
@@ -306,7 +301,6 @@ class VaultGraphSuggestView extends ItemView {
       m.open();
     });
   }
-  safeName(s) { return VGRules.safeName(s); }
   // The context the shared note actions (vault_graph_actions.js) run in here: the same buttons, confirmations and
   // results as the graph's inspector. Each write publishes the new state, which redraws this sidebar too.
   actionCtx(data) {
@@ -398,96 +392,49 @@ class VaultGraphSuggestView extends ItemView {
         }
       });
     } else if (n) { sec("Suggested next step"); el.createDiv({ cls: "vg-s-card", text: "Nothing to do for this note." }); }
-    // today: streak, XP, quests (from the shared game file)
+    // Today: the same list as the graph (VGRules.todayList), its three picks first. The picks are the graph's saved
+    // ones for today; before a graph has opened today, the same rule picks them from this list.
     const sh = await this.plugin.loadShared(), cos = (sh && sh.cosmos) || {};
     if (token !== this.renderToken) return;   // a newer render emptied the pane while this one waited
     this.hidden = this.hidden || new Set();   // dismissed here: gone at once, before the game file catches up
-    const hidden = new Set([...(cos.hidden || []), ...this.hidden]), shown = q => !hidden.has(q.key || q.id);
-    if (cos.daily && cos.daily.quests) cos.daily.quests = cos.daily.quests.filter(shown);
-    cos.missions = (cos.missions || []).filter(shown);
-    // A quest is done once the live data shows it, not only when the graph view last saved it as done.
-    // Shared rules (vault_graph_rules.js) over the live data: the graph and this sidebar always agree.
+    const hidden = new Set([...(cos.hidden || []), ...this.hidden]);
     const g = VGRules.graph(data, { review: sh && sh.review }), liveDone = q => VGRules.questDone(q, g);
+    const list = VGRules.todayList(data, { review: sh && sh.review, hidden: [...hidden], today: today() });
+    const saved = cos.daily && cos.daily.date === today() ? (cos.daily.quests || []).filter(q => !hidden.has(q.key) && (q.done || VGRules.missionValid(q, g))) : null;
+    const picks = saved || VGRules.todayPick(list), pickKeys = new Set(picks.map(q => q.key));
     sec("Today");
     const stats = el.createDiv({ cls: "vg-s-stats" });
     const days = new Set((cos.log || []).map(e => e.date)); let d = new Date(), streak = 0;
     if (!days.has(localDay(d))) d.setDate(d.getDate() - 1);
     while (days.has(localDay(d))) { streak++; d.setDate(d.getDate() - 1); }
-    [[`${streak}`, "day streak"], [`${cos.xp || 0}`, "XP"], [`${((cos.daily || {}).quests || []).filter(q => liveDone(q)).length}/${((cos.daily || {}).quests || []).length}`, "quests"]]
+    [[`${streak}`, "day streak"], [`${cos.xp || 0}`, "XP"], [`${picks.filter(q => liveDone(q)).length}/${picks.length}`, "today"]]
       .forEach(([v, l]) => { const c = stats.createDiv(); c.createEl("b", { text: v }); c.createSpan({ text: l }); });
-    // Each quest / mission gets the button that actually does it (the graph awards it when it sees the change)
-    const nodeName = id => (byId.get(id) || {}).name || String(id).split("/").pop().replace(/\.md$/, "");
     // close every open task in a note (the same setNoteTasks the graph's task lists use)
     const taskAll = (id, how) => { const tn = byId.get(id), a = VGActions.ACTIONS.find(x => x.key === (how === "-" ? "cancel" : "complete"));
       return [a.label(tn, ctx), () => run(a.key, tn)]; };
-    const card = (title, sub, done, actions, key, noteId) => {
-      const tn = noteId && byId.get(noteId);
-      if (!done && tn && tn.tasks > 0) actions = [...actions, taskAll(noteId, "x"), taskAll(noteId, "-")];   // the quest's note has open tasks
-      const c = el.createDiv({ cls: "vg-s-card vg-s-questcard" + (done ? " is-done" : "") });
-      if (key) { const x = c.createEl("button", { cls: "vg-s-hide clickable-icon", attr: { "aria-label": done ? "Clear it" : "Not for me — hide it", title: done ? "Clear it" : "Not for me — hide it" } });
-        require("obsidian").setIcon(x, "x");
-        x.onclick = async () => { this.hidden.add(key); c.remove(); await this.plugin.hideGameItem(key); this.renderSoon(); }; }
-      const t = c.createDiv({ cls: "vg-s-txt" });
-      t.createDiv({ text: `${done ? "✓" : "○"} ${title}`, cls: "vg-s-t" });
-      if (sub) t.createDiv({ text: sub, cls: "vg-s-muted" });
-      if (done) return;
-      const acts = c.createDiv({ cls: "vg-s-acts" });
-      actions.filter(Boolean).forEach(([label, fn], i) => { const b = acts.createEl("button", { text: label, cls: i === 0 ? "mod-cta" : "" }); b.onclick = () => fn(); });
-    };
     const openNote = id => ["Open", () => { const f = this.app.vault.getAbstractFileByPath(id); if (f instanceof TFile) this.app.workspace.getLeaf(false).openFile(f); }];
-    // Added now or already there ("Already in…"): either way the quest is done, so mark it and the card updates
-    const addToMap = (moc, ids, questKey) => ["Add to map", () => this.act("Add to map", async () => {
-      await this.plugin.addToMap(moc, ids);
-      if (questKey) await this.plugin.markQuestDone(questKey);
-    }, `Added ${ids.map(nodeName).join(", ")} to ${nodeName(moc)}`)];
-    const reviewed = id => ["Still current", () => byId.get(id) ? run("current", byId.get(id)) : null];
-    if (cos.daily && cos.daily.date === today()) cos.daily.quests.filter(q => q.done || !(q.kind === "link" && q.a && q.b) || data.links.some(l =>
-      (l.kind === "gap" || l.kind === "similar") && pairKey(l.source, l.target) === pairKey(q.a, q.b))).forEach(q => {
-      let actions = [];
-      if (q.kind === "link" && q.a && q.b) actions = [["Link", () => this.act("Link", () => this.linkPair(byId, q.a, q.b), `Linked ${nodeName(q.a)} ↔ ${nodeName(q.b)}`)],
-        ["Not related", () => this.act("Dismiss", () => this.plugin.dismiss(q.a, q.b, "gap"), `Dismissed ${nodeName(q.a)} ↔ ${nodeName(q.b)}`)], openNote(q.a)];
-      else if (q.kind === "map" && q.id) actions = [addToMap(q.key.split("|")[1], [q.id], q.key), openNote(q.id)];
-      else if (q.kind === "write") {
-        const w = (data.wanted || []).find(x => x.id === q.id);
-        if (w) actions = [["Create note", () => this.act("Create note", () => this.plugin.writeNote(`${VGRules.folders.inbox}/${this.safeName(w.name)}.md`,
-          `---\ncreated: ${today()}\n---\n# ${w.name}\n\n> Created from Vault Graph: linked from ${w.refs.slice(0, 5).map(r => this.plugin.linkText(r, VGRules.folders.inbox + "/new.md")).join(", ")}.\n\n`,
-          { mode: "create", open: true }), `Wrote ${w.name}`)]];
-      } else if (q.kind === "hub" && q.id) actions = [reviewed(q.id), openNote(q.id)];
-      card(q.title, null, liveDone(q), actions, q.key, q.id || (q.ids || [])[0]);
-    });
-    const finished = new Set((cos.done || []).map(x => (typeof x === "string" ? x : x && x.id)));
-    const mocById = new Map((data.mocs || []).map(m => [m.id, m]));
-    // Shared rules (vault_graph_rules.js): missions no longer suggested (relinked, dismissed, topic dropped) or
-    // already achieved in the live data leave the list instead of waiting for the graph to be opened
-    const mapOf = g.mapForCluster;
-    (cos.missions || []).filter(m => !finished.has(m.id) && VGRules.missionOpen(m, g)).slice(0, 5).forEach(m => {
-      let actions = [], sub = m.how, focus;
-      if (m.kind === "expedition") {   // three steps: a map, 5 of its missing notes listed, a bridge (the graph checks that one)
-        const mm = mapOf(m.c), listed = mm ? (m.baseline || []).filter(id => VGRules.onMap(mm, id)).length : 0;
-        const miss = mm ? (m.baseline || []).filter(id => byId.has(id) && !VGRules.onMap(mm, id)).slice(0, 5 - Math.min(5, listed)) : [];
-        const c = data.clusters.find(k => k.id === m.c);
-        if (!mm) { sub = "Step 1 of 3: give the topic a map"; actions = [["Create map", () => this.act("Create map", () => this.plugin.createMap(c.id), `Mapped ${c.label || c.name}`)]]; }
-        else if (listed < 5 && miss.length) { sub = `Step 2 of 3: list ${5 - listed} more in ${mm.title} · ${miss.map(nodeName).join(", ")}`; actions = [addToMap(mm.id, miss)]; }
-        else sub = "Step 3 of 3: bridge it to its nearest gap (in the graph)";
-      }
-      if (m.kind === "wormhole") actions = [["Link", () => this.act("Link", () => this.linkPair(byId, m.a, m.b), `Linked ${nodeName(m.a)} ↔ ${nodeName(m.b)}`)],
-        ["Not related", () => this.act("Dismiss", () => this.plugin.dismiss(m.a, m.b, "gap"), `Dismissed ${nodeName(m.a)} ↔ ${nodeName(m.b)}`)]];
-      else if (m.kind === "drift") {
-        const mm = mocById.get(m.m), miss = mm ? Object.values(mm.missing || {}).flat().filter(id => byId.has(id)).slice(0, 5) : [];
-        if (miss.length) { sub = `Missing: ${miss.map(nodeName).join(", ")}`; actions = [addToMap(m.m, miss)]; }
-      } else if (m.kind === "horizon") {
-        const next = (m.baseline || []).find(id => byId.has(id) && staleFor(byId.get(id), (data.quality || {}).stale_days));
-        if (next) { focus = next; sub = `Next: ${nodeName(next)} (${byId.get(next).age} days since edit)`; actions = [reviewed(next), openNote(next)]; }
-      } else if (m.kind === "nebula") {
-        const next = (m.baseline || []).find(id => byId.has(id) && byId.get(id).isolated);
-        if (next) { focus = next; sub = `Next: ${nodeName(next)}`; actions = [["Link to…", async () => { const t = await this.pickNote(`Link ${nodeName(next)} to…`, f => f.path !== next);
-          if (t) this.act("Link", () => this.plugin.linkNotes(next, t.path, "linked from the suggestions sidebar"), `Linked ${nodeName(next)} ↔ ${t.basename}`); }], openNote(next)]; }
-      } else if (m.kind === "chart") {
-        const c = data.clusters.find(k => k.id === m.c);
-        if (c) actions = [["Create map", () => this.act("Create map", () => this.plugin.createMap(c.id), `Charted ${c.label || c.name}`)]];
-      }
-      card(m.title, sub, false, actions.length ? actions : [["Open Vault Graph", () => this.plugin.open()]], m.id, focus);
-    });
+    // one row per item: its action (VGActions.runToday, as in the graph), Open, Not related for a pair, and hide
+    const row = (it, pick) => {
+      const done = pick && liveDone(it), noteId = it.id || (it.ids || [])[0], tn = noteId && byId.get(noteId);
+      const c = el.createDiv({ cls: "vg-s-card vg-s-questcard" + (done ? " is-done" : "") });
+      const x = c.createEl("button", { cls: "vg-s-hide clickable-icon", attr: { "aria-label": done ? "Clear it" : "Not for me — hide it", title: done ? "Clear it" : "Not for me — hide it" } });
+      require("obsidian").setIcon(x, "x");
+      x.onclick = async () => { this.hidden.add(it.key); c.remove(); await this.plugin.hideGameItem(it.key); this.renderSoon(); };
+      const t = c.createDiv({ cls: "vg-s-txt" });
+      t.createDiv({ text: `${pick ? (done ? "✓ " : "○ ") : ""}${it.title}`, cls: "vg-s-t" });
+      if (it.why && !done) t.createDiv({ text: it.why, cls: "vg-s-muted" });
+      if (done) return;
+      const acts = c.createDiv({ cls: "vg-s-acts" }), actions = [];
+      if (VGActions.todayWhen(it, ctx)) actions.push([VGActions.todayLabel(it), async () => { if (await VGActions.runToday(it, ctx) && pick) await this.plugin.markQuestDone(it.key); }]);
+      if (it.kind === "link") actions.push(["Not related", () => this.act("Dismiss", () => this.plugin.dismiss(it.a, it.b, "gap"), `Dismissed ${it.names[0]} ↔ ${it.names[1]}`)]);
+      if (tn) actions.push(openNote(noteId));
+      if (tn && tn.tasks > 0) actions.push(taskAll(noteId, "x"), taskAll(noteId, "-"));   // the item's note has open tasks
+      actions.forEach(([label, fn], i) => { const btn = acts.createEl("button", { text: label, cls: i === 0 ? "mod-cta" : "" }); btn.onclick = () => fn(); });
+    };
+    picks.forEach(q => row(q, true));
+    const rest = list.filter(it => !pickKeys.has(it.key));
+    if (rest.length) { sec(`Next up · ${rest.length}`); rest.slice(0, 3).forEach(it => row(it, false)); }
+    if (!picks.length && !rest.length) el.createDiv({ cls: "vg-s-card", text: "Nothing to do today." });
     const open = el.createEl("button", { text: "Open Vault Graph", cls: "vg-s-open" }); open.onclick = () => this.plugin.open();
     el.scrollTop = scroll;
     if (this.tasksLoading) this.tasksLoading.then(() => { if (token === this.renderToken) el.scrollTop = scroll; });
@@ -568,7 +515,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     // the gardener (or Obsidian Sync) rewriting the data file updates open views
     this.registerEvent(this.app.vault.on("modify", file => {
       if (file.path === normalizePath(this.settings.dataPath)) { this.base = null; this.cache = null; this.dataStamp = Date.now(); this.mergeContentFromDisk().then(() => this.reloadSoon()); }
-      // the game file (quests, missions, XP) and dismissals are written by the graph or another device: the sidebar shows them
+      // the game file (today's picks, XP) and dismissals are written by the graph or another device: the sidebar shows them
       else if (file.path === normalizePath(this.settings.sharedPath) || file.path === normalizePath(this.settings.dismissedPath)) this.sharedChanged(file);
     }));
     // another device's ledger arriving by Sync (a new device's first one is a create)
@@ -1089,6 +1036,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       dismissPair: async (a, b, kind) => { await this.dismiss(a, b, kind); new Notice("Won't suggest that pair again"); },
       linkText: (id, fromPath) => this.linkText(id, fromPath),
       addToMap: (mocId, ids) => this.addToMap(mocId, ids),
+      createMap: clusterId => this.createMap(clusterId),
       addReference: (notePath, holderPath) => this.addReference(notePath, holderPath),
       lastUndo: () => this.lastUndo(), undo: id => this.undo(id),   // VGActions offers Undo on the message an action shows
       outlinksOf: notePath => Object.keys((this.app.metadataCache.resolvedLinks || {})[notePath] || {}),   // stars on hubs the graph leaves out
@@ -1284,7 +1232,6 @@ module.exports = class VaultGraphPlugin extends Plugin {
     else await this.updateShared(sh => { sh.cosmos = sh.cosmos || {};
       sh.cosmos.hidden = [...new Set([...(sh.cosmos.hidden || []), key])].slice(-500);
       if (sh.cosmos.daily && sh.cosmos.daily.quests) sh.cosmos.daily.quests = sh.cosmos.daily.quests.filter(q => q.key !== key);
-      sh.cosmos.missions = (sh.cosmos.missions || []).filter(m => m.id !== key);
       return sh; });
   }
   dataMtime() { const f = this.app.vault.getAbstractFileByPath(normalizePath(this.settings.dataPath)); return f instanceof TFile ? f.stat.mtime : 0; }
@@ -1477,7 +1424,7 @@ const SCENE_LANG = "vault-graph-scene", SCENE_BLOCK = /^```vault-graph-scene[^\S
 const DISMISSED = new Set();   // dismissed pairs by note name (dismissKey); kept current by the plugin, applied in liveMerge
 // Shared rules (vault_graph_rules.js, built in ahead of this file): records are never "stale"; dismissals match
 // by note name like the analysis (vault_gaps._dismissed), so a same-name copy counts as dismissed too
-const { pairKey, dismissKey } = VGRules, staleFor = VGRules.isStale;
+const { dismissKey } = VGRules, staleFor = VGRules.isStale;
 function liveMerge(app, data, since) {
   const vault = app.vault, cache = app.metadataCache, resolved = cache.resolvedLinks || {};
   const byId = new Map(data.nodes.map(n => [n.id, n]));

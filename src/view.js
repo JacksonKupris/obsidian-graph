@@ -3688,7 +3688,7 @@ function mountVaultGraph(root, DATA, opts) {
     if (!cos.log) cos.log = [];
     cos.log.unshift({ date: today(), text }); cos.log = cos.log.slice(0, 200);
     const rule = XP_FOR.find(([re]) => re.test(text)); if (rule) awardXp(rule[1], text);
-    if (typeof updateDaily === "function" && cos.missions) updateDaily(true);
+    if (typeof updateDaily === "function") updateDaily(true);
     persistSoon(); if (typeof renderMissions === "function") renderMissions();
   }
 
@@ -3815,53 +3815,62 @@ function mountVaultGraph(root, DATA, opts) {
       ((c.quiet || []).length ? `<div class="vg-list-h">Went quiet</div>` + c.quiet.filter(id => byId[id]).slice(0, 4).map(id => noteRow(id)).join("") : "");
     return card(`Since ${esc(c.since)}`, "what changed since the last analysis", body);
   }
-  // Today's review: one small, concrete improvement at a time. Skipped items stay away for two weeks.
-  let review = { skipped: {} }, reviewIdx = 0;
-  function reviewItems() {
-    const out = [], skipped = k => review.skipped[k] && (Date.now() - new Date(review.skipped[k]).getTime()) / 864e5 < UI.time.skipDays;
-    links.filter(l => l.kind === "gap" || l.kind === "similar").forEach(l => out.push({ key: `link|${l.s.id}|${l.t.id}`, kind: "link", l,
-      title: `Link ${l.s.name} ↔ ${l.t.name}?`, why: l.why, ids: [l.s.id, l.t.id], score: 3 + (l.ev ? l.ev.length : 0) }));
-    mocs.forEach(m => m.clusters.forEach(c => (m.missing[c] || []).slice(0, 3).forEach(id => byId[id] && out.push({ key: `map|${m.id}|${id}`, kind: "map", m, id,
-      title: `Add ${byId[id].name} to ${m.title}?`, why: `It's in the topic this map covers (#${rankOf[id] || "—"} influence)`, ids: [id, m.id], score: 2 + (rankOf[id] ? 30 / rankOf[id] : 0) }))));
-    ghosts.filter(g => g.from.length >= 3 && g.creatable && !g.created).forEach(g => out.push({ key: `write|${g.id}`, kind: "write", g,
-      title: `Write “${g.name}”?`, why: `${plural(g.from.length, "note")} link to it, but it doesn't exist`, ids: [g.id], score: 1 + g.from.length / 3 }));
-    (review.pinned || []).filter(id => byId[id]).forEach(id => out.push({ key: `pin|${id}`, kind: "hub", id, title: `Review ${byId[id].name}`, why: "You asked to review this — it's been going quiet", ids: [id], score: 9 }));
-    coolingHubs.forEach(n => out.push({ key: `review|${n.id}`, kind: "hub", id: n.id, title: `Review ${n.name}`, why: `#${rankOf[n.id]} influence, quiet for ${DATA.recent_days}+ days — still current?`, ids: [n.id], score: 1.5 }));
-    // stable order for the day: score, then a date-seeded shuffle so ties rotate
-    const seed = hash(today());
-    return out.filter(x => !skipped(x.key)).sort((a, b) => b.score - a.score || (hash(a.key) ^ seed) - (hash(b.key) ^ seed));
+  // ---- Today: the one list of next steps (VGRules.todayList; it replaced the review queue, the daily quests and the
+  // missions). Today's three are its first three, kept for the day (the XP layer ticks them off); "Next up" is the
+  // rest. The Insights card and the game panel draw the same rows; every button is VGActions.runToday.
+  let review = { skipped: {} };
+  const todayData = () => ({ ...DATA, links, mocs, wanted: ghosts.filter(g => !g.created).map(g => ({ id: g.id, name: g.name, refs: g.from, creatable: g.creatable })) });
+  const todayItems = () => VGRules.todayList(todayData(), { review, hidden: cos.hidden, today: today(), skipDays: UI.time.skipDays });
+  function pinReview(id) { review.pinned = [...new Set([...(review.pinned || []), id])]; persistSoon(); renderTodayList(); toast(`${byId[id].name} added to Today`, "ok"); }
+  function todayRow(it, pick) {
+    const done = !!(pick && pick.done), can = !done && VGActions.todayWhen(it, actionCtx());
+    return `<div class="vg-td ${done ? "is-done" : ""}" data-tkey="${esc(it.key)}"><div class="vg-td-main"><b class="vg-rv-title">${pick ? (done ? "✓ " : "○ ") : ""}${esc(it.title)}</b>${it.why && !done ? `<span class="vg-item-sub">${esc(it.why)}</span>` : ""}</div>` +
+      (done ? "" : `<div class="vg-ins-actions vg-wrap">${can ? `<button class="vg-btn vg-btn-sm vg-btn-primary" data-tdo>${esc(VGActions.todayLabel(it))}</button>` : ""}<button class="vg-btn vg-btn-sm" data-tshow>Show</button>` +
+        `${it.kind === "link" && opts.dismissPair ? `<button class="vg-btn vg-btn-sm vg-btn-ghost" data-tno>Not related</button>` : ""}<button class="vg-btn vg-btn-sm vg-btn-ghost" data-tskip title="Hide for ${UI.time.skipDays} days">Skip</button></div>`) + `</div>`;
   }
-  function pinReview(id) { review.pinned = [...new Set([...(review.pinned || []), id])]; persistSoon(); renderReview(); toast(`${byId[id].name} added to today's review`, "ok"); }
-  function renderReview() {
-    const box = $(".vg-review"); if (!box) return;
-    const items = reviewItems();
-    const badge = $(".vg-reviewcount"); if (badge) { badge.textContent = items.length > 99 ? "99+" : items.length; badge.parentElement.hidden = !items.length || opts.compact; }
-    if (!items.length) { box.innerHTML = card("Today's review", "", emptyNext("Nothing waiting.", "lens:write", "lens:blind")); wireNext(box); return; }
-    reviewIdx = Math.min(reviewIdx, items.length - 1);
-    const it = items[reviewIdx];
-    const primary = it.kind === "link" && opts.linkNotes ? `<button class="vg-btn vg-btn-primary" data-r="do">${icon("link", 14)} Link</button>`
-      : it.kind === "map" && canAddToMap() ? `<button class="vg-btn vg-btn-primary" data-r="do">${icon("plus", 14)} Add</button>`
-      : it.kind === "write" && opts.writeNote ? `<button class="vg-btn vg-btn-primary" data-r="do">${icon("file", 14)} Create</button>`
-      : it.kind === "hub" && opts.openNote ? `<button class="vg-btn vg-btn-primary" data-r="do">${icon("open", 14)} Open</button>` : "";
-    box.innerHTML = card("Today's review", `${reviewIdx + 1} of ${items.length} · one small improvement at a time`,
-      `<div class="vg-rv"><b class="vg-rv-title">${esc(it.title)}</b><span class="vg-item-sub">${esc(it.why)}</span>
-       <div class="vg-ins-actions vg-wrap">${primary}<button class="vg-btn" data-r="show">${icon("target", 14)} Show</button>
-       ${it.kind === "link" && opts.dismissPair ? `<button class="vg-btn vg-btn-ghost" data-r="dismiss">Dismiss</button>` : ""}
-       <button class="vg-btn vg-btn-ghost" data-r="skip" title="Hide for ${UI.time.skipDays} days">Skip</button>
-       <button class="vg-btn vg-btn-ghost" data-r="next" title="Next item">Next →</button></div></div>`);
-    const on = (k, f) => { const b = box.querySelector(`[data-r="${k}"]`); if (b) b.onclick = f; };
-    on("show", () => { if (it.ids.length > 1) { setHighlight(new Set(it.ids), it.title); it.ids.forEach(id => { if (!baseVisible(byId[id])) reveal(id); }); select(it.ids[0]); fit(n => it.ids.includes(n.id)); } else reveal(it.ids[0]); });
-    on("skip", () => { review.skipped[it.key] = today(); if (it.key.startsWith("pin|")) review.pinned = (review.pinned || []).filter(x => x !== it.id); persistSoon(); renderReview(); });
-    on("next", () => { reviewIdx = (reviewIdx + 1) % items.length; renderReview(); });
-    on("dismiss", async () => { await actOnSuggestion("dismiss", it.l.s.id, it.l.t.id, box.querySelector('[data-r="dismiss"]')); renderReview(); });
-    on("do", async e => {
-      const b = e.currentTarget;
-      if (it.kind === "link") { await actOnSuggestion("link", it.l.s.id, it.l.t.id, b); }
-      else if (it.kind === "map") { await addToMap(it.m.id, [it.id], b); }
-      else if (it.kind === "write") { select(it.g.id); const c = $('.vg-inspector [data-act="create"]'); if (c) c.click(); }
-      else if (it.kind === "hub") { opts.openNote(it.id, false); review.done = { ...(review.done || {}), [it.key]: today() }; logDiscovery(`Reviewed ${byId[it.id].name}`); review.skipped[it.key] = today(); review.pinned = (review.pinned || []).filter(x => x !== it.id); persistSoon(); }
-      renderReview();
+  // today's three, then up to `more` next items
+  function todayHtml(more) {
+    ensureDaily();
+    const picks = cos.daily.quests, keys = new Set(picks.map(q => q.key)), rest = todayItems().filter(it => !keys.has(it.key));
+    const out = (picks.length ? `<div class="vg-list-h">Today's three <span class="vg-count">${picks.filter(q => q.done).length}/${picks.length}</span></div>` + picks.map(q => todayRow(q, q)).join("") : "")
+      + (rest.length && more ? `<div class="vg-list-h">Next up <span class="vg-count">${rest.length}</span></div>` + rest.slice(0, more).map(it => todayRow(it)).join("") : "");
+    return out || emptyNext("Nothing to do today.", "lens:write", "lens:blind");
+  }
+  // after an item's write: what this graph shows changes at once (the plugin's re-merge confirms it)
+  function afterToday(it) {
+    if (it.kind === "link") noteLinked(it.from, it.to);
+    else if (it.kind === "map") listedOnMap(it.m, [it.id]);
+    else if (it.kind === "write" && byId[it.id]) byId[it.id].created = true;
+    else if (it.kind === "hub") { review.done = { ...(review.done || {}), [it.key]: today() }; review.pinned = (review.pinned || []).filter(x => x !== it.id); if (byId[it.id]) byId[it.id].age = 0; }
+    updateGame(true);
+  }
+  function showToday(it) {
+    const ids = (it.ids || []).filter(id => byId[id]); if (!ids.length) return;
+    if (ids.length > 1) { setHighlight(new Set(ids), it.title); ids.forEach(id => { if (!baseVisible(byId[id])) reveal(id); }); select(ids[0]); fit(n => ids.includes(n.id)); } else reveal(ids[0]);
+  }
+  function skipToday(it) {
+    review.skipped[it.key] = today();
+    if (it.key.startsWith("pin|")) review.pinned = (review.pinned || []).filter(x => x !== it.id);
+    if (cos.daily.quests.some(q => q.key === it.key)) { cos.daily.quests = cos.daily.quests.filter(q => q.key !== it.key); const next = nextPick(); if (next) cos.daily.quests.push(next); }
+    persistSoon(); renderTodayList();
+  }
+  function wireToday(box) {
+    const find = k => cos.daily.quests.find(q => q.key === k) || todayItems().find(it => it.key === k);
+    box.querySelectorAll("[data-tkey]").forEach(row => { const it = find(row.dataset.tkey); if (!it) return; const q = sel => row.querySelector(sel);
+      if (q("[data-tdo]")) q("[data-tdo]").onclick = async e => { e.stopPropagation(); const btn = e.currentTarget; btn.disabled = true;
+        if (await VGActions.runToday(it, actionCtx(), e)) afterToday(it); else if (btn.isConnected) btn.disabled = false; };
+      if (q("[data-tshow]")) q("[data-tshow]").onclick = e => { e.stopPropagation(); showToday(it); };
+      if (q("[data-tno]")) q("[data-tno]").onclick = async e => { e.stopPropagation(); await actOnSuggestion("dismiss", it.a, it.b, e.currentTarget); updateGame(false); };
+      if (q("[data-tskip]")) q("[data-tskip]").onclick = e => { e.stopPropagation(); skipToday(it); };
     });
+    wireNext(box);
+  }
+  // the Insights card, and the game panel when it's open
+  function renderTodayList() {
+    const box = $(".vg-review");
+    if (box) { box.innerHTML = card("Today", "one small improvement at a time", todayHtml(5)); wireToday(box); }
+    const badge = $(".vg-reviewcount"); if (badge) { const n = (cos.daily ? cos.daily.quests.filter(q => !q.done).length : 0); badge.textContent = n; badge.parentElement.hidden = !n || opts.compact; }
+    if (root.classList.contains("show-missions")) renderMissions();
   }
 
   // ---------------------------------------------------------------- saved views
@@ -3957,7 +3966,7 @@ function mountVaultGraph(root, DATA, opts) {
     };
     panel.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { STAT_GO[b.dataset.stat](); closeDrawer(); });
     panel.querySelectorAll(".vg-maprow").forEach(e => e.onclick = () => showMocMissing(e.dataset.moc));
-    renderReview();
+    renderTodayList();
     panel.querySelectorAll(".vg-unmapped").forEach(e => e.onclick = () => focusClusters([+e.dataset.c]));
     panel.querySelectorAll(".vg-bridgebtn").forEach(e => e.onclick = ev => { ev.stopPropagation(); writeBridge(+e.dataset.a, +e.dataset.b); });
   }
@@ -4187,11 +4196,17 @@ function mountVaultGraph(root, DATA, opts) {
     catch (e) { if (button) button.disabled = false; toast("Couldn't update the map", "warn"); return false; }
     const m = mocs.find(x => x.id === mocId);
     const already = wrote === false;   // the plugin skipped it: the map already links to every one of them
-    ids.forEach(i => { if (!onMap(m, i)) m.members.push(i); Object.keys(m.missing).forEach(c => m.missing[c] = m.missing[c].filter(x => x !== i));
-      if (byId[mocId]) links.push({ source: mocId, target: i, w: 1, kind: "moc", s: byId[mocId], t: byId[i] }); });
+    listedOnMap(mocId, ids, true);
     if (already) toast(`Already in ${m.title}`, "ok");
     else { toast(`Added ${plural(ids.length, "note")} to ${m.title}`, "ok"); logDiscovery(`Added ${ids.map(i => byId[i].name).join(", ")} to ${m.title}`); }
     renderInsights(); rebuild(false); return true;
+  }
+  // notes just listed in a map: members, missing and the map's links as the next analysis will have them
+  function listedOnMap(mocId, ids, quiet) {
+    const m = mocs.find(x => x.id === mocId); if (!m) return;
+    ids.forEach(i => { if (!byId[i]) return; if (!onMap(m, i)) m.members.push(i); Object.keys(m.missing).forEach(c => m.missing[c] = m.missing[c].filter(x => x !== i));
+      if (byId[mocId] && !links.some(l => l.kind === "moc" && l.s.id === mocId && l.t.id === i)) links.push({ source: mocId, target: i, w: 1, kind: "moc", s: byId[mocId], t: byId[i] }); });
+    if (!quiet) { renderInsights(); rebuild(false); }
   }
   function wireAddToMap(box) {
     box.querySelectorAll("[data-addmap]").forEach(b => b.onclick = async e => { e.stopPropagation(); if (await addToMap(b.dataset.addmap, [b.dataset.note], b)) select(st.selected); });
@@ -4288,6 +4303,14 @@ function mountVaultGraph(root, DATA, opts) {
   }
   // Link writes "- [[other]] — <evidence>" into the selected note (plugin only); Dismiss records the
   // pair so the analysis never suggests it again. Either way the dashed edge goes away right here.
+  // a link just written: the suggestion goes, the link is drawn (quiet: the caller says what happened)
+  function noteLinked(id, other, quiet) {
+    if (!byId[id] || !byId[other]) return;
+    for (let i = links.length - 1; i >= 0; i--) { const l = links[i]; if ((l.kind === "gap" || l.kind === "similar") && ((l.s.id === id && l.t.id === other) || (l.s.id === other && l.t.id === id))) links.splice(i, 1); }
+    if (!nb[id].has(other)) { links.push({ source: id, target: other, w: 1, kind: "link", s: byId[id], t: byId[other] }); nb[id].add(other); nb[other].add(id); }
+    byId[id].age = 0;
+    if (!quiet) rebuild(false);
+  }
   async function actOnSuggestion(action, id, other, button, whyOverride) {
     const gap = links.find(l => (l.kind === "gap" || l.kind === "similar") && ((l.s.id === id && l.t.id === other) || (l.s.id === other && l.t.id === id)));
     button.disabled = true;
@@ -4300,11 +4323,8 @@ function mountVaultGraph(root, DATA, opts) {
       }
       else await opts.dismissPair(id, other, gap ? gap.kind : "gap");
     } catch (err) { button.disabled = false; toast("That didn't work — see the notice", "warn"); return; }
-    for (let i = links.length - 1; i >= 0; i--) if (links[i] === gap) links.splice(i, 1);
-    if (action === "link") {
-      links.push({ source: id, target: other, w: 1, kind: "link", s: byId[id], t: byId[other] });
-      nb[id].add(other); nb[other].add(id);
-    }
+    if (action === "link") noteLinked(id, other, true);
+    else for (let i = links.length - 1; i >= 0; i--) if (links[i] === gap) links.splice(i, 1);
     toast(action === "link" ? `Linked ${byId[id].name} → ${byId[other].name}` : "Suggestion dismissed", "ok");
     logDiscovery(action === "link" ? `Linked ${byId[id].name} ↔ ${byId[other].name}` : `Dismissed ${byId[id].name} ↔ ${byId[other].name}`);
     rebuild(false); select(id);
@@ -4471,7 +4491,7 @@ function mountVaultGraph(root, DATA, opts) {
   // The nebula (unlinked notes) is a gas cloud on a slow circular orbit about the core; its notes circle inside it
   const NEB_R = Math.hypot(...NEBULA), NEB_A0 = Math.atan2(NEBULA[1], NEBULA[0]), GM_NEB = 6;
   const nebulaPos = () => { const a = NEB_A0 + physT * Math.sqrt(GM_CORE / Math.pow(NEB_R, 3)); return [Math.cos(a) * NEB_R, Math.sin(a) * NEB_R]; };
-  let cos = { bodies: [], auto: { comets: true, wormholes: true, belt: true, nebula: true, grid: true, motion: true, trails: true }, missions: [], done: [], ach: {}, xp: 0 };
+  let cos = { bodies: [], auto: { comets: true, wormholes: true, belt: true, nebula: true, grid: true, motion: true, trails: true }, done: [], ach: {}, xp: 0 };
   let capture = new Map(), repelled = new Map(), bodyCaptured = new Map();
   const mocMembers = {}; links.filter(l => l.kind === "moc").forEach(l => (mocMembers[l.s.id] = mocMembers[l.s.id] || new Set()).add(l.t.id));
   const graphNb = id => new Set([...(nb[id] || []), ...(mocMembers[id] || [])]);
@@ -5047,37 +5067,9 @@ function mountVaultGraph(root, DATA, opts) {
   // ---- game layer: missions and achievements, all measured from the vault itself
   const RANKS = [[0, "Cadet"], [50, "Navigator"], [150, "Cartographer"], [300, "Astronomer"], [600, "Architect"]];
   const rankOfXp = xp => RANKS.filter(r => xp >= r[0]).pop()[1];
-  function missionPool() {
-    const out = [], doneIds = new Set(cos.done.map(d => d.id)), activeIds = new Set(cos.missions.map(m => m.id));
-    links.filter(l => l.kind === "gap" || l.kind === "similar").slice(0, 12).forEach(l => out.push({ id: `wormhole|${l.s.id}|${l.t.id}`, kind: "wormhole", a: l.s.id, b: l.t.id, xp: 20,
-      title: `Stabilise the wormhole ${l.s.name} ↔ ${l.t.name}`, how: "Link the two notes (inspector → Link)" }));
-    const iso = nodes.filter(n => n.isolated && !special(n));
-    if (iso.length >= 3) out.push({ id: `nebula|${today().slice(0, 7)}`, kind: "nebula", xp: 30, title: "Adopt 3 notes from the nebula", how: "Link 3 unlinked notes to anything", baseline: iso.map(n => n.id) });
-    DATA.clusters.filter(c => !mocOf[c.id] && c.size >= 6).slice(0, 3).forEach(c => out.push({ id: `chart|${c.id}`, kind: "chart", c: c.id, xp: 40,
-      title: `Chart ${c.name}: give this topic a map`, how: "Create the map (button below)" }));
-    mocs.forEach(m => { const miss = m.clusters.flatMap(c => m.missing[c] || []); if (miss.length >= 5) out.push({ id: `drift|${m.id}|${today().slice(0, 7)}`, kind: "drift", m: m.id, xp: 20,
-      title: `Add 5 missing notes to ${m.title}`, how: "Select the map → Add", baseline: miss.slice() }); });
-    const stale = nodes.filter(n => !special(n) && staleFor(n, Q.stale_days) && rankOf[n.id]).sort((a, b) => rankOf[a.id] - rankOf[b.id]).slice(0, 10);
-    if (stale.length >= 3) out.push({ id: `horizon|${today().slice(0, 7)}`, kind: "horizon", xp: 30, title: "Pull 3 influential notes back from the event horizon",
-      how: "Edit 3 of these stale notes so they're current (their edit date updates)", baseline: stale.map(n => n.id) });
-    DATA.clusters.filter(c => c.size >= 8).slice(0, 4).forEach(c => {
-      const g = DATA.gaps.find(x => x.a === c.id || x.b === c.id); if (!g) return;
-      const mm = mocOf[c.id];
-      out.push({ id: `exp|${c.id}|${today().slice(0, 7)}`, kind: "expedition", c: c.id, partner: g.a === c.id ? g.b : g.a, xp: 100,
-        title: `Expedition: chart the ${clusterName(c.id)} system`, how: "Map it, fill the map, bridge it to its nearest gap",
-        baseline: mm ? mm.clusters.flatMap(x => mm.missing[x] || []) : topicNotes(c.id).sort(byInfluence).map(n => n.id) });
-    });
-    const hid = new Set(cos.hidden || []);
-    return out.filter(m => !doneIds.has(m.id) && !activeIds.has(m.id) && !hid.has(m.id));
-  }
-  // [done, needed]: shared rule (vault_graph_rules.js), so the sidebar agrees on what's finished
-  function progress(m) {
-    if (m.kind === "expedition") m.clusters_missing = () => { const mm = mocOf[m.c]; return mm ? (m.baseline || []).filter(id => byId[id] && !onMap(mm, id)) : []; };
-    return VGRules.missionProgress(m, liveGraph, expeditionSteps);
-  }
   const ACH = [
-    { id: "first", name: "First contact", hint: "Complete a mission", test: () => cos.done.length >= 1 },
-    { id: "wormholes", name: "Wormhole engineer", hint: "Stabilise 5 wormholes", test: () => cos.done.filter(d => d.id.startsWith("wormhole")).length >= 5 },
+    { id: "first", name: "First contact", hint: "Do one of the day's three", test: () => (cos.done || []).length >= 1 || !!(cos.daily && cos.daily.quests.some(q => q.done)) },
+    { id: "wormholes", name: "Wormhole engineer", hint: "Link 5 suggested pairs", test: () => (cos.log || []).filter(e => /^Linked/.test(e.text)).length >= 5 },
     { id: "cartographer", name: "Cartographer", hint: "Every topic of 6+ notes has a map", test: () => DATA.clusters.filter(c => c.size >= 6).every(c => mocOf[c.id]) },
     { id: "complete", name: "Complete atlas", hint: "A map lists every note in its topic", test: () => mocs.some(m => m.clusters.every(c => !(m.missing[c] || []).length)) },
     { id: "nebula", name: "Nebula tamer", hint: "Fewer than 150 unlinked notes", test: () => nodes.filter(n => n.isolated && !special(n)).length < 150 },
@@ -5121,21 +5113,17 @@ function mountVaultGraph(root, DATA, opts) {
   const questDone = q => VGRules.questDone(q, liveGraph);
   function ensureDaily() {
     if (cos.daily && cos.daily.date === today()) return;
-    const hid = new Set(cos.hidden || []), items = reviewItems().filter(it => !hid.has(it.key)), picked = [], kinds = new Set();
-    for (const it of items) { if (picked.length >= 3) break; if (kinds.has(it.kind) && items.length > 6) continue; kinds.add(it.kind); picked.push(it); }
-    for (const it of items) { if (picked.length >= 3) break; if (!picked.includes(it)) picked.push(it); }
-    cos.daily = { date: today(), bonus: false, quests: picked.map(questOf) };
+    cos.daily = { date: today(), bonus: false, quests: VGRules.todayPick(todayItems()) };
   }
-  const questOf = it => ({ key: it.key, kind: it.kind, title: it.title, ids: it.ids, a: it.l ? it.l.s.id : undefined, b: it.l ? it.l.t.id : undefined, id: it.id || (it.g && it.g.id), done: false });
-  // "Not for me" (from the sidebar or another device): the quest or mission goes, and stays gone; a quest is replaced
-  // with the next suggestion so the day still has three
+  // the next item not already picked, to fill a pick that was hidden or skipped
+  const nextPick = () => { const have = new Set(cos.daily.quests.map(q => q.key)); return VGRules.todayPick(todayItems().filter(it => !have.has(it.key)), 1)[0]; };
+  // "Not for me" (from the sidebar or another device): the item goes, and stays gone; a pick is replaced with the next
+  // item so the day still has three
   function hideGameItem(key) {
     cos.hidden = [...new Set([...(cos.hidden || []), key])].slice(-500);
-    cos.missions = (cos.missions || []).filter(m => m.id !== key);
     if (cos.daily && cos.daily.quests && cos.daily.quests.some(q => q.key === key)) {
       cos.daily.quests = cos.daily.quests.filter(q => q.key !== key);
-      const hid = new Set(cos.hidden), next = reviewItems().find(it => !hid.has(it.key) && !cos.daily.quests.some(q => q.key === it.key));
-      if (next) cos.daily.quests.push(questOf(next));
+      const next = nextPick(); if (next) cos.daily.quests.push(next);
     }
     updateGame(false); persistSoon();
   }
@@ -5167,52 +5155,17 @@ function mountVaultGraph(root, DATA, opts) {
     return bursts.length > 0;
   }
 
-  // A mission or quest built on a suggestion that no longer exists (relinked elsewhere, dismissed, or the
-  // analysis no longer finds the pair related) is dropped, not left as a dead end.
+  // A pick built on a suggestion that no longer exists (relinked elsewhere, dismissed, or the analysis no longer
+  // finds the pair related) is dropped, not left as a dead end.
   const stillSuggested = (a, b) => links.some(l => (l.kind === "gap" || l.kind === "similar") && ((l.s.id === a && l.t.id === b) || (l.s.id === b && l.t.id === a)));
   const stillValid = m => VGRules.missionValid(m, liveGraph);
   function updateGame(announce) {
-    cos.missions = (cos.missions || []).filter(stillValid);
     if (cos.daily && cos.daily.quests) cos.daily.quests = cos.daily.quests.filter(q => q.done || stillValid(q));
     updateDaily(announce);
-    cos.missions = cos.missions.filter(m => { const [d, n] = progress(m); if (d >= n) { cos.done.push({ id: m.id, title: m.title, xp: m.xp, date: today() }); awardXp(m.xp, "mission"); if (announce) { toast(`Mission complete: ${m.title} · +${m.xp} XP`, "ok"); celebrate("Mission complete"); } logDiscovery(`Mission complete: ${m.title} (+${m.xp} XP)`); return false; } return true; });
-    const pool = missionPool();
-    while (cos.missions.length < 3 && pool.length) { const m = pool.splice(hash(pool.map(x => x.id).join() + today()) % pool.length, 1)[0]; m.started = today(); cos.missions.push(m); }
     ACH.forEach(a => { if (!cos.ach[a.id] && a.test()) { cos.ach[a.id] = today(); if (announce) { toast(`Achievement unlocked: ${a.name}`, "ok"); celebrate(a.name); } } });
-    renderMissions(); persistSoon();
+    renderTodayList(); persistSoon();
   }
-  const canDo = m => (m.kind === "wormhole" && opts.linkNotes) || (m.kind === "chart" && opts.writeNote) || (m.kind === "drift" && canAddToMap())
-    || m.kind === "nebula" || (m.kind === "horizon" && opts.openNote) || m.kind === "expedition";
-  const doLabel = m => ({ wormhole: "LINK", chart: "CREATE MAP", drift: "ADD 5", nebula: "PICK ONE", horizon: "OPEN NEXT", expedition: "NEXT STEP" }[m.kind] || "DO IT");
-  async function doMission(m, btn) {
-    if (!m) return;
-    if (m.kind === "wormhole") {
-      if (await confirmBox("Stabilise the wormhole", `Link <b>${esc(byId[m.a].name)}</b> → <b>${esc(byId[m.b].name)}</b>? A line is added to its Related section.`, "Link"))
-        await actOnSuggestion("link", m.a, m.b, btn);
-    } else if (m.kind === "chart") {
-      if (await confirmBox("Chart this topic", `Create <b>${esc(clusterName(m.c))} Hub</b> in ${FOLDERS.inbox} listing the topic's notes?`, "Create")) writeHub(m.c);
-    } else if (m.kind === "drift") {
-      const mm = mocs.find(x => x.id === m.m), next = m.baseline.filter(id => byId[id] && !onMap(mm, id)).slice(0, 5);
-      if (next.length && await confirmBox(`Add to ${mm.title}`, `Append these notes under “Also in this topic”:<ul>${next.map(i => `<li>${esc(byId[i].name)}</li>`).join("")}</ul>`, "Add")) await addToMap(m.m, next, btn);
-    } else if (m.kind === "nebula") {
-      const next = m.baseline.find(id => byId[id] && byId[id].isolated);
-      if (next) { reveal(next); toast("Link this note to something it belongs with — its suggestions are below"); }
-    } else if (m.kind === "horizon") {
-      const next = m.baseline.find(id => byId[id] && staleFor(byId[id], Q.stale_days));
-      if (next && !(opts.stampReviewed && await VGActions.run("current", byId[next], actionCtx()))) opts.openNote(next, false);   // not marked: open it instead
-    } else if (m.kind === "expedition") expeditionStep(m, btn);
-    updateGame(true);
-  }
-  // the note a quest or mission is about, when it has open tasks: it gets a Tasks button (complete / cancel, as everywhere)
-  function taskFocus(x) {
-    const id = x.kind === "horizon" ? (x.baseline || []).find(i => byId[i] && staleFor(byId[i], Q.stale_days))
-      : x.kind === "nebula" ? (x.baseline || []).find(i => byId[i] && byId[i].isolated) : x.id || (x.ids || [])[0];
-    return opts.readTasks && id && byId[id] && byId[id].tasks > 0 ? id : null;
-  }
-  const tasksBtn = x => { const id = taskFocus(x), nid = id || x.id || (x.ids || [])[0];
-    return (id ? `<button class="vg-ms-show" data-mstasks="${esc(id)}">Tasks ${byId[id].tasks}</button>` : "") + (nid && byId[nid] ? moreBtn(nid).replace("vg-btn vg-btn-sm vg-more", "vg-ms-show vg-more") : ""); };
-  const tasksBox = x => { const id = taskFocus(x); return id ? `<div class="vg-tasksbox vg-ms-tasks" data-tbox="${esc(id)}"></div>` : ""; };
-  // The missions panel is the same in every view: the cosmos shows it by default, the toolbar star (G) shows or hides
+  // The Today panel is the same in every view: the cosmos shows it by default, the toolbar star (G) shows or hides
   // it anywhere, and that choice sticks for this pane
   let missionsPref = null;
   function setMissionsShown(on, byHand) {
@@ -5230,57 +5183,20 @@ function mountVaultGraph(root, DATA, opts) {
     ensureDaily();
     const next = RANKS.find(r => r[0] > cos.xp), prev = RANKS.filter(r => r[0] <= cos.xp).pop(), pct = next ? Math.round(100 * (cos.xp - prev[0]) / (next[0] - prev[0])) : 100;
     const sk = streak(), wk = weeklyCount();
-    box.innerHTML = `<button class="vg-ms-head" aria-expanded="${!box.classList.contains("is-collapsed")}"><b>MISSIONS</b><span>${sk ? `🔥${sk} · ` : ""}${rankOfXp(cos.xp).toUpperCase()} · ${cos.xp} XP</span></button>
+    box.innerHTML = `<button class="vg-ms-head" aria-expanded="${!box.classList.contains("is-collapsed")}"><b>TODAY</b><span>${sk ? `🔥${sk} · ` : ""}${rankOfXp(cos.xp).toUpperCase()} · ${cos.xp} XP</span></button>
       <div class="vg-ms-rank"><i style="width:${pct}%"></i></div>
       <div class="vg-ms-body">
         <div class="vg-ms-stats"><span><b>${vaultHealth()}</b> vault health</span><span><b>${sk}</b>-day streak</span><span>${next ? `<b>${next[0] - cos.xp}</b> XP to ${next[1]}` : "<b>MAX</b> rank"}</span></div>
-        <div class="vg-ms-sec">DAILY QUESTS ${cos.daily.bonus ? "· ✓ +25 BONUS" : "· +8 EACH, +25 FOR ALL 3"}</div>
-        ${cos.daily.quests.map(q => `<button class="vg-ms-quest ${q.done ? "is-done" : ""}" data-quest="${esc(q.key)}"><span>${q.done ? "✓" : "○"}</span>${esc(q.title)}</button>${q.done || !tasksBtn(q) ? "" : `<span class="vg-ms-acts vg-ms-qacts">${tasksBtn(q)}</span>` + tasksBox(q)}`).join("") || `<div class="vg-ms-how">Nothing to do today.</div>`}
+        <div class="vg-ms-sec">TODAY ${cos.daily.bonus ? "· ✓ +25 BONUS" : "· +8 EACH OF THE THREE, +25 FOR ALL"}</div>
+        <div class="vg-ms-today">${todayHtml(4)}</div>
         <div class="vg-ms-sec">WEEKLY · LINK 10 NOTES ${cos.weekly && cos.weekly.claimed ? "· ✓ +50" : "· +50"}</div>
         <div class="vg-ms-bar"><i style="width:${Math.min(100, wk * 10)}%"></i></div><div class="vg-ms-how">${Math.min(wk, 10)} / 10 this week</div>
-        <div class="vg-ms-sec">MISSIONS</div>
-        ${cos.missions.map(m => { const [d, n] = progress(m);
-        return `<div class="vg-ms"><div class="vg-ms-t">${esc(m.title)} <span class="vg-ms-xp">+${m.xp}</span></div><div class="vg-ms-how">${esc(m.how)}</div>
-          ${m.kind === "expedition" ? `<ol class="vg-ms-steps">${expeditionSteps(m).map(s => `<li class="${s.done ? "is-done" : ""}">${esc(s.label)}</li>`).join("")}</ol>` : ""}
-          <div class="vg-ms-bar"><i style="width:${100 * d / n}%"></i></div><span class="vg-ms-acts">${canDo(m) ? `<button class="vg-ms-show vg-ms-do" data-msdo="${esc(m.id)}">${doLabel(m)}</button>` : ""}${tasksBtn(m)}${m.kind === "wormhole" && opts.dismissPair ? `<button class="vg-ms-show" data-msno="${esc(m.id)}" title="These notes aren't related: never suggest them again">NOT RELATED</button>` : ""}<button class="vg-ms-show" data-ms="${esc(m.id)}">SHOW ${d}/${n}</button></span></div>`; }).join("") || emptyNext("No missions right now.", "lens:adjacent")}
         <details class="vg-ms-log"><summary>DISCOVERY LOG · ${(cos.log || []).length}</summary>${(cos.log || []).slice(0, 25).map(e => `<div><span>${esc(e.date.slice(5))}</span> ${esc(e.text)}</div>`).join("") || "<div>Nothing yet — act on a suggestion.</div>"}</details>
         <div class="vg-ms-sec is-theme">COSMOS THEME</div><div class="vg-ms-themes">${Object.entries(THEMES).map(([k, th]) => `<button class="vg-ms-theme ${theme() === th ? "is-on" : ""}" data-theme="${k}" ${cos.xp < th.xp ? "disabled" : ""} title="${cos.xp < th.xp ? `Unlocks at ${RANKS.find(r => r[0] === th.xp)[1]} (${th.xp} XP)` : th.name}" style="--a:rgb(${th.star[1]});--b:rgb(${th.star[2]})"><i></i>${esc(th.name)}${cos.xp < th.xp ? " 🔒" : ""}</button>`).join("")}</div>
         <div class="vg-ms-ach">${ACH.map(a => `<span class="vg-ach ${cos.ach[a.id] ? "is-on" : ""}" title="${esc(a.name)} — ${esc(a.hint)}${cos.ach[a.id] ? " (unlocked " + cos.ach[a.id] + ")" : ""}">${esc(a.name)}</span>`).join("")}</div></div>`;
     box.querySelector(".vg-ms-head").onclick = () => { box.classList.toggle("is-collapsed"); renderMissions(); };
-    wireNext(box);
-    box.querySelectorAll("[data-msdo]").forEach(b => b.onclick = () => doMission(cos.missions.find(x => x.id === b.dataset.msdo), b));
-    box.querySelectorAll("[data-mstasks]").forEach(b => b.onclick = () => {
-      let tb = box.querySelector(`[data-tbox="${CSS.escape(b.dataset.mstasks)}"]`);
-      if (!tb) { tb = document.createElement("div"); tb.className = "vg-tasksbox vg-ms-tasks"; tb.dataset.tbox = b.dataset.mstasks; b.closest(".vg-ms, .vg-ms-body").appendChild(tb); }
-      toggleTasks(b.dataset.mstasks, tb);
-    });
-    box.querySelectorAll("[data-mstasks]").forEach(b => { if (openTasks.has(b.dataset.mstasks)) b.click(); });   // lists open before the redraw stay open
-    wireMore(box);
-    box.querySelectorAll("[data-msno]").forEach(b => b.onclick = async () => {
-      const m = cos.missions.find(x => x.id === b.dataset.msno); if (!m) return;
-      await actOnSuggestion("dismiss", m.a, m.b, b);
-      cos.missions = cos.missions.filter(x => x !== m); updateGame(false);
-    });
+    wireToday(box); wireMore(box);
     box.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => { cos.theme = b.dataset.theme; persistSoon(); renderMissions(); dirty = true; kick(); });
-    box.querySelectorAll("[data-quest]").forEach(b => b.onclick = async () => { const q = cos.daily.quests.find(x => x.key === b.dataset.quest); if (!q || q.done) return;
-      // do the step, not just point at it
-      if (q.kind === "link" && q.a && q.b && byId[q.a] && byId[q.b] && opts.linkNotes) {
-        if (await confirmBox("Link these notes", `Link <b>${esc(byId[q.a].name)}</b> ↔ <b>${esc(byId[q.b].name)}</b>? A line is added to the staler note's Related section.`, "Link")) await actOnSuggestion("link", q.a, q.b, b);
-      } else if (q.kind === "map" && q.id && canAddToMap()) {
-        const mocId = q.key.split("|")[1];
-        if (await confirmBox("Add to map", `Add <b>${esc((byId[q.id] || {}).name || q.id)}</b> to its map?`, "Add")) await addToMap(mocId, [q.id], b);
-      } else if (q.kind === "hub" && q.id && opts.stampReviewed) {
-        if (await VGActions.run("current", byId[q.id], actionCtx())) { review.done = { ...(review.done || {}), [q.key]: today() }; persistSoon(); }
-      } else if (q.ids && q.ids.length > 1) { setHighlight(new Set(q.ids), q.title); select(q.ids[0]); fit(n => q.ids.includes(n.id)); }
-      else if (q.ids && q.ids[0]) reveal(q.ids[0]);
-      updateGame(true); });
-    box.querySelectorAll("[data-ms]").forEach(b => b.onclick = () => {
-      const m = cos.missions.find(x => x.id === b.dataset.ms); if (!m) return;
-      if (m.kind === "wormhole") { setHighlight(new Set([m.a, m.b]), m.title); select(m.a); fit(n => n.id === m.a || n.id === m.b); }
-      else if (m.kind === "chart") focusClusters([m.c]);
-      else if (m.kind === "drift") showMocMissing(m.m);
-      else { const ids = new Set(m.baseline); setHighlight(ids, m.title); fit(n => ids.has(n.id)); }
-    });
   }
   $$(".vg-dockbtn").forEach(b => b.onclick = () => {
     const on = st.placing !== b.dataset.body; st.placing = on ? b.dataset.body : null;
@@ -5377,23 +5293,6 @@ function mountVaultGraph(root, DATA, opts) {
   $(".vg-pausepill").onclick = () => setPaused(false);
   const WARPS = [0.25, 0.5, 1, 2, 4];
   $$(".vg-warpbtn").forEach(b => b.onclick = () => { st.warp = WARPS[(WARPS.indexOf(st.warp || 1) + 1) % WARPS.length]; $$(".vg-warpval").forEach(x => x.textContent = st.warp + "×"); });
-  // expeditions: multi-step missions for a whole topic
-  function expeditionSteps(m) {
-    const mm = mocOf[m.c], partner = m.partner;
-    return [
-      { label: "Give the topic a map", done: !!mm },
-      { label: "List 5 of its missing notes in the map", done: !!mm && (m.baseline || []).filter(id => onMap(mm, id)).length >= 5 },
-      { label: partner != null ? `Bridge it to ${clusterName(partner)}` : "Write a bridge note", done: nodes.some(n => n.bridge && mm && (n.bridges || []).includes(mm.id)) },
-    ];
-  }
-  async function expeditionStep(m, btn) {
-    const step = expeditionSteps(m).findIndex(s => !s.done), mm = mocOf[m.c];
-    if (step === 0 && opts.writeNote) { if (await confirmBox("Expedition · step 1", `Create a map for <b>${esc(clusterName(m.c))}</b> in ${FOLDERS.inbox}?`, "Create")) writeHub(m.c); }
-    else if (step === 1 && mm) { const next = m.clusters_missing().slice(0, 5); if (next.length && await confirmBox("Expedition · step 2", `Add to <b>${esc(mm.title)}</b>:<ul>${next.map(i => `<li>${esc(byId[i].name)}</li>`).join("")}</ul>`, "Add")) await addToMap(mm.id, next, btn); }
-    else if (step === 2 && opts.writeNote) { if (await confirmBox("Expedition · step 3", `Draft a bridge note between <b>${esc(clusterName(m.c))}</b> and <b>${esc(clusterName(m.partner))}</b>? Give it <code>type: bridge</code> (already set) and file it.`, "Create")) writeBridge(m.c, m.partner); }
-  }
-
-
   // ---------------------------------------------------------------- lenses: other ways to look at the same data
   // An empty state says what's missing and offers the next step, so no panel ends with nothing to do (a test opens every
   // lens on a near-empty vault and fails on one with nothing to click). Steps: "lens:<key>", "draftmap:<cluster>", "daily",
@@ -6709,7 +6608,7 @@ function mountVaultGraph(root, DATA, opts) {
   else if (iv === "3d") { st.view = "3d"; st.three = true; cv.style.cursor = "grab"; }
   if (iv) syncMapsBtn(st.view);
   const restored = opts.compact ? (neural() ? false : seeded()) : restoreSaved();
-  renderClusters(""); renderSaved(); renderReview();
+  renderClusters(""); renderSaved(); renderTodayList(); renderToday();
   rebuild(true);
   if (mapView()) alpha = 0;   // rebuild() above laid it out
   else if (neural()) { brainLayout(false); active.forEach(n => { n.x = n.bx; n.y = n.by; n.z = n.bz; }); alpha = 0; }
@@ -6733,7 +6632,7 @@ function mountVaultGraph(root, DATA, opts) {
     if (sh.cosmos && Array.isArray(sh.cosmos.bodies)) cos = { ...cos, ...sh.cosmos, auto: { ...cos.auto, ...(sh.cosmos.auto || {}) } };
     (sh.pending || []).forEach(text => logDiscovery(text));   // actions from the sidebar: award them now
     if ((sh.pending || []).length) persistNow();
-    renderSaved(); renderReview(); if (isCosmos()) cosmosCapture(); updateGameSoon(); dirty = true; kick();
+    renderSaved(); renderTodayList(); if (isCosmos()) cosmosCapture(); updateGameSoon(); dirty = true; kick();
   });
 
   return {

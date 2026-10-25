@@ -134,6 +134,35 @@ const VGActions = (() => {
     }
     catch (err) { c.fail(`${a.label(n, c) || a.title(n, c)} didn't work: ${(err && err.message) || err}`); return false; }
   }
+  // One Today item (VGRules.todayList) done: the same confirmation, write and report from the graph view, its game
+  // panel and the sidebar. Messages start with the verb the graph's XP counts (Linked, Added, Reviewed...).
+  const TODAY = {
+    link: { label: "Link", when: c => !!c.api.linkNotes,
+      ask: it => ["Link these notes", `Link ${it.names[0]} ↔ ${it.names[1]}? The link goes in ${nameOf(it.from)}'s Related section (the staler note).`, "Link"],
+      run: async (it, c) => { await c.api.linkNotes(it.from, it.to, it.why || "suggested by Vault Graph"); return `Linked ${it.names[0]} ↔ ${it.names[1]}`; } },
+    map: { label: "Add to map", when: c => !!c.api.addToMap,
+      run: async (it, c) => (await c.api.addToMap(it.m, [it.id])) === false ? `Already in ${it.mapTitle}` : `Added ${it.name} to ${it.mapTitle}` },
+    write: { label: "Create note", when: c => !!c.api.writeNote,
+      ask: it => ["Create note", `Create “${it.name}” in ${VGRules.folders.inbox}? ${plural(it.refs.length, "note")} already link to it.`, "Create"],
+      run: async (it, c) => { const path = `${VGRules.folders.inbox}/${VGRules.safeName(it.name)}.md`;
+        const from = it.refs.slice(0, 5).map(r => c.api.linkText ? c.api.linkText(r, path) : `[[${nameOf(r)}]]`).join(", ");
+        await c.api.writeNote(path, `---\ncreated: ${VGRules.today()}\n---\n# ${it.name}\n\n> Created from Vault Graph: linked from ${from}.\n\n`, { mode: "create", open: true });
+        return `Added ${it.name} to ${VGRules.folders.inbox}`; } },
+    hub: { label: "Still current", when: c => !!c.api.stampReviewed,
+      ask: it => ["Still current?", `Mark ${it.name} reviewed today? This stamps reviewed: in its frontmatter; nothing else changes.`, "Still current"],
+      run: async (it, c) => { await c.api.stampReviewed(it.id); return `Reviewed ${it.name}`; } },
+    chart: { label: "Create map", when: c => !!c.api.createMap,
+      ask: it => ["Give the topic a map", `Create a map for ${it.name} in ${VGRules.folders.inbox}, listing its notes best connected first?`, "Create map"],
+      run: async (it, c) => { await c.api.createMap(it.c); return `Map note for ${it.name}`; } },
+    adopt: { label: "Link to…", when: c => !!c.api.linkNotes && !!c.pick,
+      run: (it, c, e) => BY_KEY.link.run({ id: it.id, name: it.name }, c, e) },
+  };
+  const todayWhen = (it, c) => !!TODAY[it.kind] && TODAY[it.kind].when(c);
+  const todayLabel = it => (TODAY[it.kind] || {}).label || "";
+  function runToday(it, c, e) {
+    const t = TODAY[it.kind]; if (!t || !t.when(c)) return Promise.resolve(false);
+    return run({ label: () => t.label, title: () => it.title, ask: t.ask && (() => t.ask(it)), run: (_, cc, ee) => t.run(it, cc, ee) }, it, c, e);
+  }
   async function undo(id, msg, c) {
     try { await c.api.undo(id); c.done(`Undone: ${msg}`); }
     catch (err) { c.fail(`Couldn't undo: ${(err && err.message) || err}`); }
@@ -160,5 +189,5 @@ const VGActions = (() => {
     return box;
   }
 
-  return { ACTIONS, PROBLEMS, forNote, problems, run, render, archiveFolder, isArchived, nameOf };
+  return { ACTIONS, PROBLEMS, forNote, problems, run, render, archiveFolder, isArchived, nameOf, TODAY, todayWhen, todayLabel, runToday };
 })();

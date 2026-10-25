@@ -64,21 +64,44 @@ check("quest hub reviewed today", VGRules.questDone({ kind: "hub", id: "b.md", k
 check("quest via review queue", VGRules.questDone({ kind: "stub", key: "k1" }, g), true);
 check("quest already flagged", VGRules.questDone({ kind: "stub", key: "zz", done: true }, g), true);
 
-check("wormhole open while suggested", VGRules.missionOpen({ kind: "wormhole", a: "a.md", b: "c.md" }, g), true);
-check("wormhole closed once linked", VGRules.missionOpen({ kind: "wormhole", a: "a.md", b: "b.md" }, g), false);
-check("wormhole dropped when unsuggested", VGRules.missionValid({ kind: "wormhole", a: "b.md", b: "c.md" }, g), false);
-check("chart done when topic has a map", VGRules.missionOpen({ kind: "chart", c: 1 }, g), false);
-check("chart dropped when topic gone", VGRules.missionValid({ kind: "chart", c: 9 }, g), false);
-check("drift needs a topic map", VGRules.missionValid({ kind: "drift", m: "Nav.md" }, g), false);
-check("drift progress counts same-name copies", VGRules.missionProgress({ kind: "drift", m: "M.md", baseline: ["q/A.md"] }, g)[0], 1);
-check("horizon progress", VGRules.missionProgress({ kind: "horizon", baseline: ["a.md", "c.md"] }, g), [1, 3]);
-check("nebula progress", VGRules.missionProgress({ kind: "nebula", baseline: ["a.md", "c.md"] }, g), [1, 3]);
+check("a link pick stays while suggested", VGRules.missionValid({ kind: "link", a: "a.md", b: "c.md" }, g), true);
+check("a link pick goes when no longer suggested", VGRules.missionValid({ kind: "link", a: "b.md", b: "c.md" }, g), false);
+check("chart done when its topic has a map", VGRules.questDone({ kind: "chart", c: 1 }, g), true);
+check("chart dropped when its topic is gone", VGRules.missionValid({ kind: "chart", c: 9 }, g), false);
+check("map pick dropped when its map is gone", VGRules.missionValid({ kind: "map", key: "map|Gone.md|a.md", id: "a.md" }, g), false);
+check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }, g), VGRules.questDone({ kind: "adopt", id: "a.md" }, g)], [false, true]);
+
+// Today: one ranked list (todayList) for the graph, its game panel and the sidebar; today's three are its first three
+{
+  const D = {
+    nodes: [{ id: "t/A.md", name: "A", age: 5, bc: 3, cluster: 1 }, { id: "t/B.md", name: "B", age: 0, bc: 1, cluster: 1 },
+      { id: "t/C.md", name: "C", age: 300, isolated: true, words: 300, cluster: -1 }, { id: "t/M.md", name: "M", cluster: 1 },
+      ...[1, 2, 3, 4, 5, 6, 7].map(i => ({ id: `big/N${i}.md`, name: `N${i}`, age: 1, cluster: 2 }))],
+    links: [{ source: "t/A.md", target: "t/C.md", kind: "gap", why: "named together" }, { source: "t/A.md", target: "t/B.md", kind: "link" }],
+    mocs: [{ id: "t/M.md", title: "M", clusters: [1], members: ["t/A.md"], missing: { 1: ["t/B.md"] } }],
+    clusters: [{ id: 1, name: "T", size: 3 }, { id: 2, name: "Big", size: 7 }],
+    wanted: [{ id: "wanted:x", name: "X", refs: ["t/A.md", "t/B.md", "t/C.md"], creatable: true }],
+  };
+  const L = VGRules.todayList(D, { today: "2026-10-25" }), kinds = new Set(L.map(i => i.kind));
+  check("today: every kind of next step", ["link", "map", "write", "chart", "adopt"].filter(k => !kinds.has(k)), []);
+  const link = L.find(i => i.kind === "link");
+  check("today: a link goes in the staler note", [link.from, link.to], ["t/C.md", "t/A.md"]);
+  check("today: a map item names its map", [L.find(i => i.kind === "map").m, L.find(i => i.kind === "chart").c], ["t/M.md", 2]);
+  check("today: the same order all day", VGRules.todayList(D, { today: "2026-10-25" }).map(i => i.key), L.map(i => i.key));
+  check("today: hidden items stay out", VGRules.todayList(D, { today: "2026-10-25", hidden: [link.key] }).some(i => i.key === link.key), false);
+  const skip = d => VGRules.todayList(D, { today: d, review: { skipped: { [link.key]: "2026-10-20" } } }).some(i => i.key === link.key);
+  check("today: a skip lasts two weeks", [skip("2026-10-25"), skip("2026-11-10")], [false, true]);
+  check("today: three picks, each an item", VGRules.todayPick(L).map(p => L.some(i => i.key === p.key) && p.done === false), [true, true, true]);
+  const A = new Function("VGRules", `${fs.readFileSync(path.join(S, "actions.js"), "utf8")}; return VGActions;`)(VGRules);
+  check("today: every kind has an action", Object.keys(VGRules.TODAY_XP).filter(k => !A.TODAY[k]), []);
+}
 
 // ---- 3. no private copies of shared rules in the surfaces
 const banned = [
   [/RECORD_TAG\s*=/, "record rule (use VGRules.isRecord / isStale)"],
   [/\.members\.includes\(/, "map membership (use VGRules.onMap: it matches same-name copies)"],
   [/\.members\.some\(/, "map membership (use VGRules.onMap)"],
+  [/function (reviewItems|missionPool|ensureQuests)\b|cos\.missions/, "list of next steps (use VGRules.todayList: one list for every surface)"],
   [/function (questDone|stillValid)\b|const liveDone = q => \{/, "quest/mission rule (use VGRules.questDone / missionValid)"],
   [/find\(\w+ => !\w+\.nav && \w+\.clusters\.includes/, "map-for-cluster (use VGRules.mapForCluster)"],
   [/outlinks \+ 0\.5\)/, "food-web level (use VGRules.trophicLevels)"],
