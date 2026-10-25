@@ -17,7 +17,18 @@ const DEFAULTS = {
   python: "",                                  // empty = "python" on Windows, "python3" elsewhere
   dismissedPath: VGRules.files.dismissed,
   sharedPath: VGRules.files.shared,           // cosmos + saved views + review state, synced with the vault
+  rulesPath: `${VGRules.folders.scripts}/vault_graph_rules.json`,   // this vault's rules (the analysis reads it too)
 };
+const BUILT_RULES = VGRules.RULES;   // the defaults this build carries; loadRules layers the vault's over them
+// The rules the settings tab shows and edits: [path in the rules file, name, what it is]. Everything else stays in the file.
+const RULE_FIELDS = [
+  [["folders", "inbox"], "Inbox folder", "Where new notes and maps go"],
+  [["folders", "daily"], "Daily notes folder", "Journals and standups (the top folder)"],
+  [["folders", "people"], "People folder", "One note per person"],
+  [["folders", "archive"], "Archive folder", "Where Archive moves a note (it keeps its folder inside)"],
+  [["folders", "reports"], "Reports folder", "Self-tests and other reports"],
+  [["stale_days"], "Days until stale", "A note not edited for this long asks whether it's still current"],
+];
 // Always live: links, tasks, tags, maps, new and deleted notes merge in at once (liveMerge); the slower parts
 // (topics, gaps, influence) are re-analysed in the background after this many seconds without an edit (desktop).
 // Not a setting any more: there is no "refresh" step for you to remember.
@@ -453,7 +464,7 @@ const WRITE_PRIMITIVES = ["ioProcess", "ioModify", "ioFrontMatter", "ioCreate", 
 const UNDO_KEEP = 20;   // actions that can still be undone (this session)
 // The plugin's own state files (game/shared state, content log), written outside WRITE_ACTIONS: their file watcher
 // redraws the sidebar. tests/test_rules.js fails if a vault write appears anywhere else.
-const STATE_WRITERS = ["saveContentSoon", "writeShared", "recordLedger", "writeLiveDiag"];
+const STATE_WRITERS = ["saveContentSoon", "writeShared", "recordLedger", "writeLiveDiag", "setRule"];
 // "- [ ] text" -> [prefix "- [", mark, "] ", text]; the mark is " " open, "x" done, "-" cancelled
 const TASK_LINE = /^(\s*(?:[-*+]|\d+[.)]) \[)(.)(\] )(.*)$/;   // - [ ] x, and numbered: 1. [ ] x (Obsidian counts both)
 const NOTE_STATUS = { x: "status/done", "-": "status/cancelled" };
@@ -469,6 +480,7 @@ function undoNotice(msg, undo) {
 module.exports = class VaultGraphPlugin extends Plugin {
   async onload() {
     this.settings = Object.assign({}, DEFAULTS, await this.loadData());
+    await this.loadRules();   // before anything reads a folder name or threshold
     // For notes and other plugins (the Hearth "Second Brain Brief"): read app.plugins.plugins["jk-vault-graph"].graphData()
     // and .rules, the same live state and rules the graph uses, never the data file or a rule of their own
     this.rules = VGRules;
@@ -514,7 +526,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
     });
     // the gardener (or Obsidian Sync) rewriting the data file updates open views
     this.registerEvent(this.app.vault.on("modify", file => {
-      if (file.path === normalizePath(this.settings.dataPath)) { this.base = null; this.cache = null; this.dataStamp = Date.now(); this.mergeContentFromDisk().then(() => this.reloadSoon()); }
+      if (file.path === normalizePath(this.settings.rulesPath)) this.rulesChanged();
+      else if (file.path === normalizePath(this.settings.dataPath)) { this.base = null; this.cache = null; this.dataStamp = Date.now(); this.mergeContentFromDisk().then(() => this.reloadSoon()); }
       // the game file (today's picks, XP) and dismissals are written by the graph or another device: the sidebar shows them
       else if (file.path === normalizePath(this.settings.sharedPath) || file.path === normalizePath(this.settings.dismissedPath)) this.sharedChanged(file);
     }));
@@ -1234,6 +1247,60 @@ module.exports = class VaultGraphPlugin extends Plugin {
       if (sh.cosmos.daily && sh.cosmos.daily.quests) sh.cosmos.daily.quests = sh.cosmos.daily.quests.filter(q => q.key !== key);
       return sh; });
   }
+  // ---- this vault's rules: the built-in defaults, then what its Obsidian settings say (detectRules), then its rules
+  // file where that has a value. The analysis reads the same file; the settings tab edits it (setRule).
+  async loadRules() {
+    let file = null;
+    try { file = JSON.parse(await this.app.vault.adapter.read(normalizePath(this.settings.rulesPath))); } catch (e) { /* no rules file: Obsidian's settings and the defaults */ }
+    this.rulesFile = file;
+    this.detected = this.detectRules(file);
+    VGRules.configure(VGRules.mergeRules(BUILT_RULES, { folders: this.detected }, file || {}));
+    ruleConsts();
+    this.rules = VGRules;
+  }
+  // Folders Obsidian's own settings name, for what the rules file doesn't: the daily notes folder (Periodic Notes or
+  // the core Daily notes plugin), the folder new notes go in, and the people folder (where notes tagged person live)
+  detectRules(file) {
+    const set = (file && file.folders) || {}, out = {}, top = p => String(p || "").replace(/^\/+/, "").split("/")[0];
+    const pn = this.app.plugins && this.app.plugins.plugins["periodic-notes"], dn = this.app.internalPlugins && this.app.internalPlugins.getPluginById && this.app.internalPlugins.getPluginById("daily-notes");
+    const daily = (pn && pn.settings && pn.settings.daily && pn.settings.daily.folder) || (dn && dn.enabled && dn.instance && dn.instance.options && dn.instance.options.folder);
+    if (set.daily === undefined && top(daily)) out.daily = top(daily);
+    const cfg = k => (this.app.vault.getConfig ? this.app.vault.getConfig(k) : undefined);
+    if (set.inbox === undefined && cfg("newFileLocation") === "folder" && cfg("newFileFolderPath")) out.inbox = String(cfg("newFileFolderPath")).replace(/^\/+|\/+$/g, "");
+    if (set.people === undefined) {
+      const count = {};
+      for (const f of this.app.vault.getMarkdownFiles()) { const c = this.app.metadataCache.getFileCache(f), fm = (c && c.frontmatter) || {};
+        const tags = [].concat(fm.tags || [], fm.type || []).map(t => String(t).replace(/^#/, "").toLowerCase());
+        if (f.path.includes("/") && tags.some(t => /(^|\/)(person|people)$/.test(t))) count[top(f.path)] = (count[top(f.path)] || 0) + 1; }
+      const best = Object.entries(count).sort((a, b) => b[1] - a[1])[0];
+      if (best && best[1] >= 2) out.people = best[0];
+    }
+    return out;
+  }
+  // One rule changed (from the settings tab): written into the rules file, changing just that value where the file
+  // has it so the rest stays as written, then every surface redraws with it
+  async setRule(keys, value) {
+    const p = normalizePath(this.settings.rulesPath);
+    let text = null; try { text = await this.app.vault.adapter.read(p); } catch (e) { /* first rule: a new file */ }
+    const obj = text ? JSON.parse(text) : {};
+    let o = obj; keys.slice(0, -1).forEach(k => { o = o[k] = o[k] && typeof o[k] === "object" ? o[k] : {}; }); o[keys[keys.length - 1]] = value;
+    let out = null;
+    if (text) {
+      const k = keys[keys.length - 1], from = keys.length > 1 ? Math.max(0, text.indexOf(`"${keys[keys.length - 2]}"`)) : 0;
+      const m = new RegExp(`("${k}"\\s*:\\s*)("(?:[^"\\\\]|\\\\.)*"|-?\\d+(?:\\.\\d+)?|true|false|null)`).exec(text.slice(from));
+      if (m) { const at = from + m.index, cand = text.slice(0, at) + m[1] + JSON.stringify(value) + text.slice(at + m[0].length);
+        try { if (JSON.stringify(JSON.parse(cand)) === JSON.stringify(obj)) out = cand; } catch (e) { /* not in place: written out whole */ } }
+    }
+    await this.app.vault.adapter.write(p, out || JSON.stringify(obj, null, 2) + "\n");
+    await this.rulesChanged();
+  }
+  // the rules file changed (here, or edited / synced): load it, and remount every surface on the new rules
+  async rulesChanged() {
+    await this.loadRules();
+    this.base = null; this.cache = null;
+    [VIEW_TYPE, LOCAL_TYPE, HOME_TYPE, ...Object.keys(FIXED_HOME).map(fixedType)].flatMap(t => this.app.workspace.getLeavesOfType(t)).forEach(l => l.view.render && l.view.render());
+    this.app.workspace.getLeavesOfType(SUGGEST_TYPE).forEach(l => l.view.renderSoon && l.view.renderSoon());
+  }
   dataMtime() { const f = this.app.vault.getAbstractFileByPath(normalizePath(this.settings.dataPath)); return f instanceof TFile ? f.stat.mtime : 0; }
   // The shared game file with every device's ledger folded in (VGRules.applyLedgers): the one read path
   async loadShared() {
@@ -1416,15 +1483,21 @@ function contentAge(app, path, fallback) {
 // but links change every day, so the link edges are rebuilt from Obsidian's own index on every open:
 // new links show at once, removed links disappear, notes created since the run join the cluster most of
 // their neighbours are in, deleted notes drop out, and suggestions you've since linked stop showing.
-const DAILY_TOP = VGRules.folders.daily, PEOPLE_TOP = VGRules.folders.people;   // vault_graph_rules.json folders
-const SKIP_TOP = new Set([...VGRules.folders.skip, VGRules.folders.scripts, ".trash"]);
-const EXCLUDE_PREFIXES = (VGRules.folders.exclude || []).map(p => p.replace(/\/?$/, "/"));   // never analysed (vault_lib.EXCLUDE_PREFIXES)
+// this vault's folders (vault_graph_rules.json folders), worked out again whenever the rules change (ruleConsts)
+let DAILY_TOP, PEOPLE_TOP, SKIP_TOP, EXCLUDE_PREFIXES;   // EXCLUDE_PREFIXES: never analysed (vault_lib.EXCLUDE_PREFIXES)
+function ruleConsts() {
+  DAILY_TOP = VGRules.folders.daily; PEOPLE_TOP = VGRules.folders.people;
+  SKIP_TOP = new Set([...VGRules.folders.skip, VGRules.folders.scripts, ".trash"]);
+  EXCLUDE_PREFIXES = (VGRules.folders.exclude || []).map(p => p.replace(/\/?$/, "/"));
+  CONTENT.path = VGRules.files.content_log;
+}
+ruleConsts();   // the built-in rules until onload's loadRules brings this vault's
 // a scene written in a note: ```vault-graph-scene ... ``` (VGRules.sceneSpec reads it)
 const SCENE_LANG = "vault-graph-scene", SCENE_BLOCK = /^```vault-graph-scene[^\S\n]*\n([\s\S]*?)^```/gm, SCENE_BLOCK_START = /^```vault-graph-scene/gm;
 const DISMISSED = new Set();   // dismissed pairs by note name (dismissKey); kept current by the plugin, applied in liveMerge
 // Shared rules (vault_graph_rules.js, built in ahead of this file): records are never "stale"; dismissals match
 // by note name like the analysis (vault_gaps._dismissed), so a same-name copy counts as dismissed too
-const { dismissKey } = VGRules, staleFor = VGRules.isStale;
+const { dismissKey } = VGRules, staleFor = (n, days) => VGRules.isStale(n, days);   // the current rules' stale
 function liveMerge(app, data, since) {
   const vault = app.vault, cache = app.metadataCache, resolved = cache.resolvedLinks || {};
   const byId = new Map(data.nodes.map(n => [n.id, n]));
@@ -1577,11 +1650,33 @@ class VaultGraphSettings extends PluginSettingTab {
   display() {
     const el = this.containerEl;
     el.empty();
+    // this vault's rules: the value in use and where it comes from; a change is written to the rules file (the
+    // analysis reads it too), on Enter or leaving the field
+    new Setting(el).setName("This vault").setHeading();
+    const where = keys => { const at = (o, ks) => ks.reduce((x, k) => (x && typeof x === "object" ? x[k] : undefined), o);
+      if (at(this.plugin.rulesFile, keys) !== undefined) return `from ${this.plugin.settings.rulesPath}`;
+      if (keys[0] === "folders" && this.plugin.detected && this.plugin.detected[keys[1]] !== undefined) return "from Obsidian's settings";
+      return "default"; };
+    RULE_FIELDS.forEach(([keys, name, desc]) => {
+      const cur = keys.reduce((x, k) => x[k], VGRules.RULES);
+      new Setting(el).setName(name).setDesc(`${desc} · ${where(keys)}`).addText(t => {
+        t.setValue(String(cur));
+        t.inputEl.addEventListener("change", async () => {
+          const raw = t.getValue().trim(), v = typeof cur === "number" ? Number(raw) : raw.replace(/^\/+|\/+$/g, "");
+          if (!raw || (typeof cur === "number" && !(v > 0))) { t.setValue(String(cur)); return; }
+          if (v === cur) return;
+          try { await this.plugin.setRule(keys, v); new Notice(`${name}: ${v}`); } catch (e) { new Notice(`Couldn't save ${name}: ${e.message}`); }
+          this.display();
+        });
+      });
+    });
+    new Setting(el).setName("Plugin").setHeading();
     const text = (name, desc, key, placeholder) => new Setting(el).setName(name).setDesc(desc)
       .addText(t => t.setPlaceholder(placeholder).setValue(this.plugin.settings[key])
         .onChange(async v => { this.plugin.settings[key] = v.trim() || DEFAULTS[key]; await this.plugin.saveSettings(); }));
     text("Graph data file", "JSON written by vault_graph.py, relative to the vault.", "dataPath", DEFAULTS.dataPath);
-    text("Analysis script", `Re-run automatically ${ANALYSE_AFTER_IDLE} seconds after your last edit (desktop only).`, "script", DEFAULTS.script);
+    text("Analysis script", `Runs ${ANALYSE_AFTER_IDLE} seconds after your last edit (desktop only).`, "script", DEFAULTS.script);
     text("Python command", "Leave empty for python (Windows) / python3 (Linux, macOS).", "python", "python");
+    text("Rules file", "This vault's folder names and thresholds, relative to the vault.", "rulesPath", DEFAULTS.rulesPath);
   }
 }

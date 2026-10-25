@@ -13,7 +13,12 @@
 //   g.hasCluster(c)       cluster c still exists
 //   g.wanted(id)          id is still linked-to but unwritten
 //   g.reviewed(key)       the review queue marked this item done
-const VGRules = ((R) => {
+//
+// Rule data: the build puts in defaults (the rules file it was given); the plugin replaces them when it loads with this vault's
+// (VGRules.configure: its Obsidian settings, then its rules file). Every rule is rebuilt in place, and callers read
+// VGRules.x when they run, so the vault's rules reach all of them.
+const VGRules = (() => {
+  function make(R) {
   const RECORD_TAG = new RegExp(R.record_tags), RECORD_PATH = new RegExp(R.record_paths), DATED = new RegExp(R.dated_name);
   // Records (finished work, release notes, meetings, reports, dated logs) are meant to stay as written: never "stale".
   const isRecord = n => (n.tags || []).some(t => RECORD_TAG.test(t)) || RECORD_PATH.test(n.id) || DATED.test(n.name || "");
@@ -545,4 +550,13 @@ const VGRules = ((R) => {
 
   return { RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
-})(__RULES_JSON__);
+  }
+  // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)
+  const isObj = x => !!x && typeof x === "object" && !Array.isArray(x);
+  const mergeRules = (...layers) => layers.reduce((a, b) => { const out = { ...a };
+    Object.entries(b || {}).forEach(([k, v]) => { out[k] = isObj(v) && isObj(a[k]) ? mergeRules(a[k], v) : v; }); return out; }, {});
+  const api = make(__RULES_JSON__);
+  api.mergeRules = mergeRules;
+  api.configure = R => { const fresh = make(R); Object.keys(fresh).forEach(k => { api[k] = fresh[k]; }); return api; };
+  return api;
+})();

@@ -20,9 +20,9 @@ const VGActions = (() => {
   const nameOf = id => String(id || "").split("/").pop().replace(/\.md$/i, "");
   const folderOf = id => (String(id).includes("/") ? String(id).slice(0, String(id).lastIndexOf("/")) : "");
   // Archived notes keep their folder under the archive folder (vault_graph_rules.json folders), so links keep working
-  const ARCHIVE = VGRules.folders.archive;
-  const archiveFolder = id => (ARCHIVE + "/" + folderOf(id)).replace(/\/$/, "");
-  const isArchived = id => id.startsWith(ARCHIVE + "/");
+  const archive = () => VGRules.folders.archive;   // read when used: the vault's rules arrive after this loads
+  const archiveFolder = id => (archive() + "/" + folderOf(id)).replace(/\/$/, "");
+  const isArchived = id => id.startsWith(archive() + "/");
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
   const mapOf = (c, n) => (c.data && n.cluster != null ? VGRules.mapForCluster(c.data.mocs || [], n.cluster) : null);
   // where references live (Link Conventions): a note the graph treats as a map (a system's map, a MOC), or a hub or

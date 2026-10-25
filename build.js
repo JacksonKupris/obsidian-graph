@@ -15,7 +15,9 @@ const loadRules = file => JSON.parse(fs.readFileSync(file || path.join(ROOT, "co
 
 // The shared rulebook with its rule data filled in: the one place that's done (the build and every test use it).
 // A function replacer, so a "$&" or "$'" in a rule pattern goes in as written.
-const rulesSource = rules => read("rules.js").replace("__RULES_JSON__", () => JSON.stringify(rules));
+const rulesSource = rules => { const src = read("rules.js");
+  if (src.split("__RULES_JSON__").length !== 2) throw new Error("src/rules.js needs __RULES_JSON__ exactly once (where the rule data goes)");
+  return src.replace("__RULES_JSON__", () => JSON.stringify(rules)); };
 // the rulebook, then the shared note actions (they use the rules)
 const rulesJs = rules => rulesSource(rules) + "\n" + read("actions.js");
 
