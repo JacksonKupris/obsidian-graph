@@ -497,7 +497,8 @@ def similar_unlinked(vectors: dict, adj: dict[str, Counter], quiet: set = frozen
     for p in paths:
         for s, q in top[p]:
             if (p < q and p not in quiet and q not in quiet and any(q2 == p for _, q2 in top[q]) and not _linked(p, q, adj) and (p, q) not in NOT_DUPLICATES
-                    and SERIES_RE.sub("", _name(p).lower()) != SERIES_RE.sub("", _name(q).lower())):
+                    and SERIES_RE.sub("", _name(p).lower()) != SERIES_RE.sub("", _name(q).lower())
+                    and not (_series_key(p) and _series_key(p) == _series_key(q))):   # one dated series: alike by design
                 pairs.append([p, q, round(s, 3)])
     # Start Here/ pages were written as reworded copies of resource notes (26 of 75 had a
     # >=0.93 twin on 2026-10-18, none linked) -- a structural pattern, reported on its own
@@ -523,8 +524,15 @@ DATED_RE = re.compile(r"\d{4}-\d{2}(-\d{2})?")
 
 
 def _series_key(r: str) -> str:
+    """The series a dated note belongs to: what its title says before the date ("Dispatch Console Release Notes
+    2025-04-29 - Draft" and "... 2025-06-12 - User Friendly" are one series), else its title without dates.
+    "" for an undated note. Same as VGEngine.seriesKey."""
     name = _name(r)
-    return SERIES_RE.sub(" ", DATED_RE.sub(" ", name)).strip().lower() if DATED_RE.search(name) else ""
+    m = DATED_RE.search(name)
+    if not m:
+        return ""
+    lead = SERIES_RE.sub(" ", name[:m.start()]).strip().lower()
+    return lead or SERIES_RE.sub(" ", DATED_RE.sub(" ", name)).strip().lower()
 
 
 def _dot(a, b) -> float:

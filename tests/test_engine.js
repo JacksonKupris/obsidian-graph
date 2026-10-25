@@ -29,7 +29,9 @@ check("betweenness on a path", E.betweenness({ a: { b: 1 }, b: { a: 1, c: 1 }, c
 check("fsum([0.1] * 10)", E.fsum(Array(10).fill(0.1)), 1);
 check("fsum with cancelling terms", E.fsum([1e100, 1.0, -1e100, 1e-100, 1e50, -1.0, -1e50]), 1e-100);
 // a dated note's series; an undated note has none
-check("series of a dated note", [E.seriesKey("02-Systems/Reporting/Transaction Updates 2026-05-05.md"), E.seriesKey("a/Release Notes 2026-04.md"), E.seriesKey("a/Plan.md")], ["transaction updates", "release notes", ""]);
+check("series of a dated note", [E.seriesKey("02-Systems/Reporting/Transaction Updates 2026-05-05.md"), E.seriesKey("a/Release Notes 2026-04.md"), E.seriesKey("a/Plan.md"),
+  E.seriesKey("k/Dispatch Console Release Notes 2025-04-29 - Draft.md"), E.seriesKey("k/Dispatch Console Release Notes 2025-06-12 - User Friendly.md"), E.seriesKey("x/2026-10-01 Standup.md")],
+  ["transaction updates", "release notes", "", "dispatch console release notes", "dispatch console release notes", "standup"]);
 // the ajson log: the last line for a key wins, null deletes, a torn line is skipped
 { const m = E.parseAjson('"a": {"v": 1},\n"b": {"v": 2},\n"a": {"v": 3},\n"c": null,\n"d": {"v"');
   check("ajson: last line wins, in first-seen order", [...m.entries()], [["a", { v: 3 }], ["b", { v: 2 }], ["c", null]]); }

@@ -176,8 +176,11 @@ const VGEngine = (() => {
   // ---- note names (vault_gaps._name, _series_key): Python's \d is any Unicode digit, so \p{Nd} here
   const stemOf = r => { const base = String(r).split("/").pop(), i = base.lastIndexOf("."); return i > 0 ? base.slice(0, i) : base; };
   const DATED = /\p{Nd}{4}-\p{Nd}{2}(-\p{Nd}{2})?/u, DATED_G = /\p{Nd}{4}-\p{Nd}{2}(-\p{Nd}{2})?/gu, SERIES_G = /[\p{Nd}\s_\-–—()]+/gu;
-  // the series a dated note belongs to: "Transaction Updates 2026-05-05" -> "transaction updates"; "" when undated
-  const seriesKey = r => { const name = stemOf(r); return DATED.test(name) ? name.replace(DATED_G, " ").replace(SERIES_G, " ").trim().toLowerCase() : ""; };
+  // the series a dated note belongs to: what its title says before the date ("Transaction Updates 2026-05-05" ->
+  // "transaction updates"; "Release Notes 2025-04-29 - Draft" -> "release notes"), else its title without dates; "" when undated
+  const seriesKey = r => { const name = stemOf(r), m = name.match(DATED); if (!m) return "";
+    const lead = name.slice(0, m.index).replace(SERIES_G, " ").trim().toLowerCase();
+    return lead || name.replace(DATED_G, " ").replace(SERIES_G, " ").trim().toLowerCase(); };
 
   // ---- embeddings (vault_gaps.load_embeddings): the Smart Connections plugin's index, if it has one.
   // *.ajson files are append-only logs of `"<key>": {...},` lines (the last one wins; null = deleted). Each source's
