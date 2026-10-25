@@ -23,7 +23,7 @@ It never damages a note or says it did something it didn't. The scenes (city, pa
 
 ## Order
 
-1. **Trust**: fix the self-review's data-integrity and crash findings, then its shared-rule findings (one stale rule, one "reviewed" path, one add-to-map path), then the test harness (no hangs, a killed test is a failure).
+1. **Trust** (done 2026-10-25: all 30 findings and the reviews' smaller notes fixed, each with a test that fails without the fix): fix the self-review's data-integrity and crash findings, then its shared-rule findings (one stale rule, one "reviewed" path, one add-to-map path), then the test harness (no hangs, a killed test is a failure).
 2. **Focus**: the Today list (merging review, quests and missions), the Scenes gallery, plain empty states with a next step everywhere.
 3. **Structure**: split the renderer; settings tab replacing compiled-in rules.
 4. **Engine**: analysis in the plugin, Python retired part by part.
