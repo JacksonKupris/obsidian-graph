@@ -261,5 +261,150 @@ const VGEngine = (() => {
     return out;
   }
 
-  return { pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph };
+  // ---- topic names (vault_gaps._cluster_names, _readable_names, _stacks, _label, stable_cluster_ids)
+  // Python counts characters by code point (slices, len); these helpers do the same
+  const cps = t => Array.from(String(t)), cpLen = t => cps(t).length, cpSlice = (t, a, b) => cps(t).slice(a, b).join("");
+  const isUpperIn = t => /\p{Lu}/u.test(t);
+  const capitalize = t => { const c = cps(t); return c.length ? c[0].toUpperCase() + c.slice(1).join("").toLowerCase() : ""; };
+  const titleCase = t => { let out = "", prev = false; for (const ch of cps(t)) { const cased = ch.toLowerCase() !== ch.toUpperCase(); out += cased ? (prev ? ch.toLowerCase() : ch.toUpperCase()) : ch; prev = cased; } return out; };   // str.title()
+  const stripChars = (t, set) => { const c = cps(t); let a = 0, b = c.length; while (a < b && set.includes(c[a])) a++; while (b > a && set.includes(c[b - 1])) b--; return c.slice(a, b).join(""); };
+  // Counter.most_common(1)[0][0]: the highest count, the first counted on a tie
+  const mostCommon = m => { let best = null, bn = -Infinity; for (const [k, n] of m) if (n > bn) { best = k; bn = n; } return best; };
+  const bump = (m, k, n = 1) => m.set(k, (m.get(k) || 0) + n);
+  const wordStem = w => (w.length > 4 ? w.toLowerCase().replace(/s+$/, "") : w.toLowerCase());
+  const TITLE_STOP = new Set(("the and for with from into how to of in on a an vs via notes note context overview guide process documentation draft new old final complete part pages page md readme " +
+    "fix address investigate create update updates issue issues add bug").split(" "));
+  const TEXT_STOP = new Set([...TITLE_STOP, ...(`this that these those there their them they then than when where which while what who will would should could can cannot not are was were been being have has had does did doing done also just only
+    very more most some such each other into onto over under after before about above below between through during all any both few many much own same your you our its it's we he she his her him use used using uses make made
+    one two three first second next last need needs needed get gets got set sets via per out off yes no now see like well back way new add added adding remove removed check checked work worked working run runs running
+    file files table column value values data type name names list item items step steps note notes page link links section example time date today yesterday tomorrow week status todo task tasks http https www com`).split(/\s+/)]);
+  const FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---\r?\n/, WORD = /[A-Za-z][A-Za-z0-9]{2,}/g;
+  // a note body's content words, in the order they appear (no frontmatter, code, links or URLs; the first 6000 characters)
+  function noteWords(text) {
+    const body = cpSlice(String(text).replace(FRONTMATTER, ""), 0, 6000).replace(/```[\s\S]*?```|`[^`]*`|\[\[[^\]]*\]\]|\]\([^)]*\)|https?:\/\/\S+/g, " ");
+    return [...new Set((body.match(WORD) || []).filter(w => !TEXT_STOP.has(w.toLowerCase())))];
+  }
+  // 2-3 words per topic, frequent in its notes and rare in the others' (tf-idf): title words weigh 3, a body word
+  // counts when it's in several of the topic's notes (2+ and 15%+). Shown in the notes' own spelling (EC2, RTI, Odoo).
+  function topicWords(clusters, raw) {
+    const spelling = new Map(), words = [];
+    const spell = (st, tok) => { if (!spelling.has(st)) spelling.set(st, new Map()); bump(spelling.get(st), tok); };
+    for (const m of clusters) {
+      const titleC = new Map(), bodyC = new Map();
+      for (const r of m) {
+        const title = [...new Set((stemOf(r).match(WORD) || []).filter(t => !TITLE_STOP.has(wordStem(t))))];
+        const body = (raw && raw[r] != null ? noteWords(raw[r]) : []).filter(t => !TEXT_STOP.has(wordStem(t)) && !TEXT_STOP.has(t.toLowerCase()));
+        for (const t of title) { bump(titleC, wordStem(t)); spell(wordStem(t), t); }
+        for (const st of new Set(body.map(wordStem))) bump(bodyC, st);
+        for (const t of body) spell(wordStem(t), t);
+      }
+      const floor = Math.max(2, 0.15 * m.length), c = new Map([...titleC].map(([w, n]) => [w, 3 * n]));
+      for (const [w, n] of bodyC) if (n >= floor) bump(c, w, n);
+      words.push(c);
+    }
+    const df = new Map(); words.forEach(c => c.forEach((_, w) => bump(df, w)));
+    return words.map(c => {
+      const score = w => -(c.get(w) * Math.log((1 + words.length) / df.get(w)));
+      const shown = [...c.keys()].sort((a, b) => score(a) - score(b) || pyCmp(a, b)).slice(0, 3).map(w => mostCommon(spelling.get(w)));
+      return shown.map(t => (isUpperIn(t) ? t : capitalize(t))).join(" · ") || "(untitled)";
+    });
+  }
+  const NAME_LEAD = /^(?:[^\p{L}\p{N}_]|\p{Nd}|_)+/u, PHRASE_STOP = new Set("the and for with from into how to of in on a an vs via md readme context draft final copy".split(" "));
+  // a title as a phrase source: no dates, brackets, "- Context", leading numbering; dashes inside words become spaces
+  const cleanTitle = r => {
+    let t = stemOf(r).replace(DATED_G, " ").replace(/\(.*?\)|\s-\s*Context$|\s+Context$/g, " ").replace(/(?<=[\p{L}\p{N}_])[-_](?=[\p{L}\p{N}_])/gu, " ");
+    return stripChars(t.replace(NAME_LEAD, "").replace(/\s+/g, " "), [" ", "-", "—", "_", "·", ","]);
+  };
+  // names people would give: the phrase most of a topic's titles share, else its most central note's title; two
+  // topics never share a name (the second gets its top keyword added)
+  function readableNames(clusters, keywords, core) {
+    const gramsOf = clusters.map(m => {
+      const g = new Map();
+      for (const r of m) {
+        const toks = cleanTitle(r).match(/[A-Za-z][A-Za-z0-9&+.]*/g) || [], seen = new Set();
+        for (const n of [3, 2, 1]) for (let i = 0; i + n <= toks.length; i++) {
+          const ph = toks.slice(i, i + n);
+          if (PHRASE_STOP.has(ph[0].toLowerCase()) || PHRASE_STOP.has(ph[n - 1].toLowerCase()) || (n === 1 && (ph[0].length < 3 || TITLE_STOP.has(wordStem(ph[0]))))) continue;
+          const key = ph.map(wordStem).join(" ");
+          if (!seen.has(key)) { seen.add(key); if (!g.has(key)) g.set(key, new Map()); bump(g.get(key), ph.join(" ")); }
+        }
+      }
+      return g;
+    });
+    const total = sp => [...sp.values()].reduce((a, b) => a + b, 0), df = new Map();
+    gramsOf.forEach(g => g.forEach((sp, k) => { if (total(sp) >= 2) bump(df, k); }));
+    const names = clusters.map((m, ci) => {
+      const g = gramsOf[ci], kw = keywords[ci], cr = core[ci];
+      let best = null, bs = 0;
+      for (const [key, sp] of g) {
+        const cov = total(sp) / m.length;
+        if (total(sp) < 2 || cov < 0.25) continue;
+        const score = cov * (1 + 0.35 * (key.split(" ").length - 1)) / (1 + 0.5 * Math.max(0, (df.get(key) || 0) - 1));   // longer and distinctive wins
+        if (score > bs) { best = mostCommon(sp); bs = score; }
+      }
+      let name;
+      if (best) {
+        name = isUpperIn(best) ? best : titleCase(best);
+        if (!name.includes(" ")) { const extra = kw.split(" · ").find(w => wordStem(w) !== wordStem(name) && !name.toLowerCase().includes(w.toLowerCase())); if (extra) name = `${name} · ${extra}`; }
+      } else {
+        name = cr.length ? cleanTitle(cr[0]) : kw.split(" · ")[0];
+        if (cpLen(name) > 34) { const cut = cpSlice(name, 0, 33), i = cut.lastIndexOf(" "); name = (i >= 0 ? cut.slice(0, i) : cut) + "…"; }
+      }
+      return name || kw;
+    });
+    const taken = new Map();
+    names.forEach((n, i) => { bump(taken, n.toLowerCase()); if (taken.get(n.toLowerCase()) > 1) { const extra = keywords[i].split(" · ").find(w => !n.toLowerCase().includes(w.toLowerCase())); names[i] = `${n} · ${extra != null ? extra : String(i)}`; } });
+    return names;
+  }
+  // a topic's stack: the technology (else project) tag most of its notes carry and few other topics do
+  const STACK_SKIP = new Set("api backend frontend automation programming refactor upgrade stack server storage memory hardware database kiosk stack excalidraw clickup git github".split(" "));
+  const STACK_WORDS = { aws: "AWS", ses: "SES", ec2: "EC2", rds: "RDS", s3: "S3", iam: "IAM", sns: "SNS", sql: "SQL", ssl: "SSL", ssh: "SSH", vpn: "VPN", voip: "VoIP", "ci-cd": "CI/CD",
+    rti: "RTI", cvr: "CVR", odoo: "Odoo", nextjs: "Next.js", mysql: "MySQL", postgres: "Postgres", "github-actions": "GitHub Actions", "us-cellular": "US Cellular", "t-mobile": "T-Mobile",
+    "google-maps": "Google Maps", cloudwatch: "CloudWatch", cloudtrail: "CloudTrail", javascript: "JavaScript", "rti-console": "RTI Console" };
+  const STACK_PLATFORMS = new Set(["project/odoo", "project/cvr", "project/resgrid"]), STACK_MIN_SHARE = { "technology/": 0.2, "project/": 0.3 };
+  const stackName = tag => { const parts = tag.split("/").slice(1);
+    if (parts[0] === "aws" && parts.length > 1) return "AWS " + (STACK_WORDS[parts[1]] || parts[1].toUpperCase());
+    const w = parts[parts.length - 1]; return STACK_WORDS[w] || w.split("-").map(x => STACK_WORDS[x] || capitalize(x)).join(" "); };
+  function stacks(clusters, tags) {
+    const kind = t => (t.startsWith("technology/") || STACK_PLATFORMS.has(t) ? "technology/" : "project/");
+    const share = clusters.map(m => { const c = new Map();
+      for (const r of m) for (const t of tags[r] || []) if ((t.startsWith("technology/") || t.startsWith("project/")) && !STACK_SKIP.has(t.split("/").pop())) bump(c, t);
+      return new Map([...c].map(([t, n]) => [t, n / m.length])); });
+    const df = new Map(); share.forEach(sh => sh.forEach((v, t) => { if (v >= STACK_MIN_SHARE[kind(t)]) bump(df, t); }));
+    return share.map(sh => {
+      const best = [...sh].filter(([t, v]) => v >= STACK_MIN_SHARE[kind(t)] && (kind(t) === "technology/" || df.get(t) <= 3))
+        .map(([t, v]) => [v + (kind(t) === "technology/" ? 0.25 : 0) + 0.1 * (t.split("/").length - 2), t]).sort((a, b) => b[0] - a[0] || pyCmp(b[1], a[1]));
+      return best.length ? stackName(best[0][1]) : "";
+    });
+  }
+  const withStack = (name, stack) => (!stack || stack.split(" ").some(w => cpLen(w) > 2 && name.toLowerCase().includes(w.toLowerCase())) ? name : `${stack} · ${name}`);
+  // a topic's most central notes (most links inside it), its main folder and its commonest tags (ties: by name)
+  function label(members, adj, tags) {
+    const inside = new Set(members), deg = new Map(members.map(r => [r, Object.entries(adj[r] || {}).reduce((s, [t, w]) => s + (inside.has(t) ? w : 0), 0)]));
+    const folders = new Map(); members.forEach(r => bump(folders, (r.match(/\//g) || []).length >= 2 ? r.split("/").slice(0, 2).join("/") : r.split("/")[0]));
+    const tc = new Map(); members.forEach(r => (tags[r] || []).forEach(t => bump(tc, t)));
+    return { core: [...members].sort((a, b) => deg.get(b) - deg.get(a) || pyCmp(a, b)).slice(0, 4), folder: mostCommon(folders),
+      tags: [...tc].sort((a, b) => b[1] - a[1] || pyCmp(a[0], b[0])).slice(0, 3).map(([t]) => t) };
+  }
+  // the topics: notes grouped by community, topics of fewer than minSize left out, each topic's notes in order and
+  // the biggest topic first (vault_gaps.analyze)
+  function topicsOf(comm, minSize = 3) {
+    const by = new Map(); for (const [r, c] of Object.entries(comm)) { if (!by.has(c)) by.set(c, []); by.get(c).push(r); }
+    return [...by.values()].filter(m => m.length >= minSize).map(m => sorted(m)).sort((a, b) => b.length - a.length || pyCmp(a[0], b[0]));
+  }
+  // keep each topic's id (and colour) across runs: match it to last run's topic with the most overlap (Jaccard 0.3+);
+  // new topics get the smallest free ids, biggest first. prev: { id: [members] } from the last run.
+  function stableIds(clusters, prev) {
+    const sets = clusters.map(m => new Set(m)), pairs = [];
+    sets.forEach((s, i) => Object.entries(prev || {}).forEach(([pid, pm]) => { const ps = new Set(pm); let both = 0; s.forEach(x => { if (ps.has(x)) both++; });
+      pairs.push([both / (s.size + ps.size - both), i, Number(pid)]); }));
+    pairs.sort((a, b) => b[0] - a[0] || a[1] - b[1] || a[2] - b[2]);
+    const out = clusters.map(() => null), taken = new Set();
+    for (const [score, i, pid] of pairs) { if (score < 0.3) break; if (out[i] === null && !taken.has(pid)) { out[i] = pid; taken.add(pid); } }
+    let next = 0; const free = () => { while (taken.has(next)) next++; return next++; };
+    return out.map(o => (o !== null ? o : free()));
+  }
+
+  return { pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
+    noteWords, topicWords, topicsOf, cleanTitle, readableNames, stacks, withStack, label, stableIds, titleCase };
 })();
