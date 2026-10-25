@@ -397,7 +397,7 @@ class VaultGraphSuggestView extends ItemView {
           });
         }
       });
-    } else if (n) { sec("Suggested next step"); el.createDiv({ cls: "vg-s-card", text: "Nothing to do for this note. Nice." }); }
+    } else if (n) { sec("Suggested next step"); el.createDiv({ cls: "vg-s-card", text: "Nothing to do for this note." }); }
     // today: streak, XP, quests (from the shared game file)
     const sh = await this.plugin.loadShared(), cos = (sh && sh.cosmos) || {};
     if (token !== this.renderToken) return;   // a newer render emptied the pane while this one waited

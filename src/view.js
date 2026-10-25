@@ -3838,7 +3838,7 @@ function mountVaultGraph(root, DATA, opts) {
     const box = $(".vg-review"); if (!box) return;
     const items = reviewItems();
     const badge = $(".vg-reviewcount"); if (badge) { badge.textContent = items.length > 99 ? "99+" : items.length; badge.parentElement.hidden = !items.length || opts.compact; }
-    if (!items.length) { box.innerHTML = card("Today's review", "", `<div class="vg-empty">Nothing waiting. Nice.</div>`); return; }
+    if (!items.length) { box.innerHTML = card("Today's review", "", emptyNext("Nothing waiting.", "lens:write", "lens:blind")); wireNext(box); return; }
     reviewIdx = Math.min(reviewIdx, items.length - 1);
     const it = items[reviewIdx];
     const primary = it.kind === "link" && opts.linkNotes ? `<button class="vg-btn vg-btn-primary" data-r="do">${icon("link", 14)} Link</button>`
@@ -5244,11 +5244,12 @@ function mountVaultGraph(root, DATA, opts) {
         ${cos.missions.map(m => { const [d, n] = progress(m);
         return `<div class="vg-ms"><div class="vg-ms-t">${esc(m.title)} <span class="vg-ms-xp">+${m.xp}</span></div><div class="vg-ms-how">${esc(m.how)}</div>
           ${m.kind === "expedition" ? `<ol class="vg-ms-steps">${expeditionSteps(m).map(s => `<li class="${s.done ? "is-done" : ""}">${esc(s.label)}</li>`).join("")}</ol>` : ""}
-          <div class="vg-ms-bar"><i style="width:${100 * d / n}%"></i></div><span class="vg-ms-acts">${canDo(m) ? `<button class="vg-ms-show vg-ms-do" data-msdo="${esc(m.id)}">${doLabel(m)}</button>` : ""}${tasksBtn(m)}${m.kind === "wormhole" && opts.dismissPair ? `<button class="vg-ms-show" data-msno="${esc(m.id)}" title="These notes aren't related: never suggest them again">NOT RELATED</button>` : ""}<button class="vg-ms-show" data-ms="${esc(m.id)}">SHOW ${d}/${n}</button></span></div>`; }).join("") || `<div class="vg-ms-how">No missions available — everything's tidy.</div>`}
+          <div class="vg-ms-bar"><i style="width:${100 * d / n}%"></i></div><span class="vg-ms-acts">${canDo(m) ? `<button class="vg-ms-show vg-ms-do" data-msdo="${esc(m.id)}">${doLabel(m)}</button>` : ""}${tasksBtn(m)}${m.kind === "wormhole" && opts.dismissPair ? `<button class="vg-ms-show" data-msno="${esc(m.id)}" title="These notes aren't related: never suggest them again">NOT RELATED</button>` : ""}<button class="vg-ms-show" data-ms="${esc(m.id)}">SHOW ${d}/${n}</button></span></div>`; }).join("") || emptyNext("No missions right now.", "lens:adjacent")}
         <details class="vg-ms-log"><summary>DISCOVERY LOG · ${(cos.log || []).length}</summary>${(cos.log || []).slice(0, 25).map(e => `<div><span>${esc(e.date.slice(5))}</span> ${esc(e.text)}</div>`).join("") || "<div>Nothing yet — act on a suggestion.</div>"}</details>
         <div class="vg-ms-sec is-theme">COSMOS THEME</div><div class="vg-ms-themes">${Object.entries(THEMES).map(([k, th]) => `<button class="vg-ms-theme ${theme() === th ? "is-on" : ""}" data-theme="${k}" ${cos.xp < th.xp ? "disabled" : ""} title="${cos.xp < th.xp ? `Unlocks at ${RANKS.find(r => r[0] === th.xp)[1]} (${th.xp} XP)` : th.name}" style="--a:rgb(${th.star[1]});--b:rgb(${th.star[2]})"><i></i>${esc(th.name)}${cos.xp < th.xp ? " 🔒" : ""}</button>`).join("")}</div>
         <div class="vg-ms-ach">${ACH.map(a => `<span class="vg-ach ${cos.ach[a.id] ? "is-on" : ""}" title="${esc(a.name)} — ${esc(a.hint)}${cos.ach[a.id] ? " (unlocked " + cos.ach[a.id] + ")" : ""}">${esc(a.name)}</span>`).join("")}</div></div>`;
     box.querySelector(".vg-ms-head").onclick = () => { box.classList.toggle("is-collapsed"); renderMissions(); };
+    wireNext(box);
     box.querySelectorAll("[data-msdo]").forEach(b => b.onclick = () => doMission(cos.missions.find(x => x.id === b.dataset.msdo), b));
     box.querySelectorAll("[data-mstasks]").forEach(b => b.onclick = () => {
       let tb = box.querySelector(`[data-tbox="${CSS.escape(b.dataset.mstasks)}"]`);
@@ -5411,6 +5412,11 @@ function mountVaultGraph(root, DATA, opts) {
     if (!bs.length) bs.push(btn("search"));
     return `<div class="vg-empty">${text}</div><div class="vg-ins-actions vg-empty-next">${bs.join("")}</div>`;
   }
+  // the buttons emptyNext draws (a lens, a new note, search), working wherever it was drawn
+  function wireNext(el) {
+    el.querySelectorAll("[data-relens]").forEach(d => d.onclick = e => { e.stopPropagation(); openLens(d.dataset.relens); });
+    el.querySelectorAll("[data-next]").forEach(d => d.onclick = e => { e.stopPropagation(); runNext(d.dataset.next); });
+  }
   // the notes an empty state can start: where each goes, its tag (from the registry) and its name's suffix
   const NEW_KINDS = {
     note: { label: "New note", ask: "Name", folder: () => FOLDERS.inbox, suffix: "", tag: "", extra: "" },
@@ -5474,8 +5480,7 @@ function mountVaultGraph(root, DATA, opts) {
     });
     wireFixes(body); wireMore(body);
     wireLensExtras(body);
-    body.querySelectorAll("[data-relens]").forEach(d => d.onclick = e => { e.stopPropagation(); openLens(d.dataset.relens); });
-    body.querySelectorAll("[data-next]").forEach(d => d.onclick = e => { e.stopPropagation(); runNext(d.dataset.next); });
+    wireNext(body);
     body.querySelectorAll("[data-id]").forEach(d => d.onclick = () => { if (!lensBeside()) closeLens(); reveal(d.dataset.id); });
     body.querySelectorAll("[data-cl]").forEach(d => d.onclick = () => { if (!lensBeside()) closeLens(); focusClusters(d.dataset.cl.split(",").map(Number)); });
     body.querySelectorAll("[data-bridge]").forEach(d => d.onclick = async e => { e.stopPropagation(); const [a, b] = d.dataset.bridge.split(",").map(Number);
@@ -5917,7 +5922,7 @@ function mountVaultGraph(root, DATA, opts) {
     const open = n => opts.openNote ? actBtn("data-open", n.id, `${icon("open", 12)} Open`) : "";
     const ok = n => opts.stampReviewed ? actBtn("data-reviewed", n.id, "Still current") : "";
     const sec = (title, list, hint, render, max) => `<div class="vg-list-h">${title} <span class="vg-count">${list.length}</span></div><p class="vg-muted vg-lens-note">${hint}</p>` +
-      (list.slice(0, max).map(render).join("") || `<div class="vg-empty">None. Nice.</div>`) + (list.length > max ? `<div class="vg-empty">…and ${list.length - max} more: they move up as you clear these.</div>` : "");
+      (list.slice(0, max).map(render).join("") || `<div class="vg-empty">None.</div>`) + (list.length > max ? `<div class="vg-empty">…and ${list.length - max} more.</div>` : "");
     return `<p class="vg-muted vg-lens-note"><b>${stale.length}</b> notes haven't changed in ${Q.stale_days}+ days. ${records.length} more are records (finished work, release notes, meetings, reports, dated logs): they're meant to stay as written, so they don't count. Work top to bottom; at 5 a day the first group clears in about ${plural(Math.max(1, Math.ceil(relied.length / 35)), "week")}.</p>` +
       sec("1 · Relied on", relied, "Four or more notes link here, so an out-of-date version misleads them. Still right → Still current (records a review date, no edit). Wrong → open and fix.",
         n => row(n, `${n.inlinks} links in · ${n.age}d since edit`, open(n) + ok(n)), 25) +
