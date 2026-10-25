@@ -263,19 +263,17 @@ const VGEngine = (() => {
 
   // ---- the notes topics are found among, and their links (vault_gaps.load_vault, the topic part)
   // notes: [{ path, tags }] (tags as frontmatterTags gives them); links: { path: [resolved .md targets] };
-  // o: { daily, people, skip: [top folders], isHub(path, tags), joinsWhenLinked(path, tags) } from this vault's rules.
+  // o: { kind(path, tags) (VGRules.noteKind), isHub(path, tags), joinsWhenLinked(path, tags) } from this vault's rules.
   // Not daily notes, skipped folders, people or hubs; an inbox note joins once a topic note links to it; catch-all
   // task lists (30+ links, half of them to notes that link nowhere else) are dropped like hubs.
   // -> { knowledge: [paths], hubs: [paths], graph: {path: {path: links}} (linked notes only, in order) }
   const CATCHALL_MIN_LINKS = 30;
   function topicGraph(notes, links, o) {
-    const skip = new Set(o.skip || []), tagsOf = new Map(notes.map(n => [n.path, n.tags || []]));
-    const knowledge = new Set(), hubs = new Set(), people = new Set();
+    const tagsOf = new Map(notes.map(n => [n.path, n.tags || []]));
+    const knowledge = new Set(), hubs = new Set();
     for (const { path } of notes) {
-      const top = path.split("/")[0], tags = tagsOf.get(path);
-      if (top === o.daily || skip.has(top)) continue;
-      if (top === o.people) (o.isHub(path, tags) ? hubs : people).add(path);
-      else (o.isHub(path, tags) ? hubs : knowledge).add(path);
+      const kind = o.kind(path, tagsOf.get(path));
+      if (kind === "note") knowledge.add(path); else if (kind === "hub") hubs.add(path);
     }
     for (const r of [...knowledge]) for (const t of links[r] || []) {
       if (knowledge.has(t) || !tagsOf.has(t)) continue;
@@ -293,6 +291,26 @@ const VGEngine = (() => {
     const inLinked = new Set(linked);
     for (const r of linked) { graph[r] = {}; for (const t of sorted(adj.get(r).keys())) if (inLinked.has(t)) graph[r][t] = adj.get(r).get(t); }
     return { knowledge: sorted(knowledge), hubs: sorted(hubs), graph };
+  }
+  // notes linked to but never written (vault_graph.link_health): unresolved: { path: { target: links } } (Obsidian's
+  // unresolvedLinks); notes: the topic notes. Ranked by how many topic notes link each, the 40 most linked.
+  const ATTACHMENT = /\.(png|jpe?g|gif|svg|webp|bmp|pdf|mp4|mov|mp3|csv|xlsx?|docx?|pptx?|zip|canvas|excalidraw)$/i;
+  const PLACEHOLDER = /^(resource|link|note|page|item|example|placeholder)\s*\d*$|['",]/i, FILENAME_BAD = /[\\/:*?"<>|#^[\]]/;
+  function wantedNotes(unresolved, notes, max = 40) {
+    const inNotes = new Set(notes), refs = new Map(), spell = new Map();
+    for (const [src, targets] of Object.entries(unresolved || {})) {
+      if (!inNotes.has(src)) continue;
+      for (const raw of Object.keys(targets)) {
+        const name = raw.replace(/\\$/, "").split("/").pop().trim(), k = name.toLowerCase();
+        if (!(name.length > 2 && name.length < 120) || PLACEHOLDER.test(name) || ATTACHMENT.test(name)) continue;
+        if (!refs.has(k)) { refs.set(k, new Set()); spell.set(k, new Map()); }
+        refs.get(k).add(src); bump(spell.get(k), name);
+      }
+    }
+    return [...refs].sort((a, b) => b[1].size - a[1].size || pyCmp(a[0], b[0])).slice(0, max).map(([k, rs]) => {
+      const name = mostCommon(spell.get(k));
+      return { id: `wanted:${k}`, name, refs: sorted(rs), creatable: !FILENAME_BAD.test(name) };
+    });
   }
   // a note's topic tags from its frontmatter, as the analysis reads them: lower case, without periodic ones
   const frontmatterTags = fm => { let t = fm && typeof fm === "object" ? fm.tags : null; if (typeof t === "string") t = [t]; if (!Array.isArray(t)) return [];
@@ -443,5 +461,5 @@ const VGEngine = (() => {
   }
 
   return { pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
-    noteWords, topicWords, topicsOf, topicGraph, frontmatterTags, cleanTitle, readableNames, stacks, withStack, label, stableIds, titleCase };
+    noteWords, topicWords, topicsOf, topicGraph, frontmatterTags, wantedNotes, cleanTitle, readableNames, stacks, withStack, label, stableIds, titleCase };
 })();

@@ -3,18 +3,11 @@
 // vault's rules file over what Obsidian's settings say over the defaults; the settings tab's setRule changes one value
 // in the file and leaves the rest as written; every rule and action follows at once.
 //   node tests/test_plugin_rules.js        exit 0 = pass
-const fs = require("fs"), os = require("os"), path = require("path"), Module = require("module");
-const build = require("../build"), env = require("./env");
+const env = require("./env");
 const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) fails.push(`${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`); };
 
-// the plugin as built, loaded with a stand-in for the obsidian module (classes only; nothing here draws)
-const file = path.join(os.tmpdir(), `vg-plugin-rules-${process.pid}.js`);
-fs.writeFileSync(file, build.buildPlugin(env.rules)["main.js"] + "\n;module.exports.__VG = { VGRules, VGActions };");
-const Stub = class {}, stub = new Proxy({ normalizePath: p => p, Platform: {}, setIcon() {}, debounce: f => f, addIcon() {} }, { get: (t, k) => (k in t ? t[k] : Stub) });
-const load = Module._load;
-Module._load = function (req, ...a) { return req === "obsidian" ? stub : load.call(this, req, ...a); };
-const Plugin = require(file), { VGRules, VGActions } = Plugin.__VG;
-Module._load = load; fs.unlinkSync(file);
+// the plugin as built, under a stand-in Obsidian (tests/plugin_stub.js)
+const { Plugin, VGRules, VGActions } = require("./plugin_stub").load(env.rules);
 
 const RULES = "_scripts/vault_graph_rules.json";
 function fakePlugin(files, { daily, newFolder, people = [] } = {}) {

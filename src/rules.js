@@ -65,6 +65,14 @@ const VGRules = (() => {
   // a hub: shown, never clustered (a map or hub by tag, a hub by name, a dashboard at the vault's top level)
   const ROOT_HUBS = new Set(R.root_hubs || []);
   const isHub = (id, tags) => [].concat(tags || []).some(t => /^#?meta\/(hub|moc)$/i.test(String(t))) || ROOT_HUBS.has(id) || isHubName(id);
+  // what a note is to the graph (vault_gaps.load_vault): "daily", "skip" (a folder no analysis reads), "hub" (shown,
+  // never clustered), "person" or "note" (a topic note). The engine and the plugin's live merge both ask this.
+  const SKIP_TOPS = new Set(R.folders.skip || []);
+  const noteKind = (id, tags) => { const top = String(id).split("/")[0];
+    if (top === R.folders.daily) return "daily";
+    if (SKIP_TOPS.has(top)) return "skip";
+    if (isHub(id, tags)) return "hub";
+    return top === R.folders.people ? "person" : "note"; };
   // How prose names a note (vault_gaps._mention_matcher counts these, "Link mentions" links them): its title,
   // the topic of a "<Topic> - Context" note, and its aliases
   const CONTEXT_SUFFIX = new RegExp(R.context_suffix, "i");
@@ -551,7 +559,7 @@ const VGRules = (() => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
-  return { RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+  return { RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)
