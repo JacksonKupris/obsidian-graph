@@ -110,6 +110,23 @@ for (const f of ["view.js", "plugin.js"]) {
   check("archived notes aren't archived again", VGActions.forNote({ ...note, id: "05-Archive/x/Plan.md" }, ctx).some(a => a.key === "archive"), false);
   check("archive keeps the folder", VGActions.archiveFolder("02-Projects/x/Plan.md"), "05-Archive/02-Projects/x");
   check("root note archives to 05-Archive", VGActions.archiveFolder("Plan.md"), "05-Archive");
+  // search: a misspelled word's correction counts only for that word, so the chunk with both words wins
+  {
+    const mk = (path, text) => ({ path, date: "", chunks: VGRules.recallChunks(text) });
+    const notes = [mk("a/Both.md", "Connect to exchange online with powershell, then list the mailbox groups for the team."),
+      mk("b/One.md", "Exchange notes: the exchange mailbox, the exchange groups, exchange rules."),
+      mk("c/Filler.md", "Notes about the paper rolls, a powershell printer script and stickers this month."),
+      mk("d/Filler2.md", "More notes about databases, powershell backups and the weekly warehouse report.")];
+    const hits = VGRules.recallSearch(notes, "exchnge powershell", { n: 3, today: "2026-10-24" });
+    const score = p => (hits.find(h => h.path === p) || { score: 0 }).score;
+    check("search: the chunk with both words beats the one with only the corrected word", hits[0] && hits[0].path, "a/Both.md");
+    check("search: the corrected word alone counts as one word of two", score("b/One.md") < score("a/Both.md") / 2, true);
+  }
+  // the plugin's task lines are the ones Obsidian counts as tasks: bullets and numbered items (Complete and Cancel act on them)
+  {
+    const src = fs.readFileSync(path.join(S, "plugin.js"), "utf8"), TL = new Function(`return ${src.match(/const TASK_LINE = (\/.*?\/);/)[1]}`)();
+    check("task lines: -, *, +, 1. and 2) count; plain text doesn't", ["- [ ] a", "  * [ ] b", "+ [x] c", "1. [ ] d", "12) [ ] e", "[ ] f", "1. plain"].map(l => TL.test(l)), [true, true, true, true, true, false, false]);
+  }
   // Add reference offers holders: any note the graph treats as a map (a system's map has a plain name), or a hub or index
   {
     let offered = null;

@@ -210,7 +210,9 @@ const VGRules = ((R) => {
   function recallSearch(notes, query, o = {}) {
     const B = RC.boost, q = recallWords(query), qs = new Set(q), daily = (R.folders.daily || "01-Daily") + "/", FW = CUES.fuzzy_weight;
     const terms = new Map([...qs].map(t => [t, 1]));
-    [...qs].forEach(t => Object.entries(RC.synonyms).forEach(([k, alts]) => { if (t === k || alts.includes(t)) [k, ...alts].forEach(x => { if (!terms.has(x)) terms.set(x, 0.5); }); }));   // a synonym counts half
+    // each query word's own terms (itself, its synonyms, its close spellings): a word counts as matched when one of them is there
+    const own = new Map([...qs].map(t => [t, new Set([t])]));
+    [...qs].forEach(t => Object.entries(RC.synonyms).forEach(([k, alts]) => { if (t === k || alts.includes(t)) [k, ...alts].forEach(x => { own.get(t).add(x); if (!terms.has(x)) terms.set(x, 0.5); }); }));   // a synonym counts half
     const kinds = Object.entries(CUES.kinds).filter(([, v]) => v.words.some(w => qs.has(w))).map(([k]) => k);
     const span = recallTimeRange(query, o.today), who = [...qs].filter(t => (o.people || []).includes(t));
     // the graph: links (with similar-meaning pairs) and how much each note is relied on (o.graph = { links: [[a, b, kind]], use: { path: n } })
@@ -223,10 +225,9 @@ const VGRules = ((R) => {
     // a word the vault doesn't have: close spellings and longer words that start with it
     [...qs].forEach(t => { if (vocab.has(t) || /^\d+$/.test(t) || t.length < 4) return;
       [...vocab.keys()].filter(w => w.startsWith(t) || (t.length >= 5 && edit1(t, w))).sort((a, b) => vocab.get(b) - vocab.get(a)).slice(0, 3)
-        .forEach(w => { if (!terms.has(w)) terms.set(w, FW); }); });
-    const N = docs.length, df = new Map();
-    terms.forEach((_, t) => df.set(t, docs.filter(d => d.tf.has(t)).length));
-    const fuzzy = [...terms].filter(([, w]) => w === FW).map(([t]) => t), hits = [];
+        .forEach(w => { own.get(t).add(w); if (!terms.has(w)) terms.set(w, FW); }); });
+    const N = docs.length, df = new Map(), hits = [];
+    terms.forEach((_, t) => df.set(t, vocab.get(t) || 0));   // the vocabulary already counts the chunks each word is in
     for (const d of docs) {
       const { nw, hw, pw } = d, why = new Set(), L = d.len || 1; let score = 0;
       terms.forEach((wt, t) => {
@@ -240,7 +241,7 @@ const VGRules = ((R) => {
         score += s * wt;
       });
       if (!score) continue;
-      const matched = [...qs].filter(t => d.tf.has(t) || nw.has(t) || hw.has(t) || pw.has(t) || fuzzy.some(w => d.tf.has(w))).length;
+      const matched = [...qs].filter(t => pw.has(t) || [...own.get(t)].some(w => d.tf.has(w) || nw.has(w) || hw.has(w))).length;
       score *= Math.pow(matched / Math.max(1, qs.size), 1.5);   // every query word that matches counts a lot
       if (d.kind === "code") score *= B.code;
       const ls = d.body.split("\n").filter(l => l.trim());

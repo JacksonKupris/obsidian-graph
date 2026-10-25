@@ -400,6 +400,7 @@ class VaultGraphSuggestView extends ItemView {
     } else if (n) { sec("Suggested next step"); el.createDiv({ cls: "vg-s-card", text: "Nothing to do for this note. Nice." }); }
     // today: streak, XP, quests (from the shared game file)
     const sh = await this.plugin.loadShared(), cos = (sh && sh.cosmos) || {};
+    if (token !== this.renderToken) return;   // a newer render emptied the pane while this one waited
     this.hidden = this.hidden || new Set();   // dismissed here: gone at once, before the game file catches up
     const hidden = new Set([...(cos.hidden || []), ...this.hidden]), shown = q => !hidden.has(q.key || q.id);
     if (cos.daily && cos.daily.quests) cos.daily.quests = cos.daily.quests.filter(shown);
@@ -507,7 +508,7 @@ const UNDO_KEEP = 20;   // actions that can still be undone (this session)
 // redraws the sidebar. tests/test_rules.js fails if a vault write appears anywhere else.
 const STATE_WRITERS = ["saveContentSoon", "writeShared", "recordLedger", "writeLiveDiag"];
 // "- [ ] text" -> [prefix "- [", mark, "] ", text]; the mark is " " open, "x" done, "-" cancelled
-const TASK_LINE = /^(\s*[-*+] \[)(.)(\] )(.*)$/;
+const TASK_LINE = /^(\s*(?:[-*+]|\d+[.)]) \[)(.)(\] )(.*)$/;   // - [ ] x, and numbered: 1. [ ] x (Obsidian counts both)
 const NOTE_STATUS = { x: "status/done", "-": "status/cancelled" };
 const localDay = d => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);   // a Date's local calendar day
 // An action's result as a notice; with an Undo button (and longer on screen) when the action can be undone
@@ -543,7 +544,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     if (!this.settings.homeV2) { this.settings.homeV2 = 1; this.settings.homeView = "foodweb"; this.saveSettings(); }   // once: the card had been left on Subway, which is crowded small
     // after each plugin update, test every view and lens once in the background (desktop); a notice only if something broke
     this.app.workspace.onLayoutReady(() => { if (Platform.isDesktopApp) setTimeout(async () => { const sig = await this.buildSig(); if (sig && (this.settings.lastSelfTest || {}).sig !== sig) this.selfTest(true); }, 45000); });
-    this.addCommand({ id: "self-test", name: "Run self-test (every view and lens, in the background; writes a report to 00-Inbox)", callback: () => this.selfTest(false) });
+    this.addCommand({ id: "self-test", name: "Run self-test (every view and lens, in the background; writes a report to the reports folder)", callback: () => this.selfTest(false) });
     this.addCommand({ id: "state-snapshots", name: "Add map snapshots to the latest State of the vault note", callback: () => this.stateSnapshots() });
     this.registerView(SUGGEST_TYPE, leaf => new VaultGraphSuggestView(leaf, this));
     this.addCommand({ id: "open-suggestions", name: "Open suggestions sidebar", callback: () => this.openSuggestions() });
@@ -567,7 +568,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     });
     // the gardener (or Obsidian Sync) rewriting the data file updates open views
     this.registerEvent(this.app.vault.on("modify", file => {
-      if (file.path === normalizePath(this.settings.dataPath)) { this.base = null; this.cache = null; this.dataStamp = Date.now(); this.reloadSoon(); }
+      if (file.path === normalizePath(this.settings.dataPath)) { this.base = null; this.cache = null; this.dataStamp = Date.now(); this.mergeContentFromDisk().then(() => this.reloadSoon()); }
       // the game file (quests, missions, XP) and dismissals are written by the graph or another device: the sidebar shows them
       else if (file.path === normalizePath(this.settings.sharedPath) || file.path === normalizePath(this.settings.dismissedPath)) this.sharedChanged(file);
     }));
@@ -666,11 +667,13 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // running at the same moment share one entry, so undoing it undoes both.
   wrapWriteActions() {
     this.undoLog = []; this.undoSeq = 0;
+    // every vault write counts, so an action that wrote nothing (a preview, a check) neither waits for the index nor redraws
+    WRITE_PRIMITIVES.forEach(k => { const g = this[k].bind(this); this[k] = (...a) => { this.writes = (this.writes || 0) + 1; return g(...a); }; });
     WRITE_ACTIONS.forEach(k => {
-      const f = this[k].bind(this); this[k] = async (...a) => { const settled = this.indexSettled();
+      const f = this[k].bind(this); this[k] = async (...a) => { const settled = this.indexSettled(), before = this.writes || 0;
         const own = k !== "undo" && !this.undoCur ? (this.undoCur = { ops: [] }) : null;
         try { return await f(...a); }
-        finally { if (own) { this.undoCur = null; await this.closeUndo(own); } await settled; await this.publish(); } }; });
+        finally { if (own) { this.undoCur = null; await this.closeUndo(own); } if ((this.writes || 0) !== before) { await settled; await this.publish(); } } }; });
   }
 
   // ---- the vault writes (WRITE_PRIMITIVES): each records its change in the open undo entry, then writes
@@ -857,14 +860,15 @@ module.exports = class VaultGraphPlugin extends Plugin {
         const kept = (stdout || "").match(/^Kept \S+ from (\S+):/m);   // vault_graph.newer_analysis: another PC's is newer
         if (!quiet) new Notice(kept ? `Vault Graph: kept the analysis from ${kept[1]}, built from newer notes` : "Vault Graph refreshed");
         this.base = null; this.cache = null;
-        this.reloadSoon();
+        this.mergeContentFromDisk().then(() => this.reloadSoon());   // the run rewrote the content log too
         setTimeout(() => this.updateStatus(), 1000);
       });
   }
 
-  // Edits that don't count toward "the data is behind": the analysis's own output, plugin files, trash
+  // Edits that don't count toward "the data is behind": the analysis's own output and reports, plugin files, trash.
+  // An edit while the analysis runs still counts: it queues another run (refresh), and its fingerprint is recorded.
   ignoreEdit(path) {
-    return this.refreshing || [VGRules.folders.scripts + "/", ".obsidian/", ".trash/"].some(p => path.startsWith(p));
+    return [VGRules.folders.scripts + "/", VGRules.folders.reports + "/", ".obsidian/", ".trash/"].some(p => path.startsWith(p));
   }
   async editsSinceData() {
     let since = 0;
@@ -1172,7 +1176,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       return data.split(/\r?\n/).map(l => { const m = l.match(TASK_LINE); if (!m || m[2] !== " ") return l; n++; return m[1] + status + m[3] + m[4]; }).join(nl);
     });
     const tag = NOTE_STATUS[status];
-    if (tag) await this.ioFrontMatter(file, fm => {
+    if (tag && n) await this.ioFrontMatter(file, fm => {   // only a note whose tasks did change is marked done or cancelled
       const tags = [].concat(fm.tags || []).map(t => String(t).replace(/^#/, "")).filter(t => !t.startsWith("status/"));
       fm.tags = [...tags, tag];
     });
@@ -1222,7 +1226,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       errors.length ? `**${errors.length} error(s)**: ${errors.slice(0, 5).map(e => "`" + e.slice(0, 160).replace(/`/g, "'") + "`").join(" · ")}` : "**No errors.**", "",
       "| View | Result | Switch | Frame | Notes drawn | Today strip |", "|---|---|---|---|---|---|", ...rows, "", "| Lens | Result | Size | Empty message |", "|---|---|---|---|", ...lensRows, ""].join("\n");
     await this.writeNote(`${VGRules.folders.reports}/Vault Graph Self-test ${stamp}.md`, md, { mode: "create", open: !auto });
-    new Notice(errors.length ? `Vault Graph self-test: ${errors.length} error(s), see ${VGRules.folders.inbox}` : "Vault Graph self-test: all clear", errors.length ? 10000 : 4000);
+    new Notice(errors.length ? `Vault Graph self-test: ${errors.length} error(s), see ${VGRules.folders.reports}` : "Vault Graph self-test: all clear", errors.length ? 10000 : 4000);
   }
   async buildSig() {   // which build of the plugin this is: main.js size + modified time
     try { const s = await this.app.vault.adapter.stat(normalizePath(`${this.manifest.dir}/main.js`)); return `${s.size}|${s.mtime}`; } catch (e) { return ""; }
@@ -1250,11 +1254,16 @@ module.exports = class VaultGraphPlugin extends Plugin {
     CONTENT.log[file.path] = { h, since: today10() };
     this.saveContentSoon();
   }
+  // The content log on disk (the analysis rewrites it each run; Sync brings another device's) merged into this one:
+  // the later change date wins for each note
+  async mergeContentFromDisk() {
+    let disk = {}; try { disk = JSON.parse(await this.app.vault.adapter.read(normalizePath(CONTENT.path))); } catch (e) { return; }
+    for (const [k, v] of Object.entries(disk)) if (!CONTENT.log[k] || (v.since > CONTENT.log[k].since)) CONTENT.log[k] = v;
+  }
   saveContentSoon() {
     clearTimeout(this.contentTimer);
-    this.contentTimer = setTimeout(async () => {   // merge with what's on disk (another device or the analysis may have written it)
-      let disk = {}; try { disk = JSON.parse(await this.app.vault.adapter.read(normalizePath(CONTENT.path))); } catch (e) { /* first write */ }
-      for (const [k, v] of Object.entries(disk)) if (!CONTENT.log[k] || (v.since > CONTENT.log[k].since)) CONTENT.log[k] = v;
+    this.contentTimer = setTimeout(async () => {
+      await this.mergeContentFromDisk();
       await this.app.vault.adapter.write(normalizePath(CONTENT.path), JSON.stringify(CONTENT.log, null, 0) + "\n");
     }, 4000);
   }
@@ -1546,7 +1555,9 @@ function liveMerge(app, data, since) {
   // and "no map" all see them. Same rules as the analysis (VGRules.isMapCandidate + claims, from vault_graph_rules.json),
   // so a map never shows here and then vanishes at the next refresh. Its topic is the cluster most of its links point
   // into, and only a topic with no map yet: one map per topic.
-  const known = new Set((data.mocs || []).map(m => m.id)), mapped = new Set((data.mocs || []).flatMap(m => m.clusters));
+  // a map deleted or renamed since the analysis is no map any more (renamed, it's found again below at its new path)
+  data.mocs = (data.mocs || []).filter(m => exists(m.id));
+  const known = new Set(data.mocs.map(m => m.id)), mapped = new Set(data.mocs.flatMap(m => m.clusters));
   const sizeOf = new Map((data.clusters || []).map(k => [k.id, k.size]));
   for (const file of vault.getMarkdownFiles()) {
     if (known.has(file.path) || !VGRules.isMapCandidate(file.path, (cache.getFileCache(file) || {}).frontmatter)) continue;
