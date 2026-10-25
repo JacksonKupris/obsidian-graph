@@ -2838,8 +2838,11 @@ function mountVaultGraph(root, DATA, opts) {
   // flask's rubedo); the Today bar runs them one at a time and keeps score.
   const AL_STAGES = [["Nigredo", "#78716c"], ["Albedo", "#e7e5e4"], ["Citrinitas", "#facc15"], ["Rubedo", "#f97316"]];
   const alStage = n => n.isolated || (n.words || 0) < Q.stub_words ? 0 : (n.inlinks || 0) < 2 ? 1 : importance(n) >= 0.35 && !staleFor(n, Q.stale_days) ? 3 : 2;
-  const alScore = { get() { try { return +localStorage.getItem("vg-alchemy-runs") || 0; } catch (e) { return 0; } },
-    add() { try { localStorage.setItem("vg-alchemy-runs", String(this.get() + 1)); } catch (e) { } } };
+  // reactions run: in the shared game state with XP (per vault, every device). Before that it was this browser's
+  // own count, carried over once (then removed, so a second vault doesn't take it too).
+  const alScore = { get() { if (typeof cos.alchemyRuns !== "number") { let old = 0; try { old = +localStorage.getItem("vg-alchemy-runs") || 0; localStorage.removeItem("vg-alchemy-runs"); } catch (e) { }
+      cos.alchemyRuns = old; } return cos.alchemyRuns; },
+    add() { cos.alchemyRuns = this.get() + 1; persistSoon(); } };
   const al = { sparks: [], flash: [], idx: 0, spawn: 0, last: 0 };
   const alPartners = id => (mapCache.alchemy ? mapCache.alchemy.rx : []).filter(x => !x.done && (x.a.id === id || x.b.id === id)).map(x => x.a.id === id ? x.b.id : x.a.id);
   function alchemyLayout(geo) {

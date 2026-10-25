@@ -252,6 +252,8 @@ for (const f of ["view.js", "plugin.js"]) {
       check("shared merge: an entry removed here stays removed", out.review.ft, {});
       check("shared merge: hidden items, finished missions and log from both", [out.cosmos.hidden, out.cosmos.done.map(d => d.id), out.cosmos.log.map(l => l.text)], [["h1", "h2"], ["d1", "d2"], ["here", "there", "old"]]);
       check("shared merge: XP adds both devices' gains", out.cosmos.xp, 150);
+      { const al = (b, m, d) => M({ cosmos: { alchemyRuns: b } }, { cosmos: { alchemyRuns: m } }, { cosmos: { alchemyRuns: d } }).cosmos.alchemyRuns;
+        check("shared merge: Alchemy reactions add up like XP", [al(5, 7, 6), al(undefined, 3, undefined)], [8, 3]); }
       check("shared merge: today's quests done on either device", out.cosmos.daily.quests.map(q => !!q.done), [true, true]);
       check("shared merge: queued actions taken here stay taken, new ones kept", out.pending, ["p2"]);
       check("shared merge: settings follow this device", out.cosmos.theme, "gold");

@@ -437,7 +437,10 @@ const VGRules = ((R) => {
       c.done = mergeList(cb.done, cm.done, cd.done, x => x.id);
       c.log = mergeList(cb.log, cm.log, cd.log, x => x.date + "|" + x.text).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 200);
       const n = x => (typeof x === "number" ? x : 0);
-      c.xp = typeof cb.xp === "number" ? Math.max(0, n(cm.xp) + n(cd.xp) - cb.xp) : Math.max(n(cm.xp), n(cd.xp));
+      // a counter both devices added to keeps both additions (from the last common value)
+      const counter = k => typeof cb[k] === "number" ? Math.max(0, n(cm[k]) + n(cd[k]) - cb[k]) : Math.max(n(cm[k]), n(cd[k]));
+      c.xp = counter("xp");
+      if (typeof cm.alchemyRuns === "number" || typeof cd.alchemyRuns === "number") c.alchemyRuns = counter("alchemyRuns");
       const dm = obj(cm.daily), dd = obj(cd.daily);
       if (dm.date && dm.date === dd.date) {
         const doneD = new Set((dd.quests || []).filter(q => q.done).map(q => q.key));
