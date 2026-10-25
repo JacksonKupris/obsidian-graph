@@ -7,13 +7,11 @@ const env = require("./env"), MOBILE = process.argv.includes("--mobile");
 const onlyArg = process.argv.indexOf("--only"), ONLY = onlyArg > 0 ? new Set(process.argv[onlyArg + 1].split(",")) : null;
 const outArg = process.argv.slice(2).find(a => !a.startsWith("--") && !["--only", "--vault"].includes(process.argv[process.argv.indexOf(a) - 1]));
 const OUT = outArg || env.out("shots", new Date().toISOString().slice(0, 10) + (MOBILE ? "-mobile" : ""));
-const page = env.page();
 // the palette's "In your notes" section: the page has no vault to search, so it gets results from the plugin's own
 // search engine (VGRules.recallSearch) over the same vault's notes
 const RECALL_Q = env.VAULT ? "connect exchange online" : "backup restore near server backup";
-const recall = (() => { const { VGRules, list } = env.notes(); return JSON.stringify(VGRules.recallSearch(list, RECALL_Q, { n: 5, today: new Date().toISOString().slice(0, 10) })); })();
-const html = page.replace("window.vaultGraph = mountVaultGraph(document.getElementById(\"vg\"), DATA, {",
-  `window.vaultGraph = mountVaultGraph(document.getElementById("vg"), DATA, { ${MOBILE ? "mobile: true, " : ""}recall: async () => ${recall.trim() || "[]"},`);
+const recall = (() => { const { VGRules, list } = env.notes(); return env.inlineJson(VGRules.recallSearch(list, RECALL_Q, { n: 5, today: new Date().toISOString().slice(0, 10) })); })();
+const html = env.pageWith(`${MOBILE ? "mobile: true, " : ""}recall: async () => ${recall},`);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 (async () => {
   const tab = await cdp.open({ html, port: 9332, mobile: MOBILE });
@@ -43,7 +41,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   if (want("inspector")) { await tab.ev("(() => { const x = document.querySelector('.vg-picker-x'); if (x) x.click(); })()");
     await tab.ev(`(() => { const d = ${D}; const n = d.nodes.filter(n => !n.ghost && !n.person && !n.moc).sort((a, b) => (b.tasks || 0) - (a.tasks || 0))[0]; window.vaultGraph.focusNote(n.id); })()`);
     await sleep(1200); await shot("inspector"); n++; }
-  tab.close();
+  await tab.close();
   console.log(`${n} screenshots in ${OUT}`);
   process.exit(0);
 })().catch(e => { console.log("FAIL - " + e.message); process.exit(1); });

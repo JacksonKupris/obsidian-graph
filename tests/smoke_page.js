@@ -106,9 +106,10 @@ setTimeout(async () => {
   let tab;
   try { tab = await cdp.open({ html: page.replace("</body>", probe + "</body>"), port: 9333 }); } catch (e) { console.log("FAIL - " + e.message); process.exit(1); }
   if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const res = await tab.waitFor("window.__smoke || null", 5 * 60 * 1000);
-  tab.close();
-  if (!res) { console.log("FAIL - the probe never reported (page crashed or took over 5 minutes)"); process.exit(1); }
+  let why = "the page crashed or took over 5 minutes";
+  const res = await tab.waitFor("window.__smoke || null", 5 * 60 * 1000).catch(e => { why = e.message; return null; });
+  await tab.close();
+  if (!res) { console.log(`FAIL - the probe never reported (${why})`); process.exit(1); }
   const r = JSON.parse(res);
   if (r.errors.length) { console.log(`FAIL - ${r.errors.length} error(s) over ${r.views} views, ${r.lenses} lenses\n  ` + r.errors.slice(0, 15).join("\n  ")); process.exit(1); }
   console.log(`ok - graph page: ${r.views} views (${(r.ms || []).length} drawn), ${r.lenses} lenses, no errors, no dead ends`);

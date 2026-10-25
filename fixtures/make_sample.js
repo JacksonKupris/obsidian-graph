@@ -125,27 +125,32 @@ if (process.argv.includes("--analyse")) {
   const vault = i > 0 ? process.argv[i + 1] : fs.existsSync(local) ? JSON.parse(fs.readFileSync(local, "utf8")).vault : null;
   if (!vault) { console.error("--analyse needs --vault <dir> (or local.json's vault): the analysis uses that vault's _System/vault_lib.py"); process.exit(2); }
   const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "vg-sample-")), "Sample Vault");
-  fs.cpSync(OUT, tmp, { recursive: true });
-  const S = path.join(tmp, F.scripts), sys = path.join(tmp, F.system);
-  fs.mkdirSync(S, { recursive: true });
-  for (const f of fs.readdirSync(path.join(__dirname, "..", "analysis")).filter(f => f.endsWith(".py"))) fs.copyFileSync(path.join(__dirname, "..", "analysis", f), path.join(S, f));   // this repo's analysis
-  fs.copyFileSync(path.join(vault, F.system, "vault_lib.py"), path.join(sys, "vault_lib.py"));
-  // a small code repo for the Code lens (never this PC's repos): commits over the last weeks to files the notes name
-  const code = path.join(path.dirname(tmp), "code"), repo = path.join(code, "rental-app");
-  fs.mkdirSync(path.join(repo, "src"), { recursive: true });
-  const git = (args, env = {}) => execFileSync("git", ["-C", repo, "-c", "user.name=Sample", "-c", "user.email=sample@example.com", ...args], { stdio: "ignore", env: { ...process.env, ...env } });
-  git(["init", "-q"]);
-  [["src/booking.js", 30], ["src/payments.js", 24], ["src/booking.js", 12], ["src/map.js", 9], ["src/payments.js", 3]].forEach(([f, daysAgo], i) => {
-    fs.appendFileSync(path.join(repo, f), `// change ${i}\n`);
-    const when = new Date(TODAY - daysAgo * DAY).toISOString();
-    git(["add", "-A"]); git(["commit", "-q", "-m", `change ${i}`], { GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when });
-  });
-  fs.writeFileSync(path.join(S, "vault_graph_rules.json"), JSON.stringify({ ...R, code_roots: [code] }, null, 2));
-  const py = process.platform === "win32" ? "python" : "python3";
-  execFileSync(py, [path.join(S, "vault_graph.py")], { cwd: tmp, stdio: "inherit", env: { ...process.env, PYTHONIOENCODING: "utf-8" } });
-  const data = JSON.parse(fs.readFileSync(path.join(tmp, R.files.data), "utf8"));
-  delete data.built;   // which PC ran it
-  fs.writeFileSync(path.join(__dirname, "sample-graph.json"), JSON.stringify(data, null, 1) + "\n");
-  fs.rmSync(path.dirname(tmp), { recursive: true, force: true });
-  console.log(`Wrote fixtures/sample-graph.json (${data.nodes.length} notes, ${data.links.length} links, ${data.clusters.length} topics)`);
+  try {
+    fs.cpSync(OUT, tmp, { recursive: true });
+    const S = path.join(tmp, F.scripts), sys = path.join(tmp, F.system);
+    fs.mkdirSync(S, { recursive: true });
+    for (const f of fs.readdirSync(path.join(__dirname, "..", "analysis")).filter(f => f.endsWith(".py"))) fs.copyFileSync(path.join(__dirname, "..", "analysis", f), path.join(S, f));   // this repo's analysis
+    fs.copyFileSync(path.join(vault, F.system, "vault_lib.py"), path.join(sys, "vault_lib.py"));
+    // a small code repo for the Code lens (never this PC's repos): commits over the last weeks to files the notes name
+    const code = path.join(path.dirname(tmp), "code"), repo = path.join(code, "rental-app");
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    // this PC's git config stays out (commit signing, hooks): the sample repo is the same everywhere. An empty file,
+    // not os.devNull: git on Windows can't read \\.\nul as a config file
+    const noConfig = path.join(path.dirname(tmp), "empty.gitconfig"); fs.writeFileSync(noConfig, "");
+    const git = (args, env = {}) => execFileSync("git", ["-C", repo, "-c", "user.name=Sample", "-c", "user.email=sample@example.com", ...args],
+      { stdio: "ignore", env: { ...process.env, GIT_CONFIG_GLOBAL: noConfig, GIT_CONFIG_NOSYSTEM: "1", ...env } });
+    git(["init", "-q"]);
+    [["src/booking.js", 30], ["src/payments.js", 24], ["src/booking.js", 12], ["src/map.js", 9], ["src/payments.js", 3]].forEach(([f, daysAgo], i) => {
+      fs.appendFileSync(path.join(repo, f), `// change ${i}\n`);
+      const when = new Date(TODAY - daysAgo * DAY).toISOString();
+      git(["add", "-A"]); git(["commit", "-q", "-m", `change ${i}`], { GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when });
+    });
+    fs.writeFileSync(path.join(S, "vault_graph_rules.json"), JSON.stringify({ ...R, code_roots: [code] }, null, 2));
+    const py = process.platform === "win32" ? "python" : "python3";
+    execFileSync(py, [path.join(S, "vault_graph.py")], { cwd: tmp, stdio: "inherit", env: { ...process.env, PYTHONIOENCODING: "utf-8" } });
+    const data = JSON.parse(fs.readFileSync(path.join(tmp, R.files.data), "utf8"));
+    delete data.built;   // which PC ran it
+    fs.writeFileSync(path.join(__dirname, "sample-graph.json"), JSON.stringify(data, null, 1) + "\n");
+    console.log(`Wrote fixtures/sample-graph.json (${data.nodes.length} notes, ${data.links.length} links, ${data.clusters.length} topics)`);
+  } finally { fs.rmSync(path.dirname(tmp), { recursive: true, force: true }); }   // the temp copy goes, even when a step fails
 }

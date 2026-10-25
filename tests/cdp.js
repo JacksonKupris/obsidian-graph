@@ -18,7 +18,8 @@ function forwardPhone(port) {
   const adb = process.env.REA_ADB_PATH || "adb", run = (...a) => execFileSync(adb, a, { encoding: "utf8" }).trim();
   let pid = "";
   for (let i = 0; i < 15 && !pid; i++) { try { pid = run("shell", "pidof", "md.obsidian").split(/\s+/)[0]; } catch (e) {
-    const msg = String(e.stderr || e.message).trim().split("\n")[0];
+    const msg = String(e.stderr || "").trim().split("\n")[0];
+    if (!msg && e.status === 1) break;   // pidof found no Obsidian: the phone answered, the app isn't running
     if (!/unauthorized|offline/.test(msg) || i === 14) throw new Error("adb: " + msg + " (check the phone for the USB debugging prompt)");
     execFileSync(process.execPath, ["-e", "setTimeout(() => {}, 1000)"]); } }
   if (!pid) throw new Error("Obsidian isn't running on the phone (or no phone: adb devices)");
@@ -38,24 +39,35 @@ async function open(o) {
   let target;
   for (let i = 0; i < 80 && !target; i++) { try { target = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find(t => t.type === "page"); } catch (e) {} if (!target) await sleep(250); }
   if (!target) throw new Error(o.phone ? "the phone's Obsidian page isn't reachable" : "Chrome didn't start");
-  const ws = new WebSocket(target.webSocketDebuggerUrl); let id = 0, closing = false; const pending = new Map();
+  const ws = new WebSocket(target.webSocketDebuggerUrl); let id = 0, closing = false, gone = ""; const pending = new Map();
   ws.onmessage = msg => { const d = JSON.parse(msg.data);
-    if (d.id && pending.has(d.id)) { pending.get(d.id)(d); pending.delete(d.id); }
+    if (d.id && pending.has(d.id)) { pending.get(d.id)[0](d); pending.delete(d.id); }
+    if (d.method === "Inspector.targetCrashed") failAll((gone = "the page crashed"));   // its connection stays open
     if (d.method === "Runtime.consoleAPICalled" && o.onConsole) { const a = d.params.args[0]; o.onConsole(a && a.value); } };
-  await new Promise(r => ws.onopen = r);
+  await new Promise((r, j) => { ws.onopen = r; ws.onerror = () => j(new Error("couldn't connect to the page")); });
+  // every request still waiting fails, so a crashed page or dropped connection ends the test instead of hanging it
+  const failAll = why => { for (const [, [, rej]] of pending) rej(new Error(why)); pending.clear(); };
   // a WebView takes one debugger at a time: another one attaching (DevTools, a second run) drops this one
-  ws.onclose = () => { if (!closing && o.onClose) o.onClose(); };
-  const send = (method, params) => new Promise(r => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params: params || {} })); });
+  ws.onclose = () => { failAll((gone = gone || "the page's connection closed")); if (!closing && o.onClose) o.onClose(); };
+  const send = (method, params, ms = 300000) => new Promise((res, rej) => {
+    if (gone || ws.readyState !== WebSocket.OPEN) return rej(new Error(`${method}: ${gone || "the page's connection is closed"}`));
+    const i = ++id, t = setTimeout(() => { pending.delete(i); rej(new Error(`${method}: no reply in ${ms / 1000} s`)); }, ms);
+    pending.set(i, [d => { clearTimeout(t); res(d); }, e => { clearTimeout(t); rej(e); }]);
+    ws.send(JSON.stringify({ id: i, method, params: params || {} })); });
   const ev = async e => { const r = await send("Runtime.evaluate", { expression: e, awaitPromise: true, returnByValue: true }); return r.result && r.result.result && r.result.result.value; };
   if (o.fresh) await send("Runtime.discardConsoleEntries");
   await send("Runtime.enable");
+  await send("Inspector.enable").catch(() => {});   // for targetCrashed
   if (o.mobile) { await send("Emulation.setDeviceMetricsOverride", { width: 420, height: 900, deviceScaleFactor: 2, mobile: true });
     await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 }); }
   if (tmp) await send("Page.navigate", { url: "file:///" + tmp.replace(/\\/g, "/") });
   const waitFor = async (expr, limitMs) => { const t0 = Date.now(); let v = null;
     while (!v && Date.now() - t0 < limitMs) { await sleep(o.phone ? 2000 : 500); v = await ev(expr); } return v || null; };
-  const close = () => { closing = true; try { ws.close(); } catch (e) {} try { if (proc) proc.kill(); } catch (e) {}
-    try { if (tmp) fs.unlinkSync(tmp); if (prof) fs.rmSync(prof, { recursive: true, force: true }); } catch (e) {} };
+  // Chrome holds files in its profile while it exits (Windows), so the profile goes once it has, with retries
+  const close = async () => { closing = true; try { ws.close(); } catch (e) {}
+    if (proc && proc.exitCode === null) { const gone = new Promise(r => proc.once("exit", r)); try { proc.kill(); } catch (e) {} await Promise.race([gone, sleep(5000)]); }
+    try { if (tmp) fs.unlinkSync(tmp); } catch (e) {}
+    try { if (prof) fs.rmSync(prof, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch (e) {} };
   return { send, ev, waitFor, close };
 }
 

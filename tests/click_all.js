@@ -16,7 +16,6 @@ const fs = require("fs"), path = require("path");
 const VERBOSE = process.argv.includes("--verbose");
 // --mobile: a phone (420 x 900, touch, 2x pixels) with the page's mobile layout, which is where most overlaps show up
 const MOBILE = process.argv.includes("--mobile"), PHONE = process.argv.includes("--phone"), RESUME = PHONE && process.argv.includes("--resume");
-const page = require("./env").page();
 
 // ---- the probe that runs inside the page
 const probe = String.raw`<script>
@@ -199,7 +198,7 @@ if (live()) window.__clickall = out;
 })().catch(e => { if (window.__VG_RUN__ === run) window.__clickall = { fatal: String(e && e.stack || e) }; }))(window.__VG_RUN__ = Math.random());   // a probe that breaks says so
 </script>`;
 // the page keeps DATA in a const; expose it for the remount
-const html = (MOBILE ? page.replace("window.vaultGraph = mountVaultGraph(document.getElementById(\"vg\"), DATA, {", "window.vaultGraph = mountVaultGraph(document.getElementById(\"vg\"), DATA, { mobile: true,") : page)
+const html = require("./env").pageWith(MOBILE ? "mobile: true," : "")
   .replace("const DATA = ", "const DATA = window.__VG_DATA__ = ")
   .replace("<script>", "<script>window.__VG_MOBILE__ = " + MOBILE + ";").replace("</body>", probe + "</body>");
 // Obsidian on the phone: its graph remounted with the probe's stand-ins (plugin.viewActions), nothing saved
@@ -226,7 +225,7 @@ const cdp = require("./cdp");
 const t0 = Date.now(), LIMIT = 40 * 60 * 1000;
 let tab = null, restore = null, finished = false;   // the phone run puts the real actions back before it exits
 const done = async code => { finished = true; if (restore) console.log("  phone: " + await restore().catch(e => "restore failed: " + e.message));
-  if (tab) tab.close(); process.exit(code); };
+  if (tab) await tab.close(); process.exit(code); };
 const progress = a => { if (typeof a !== "string" || !a.startsWith("CA ")) return; const x = JSON.parse(a.slice(3));
   console.log(`  ${x.mode.padEnd(5)} ${x.ctx.padEnd(46)} ${String(x.kinds).padStart(3)} controls ${String(x.s).padStart(5)} s ${String(x.frame).padStart(5)} ms/frame${x.errors ? `  (${x.errors} errors so far)` : ""}`); };
 (async () => {

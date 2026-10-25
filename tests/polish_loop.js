@@ -11,7 +11,8 @@
 // The audit's findings are kept in .out/polish/last.json, so the next report can compare.
 const fs = require("fs"), path = require("path"), { execFileSync } = require("child_process"), cdp = require("./cdp");
 const env = require("./env"), FULL = process.argv.includes("--full");
-const day = new Date().toISOString().slice(0, 10), stamp = day + " " + new Date().toTimeString().slice(0, 5).replace(":", "");
+const now = new Date(), day = new Date(now - now.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);   // the local day, like the time
+const stamp = day + " " + now.toTimeString().slice(0, 5).replace(":", "");
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const run = (script, args = []) => {   // a test script's last line, and whether it passed
   try { const out = execFileSync("node", [path.join(__dirname, script), ...args, ...env.args], { encoding: "utf8", timeout: 20 * 60 * 1000 }); return { ok: true, out: out.trim() }; }
@@ -44,8 +45,7 @@ const AUDIT = String.raw`(mobile => {
 })`;
 
 async function audit(mobile) {
-  const page = env.page();
-  const html = mobile ? page.replace("window.vaultGraph = mountVaultGraph(document.getElementById(\"vg\"), DATA, {", "window.vaultGraph = mountVaultGraph(document.getElementById(\"vg\"), DATA, { mobile: true,") : page;
+  const html = env.pageWith(mobile ? "mobile: true," : "");
   const tab = await cdp.open({ html, port: 9337, mobile });
   if (!tab) return null;
   await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000); await sleep(1500);
@@ -62,7 +62,7 @@ async function audit(mobile) {
   await tab.ev("(() => { const x = document.querySelector('.vg-picker-x'); if (x) x.click(); })()");
   await tab.ev(`(() => { const n = ${D}.nodes.filter(n => !n.ghost && !n.person && !n.moc).sort((a, b) => (b.tasks || 0) - (a.tasks || 0))[0]; window.vaultGraph.focusNote(n.id); })()`);
   await sleep(1000); await take("inspector");
-  tab.close();
+  await tab.close();
   return [...found.values()];
 }
 
@@ -111,6 +111,7 @@ async function audit(mobile) {
     "Phone: can each control be reached with a thumb without covering what it changes?",
   ].map(x => `- [ ] ${x}`).join("\n") + "\n";
   const out = env.VAULT ? path.join(env.VAULT, env.rules.folders.reports, `Polish Loop ${stamp}.md`) : path.join(dir, `Polish Loop ${stamp}.md`);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, md);
   console.log(`${steps.every(([, r]) => r.ok) ? "ok" : "FAIL"} - ${found.length} layout findings${last ? ` (${fresh.length} new, ${fixed.length} fixed)` : ""} · ${path.relative(env.VAULT || env.ROOT, out)}`);
   process.exit(steps.every(([, r]) => r.ok) ? 0 : 1);

@@ -2,8 +2,7 @@
 // Randomize / Reset layout in every view, in headless Chrome: randomizing moves the notes, resetting brings back
 // the exact default layout (2D/3D: the arrangement you had). Cosmos is skipped (you place its bodies yourself).
 //   node tests/layout_random.js [--vault [dir]]        exit 0 = pass
-const fs = require("fs"), os = require("os"), path = require("path"), { execFileSync } = require("child_process");
-const page = require("./env").page();
+const cdp = require("./cdp"), page = require("./env").page();
 const probe = `<script>
 setTimeout(async () => {
   const D = window.vaultGraph._debug, sleep = ms => new Promise(r => setTimeout(r, ms)), res = [], errs = [];
@@ -28,20 +27,21 @@ setTimeout(async () => {
       res.push({ v, changed: +moved(a, b).toFixed(2), back: +moved(a, c).toFixed(2), resetShown, resetHidden: document.querySelector(".vg-resetlayout").hidden });
     } catch (e) { errs.push(v + ": " + e.message); }
   }
-  const o = document.createElement("pre"); o.id = "probe"; o.textContent = JSON.stringify({ res, errs }); document.body.appendChild(o);
+  window.__layout = JSON.stringify({ res, errs });
 }, 1500);
 </script>`;
-const tmp = path.join(os.tmpdir(), `vg-layout-${process.pid}.html`);
-fs.writeFileSync(tmp, page.replace("</body>", probe + "</body>"));
-const chrome = ["C:/Program Files/Google/Chrome/Application/chrome.exe", "/usr/bin/google-chrome", "/usr/bin/chromium"].find(p => fs.existsSync(p));
-if (!chrome) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-const dom = execFileSync(chrome, ["--headless=new", "--disable-gpu", "--window-size=1280,900", "--virtual-time-budget=200000", "--dump-dom", "file:///" + tmp.replace(/\\/g, "/")],
-  { encoding: "utf8", maxBuffer: 1 << 28, stdio: ["ignore", "pipe", "ignore"] });
-fs.unlinkSync(tmp);
-const m = dom.match(/<pre id="probe">([^<]*)<\/pre>/);
-if (!m) { console.log("FAIL - the probe never reported"); process.exit(1); }
-const { res, errs } = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&"));
-const bad = res.filter(r => r.changed < 0.2 || r.back > 0.05 || !r.resetShown || !r.resetHidden);
-res.forEach(r => console.log(`  ${bad.includes(r) ? "FAIL" : "ok  "}  ${r.v.padEnd(9)} randomize moved ${Math.round(r.changed * 100)}%, reset left ${Math.round(r.back * 100)}% moved`));
-errs.forEach(e => console.log("  error: " + e));
-process.exit(bad.length || errs.length ? 1 : 0);
+// in real time over the DevTools protocol (tests/cdp.js), as the smoke test does
+(async () => {
+  let tab;
+  try { tab = await cdp.open({ html: page.replace("</body>", () => probe + "</body>"), port: 9336 }); } catch (e) { console.log("FAIL - " + e.message); process.exit(1); }
+  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
+  let why = "the page crashed or took over 15 minutes";
+  const got = await tab.waitFor("window.__layout || null", 15 * 60 * 1000).catch(e => { why = e.message; return null; });
+  await tab.close();
+  if (!got) { console.log(`FAIL - the probe never reported (${why})`); process.exit(1); }
+  const { res, errs } = JSON.parse(got);
+  const bad = res.filter(r => r.changed < 0.2 || r.back > 0.05 || !r.resetShown || !r.resetHidden);
+  res.forEach(r => console.log(`  ${bad.includes(r) ? "FAIL" : "ok  "}  ${r.v.padEnd(9)} randomize moved ${Math.round(r.changed * 100)}%, reset left ${Math.round(r.back * 100)}% moved`));
+  errs.forEach(e => console.log("  error: " + e));
+  process.exit(bad.length || errs.length ? 1 : 0);
+})();

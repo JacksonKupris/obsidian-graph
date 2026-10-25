@@ -11,13 +11,15 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vg-build-"));
 for (const [f, text] of Object.entries(build.buildPlugin(env.rules))) fs.writeFileSync(path.join(dir, f), text);
 
 const steps = [["main.js", ["--check", path.join(dir, "main.js")]], ["rules.js", [path.join(dir, "rules.js")]],
-  ["test_rules.js", [path.join(__dirname, "test_rules.js"), ...env.args]], ["smoke_page.js", [path.join(__dirname, "smoke_page.js"), ...env.args]]];
+  ["test_rules.js", [path.join(__dirname, "test_rules.js"), ...env.args]], ["test_cdp.js", [path.join(__dirname, "test_cdp.js")]], ["smoke_page.js", [path.join(__dirname, "smoke_page.js"), ...env.args]]];
 let failed = 0;
 for (const [name, args] of steps) {
-  const r = spawnSync(process.execPath, args, { encoding: "utf8" });
-  const out = ((r.stdout || "").trim() || (r.stderr || "").trim() || "ok").split(/\r?\n/);
-  console.log(`  ${r.status ? "FAIL" : "test"}  ${name}: ${r.status ? out.slice(-12).join("\n") : out[out.length - 1]}`);
-  failed += r.status ? 1 : 0;
+  const r = spawnSync(process.execPath, args, { encoding: "utf8", timeout: 10 * 60 * 1000 });
+  // only a clean exit 0 passes: a step killed (or timed out) has status null, one that didn't start has r.error
+  const bad = r.status !== 0, why = r.error ? [r.error.code === "ETIMEDOUT" ? "timed out after 10 minutes" : r.error.message] : r.signal ? [`killed (${r.signal})`] : [];
+  const out = [...((r.stdout || "").trim() || (r.stderr || "").trim() || "ok").split(/\r?\n/), ...why];
+  console.log(`  ${bad ? "FAIL" : "test"}  ${name}: ${bad ? out.slice(-12).join("\n") : out[out.length - 1]}`);
+  failed += bad ? 1 : 0;
 }
 fs.rmSync(dir, { recursive: true, force: true });
 console.log(failed ? `${failed} failed (${env.VAULT ? env.VAULT : "sample vault"})` : `ok - ${env.VAULT ? env.VAULT : "sample vault"}`);
