@@ -34,6 +34,14 @@ function fakePlugin(files, { daily, newFolder, people = [] } = {}) {
     await p.setRule(["folders", "archive"], "Old");
     check("a first rule makes a rules file", JSON.parse(p.app.vault.adapter && (await p.app.vault.adapter.read(RULES))), { folders: { archive: "Old" } });
     check("the archive action follows the rules", VGActions.archiveFolder("Projects/a.md"), "Old/Projects"); }
+  // the Link action's Related line goes in a links section, never under a heading that only starts with "Related"
+  { const add = Plugin.addRelatedLine, L = "- [[B]] — similar meaning (0.8)";
+    const own = "# Plan\n\n## Related Project Contexts\n\n- [[X]] - servers\n\n### Contacts\n\n- Support: call";
+    check("a 'Related Project Contexts' section isn't the links section", add(own, L).split("\n").slice(-4, -1), ["## Related (added " + VGRules.today() + ")", "", L]);
+    const rel = "# Note\n\n## Related\n\n- [[A]]\n\n## Notes\n\ntext";
+    check("an existing Related section gets the line", add(rel, L).split("\n").slice(4, 7), ["- [[A]]", L, ""]);
+    const ctx = "# X - Context\n\nbody\n\n---\n\n**Related Standups**\n- [[Daily Standup 2026-10-01]]";
+    check("a context note's footer stays last", add(ctx, L).split("\n").slice(-4, -2), ["---", ""]); }
   // a vault rules file wins over Obsidian's settings, key by key
   { const text = '{\n  "folders": {\n    "inbox": "00-Inbox",\n    "daily": "01-Daily",\n    "skip": ["_templates", "00-Inbox"]\n  },\n  "stale_days": 180,\n  "note":   "kept as written"\n}\n';
     const files = { [RULES]: text }, p = fakePlugin(files, { daily: "Journal", newFolder: "Inbox" });

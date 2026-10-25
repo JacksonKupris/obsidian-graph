@@ -45,6 +45,8 @@ TOPIC_TAG_PREFIXES = ("project/", "technology/", "feature/", "hardware/")
 SKIP_TOP = set(_FOLDERS["skip"])
 # Hubs link to everything and would glue every cluster together; reported, not clustered
 HUB_NAME_RE = rules.HUB_NAME_RE
+# never offered as a link: a private note (its name, or private: true), so its secrets stay in the one note
+PRIVATE_RE = re.compile(rules.RULES.get("private_name") or r"$^", re.I)
 FRONTMATTER_RE = re.compile(r"\A---\r?\n(.*?)\r?\n---\r?\n", re.S)
 
 SMART_ENV = vl.VAULT / ".smart-env" / "smart_sources"
@@ -428,15 +430,39 @@ def _linked(a: str, b: str, adj: dict[str, Counter]) -> bool:
             or any(_name(t).lower() == na for t in adj.get(b, ())))
 
 
-def similar_unlinked(vectors: dict, adj: dict[str, Counter]) -> list:
+def _private(r: str, text: str) -> bool:
+    return bool(PRIVATE_RE.search(_name(r))) or _frontmatter(text).get("private") is True
+
+
+# a line of code outside a fence: SQL (upper-case keywords, so "Set up the..." stays prose) or a statement ending in ;
+CODE_LINE = re.compile(r"^\s*(--\s|(SELECT|INSERT|UPDATE|DELETE|ALTER|CREATE|SET|FROM|WHERE|VALUES|ADD|JOIN|UNIQUE|PRIMARY|INTO)\b)|;\s*$")
+
+
+def _mostly_code(text: str) -> bool:
+    """A note that is mostly code or SQL: its embedding says what format it is, not what it's about (two SQL dumps
+    read as similar in meaning). A mermaid diagram is content, not code."""
+    body, fence, n, code = FRONTMATTER_RE.sub("", text, count=1), None, 0, 0
+    for line in body.splitlines():
+        if not line.strip():
+            continue
+        if line.strip().startswith("```"):
+            fence = None if fence is not None else line.strip()[3:].strip().lower()
+            continue
+        n += 1
+        code += (fence is not None and fence != "mermaid") or (fence is None and bool(CODE_LINE.search(line)))
+    return n >= 5 and code / n >= 0.6
+
+
+def similar_unlinked(vectors: dict, adj: dict[str, Counter], quiet: set = frozenset(), codey: set = frozenset()) -> list:
     """Mutual top-k embedding neighbours with no direct link (absolute scores from small
-    embedding models are compressed, so rank agreement is the signal, not a threshold)."""
+    embedding models are compressed, so rank agreement is the signal, not a threshold). quiet: notes never offered
+    (private); codey: notes that are mostly code: two of them are not offered as similar (duplicates still are)."""
     paths = sorted(vectors)
     top = _top_neighbours(vectors, SEMANTIC_TOP_K, same_name=False)   # scores shared with clustering
     pairs = []
     for p in paths:
         for s, q in top[p]:
-            if (p < q and any(q2 == p for _, q2 in top[q]) and not _linked(p, q, adj) and (p, q) not in NOT_DUPLICATES
+            if (p < q and p not in quiet and q not in quiet and any(q2 == p for _, q2 in top[q]) and not _linked(p, q, adj) and (p, q) not in NOT_DUPLICATES
                     and SERIES_RE.sub("", _name(p).lower()) != SERIES_RE.sub("", _name(q).lower())):
                 pairs.append([p, q, round(s, 3)])
     # Start Here/ pages were written as reworded copies of resource notes (26 of 75 had a
@@ -445,7 +471,7 @@ def similar_unlinked(vectors: dict, adj: dict[str, Counter]) -> list:
     twins = _by_name((x for x in pairs if wiki(x)), 40)
     rest = [x for x in pairs if not wiki(x)]
     dupes = _by_name((x for x in rest if x[2] >= DUPLICATE_SIMILARITY), TOP_SEMANTIC)
-    related = _by_name((x for x in rest if x[2] < DUPLICATE_SIMILARITY), TOP_SEMANTIC)
+    related = _by_name((x for x in rest if x[2] < DUPLICATE_SIMILARITY and not (x[0] in codey and x[1] in codey)), TOP_SEMANTIC)   # two code dumps alike
     return dupes, related, twins
 
 
@@ -970,13 +996,15 @@ def analyze(since: str | None) -> dict:
             "shared_tags": sorted(shared)[:5],
             "links": links[(i, j)],
             "score": round(rel_score / (1 + 25 * density), 2),
-            "suggest": _by_name(((a, b, n) for (a, b), n in examples[(i, j)].items()), 3, assoc),
+            "suggest": _by_name(((a, b, n) for (a, b), n in examples[(i, j)].items() if not (_private(a, raw.get(a, "")) or _private(b, raw.get(b, "")))), 3, assoc),
         })
     gaps.sort(key=lambda g: (-g["score"], g["clusters"]))
 
+    quiet = {r for r in knowledge if _private(r, raw.get(r, ""))}       # never offered as a link
+    codey = {r for r in knowledge if _mostly_code(raw.get(r, ""))}        # not "similar in meaning" by format alone
     unlinked = _by_name(((a, b, n) for (a, b), n in comention.items()
-                         if not _linked(a, b, adj) and significant(a, b, n)), TOP_COMENTIONS, assoc)
-    near_dupes, semantic, wiki_twins = similar_unlinked(vectors, adj) if vectors else ([], [], [])
+                         if not _linked(a, b, adj) and significant(a, b, n) and a not in quiet and b not in quiet), TOP_COMENTIONS, assoc)
+    near_dupes, semantic, wiki_twins = similar_unlinked(vectors, adj, quiet, codey) if vectors else ([], [], [])
     person_topics = _by_name(((p, r, n) for (p, r), n in person_comention.most_common()
                               if _name(r).lower() not in {_name(x).lower() for x in person_links[p]} and n >= 3), TOP_COMENTIONS)
     neglected = sorted((r for r in knowledge if not adj[r] and mentions[r] >= 3),

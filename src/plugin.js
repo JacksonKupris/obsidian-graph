@@ -1694,14 +1694,17 @@ function liveMerge(app, data, since) {
   data.live = { added: added.length, removed: removed.length, gained, lost, written: written.size, mapAdds };
 }
 
-// Append a line to the note's last "## Related…" section, or create "## Related (added <date>)"
-// before the context-note footer ("---" + "**Related Standups**") or at the end. Line endings kept.
+// Append a line to the note's last links section ("## Related", "## Related (added <date>)", "## Related notes"),
+// or create "## Related (added <date>)" before the context-note footer ("---" + "**Related Standups**") or at the end.
+// Other "## Related ..." headings ("Related Project Contexts", "Related Standups", "Related Issues Fixed") are the
+// note's own sections, not where its links go. Line endings kept.
+const RELATED_HEAD = /^## Related(?: notes)?(?: \(added [^)]*\))?\s*$/i;
 function addRelatedLine(text, line) {
   const nl = text.includes("\r\n") ? "\r\n" : "\n";
   const lines = text.split(/\r?\n/);
   if (lines.some(l => l.trim() === line.trim())) return text;
   let head = -1;
-  lines.forEach((l, i) => { if (/^## Related\b/.test(l)) head = i; });
+  lines.forEach((l, i) => { if (RELATED_HEAD.test(l)) head = i; });
   if (head >= 0) {
     let end = lines.findIndex((l, i) => i > head && (/^#{1,2} /.test(l) || l === "---"));
     if (end < 0) end = lines.length;
@@ -1717,6 +1720,8 @@ function addRelatedLine(text, line) {
   while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
   return [...lines, "", ...section].join(nl);
 }
+
+module.exports.addRelatedLine = addRelatedLine;   // for tests
 
 class VaultGraphSettings extends PluginSettingTab {
   constructor(app, plugin) { super(app, plugin); this.plugin = plugin; }
