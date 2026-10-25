@@ -63,7 +63,6 @@ SERIES_RE = re.compile(r"[\d\s_\-–—()]+")  # dated series: "Release Notes 20
 RECENT_DAYS = 30
 CATCHALL_MIN_LINKS = 30   # a note this linked whose neighbours are mostly stubs is a task list, not a topic
 CARRY_OVER_DAYS = 3     # a line seen in any of the last 3 dailies of the same kind is carried over
-MENTION_STOP = {"general work tasks", "work timeline", "infrastructure", "readme", "index"}  # too generic as prose
 MIN_CLUSTER = 3
 TOP_CLUSTERS = 12
 TOP_GAPS = 8
@@ -317,16 +316,10 @@ def _mention_matcher(knowledge: set[str], raw: dict[str, str]):
     term_notes: dict[str, set] = defaultdict(set)
     for r in knowledge:
         name = _name(r)
-        keys = rules.mention_names(name)   # shared with the plugin's "Link mentions"
         aliases = _frontmatter(raw[r]).get("aliases") or []
         aliases = [aliases] if isinstance(aliases, str) else aliases
-        for k in keys:
-            k = k.strip()
-            if len(k) >= 4 and (len(k.split()) >= 2 or re.search(r"[A-Z].*[A-Z]|\d|_", k)) and k.lower() not in MENTION_STOP:
-                term_notes[k.lower()].add(r)
-        for a in aliases:
-            if isinstance(a, str) and len(a.strip()) >= 2:
-                term_notes[a.strip().lower()].add(r)
+        for k in rules.mention_names(name, aliases):   # shared with the plugin's "Link mentions"
+            term_notes[k.lower()].add(r)
     if not term_notes:
         return None, term_notes
     alternation = "|".join(re.escape(t) for t in sorted(term_notes, key=len, reverse=True))

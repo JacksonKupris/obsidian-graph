@@ -907,6 +907,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const f = this.app.vault.getAbstractFileByPath(normalizePath(notePath)); if (!(f instanceof TFile)) throw new Error("missing note");
     // every way the analysis counts a mention (title, "<Topic> - Context" topic, aliases): shared rule
     const names = VGRules.mentionNames(f.basename, ((this.app.metadataCache.getFileCache(f) || {}).frontmatter || {}).aliases);
+    if (!names.length) return [];   // a generic title with no aliases: prose never names it
     const pat = names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), re = new RegExp(`(^|[^\\w\\[|/#])(${pat})(?![\\w\\]])`, "i");
     const resolved = this.app.metadataCache.resolvedLinks || {}, out = [];
     const plainAt = line => { const m = re.exec(line); if (!m) return null; const at = m.index + m[1].length, before = line.slice(0, at);

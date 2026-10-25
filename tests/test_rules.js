@@ -28,7 +28,13 @@ check("a tagged map is a map", VGRules.isMapCandidate("02-Systems/Kiosk/Kiosk.md
 check("an archived map isn't", VGRules.isMapCandidate(`${A}/Kiosk/Old Kiosk.md`, moc), false);
 { const r = { ...R, not_map_name: R.not_map_name + "|x$&y$'z" };   // the build puts rule data in as written, "$" and all
   check("a rule pattern with $ survives the build", new Function(`${require("../build").rulesSource(r)}; return VGRules;`)().RULES.not_map_name, r.not_map_name); }
-check("a map archived inside a folder isn't",VGRules.isMapCandidate(`02-Systems/Kiosk/${A}/Old Kiosk.md`, moc), false);
+// the names prose uses for a note: distinctive titles only, aliases always (vault_graph_rules.mention_names: same)
+check("a two-word title is a mention", VGRules.mentionNames("Kiosk Server"), ["Kiosk Server"]);
+check("a Context note is named by its topic", VGRules.mentionNames("Kiosk Server - Context"), ["Kiosk Server - Context", "Kiosk Server"]);
+check("a plain one-word title isn't", VGRules.mentionNames("kiosk"), []);
+check("an acronym is", VGRules.mentionNames("AWS Console"), ["AWS Console"]);
+check("a generic title isn't, its alias is", VGRules.mentionNames("Index", ["vault index"]), ["vault index"]);
+check("a map archived inside a folder isn't", VGRules.isMapCandidate(`02-Systems/Kiosk/${A}/Old Kiosk.md`, moc), false);
 
 const map = { id: "M.md", title: "M", nav: false, clusters: [1], members: ["x/Alpha.md"], missing: {} };
 check("on map by path", VGRules.onMap(map, "x/Alpha.md"), true);

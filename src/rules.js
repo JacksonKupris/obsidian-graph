@@ -54,8 +54,12 @@ const VGRules = ((R) => {
   // How prose names a note (vault_gaps._mention_matcher counts these, "Link mentions" links them): its title,
   // the topic of a "<Topic> - Context" note, and its aliases
   const CONTEXT_SUFFIX = new RegExp(R.context_suffix, "i");
-  const mentionNames = (name, aliases) => [...new Set([name, name.replace(CONTEXT_SUFFIX, ""), ...[].concat(aliases || []).filter(a => typeof a === "string")]
-    .map(s => s.trim()).filter(s => s.length >= 2))].sort((a, b) => b.length - a.length);
+  // A title counts only when it's distinctive (2+ words, or an acronym, CamelCase, digit or underscore word) and not
+  // too generic (mention_stop); an alias always counts. vault_graph_rules.mention_names is the same rule.
+  const MENTION_STOP = new Set((R.mention_stop || []).map(s => s.toLowerCase()));
+  const distinctive = k => k.length >= 4 && (k.split(/\s+/).length >= 2 || /[A-Z].*[A-Z]|\d|_/.test(k)) && !MENTION_STOP.has(k.toLowerCase());
+  const mentionNames = (name, aliases) => [...new Set([...[name, name.replace(CONTEXT_SUFFIX, "")].map(s => s.trim()).filter(distinctive),
+    ...[].concat(aliases || []).filter(a => typeof a === "string").map(s => s.trim()).filter(s => s.length >= 2)])].sort((a, b) => b.length - a.length);
   // Food-web level 0 (producers: relied on, link out little) .. 4 (apex: logs, plans, task lists) per linked note.
   // By rank of a smoothed out-share, so a note with two outlinks no longer tops the web; vault_graph_rules.trophic_levels
   // is the same rule (the weekly note's keystones). In/out = links between graph notes, the analysis and liveMerge alike.

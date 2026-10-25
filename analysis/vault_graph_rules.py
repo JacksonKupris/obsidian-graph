@@ -21,9 +21,18 @@ def joins_when_linked(r: str, tags) -> bool:
 CONTEXT_SUFFIX_RE = re.compile(RULES["context_suffix"], re.I)
 
 
-def mention_names(name: str) -> set:
-    """How prose names a note: its title, and the topic of a '<Topic> - Context' note. Same as VGRules.mentionNames."""
-    return {k.strip() for k in (name, CONTEXT_SUFFIX_RE.sub("", name)) if k.strip()}
+MENTION_STOP = frozenset(s.lower() for s in RULES.get("mention_stop", []))   # titles too generic as prose
+
+
+def _distinctive(k: str) -> bool:
+    return len(k) >= 4 and (len(k.split()) >= 2 or bool(re.search(r"[A-Z].*[A-Z]|\d|_", k))) and k.lower() not in MENTION_STOP
+
+
+def mention_names(name: str, aliases=()) -> set:
+    """How prose names a note: its title and the topic of a '<Topic> - Context' note, when distinctive (2+ words, or
+    an acronym, CamelCase, digit or underscore word, not in mention_stop), and its aliases. Same as VGRules.mentionNames."""
+    titles = {k.strip() for k in (name, CONTEXT_SUFFIX_RE.sub("", name))}
+    return {k for k in titles if _distinctive(k)} | {a.strip() for a in aliases if isinstance(a, str) and len(a.strip()) >= 2}
 
 
 _RECORD_TAG, _RECORD_PATH, _DATED = (re.compile(RULES[k]) for k in ("record_tags", "record_paths", "dated_name"))
