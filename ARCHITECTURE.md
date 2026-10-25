@@ -8,7 +8,7 @@ One system, not bolted-on parts: one state, shared rules, one action path, share
 |---|---|
 | `src/rules.js` | The rulebook (`VGRules`): what's stale or a record, what's a map and which topic it claims, food-web levels, mention names, the Today list (`todayList`, `todayPick`) and when an item is done, scene-block words, search, the shared-state merge. Rule *data* (folder names, thresholds, patterns) comes from a vault's rules file, built in at `__RULES_JSON__`. |
 | `src/actions.js` | The one set of note actions (`VGActions`): Open, Focus, Link to…, Add to map, Still current, Add reference, Complete/Cancel tasks, Archive, Copy. |
-| `src/view.js`, `src/view.css` | The renderer (`mountVaultGraph`): every view, lens, panel and the inspector. Shared by the plugin and the standalone page. |
+| `src/view/*.js`, `src/view.css` | The renderer (`mountVaultGraph`): every view, lens, panel and the inspector, shared by the plugin and the standalone page. One closure in parts the build joins in name order (`00-core` … `70-shell`, listed at the top of `00-core.js`); tests read it through `build.viewSource()` / `viewParts()`. |
 | `src/scenes/*.js` | Map views as components; the build puts each in its own scope at the `/*@scenes*/` marker. |
 | `src/plugin.js` | The Obsidian plugin shell: views, sidebar, settings, write actions, the live merge. |
 | `config/rules.json` | Default rule data (the sample vault's). A vault keeps its own copy; deploy checks it has every key this one has. |

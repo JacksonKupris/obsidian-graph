@@ -5,7 +5,8 @@
 // 4. one action path; 6. note actions, scenes, shared state; the graph data and search on the vault under test.
 // (2 and 5, Python parity and the vault's dashboards, are the vault's own tests.)
 const fs = require("fs"), path = require("path"), { execFileSync } = require("child_process");
-const env = require("./env"), S = path.join(env.ROOT, "src");
+const env = require("./env"), S = path.join(env.ROOT, "src"), build = require("../build");
+const srcOf = f => (f === "view.js" ? build.viewSource() : fs.readFileSync(path.join(S, f), "utf8"));   // the renderer: src/view/*.js joined
 const PY = process.platform === "win32" ? "python" : "python3";   // Linux has no plain "python"
 const R = env.rules;
 const VGRules = new Function(`${require("../build").rulesSource(R)}; return VGRules;`)();
@@ -111,12 +112,12 @@ const banned = [
   [/(?<!isRecord\(n\) && n\.)\bage\s*(<=|>)\s*(Q\.)?stale_days/, "stale rule (use VGRules.isStale: records are never stale)"],
 ];
 for (const f of ["view.js", "plugin.js"]) {
-  const src = fs.readFileSync(path.join(S, f), "utf8");
+  const src = srcOf(f);
   for (const [re, what] of banned) if (re.test(src)) fails.push(`${f} has its own ${what}`);
 }
 // adding to a map goes through addToMap (which also updates the open view), gated on canAddToMap()
 {
-  const src = fs.readFileSync(path.join(S, "view.js"), "utf8");
+  const src = srcOf("view.js");
   check("only addToMap calls the map write", (src.match(/addToMapAction\(/g) || []).length, 1);
   check("Add-to-map buttons ask canAddToMap()", (src.match(/opts\.appendSection\b/g) || []).length, 5);   // the comment, canAddToMap, the fallback write, Log update ×2
 }
@@ -210,7 +211,7 @@ for (const f of ["view.js", "plugin.js"]) {
       check("no Undo without the plugin's undo", (await (async () => { const s = []; await VGActions.run("archive", note, { ...ctx, done: (m, u) => s.push(u) }); return s; })()), [null]);
     }
     // every icon an action uses exists on both surfaces
-    const view = fs.readFileSync(path.join(S, "view.js"), "utf8"), plugin = fs.readFileSync(path.join(S, "plugin.js"), "utf8");
+    const view = srcOf("view.js"), plugin = srcOf("plugin.js");
     const viewIcons = new Set([...view.slice(0, view.indexOf("const icon = ")).matchAll(/^    ([a-z0-9]+): '/gm)].map(m => m[1]));
     const lucide = new Set([...plugin.match(/const LUCIDE = \{([^}]*)\}/)[1].matchAll(/([a-z]+):/g)].map(m => m[1]));
     VGActions.ACTIONS.forEach(a => { if (!viewIcons.has(a.icon)) fails.push(`action ${a.key}: icon "${a.icon}" missing from the view's ICON set`);
@@ -232,7 +233,7 @@ for (const f of ["view.js", "plugin.js"]) {
       .forEach(([re, helper]) => { if (re.test(t)) fails.push(`scenes/${f} repeats what ${helper}() does`); }));
     // the shared parts (UI settings, gridDims, chance) aren't rewritten by a view or scene: a square grid, a random
     // event per frame, or the selection colour as a literal
-    [["view.js", view], ...scenes.map(([f, t]) => ["scenes/" + f, t])].forEach(([f, t]) => t.split(/\r?\n/).forEach((l, i) => {
+    [...build.viewParts(), ...scenes.map(([f, t]) => ["scenes/" + f, t])].forEach(([f, t]) => t.split(/\r?\n/).forEach((l, i) => {
       const code = l.replace(/\/\/.*$/, "");
       if (/Math\.ceil\(Math\.sqrt\(/.test(code) && !/const gridDims/.test(code)) fails.push(`${f}:${i + 1} sizes its own grid (use gridDims)`);
       if (/Math\.random\(\) [<>] [^;]*\bdt\b/.test(code) && !/const chance/.test(code)) fails.push(`${f}:${i + 1} times its own random event (use chance)`);
