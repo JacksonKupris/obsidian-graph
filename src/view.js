@@ -45,7 +45,8 @@ function mountVaultGraph(root, DATA, opts) {
   const MOBILE = !!opts.mobile || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
   const RM = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
   let reducedNow = !!(RM && RM.matches);
-  if (RM && RM.addEventListener) RM.addEventListener("change", e => { reducedNow = e.matches; });
+  const onReduced = e => { reducedNow = e.matches; };
+  if (RM && RM.addEventListener) RM.addEventListener("change", onReduced);   // removed in destroy()
   const reducedMotion = () => reducedNow;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const colorOf = c => (c < 0 || c >= PALETTE.length) ? "#a8a29e" : PALETTE[c];
@@ -1264,9 +1265,7 @@ function mountVaultGraph(root, DATA, opts) {
   // become hills, gaps between them valleys and sea. Quiet ground (no recent edits or mentions) sits under fog.
   function topoLayout(geo) {
     const ns = nodes.filter(n => !special(n) && !n.ghost);
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    ns.forEach(n => { const [x, y] = geo.get(n.id); x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); });
-    x0 -= 160; y0 -= 160; x1 += 160; y1 += 160;
+    const [x0, y0, x1, y1] = bounds(ns.map(n => geo.get(n.id)), 160);
     const CELL = Math.max(8, Math.sqrt((x1 - x0) * (y1 - y0) / 36000)), gw = Math.ceil((x1 - x0) / CELL) + 1, gh = Math.ceil((y1 - y0) / CELL) + 1;
     const E = new Float32Array(gw * gh), A = new Float32Array(gw * gh), SIG = 58, rad = Math.ceil(3 * SIG / CELL);
     ns.forEach(n => {
@@ -2088,7 +2087,7 @@ function mountVaultGraph(root, DATA, opts) {
     const groups = {};
     nodes.forEach(n => { if (n.person || n.ghost || n.moc) return; const c = n.isolated ? -3 : n.cluster; (groups[c] = groups[c] || []).push(n); });
     // order rooms as a chain of strongest links, so split neighbours tend to share a wall
-    const left = Object.keys(groups).map(Number).sort((a, b) => layoutSeed() ? topicRank(a) - topicRank(b) : groups[b].length - groups[a].length), order = [left.shift()];
+    const left = Object.keys(groups).map(Number).sort((a, b) => layoutSeed() ? topicRank(a) - topicRank(b) : groups[b].length - groups[a].length), order = left.length ? [left.shift()] : [];   // a vault with no topic notes has no rooms
     while (left.length) { const last = order[order.length - 1]; let bi = 0, bw = -1; left.forEach((c, i) => { const w = topicPair(last, c).links; if (w > bw) { bw = w; bi = i; } }); order.push(left.splice(bi, 1)[0]); }
     // Floors: the rooms in that order, a few topics per floor; the storeroom (unlinked notes) is the basement.
     // No floor chosen: the palace from the front. A floor: its plan, rooms and doors as before.
@@ -2397,7 +2396,8 @@ function mountVaultGraph(root, DATA, opts) {
   }
   function strokeSegs(seg) { ctx.beginPath(); for (let i = 0; i < seg.length; i += 4) { ctx.moveTo(seg[i], seg[i + 1]); ctx.lineTo(seg[i + 2], seg[i + 3]); } ctx.stroke(); }
   const worldTransform = (dpr, R) => { const o = scr(0, 0, R); ctx.setTransform(dpr * cam.k, 0, 0, dpr * cam.k, dpr * o.x, dpr * o.y); };
-  const bounds = (pts, pad) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  // the box round some points, padded; no points (an empty vault) gives a small box round the origin, never Infinity
+  const bounds = (pts, pad) => { if (!pts.length) return [-pad, -pad, pad, pad]; let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     pts.forEach(([x, y]) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }); return [x0 - pad, y0 - pad, x1 + pad, y1 + pad]; };
   const timelineData = () => DATA.timeline || { weeks: [], clusters: {}, notes: {} };
   const dots = (pred, col, r, R) => { for (const n of nodes) { if (!pred(n) || !mapShown(n)) continue; const p = scr(n.x, n.y, R); ctx.fillStyle = col(n); ctx.beginPath(); ctx.arc(p.x, p.y, r(n), 0, 2 * Math.PI); ctx.fill();
@@ -4317,6 +4317,10 @@ function mountVaultGraph(root, DATA, opts) {
     const ids = xs => (xs || []).map(x => x.id).sort().join("|");
     if (ids(D.wanted) !== ids(DATA.wanted) || ids((D.mocs || []).filter(m => !m.nav)) !== ids(mocs)) return false;
     if (JSON.stringify(D.scenes || []) !== JSON.stringify(DATA.scenes || [])) return false;   // a scene block edited: its scene is rebuilt
+    // topics are the frame everything else hangs on (names, colours, maps, gaps): a re-analysis that changed them, or moved
+    // a note to another topic, remounts instead of patching notes onto the old topic list
+    const topics = d => JSON.stringify([(d.clusters || []).map(c => [c.id, c.name, c.size]), d.gaps || [], d.pairs || []]);
+    if (topics(D) !== topics(DATA) || DATA.nodes.some(n => (fresh.get(n.id).cluster ?? -1) !== (n.cluster ?? -1))) return false;
     DATA.nodes.forEach(n => { const f = fresh.get(n.id); if (n.age > 0 && f.age === 0) liveEdits.push({ id: n.id, t: performance.now() }); });   // edited just now
     if (liveEdits.length > 30) liveEdits.splice(0, liveEdits.length - 30);
     // every field the state carries (links, tasks, tags, age, references...); positions are the view's own
@@ -6634,6 +6638,7 @@ function mountVaultGraph(root, DATA, opts) {
     return known >= nodes.filter(visible).length * 0.5;
   }
   function persistNow() {
+    if (destroyed) return;   // a closed graph never writes: its successor owns the state now
     if (!opts.store || opts.compact) return;
     keepLayout();
     try {
@@ -6755,6 +6760,8 @@ function mountVaultGraph(root, DATA, opts) {
     async snapshot() { const blob = await new Promise(res => cv.toBlob(res, "image/png")); return blob.arrayBuffer(); },   // the canvas as PNG (State of the vault)
     _debug: { drawNow() { if (!W) return null; const t0 = performance.now(); draw(performance.now()); dirty = false; return performance.now() - t0; },   // tests: a frame now, its ms
       views: () => [...Object.keys(GRAPH_INFO), ...Object.keys(MAPS)], lenses: () => Object.keys(LENSES), openLens, st, cam, active: () => active, P, alpha: () => alpha, layouts, setView, drawMs: () => drawMs, maps: () => mapCache, cos: () => cos, nodes, nb, replay: () => replay, visible, rules: VGRules },
-    destroy() { persistNow(); destroyed = true; cancelAnimationFrame(raf); ro.disconnect(); if (io) io.disconnect(); root.innerHTML = ""; root.classList.remove("vg-root", "has-inspector", "vg-side-hidden", "vg-side-open", "is-neural", "is-compact", "is-mobile"); },
+    destroy() { persistNow(); destroyed = true; clearTimeout(persistTimer); clearInterval(timePlay); timePlay = 0;
+      if (RM && RM.removeEventListener) RM.removeEventListener("change", onReduced);
+      cancelAnimationFrame(raf); ro.disconnect(); if (io) io.disconnect(); root.innerHTML = ""; root.classList.remove("vg-root", "has-inspector", "vg-side-hidden", "vg-side-open", "is-neural", "is-compact", "is-mobile"); },
   };
 }

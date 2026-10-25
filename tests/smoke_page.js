@@ -75,6 +75,10 @@ setTimeout(async () => {
         window.vaultGraph.destroy(); const el = document.getElementById("vg"); el.innerHTML = "";
         window.vaultGraph = mountVaultGraph(el, d, { writeNote: async () => "", openDaily: () => {}, openNote: () => {} });
         await sleep(300);
+        // every view draws on the trimmed vault too (an empty one has no topics, rooms or towers)
+        { const T = window.vaultGraph._debug;
+          for (const v of T.views()) { try { T.setView(v); await sleep(60); T.drawNow(); } catch (e) { __errs.push("view " + v + " with " + keep + " notes: " + e.message); } }
+          T.setView("2d"); await sleep(60); }
         for (const k of window.vaultGraph._debug.lenses()) {   // the trimmed vault's lenses (Code needs repos, for one)
           window.vaultGraph._debug.openLens(k); await sleep(40);
           const box = document.querySelector(".vg-lens:not([hidden])");
