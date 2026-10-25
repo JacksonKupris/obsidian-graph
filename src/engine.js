@@ -369,8 +369,10 @@ const VGEngine = (() => {
   }
   const NAME_LEAD = /^(?:[^\p{L}\p{N}_]|\p{Nd}|_)+/u, PHRASE_STOP = new Set("the and for with from into how to of in on a an vs via md readme context draft final copy".split(" "));
   // a title as a phrase source: no dates, brackets, "- Context", leading numbering; dashes inside words become spaces
+  // "... Part VI - The Greatest Generation": one part of a whole; the whole's name is what comes before (vault_gaps.PART_RE)
+  const PART = /\s+(?:Part|Pt\.?)\s+(?:[IVXL]+|\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b.*$/i;
   const cleanTitle = r => {
-    let t = stemOf(r).replace(DATED_G, " ").replace(/\(.*?\)|\s-\s*Context$|\s+Context$/g, " ").replace(/(?<=[\p{L}\p{N}_])[-_](?=[\p{L}\p{N}_])/gu, " ");
+    let t = stemOf(r).replace(PART, "").replace(DATED_G, " ").replace(/\(.*?\)|\s-\s*Context$|\s+Context$/g, " ").replace(/(?<=[\p{L}\p{N}_])[-_](?=[\p{L}\p{N}_])/gu, " ");
     return stripChars(t.replace(NAME_LEAD, "").replace(/\s+/g, " "), [" ", "-", "—", "_", "·", ","]);
   };
   // names people would give: the phrase most of a topic's titles share, else its most central note's title; two

@@ -786,8 +786,12 @@ NAME_LEAD_RE = re.compile(r"^[\W\d_]+")   # "01 - ", "⚠️ ", "3. " before a t
 PHRASE_STOP = set("the and for with from into how to of in on a an vs via md readme context draft final copy".split())   # lighter than TITLE_STOP: "Updates", "Notes" make good names
 
 
+# "... Part VI - The Greatest Generation": one part of a whole; the whole's name is what comes before
+PART_RE = re.compile(r"\s+(?:Part|Pt\.?)\s+(?:[IVXL]+|\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b.*$", re.I)
+
+
 def _clean_title(r: str) -> str:
-    t = DATED_RE.sub(" ", _name(r))
+    t = DATED_RE.sub(" ", PART_RE.sub("", _name(r)))
     t = re.sub(r"\(.*?\)|\s-\s*Context$|\s+Context$", " ", t)
     t = re.sub(r"(?<=\w)[-_](?=\w)", " ", t)   # Kiosk-Maintenance-Menu -> Kiosk Maintenance Menu
     return re.sub(r"\s+", " ", NAME_LEAD_RE.sub("", t)).strip(" -—_·,")

@@ -25,6 +25,9 @@ check("a small topic joins the one it's most tied to", E.absorbSmall(comm, g, 6,
 // a path a-b-c: b is on the only shortest path between a and c
 check("betweenness on a path", E.betweenness({ a: { b: 1 }, b: { a: 1, c: 1 }, c: { b: 1 } }), { a: 0, b: 1, c: 0 });
 
+// a part of a multi-part note is named by the whole ("Part VI - subtitle" dropped)
+check("title of one part", [E.cleanTitle("e/538 - The Manhattan Project Part VI - The Greatest Generation.md"), E.cleanTitle("e/Inventory Flow - Part 3 of 3 (Disposition to Close).md"), E.cleanTitle("k/Odoo - Context.md")],
+  ["The Manhattan Project", "Inventory Flow", "Odoo"]);
 // math.fsum: exact partials, one rounding (values from Python's docs and math.fsum)
 check("fsum([0.1] * 10)", E.fsum(Array(10).fill(0.1)), 1);
 check("fsum with cancelling terms", E.fsum([1e100, 1.0, -1e100, 1e-100, 1e50, -1.0, -1e50]), 1e-100);
