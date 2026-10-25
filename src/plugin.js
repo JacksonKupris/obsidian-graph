@@ -1671,7 +1671,8 @@ function liveMerge(app, data, since) {
   data.said_unlinked = (data.said_unlinked || []).filter(([id]) => byId.has(id) && !dailyLinked.has(id));   // "Link mentions" (or linking by hand)
   // "Not duplicates", or linked since: the analysis only offers unlinked pairs, but one built on another device before
   // your link synced there still has it, and linking is how you say the two are separate notes
-  data.near_dupes = (data.near_dupes || []).filter(([a, b]) => byId.has(a) && byId.has(b) && !DISMISSED.has(dismissKey(a, b)) && !VGRules.linkedByName(resolved, a, b));
+  // a pair with the same text ("text") stays a duplicate even when one links the other
+  data.near_dupes = (data.near_dupes || []).filter(([a, b, , how]) => byId.has(a) && byId.has(b) && !DISMISSED.has(dismissKey(a, b)) && (how === "text" || !VGRules.linkedByName(resolved, a, b)));
   for (const n of byId.values()) { const f = vault.getAbstractFileByPath(n.id);   // "Add reference"
     if (!n.person && f instanceof TFile && (!since || f.stat.mtime > since)) { const fm = (cache.getFileCache(f) || {}).frontmatter || {}, r = fm.references; n.refs = !!(r && [].concat(r).length);
       // tags too ("Complete all", a status edit by hand): the shared rules read status/ and type/ tags, so stale clears at once

@@ -483,7 +483,7 @@
     });
     const byName = {}; real.forEach(n => (byName[n.name.toLowerCase()] = byName[n.name.toLowerCase()] || []).push(n));
     Object.values(byName).filter(g => g.length > 1).forEach(g => add(g[0].id, g[1].id, "same name, different folders"));
-    (DATA.near_dupes || []).forEach(([a, b, s]) => add(a, b, `${Math.round(s * 100)}% same wording`));
+    (DATA.near_dupes || []).forEach(([a, b, s, how]) => add(a, b, how === "text" ? `${Math.round(s * 100)}% the same text` : `${Math.round(s * 100)}% same wording`));
     if (!pairs.length) return emptyNext("No likely duplicates.", "lens:triage");
     const side = (id, other) => { const n = byId[id], mine = [...nb[id]].filter(x => x !== other), theirs = other ? new Set(nb[other]) : new Set();
       const only = mine.filter(x => !theirs.has(x));

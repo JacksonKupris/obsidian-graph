@@ -453,6 +453,40 @@ def _mostly_code(text: str) -> bool:
     return n >= 5 and code / n >= 0.6
 
 
+TEXT_TWIN = 0.9      # notes whose own text overlaps this much (5-word runs) are copies of each other
+TEXT_TWIN_MIN = 50   # words: shorter notes (stubs, templates) aren't compared
+
+
+def _shingles(text: str) -> set:
+    """A note's own text as 5-word runs: no frontmatter, and no Related lists (two copies keep different ones)."""
+    body = FRONTMATTER_RE.sub("", text, count=1)
+    body = re.sub(r"^## Related\b.*?(?=^#{1,2} |\Z)", " ", body, flags=re.M | re.S)
+    w = re.findall(r"[a-z0-9]+", body.lower())
+    return {" ".join(w[i:i + 5]) for i in range(len(w) - 4)} if len(w) >= TEXT_TWIN_MIN else set()
+
+
+def text_twins(notes, raw: dict, quiet: set = frozenset()) -> list:
+    """Pairs of notes with the same text (90%+ of their 5-word runs shared), linked or not: a copy is a duplicate
+    even when one links the other, unlike a pair that's only similar in meaning. Notes of one dated series
+    (Transaction Updates 2026-05-05 / -05-19) are meant to look alike and aren't paired. [[a, b, share, "text"]]"""
+    sh = {r: s for r in sorted(notes) if r not in quiet and (s := _shingles(raw.get(r, "")))}
+    index: dict[str, list] = defaultdict(list)
+    for r, s in sh.items():
+        for x in s:
+            index[x].append(r)
+    shared: Counter = Counter()
+    for rs in index.values():
+        if 1 < len(rs) <= 50:   # a run in many notes (a template line) says nothing
+            for a, b in combinations(rs, 2):
+                shared[(a, b)] += 1
+    out = []
+    for (a, b), n in shared.items():
+        j = n / len(sh[a] | sh[b])
+        if j >= TEXT_TWIN and not (_series_key(a) and _series_key(a) == _series_key(b)):
+            out.append([a, b, round(j, 3), "text"])
+    return sorted(out, key=lambda x: (-x[2], x[0], x[1]))
+
+
 def similar_unlinked(vectors: dict, adj: dict[str, Counter], quiet: set = frozenset(), codey: set = frozenset()) -> list:
     """Mutual top-k embedding neighbours with no direct link (absolute scores from small
     embedding models are compressed, so rank agreement is the signal, not a threshold). quiet: notes never offered
@@ -1005,6 +1039,10 @@ def analyze(since: str | None) -> dict:
     unlinked = _by_name(((a, b, n) for (a, b), n in comention.items()
                          if not _linked(a, b, adj) and significant(a, b, n) and a not in quiet and b not in quiet), TOP_COMENTIONS, assoc)
     near_dupes, semantic, wiki_twins = similar_unlinked(vectors, adj, quiet, codey) if vectors else ([], [], [])
+    # copies by their text first (linked or not), then the pairs only embeddings find
+    twins = text_twins(knowledge, raw, quiet)
+    seen_pairs = {frozenset(x[:2]) for x in twins}
+    near_dupes = twins + [x for x in near_dupes if frozenset(x[:2]) not in seen_pairs]
     person_topics = _by_name(((p, r, n) for (p, r), n in person_comention.most_common()
                               if _name(r).lower() not in {_name(x).lower() for x in person_links[p]} and n >= 3), TOP_COMENTIONS)
     neglected = sorted((r for r in knowledge if not adj[r] and mentions[r] >= 3),
@@ -1132,7 +1170,7 @@ def report_md(a: dict) -> str:
                       f"_Similarity ≥ {DUPLICATE_SIMILARITY} (same-name copies score 0.93–0.999). "
                       "The duplicate scan only compares same-name files, so these are new. "
                       "Judgment only — never merged automatically._", ""]
-            lines += [f"- [ ] `{x}` ↔ `{y}` — {s}" for x, y, s in a["near_duplicates"]]
+            lines += [f"- [ ] `{x[0]}` ↔ `{x[1]}` — {'same text, ' if x[3:] == ['text'] else ''}{x[2]}" for x in a["near_duplicates"]]
         if a["wiki_twins"]:
             lines += ["", "## Start Here wiki ↔ source twins",
                       "_A `Start Here` page and a note elsewhere that say nearly the same thing, with no link "

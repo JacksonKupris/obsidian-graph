@@ -768,7 +768,7 @@ def graph_data(a: dict) -> dict:
         "snapshots": sorted(f.stem for f in SNAP_DIR.glob("*.json")) if SNAP_DIR.exists() else [],
         "timeline": timeline(g["mention_days"], cid, paths),
         "followthrough": followthrough(),
-        "near_dupes": [[p, q, s] for p, q, s in a.get("near_duplicates", []) if p in paths and q in paths],
+        "near_dupes": [x for x in a.get("near_duplicates", []) if x[0] in paths and x[1] in paths],   # [a, b, share] or [a, b, share, "text"]
         "code": code_docs(),
         "scenes": scene_blocks(),
     }
