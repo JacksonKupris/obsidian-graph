@@ -283,7 +283,7 @@
     const groups = {};
     nb[id].forEach(m => (groups[byId[m].cluster] = groups[byId[m].cluster] || []).push(m));
     const touched = Object.keys(groups).map(Number).filter(c => c !== n.cluster && c >= 0);
-    const gaps = links.filter(l => (l.kind === "gap" || l.kind === "similar") && (l.s.id === id || l.t.id === id));
+    const gaps = links.filter(l => VGRules.isSuggestion(l) && (l.s.id === id || l.t.id === id));
     const stat = (v, l) => `<div class="vg-kv"><b>${v}</b><span>${l}</span></div>`;
     const ser = seriesOf[id], people = peopleOf[id] || [];
     // redrawing the same note (an action published new state): keep the scroll, open groups and open task list
@@ -527,13 +527,13 @@
   // a link just written: the suggestion goes, the link is drawn (quiet: the caller says what happened)
   function noteLinked(id, other, quiet) {
     if (!byId[id] || !byId[other]) return;
-    for (let i = links.length - 1; i >= 0; i--) { const l = links[i]; if ((l.kind === "gap" || l.kind === "similar") && ((l.s.id === id && l.t.id === other) || (l.s.id === other && l.t.id === id))) links.splice(i, 1); }
+    for (let i = links.length - 1; i >= 0; i--) { const l = links[i]; if (VGRules.isSuggestion(l) && ((l.s.id === id && l.t.id === other) || (l.s.id === other && l.t.id === id))) links.splice(i, 1); }
     if (!nb[id].has(other)) { links.push({ source: id, target: other, w: 1, kind: "link", s: byId[id], t: byId[other] }); nb[id].add(other); nb[other].add(id); }
     byId[id].age = 0;
     if (!quiet) rebuild(false);
   }
   async function actOnSuggestion(action, id, other, button, whyOverride) {
-    const gap = links.find(l => (l.kind === "gap" || l.kind === "similar") && ((l.s.id === id && l.t.id === other) || (l.s.id === other && l.t.id === id)));
+    const gap = links.find(l => VGRules.isSuggestion(l) && ((l.s.id === id && l.t.id === other) || (l.s.id === other && l.t.id === id)));
     button.disabled = true;
     try {
       if (action === "link") {
@@ -643,7 +643,7 @@
   }
   function writeBridge(a, b) {
     const A = clusterName(a), B = clusterName(b), ma = membersOf(a).slice(0, 5), mb = membersOf(b).slice(0, 5);
-    const pairs = links.filter(l => (l.kind === "gap" || l.kind === "similar") && ((l.s.cluster === a && l.t.cluster === b) || (l.s.cluster === b && l.t.cluster === a)));
+    const pairs = links.filter(l => VGRules.isSuggestion(l) && ((l.s.cluster === a && l.t.cluster === b) || (l.s.cluster === b && l.t.cluster === a)));
     const g = DATA.gaps.find(x => (x.a === a && x.b === b) || (x.a === b && x.b === a));
     const md = `---\ncreated: ${today()}\n---\n# Bridge — ${A} ↔ ${B}\n\n` +
       `> Drafted by Vault Graph on ${today()}. These topics come up together in your dailies${g ? ` (${g.comentions} co-mentions)` : ""} but barely link` +

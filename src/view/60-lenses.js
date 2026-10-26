@@ -117,7 +117,7 @@
   }
   function showCell(body, a, b) {
     const box = body.querySelector(".vg-mx-detail"); if (!box) return;
-    const sugg = links.filter(l => (l.kind === "gap" || l.kind === "similar") && ((l.s.cluster === a && l.t.cluster === b) || (l.s.cluster === b && l.t.cluster === a)));
+    const sugg = links.filter(l => VGRules.isSuggestion(l) && ((l.s.cluster === a && l.t.cluster === b) || (l.s.cluster === b && l.t.cluster === a)));
     const pr = (DATA.pairs || []).find(x => (x[0] === a && x[1] === b) || (x[0] === b && x[1] === a)) || [a, b, 0, 0];
     box.innerHTML = `<div class="vg-card"><div class="vg-card-h"><span>${esc(clusterName(a))} ↔ ${esc(clusterName(b))}</span><span class="vg-muted vg-card-hint">${plural(pr[2], "link")} · ${pr[3]} co-mentions in your dailies</span></div>
       <div class="vg-ins-actions vg-wrap"><button class="vg-btn" data-cl="${a},${b}">${icon("target", 14)} Show both topics</button>

@@ -355,7 +355,7 @@ class VaultGraphSuggestView extends ItemView {
       if (said && moc && !inMap) items.push({ icon: "sun", title: `Named in ${said[1]} daily notes but never linked`, sub: `Add it to ${moc.title} so its topic map links it`, btn: "Add to map", run: () => run("map") });
       else if (said) items.push({ icon: "sun", title: `Named in ${said[1]} daily notes but never linked`, sub: "Turn the first plain mention in each into a link", btn: "Link mentions", run: () => run("mentions") });
       if (moc && inMap === false && !(said && moc)) items.push({ icon: "hexagon", title: `Not listed in its topic's map`, sub: moc.title, btn: "Add to map", run: () => run("map") });
-      data.links.filter(l => (l.kind === "gap" || l.kind === "similar") && (l.source === n.id || l.target === n.id)).forEach(l => {
+      data.links.filter(l => VGRules.isSuggestion(l) && (l.source === n.id || l.target === n.id)).forEach(l => {
         const other = byId.get(l.source === n.id ? l.target : l.source); if (!other) return;
         items.push({ icon: "link", title: `Link ${other.name}`, sub: l.why, btn: "Link", ghost: "Dismiss", open: other.id,
           run: async () => {
@@ -1648,8 +1648,19 @@ function liveMerge(app, data, since) {
   data.wanted = (data.wanted || []).filter(w => !written.has(w.id)).map(w => ({ ...w, refs: w.refs.filter(r => byId.has(r)) })).filter(w => w.refs.length);
   const wantedIds = new Set(data.wanted.map(w => w.id));
   const keep = data.links.filter(l => l.kind !== "link" && byId.has(l.source) && (byId.has(l.target) || wantedIds.has(l.target))
-    && !((l.kind === "gap" || l.kind === "similar") && (now.has(key(l.source, l.target)) || DISMISSED.has(dismissKey(l.source, l.target)))));   // acted on or dismissed since the run
+    && !(VGRules.isSuggestion(l) && (now.has(key(l.source, l.target)) || DISMISSED.has(dismissKey(l.source, l.target)))));   // acted on or dismissed since the run
   data.links = keep.concat([...now.values()].map(([s, t]) => ({ source: s, target: t, w: 1, kind: "link" })));
+  // pairs linked by the same notes (VGEngine.sharedPairs): a suggestion every vault gets from its own links. Not a pair
+  // you dismissed, already linked (a same-name copy counts), one title, one dated series, a private note, or already suggested.
+  { const nbs = new Map(), put = (a, b) => { if (!nbs.has(a)) nbs.set(a, new Set()); nbs.get(a).add(b); };
+    now.forEach(([s, t]) => { put(s, t); put(t, s); });
+    const offered = new Set(data.links.filter(l => VGRules.isSuggestion(l)).map(l => key(l.source, l.target)));
+    const fm = id => { const f = vault.getAbstractFileByPath(id); return f instanceof TFile ? (cache.getFileCache(f) || {}).frontmatter : undefined; };
+    const series = id => VGEngine.seriesKey(id), title = id => VGEngine.cleanTitle(id).toLowerCase();
+    // two notes with one title (dates and brackets aside) are copies or one name for two things: not a pair to link
+    VGEngine.sharedPairs(nbs, { skip: (a, b) => offered.has(key(a, b)) || DISMISSED.has(dismissKey(a, b)) || VGRules.linkedByName(resolved, a, b) || title(a) === title(b)
+        || (!!series(a) && series(a) === series(b)) || VGRules.isPrivate(a, fm(a)) || VGRules.isPrivate(b, fm(b)) })
+      .forEach(p => data.links.push({ source: p.a, target: p.b, w: 1, kind: "shared", why: `${p.n} notes link to both` })); }
   const deg = new Map();
   now.forEach(([s, t]) => { (deg.get(s) || deg.set(s, []).get(s)).push(t); (deg.get(t) || deg.set(t, []).get(t)).push(s); });
   for (const n of byId.values()) {

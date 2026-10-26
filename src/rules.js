@@ -62,6 +62,13 @@ const VGRules = (() => {
     return tags.includes("meta/moc") || String(fm.type || "").toLowerCase() === "moc" || HUB_NAME.test(name);
   }
   const isHubName = id => HUB_NAME.test(stemCase(id));
+  // a pair the graph suggests linking: daily co-mentions (gap), meaning (similar, Smart Connections), or many notes linking
+  // both (shared). Every surface asks this, so a new kind of suggestion reaches all of them.
+  const SUGGESTION_KINDS = new Set(["gap", "similar", "shared"]);
+  // a private note (private_name in the rules file, or private: true): never offered as a link (vault_gaps._private)
+  const PRIVATE = R.private_name ? new RegExp(R.private_name, "i") : null;
+  const isPrivate = (id, fm) => (!!PRIVATE && PRIVATE.test(stemCase(id))) || (!!fm && fm.private === true);
+  const isSuggestion = l => !!l && SUGGESTION_KINDS.has(l.kind);
   // a hub: shown, never clustered (a map or hub by tag, a hub by name, a dashboard at the vault's top level)
   const ROOT_HUBS = new Set(R.root_hubs || []);
   const isHub = (id, tags) => [].concat(tags || []).some(t => /^#?meta\/(hub|moc)$/i.test(String(t))) || ROOT_HUBS.has(id) || isHubName(id);
@@ -380,9 +387,9 @@ const VGRules = (() => {
     const hidden = new Set(o.hidden || []), out = [], seen = new Set();
     const add = it => { if (seen.has(it.key) || hidden.has(it.key) || skipped(it.key)) return; seen.add(it.key); out.push({ xp: TODAY_XP[it.kind] || 5, ...it }); };
     (data.links || []).forEach(l => {
-      if ((l.kind !== "gap" && l.kind !== "similar") || !byId.get(l.source) || !byId.get(l.target)) return;
+      if (!isSuggestion(l) || !byId.get(l.source) || !byId.get(l.target)) return;
       const [a, b] = [l.source, l.target], from = (byId.get(b).age || 0) > (byId.get(a).age || 0) ? b : a;
-      add({ key: `link|${a}|${b}`, kind: "link", a, b, from, to: from === a ? b : a, names: [name(a), name(b)], ids: [a, b], title: `Link ${name(a)} ↔ ${name(b)}`, why: l.why || "", score: 3 + (l.ev ? l.ev.length : 0) });
+      add({ key: `link|${a}|${b}`, kind: "link", a, b, from, to: from === a ? b : a, names: [name(a), name(b)], ids: [a, b], title: `Link ${name(a)} ↔ ${name(b)}`, why: l.why || "", score: (l.kind === "shared" ? 2.4 : 3) + (l.ev ? l.ev.length : 0) });   // linked by the same notes: a little below the rest
     });
     mocs.forEach(m => (m.clusters || []).forEach(c => ((m.missing || {})[c] || []).slice(0, 3).forEach(id => { if (!byId.get(id)) return;
       const r = rank.get(id);
@@ -451,7 +458,7 @@ const VGRules = (() => {
     const links = new Set(), sugg = new Set();
     (data.links || []).forEach(l => {
       if (l.kind === "link") links.add(pairKey(l.source, l.target));
-      else if (l.kind === "gap" || l.kind === "similar") sugg.add(pairKey(l.source, l.target));
+      else if (isSuggestion(l)) sugg.add(pairKey(l.source, l.target));
     });
     const mocs = (data.mocs || []).filter(m => !m.nav), mocById = new Map(mocs.map(m => [m.id, m]));
     const clusters = new Set((data.clusters || []).map(c => c.id)), wanted = new Set((data.wanted || []).map(w => w.id));
@@ -572,7 +579,7 @@ const VGRules = (() => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
-  return { RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+  return { RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)

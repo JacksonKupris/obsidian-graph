@@ -435,7 +435,7 @@
     transmute: ["Transmutation", "#fbbf24", "a gold note can lift an unconnected one"] };
   function reactionsAmong(keep, goldOf = mem => mem.slice().sort(byImportance)[0]) {
     const rx = [], topics = new Map();
-    links.forEach(l => { if ((l.kind === "similar" || l.kind === "gap") && keep.has(l.s.id) && keep.has(l.t.id) && !nb[l.s.id].has(l.t.id))
+    links.forEach(l => { if (VGRules.isSuggestion(l) && keep.has(l.s.id) && keep.has(l.t.id) && !nb[l.s.id].has(l.t.id))
       rx.push({ type: "bond", a: l.s, b: l.t, why: l.why || (l.kind === "similar" ? "similar meaning" : "talked about together") }); });
     (DATA.near_dupes || []).forEach(([a, b, sim]) => { if (keep.has(a) && keep.has(b)) rx.push({ type: "fusion", a: byId[a], b: byId[b], why: `${Math.round(sim * 100)}% alike` }); });
     keep.forEach(id => { const n = byId[id]; if (n && n.cluster >= 0) (topics.get(n.cluster) || topics.set(n.cluster, []).get(n.cluster)).push(n); });

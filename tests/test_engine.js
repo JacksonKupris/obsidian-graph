@@ -28,6 +28,14 @@ check("betweenness on a path", E.betweenness({ a: { b: 1 }, b: { a: 1, c: 1 }, c
 // a part of a multi-part note is named by the whole ("Part VI - subtitle" dropped)
 check("title of one part", [E.cleanTitle("e/538 - The Manhattan Project Part VI - The Greatest Generation.md"), E.cleanTitle("e/Inventory Flow - Part 3 of 3 (Disposition to Close).md"), E.cleanTitle("k/Odoo - Context.md")],
   ["The Manhattan Project", "Inventory Flow", "Odoo"]);
+// pairs linked by the same notes: three shared, not linked themselves, not a busy hub's pairs
+{ const nb = new Map(), tie = (a, b) => { [[a, b], [b, a]].forEach(([x, y]) => { if (!nb.has(x)) nb.set(x, new Set()); nb.get(x).add(y); }); };
+  ["x", "y", "z"].forEach(s => { tie(s, "A"); tie(s, "B"); });   // x, y, z each link A and B
+  tie("x", "C"); tie("y", "C"); tie("A", "D");                      // C shares only two; A and D are linked
+  ["x", "y", "z"].forEach(s => tie(s, "D"));
+  const got = E.sharedPairs(nb).map(p => [p.a, p.b, p.n]);
+  check("shared pairs: three notes link both, and linked pairs are left out", got.filter(p => p[0] < "a"), [["A", "B", 3], ["B", "D", 3]]);
+  check("shared pairs: a skip rule is asked", E.sharedPairs(nb, { skip: (a, b) => b === "D" }).map(p => p.a + p.b).filter(k => k < "a"), ["AB"]); }
 // math.fsum: exact partials, one rounding (values from Python's docs and math.fsum)
 check("fsum([0.1] * 10)", E.fsum(Array(10).fill(0.1)), 1);
 check("fsum with cancelling terms", E.fsum([1e100, 1.0, -1e100, 1e-100, 1e50, -1.0, -1e50]), 1e-100);

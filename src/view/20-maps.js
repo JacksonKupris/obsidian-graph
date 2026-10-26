@@ -655,7 +655,7 @@
     ctx.lineWidth = 1;
     for (const l of visLinks) {
       if (special(l.s) || special(l.t)) continue;
-      const cross = l.kind === "link" && l.s.cluster !== l.t.cluster, sug = l.kind === "gap" || l.kind === "similar";
+      const cross = l.kind === "link" && l.s.cluster !== l.t.cluster, sug = VGRules.isSuggestion(l);
       if (!cross && !sug) continue;
       const a = scr(l.s.x, l.s.y, R), b = scr(l.t.x, l.t.y, R), on = !litSet || (litSet.has(l.s.id) && litSet.has(l.t.id));
       ctx.globalAlpha = on ? (litSet ? 0.9 : 0.45) : 0.06; ctx.strokeStyle = sug ? "#bfe3ff" : "#3a2a1a"; ctx.setLineDash(sug ? [2, 4] : [5, 3]);

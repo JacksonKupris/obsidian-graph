@@ -74,9 +74,9 @@
     for (const [key, pts] of groups) {
       ctx.beginPath();
       const kind = key.replace(/\d$/, ""), band = key.match(/\d$/);
-      ctx.globalAlpha = band ? bandAlpha[+band[0]] : (kind === "gap" || kind === "similar") && !litSet ? 0.45 : kind === "person" ? 0.22 : kind === "moc" ? 0.12 : kind === "wanted" ? 0.4 : 1;
+      ctx.globalAlpha = band ? bandAlpha[+band[0]] : VGRules.SUGGESTION_KINDS.has(kind) && !litSet ? 0.45 : kind === "person" ? 0.22 : kind === "moc" ? 0.12 : kind === "wanted" ? 0.4 : 1;
       ctx.strokeStyle = stroke[kind]; ctx.lineWidth = kind === "link" ? (band && band[0] === "0" ? 1.1 : 0.8) : kind === "dim" || kind === "person" ? 0.6 : 1.2;
-      ctx.setLineDash(kind === "gap" || kind === "similar" ? [4, 4] : kind === "wanted" || kind === "moc" ? [2, 3] : []);
+      ctx.setLineDash(VGRules.SUGGESTION_KINDS.has(kind) ? [4, 4] : kind === "wanted" || kind === "moc" ? [2, 3] : []);
       for (let i = 0; i < pts.length; i += 2) { ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[i + 1].x, pts[i + 1].y); }
       ctx.stroke();
     }

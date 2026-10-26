@@ -685,7 +685,7 @@
 
   // A pick built on a suggestion that no longer exists (relinked elsewhere, dismissed, or the analysis no longer
   // finds the pair related) is dropped, not left as a dead end.
-  const stillSuggested = (a, b) => links.some(l => (l.kind === "gap" || l.kind === "similar") && ((l.s.id === a && l.t.id === b) || (l.s.id === b && l.t.id === a)));
+  const stillSuggested = (a, b) => links.some(l => VGRules.isSuggestion(l) && ((l.s.id === a && l.t.id === b) || (l.s.id === b && l.t.id === a)));
   const stillValid = m => VGRules.missionValid(m, liveGraph);
   function updateGame(announce) {
     if (cos.daily && cos.daily.quests) cos.daily.quests = cos.daily.quests.filter(q => q.done || stillValid(q));

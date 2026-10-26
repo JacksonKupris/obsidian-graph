@@ -117,6 +117,7 @@ const banned = [
   [/function (questDone|stillValid)\b|const liveDone = q => \{/, "quest/mission rule (use VGRules.questDone / missionValid)"],
   [/find\(\w+ => !\w+\.nav && \w+\.clusters\.includes/, "map-for-cluster (use VGRules.mapForCluster)"],
   [/outlinks \+ 0\.5\)/, "food-web level (use VGRules.trophicLevels)"],
+  [/kind === "gap" \|\||kind === "similar" \|\|/, "test for a suggested pair (use VGRules.isSuggestion: one list of suggestion kinds)"],
   [/\bNice\.|everything's tidy|they move up as you/, "reassuring filler in an empty state (state the fact; emptyNext adds the next step)"],
   [/Start Here|OdooERP|\/ - Context\$\//, "vault-specific name (use the rules file: not_map_tops, context_suffix; or derive it from the data)"],
   [/opts\.stampReviewed\(/,"reviewed stamp (use VGActions.run(\"current\", ...): one confirm, Undo and announcement)"],

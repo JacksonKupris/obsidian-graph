@@ -245,7 +245,7 @@
     if (v.layers) Object.entries(v.layers).forEach(([k, on]) => setLayer(k, on, true));
     renderOverlays(); overlayList(); clearMulti(); select(null);
     if (v.highlight === "gaps") {
-      const ids = new Set(); links.forEach(l => { if (l.kind === "gap" || l.kind === "similar") { ids.add(l.s.id); ids.add(l.t.id); } });
+      const ids = new Set(); links.forEach(l => { if (VGRules.isSuggestion(l)) { ids.add(l.s.id); ids.add(l.t.id); } });
       setHighlight(ids, `${ids.size} notes with suggestions`);
     } else clearHighlight();
     rebuild(true); persistSoon(); toast(`${p.name} — ${p.hint}`);

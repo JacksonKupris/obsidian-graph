@@ -315,6 +315,31 @@ const VGEngine = (() => {
       return { id: `wanted:${k}`, name, refs: sorted(rs), creatable: !FILENAME_BAD.test(name) };
     });
   }
+  // Notes that many of the same notes link to but that don't link each other: a pair worth linking in any vault, from
+  // its own links (co-mentions need daily notes, meaning needs Smart Connections). nb: Map note -> Set of linked notes.
+  // Scored by how much of both notes' links they share (shared / sqrt(links a * links b)), so two busy notes aren't
+  // paired just for being busy; a note with more than `busy` links (a hub, a catch-all list) doesn't make pairs.
+  // -> [{ a, b, n, score }] best first, n = notes linking both, at least `min`.
+  function sharedPairs(nb, o = {}) {
+    const min = o.min || 3, busy = o.busy || 60, max = o.max || 15, skip = o.skip || (() => false), shared = new Map();
+    for (const ns of nb.values()) {
+      if (ns.size < 2 || ns.size > busy) continue;
+      const list = sorted(ns);
+      for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+        const a = list[i], b = list[j];
+        if (nb.has(a) && nb.get(a).has(b)) continue;
+        const k = a + "\u0000" + b; shared.set(k, (shared.get(k) || 0) + 1);
+      }
+    }
+    const out = [];
+    for (const [k, n] of shared) {
+      if (n < min) continue;
+      const [a, b] = k.split("\u0000");
+      if (skip(a, b)) continue;
+      out.push({ a, b, n, score: n / Math.sqrt((nb.get(a) || new Set()).size * (nb.get(b) || new Set()).size || 1) });
+    }
+    return out.sort((x, y) => y.score - x.score || y.n - x.n || pyCmp(x.a, y.a) || pyCmp(x.b, y.b)).slice(0, max);
+  }
   // a note's topic tags from its frontmatter, as the analysis reads them: lower case, without periodic ones
   const frontmatterTags = fm => { let t = fm && typeof fm === "object" ? fm.tags : null; if (typeof t === "string") t = [t]; if (!Array.isArray(t)) return [];
     return [...new Set(t.filter(x => x).map(x => String(x).trim().toLowerCase()).filter(x => !x.endsWith("/standup") && x !== "daily"))]; };
@@ -466,5 +491,5 @@ const VGEngine = (() => {
   }
 
   return { pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
-    noteWords, topicWords, topicsOf, topicGraph, frontmatterTags, wantedNotes, cleanTitle, readableNames, stacks, withStack, label, stableIds, titleCase };
+    noteWords, topicWords, topicsOf, topicGraph, frontmatterTags, wantedNotes, sharedPairs, cleanTitle, readableNames, stacks, withStack, label, stableIds, titleCase };
 })();
