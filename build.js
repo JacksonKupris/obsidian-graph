@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Builds the plugin and the standalone graph page from src/.
 //   node build.js [--rules <file>] [--out <dir>]                 plugin: <out>/main.js, styles.css, manifest.json, rules.js (default out: dist)
+//   node build.js manifest                                       the repo's manifest.json, from package.json's version
 //   node build.js page --data <graph.json> [--rules <file>] [--out <file>]   the graph page (default out: .out/Vault Graph.html)
 // --rules is a vault's rules file (folder names, thresholds); default config/rules.json, the sample vault's.
 // The renderer is one closure (mountVaultGraph) written in parts, src/view/*.js in name order: the build joins them,
@@ -111,7 +112,10 @@ const arg = (name, dflt) => { const i = process.argv.indexOf(name); return i > 0
 
 if (require.main === module) {
   const rules = loadRules(arg("--rules"));
-  if (process.argv[2] === "page") {
+  if (process.argv[2] === "manifest") {   // the repo's own manifest.json, which BRAT and Obsidian read for the version
+    writeIfChanged(path.join(ROOT, "manifest.json"), buildPlugin(rules)["manifest.json"]);
+    console.log(`Wrote manifest.json (${pluginId(rules)} ${pkg.version})`);
+  } else if (process.argv[2] === "page") {
     const data = arg("--data"); if (!data) { console.error("page needs --data <graph.json>"); process.exit(2); }
     const out = arg("--out", path.join(ROOT, ".out", "Vault Graph.html"));
     writeIfChanged(out, buildPage(JSON.parse(fs.readFileSync(data, "utf8")), rules));

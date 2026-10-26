@@ -14,7 +14,11 @@ It never changes a note without asking, and every change it makes can be undone.
 
 ## Install
 
-1. Build it (`npm run build`, see below) or take a release's `main.js`, `styles.css`, `manifest.json`, `rules.js` and `engine.js`.
+With [BRAT](https://github.com/TfTHacker/obsidian42-brat): **Add beta plugin** → `JacksonKupris/obsidian-graph`, then enable **Vault Graph**. BRAT keeps it updated from the releases.
+
+By hand:
+
+1. Take a [release](https://github.com/JacksonKupris/obsidian-graph/releases)'s `main.js`, `styles.css` and `manifest.json`, or build them (`npm run build`, see below).
 2. Put them in `<your vault>/.obsidian/plugins/jk-vault-graph/`.
 3. In Obsidian: Settings → Community plugins → turn off Restricted mode if it's on, then enable **Vault Graph**.
 4. Open it with the ribbon's **Open Vault Graph** button (a fork icon), or the command **Vault Graph: Open graph**. **Vault Graph: Open suggestions sidebar** opens the sidebar for the note you're on.

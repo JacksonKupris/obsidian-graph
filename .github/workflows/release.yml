@@ -1,0 +1,26 @@
+# A version tag (0.5.0) makes a GitHub release with the files Obsidian and BRAT install.
+# The tag must match package.json's version, which manifest.json carries (node build.js manifest).
+name: Release
+on:
+  push:
+    tags: ["*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Tag matches the version
+        run: test "$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+      - name: Test
+        run: npm test
+      - name: Build
+        run: node build.js --out dist
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/main.js dist/manifest.json dist/styles.css --title "$GITHUB_REF_NAME" --generate-notes

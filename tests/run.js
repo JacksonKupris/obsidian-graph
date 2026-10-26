@@ -15,6 +15,12 @@ const steps = [["main.js", ["--check", path.join(dir, "main.js")]], ["rules.js",
   ["test_pick.js", [path.join(__dirname, "test_pick.js"), ...env.args]], ["test_today.js", [path.join(__dirname, "test_today.js"), ...env.args]],
   ["smoke_page.js", [path.join(__dirname, "smoke_page.js"), ...env.args]]];
 let failed = 0;
+// the repo's manifest.json (what BRAT reads) is the one the build makes: same id, same version as package.json
+{ const want = build.buildPlugin(build.loadRules())["manifest.json"];
+  let got = ""; try { got = fs.readFileSync(path.join(build.ROOT, "manifest.json"), "utf8"); } catch (e) { /* missing */ }
+  const ok = got.replace(/\r\n/g, "\n") === want;
+  console.log(`  ${ok ? "test" : "FAIL"}  manifest.json: ${ok ? "ok - matches the build" : "out of date: run node build.js manifest"}`);
+  failed += ok ? 0 : 1; }
 for (const [name, args] of steps) {
   const r = spawnSync(process.execPath, args, { encoding: "utf8", timeout: 10 * 60 * 1000 });
   // only a clean exit 0 passes: a step killed (or timed out) has status null, one that didn't start has r.error
