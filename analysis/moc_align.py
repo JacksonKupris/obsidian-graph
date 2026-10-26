@@ -523,6 +523,9 @@ if __name__ == "__main__":
     raise SystemExit(main())
 
 
+GENERATED = "%% vault-graph:generated"   # the plugin's marker in a note it wrote (Create map)
+
+
 def graph_mocs(a: dict) -> dict:
     """For vault_graph.graph_data: MOCs with the clusters they map, their members and what they miss,
     plus bridge notes (`type: bridge`) and the MOCs they connect."""
@@ -533,6 +536,7 @@ def graph_mocs(a: dict) -> dict:
         if not cl and not m["nav"]:
             continue
         out.append({"id": m["path"], "title": m["title"], "nav": m["nav"] and not cl, "clusters": cl,   # a wide map that claims a topic is that topic's map
+                    "generated": GENERATED in raw.get(m["path"], ""),   # made by the plugin's Create map: its name follows its topic's
                     "members": sorted(x for x in m["members"] if x in knowledge),
                     "missing": {str(c): sorted(set(members_of[c]) - m["members"], key=lambda r: (-bc.get(r, 0), r)) for c in cl}})
     bridges = {}

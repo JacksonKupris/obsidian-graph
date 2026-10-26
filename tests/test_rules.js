@@ -87,6 +87,17 @@ check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }
   check("today: every kind of next step", ["link", "map", "write", "chart", "adopt"].filter(k => !kinds.has(k)), []);
   const link = L.find(i => i.kind === "link");
   check("today: a link goes in the staler note", [link.from, link.to], ["t/C.md", "t/A.md"]);
+  // a map Create map made keeps its topic's name: a rename is offered when the topic is called something else now,
+  // never for a map you made yourself
+  { const R2 = { ...D, clusters: [{ id: 1, name: "Topic Now", size: 3 }, { id: 2, name: "Big", size: 7 }],
+      mocs: [{ ...D.mocs[0], title: "Old Name", generated: true }, { id: "t/Mine.md", title: "Mine", clusters: [2], members: [], missing: {}, generated: false }] };
+    const items = VGRules.todayList(R2, { today: "2026-10-25" }).filter(i => i.kind === "rename");
+    check("today: rename a made map to its topic's name, not yours", items.map(i => [i.m, i.name]), [["t/M.md", "Topic Now"]]);
+    const g2 = VGRules.graph({ ...R2, mocs: [{ ...R2.mocs[0], title: "Topic Now" }] });
+    check("today: a rename is done once the map has the name", VGRules.questDone(items[0], g2), true);
+    const kept = { ...R2, clusters: [{ id: 1, name: "Ted Bundy", keywords: "Serial · Ripper", core: ["Ted Bundy", "Serial Killers"], size: 3 }, R2.clusters[1]],
+      mocs: [{ ...R2.mocs[0], title: "Serial Killers" }, R2.mocs[1]] };
+    check("today: a made map's name that still describes its topic is kept", VGRules.todayList(kept, { today: "2026-10-25" }).filter(i => i.kind === "rename").length, 0); }
   check("today: a map item names its map", [L.find(i => i.kind === "map").m, L.find(i => i.kind === "chart").c], ["t/M.md", 2]);
   check("today: the same order all day", VGRules.todayList(D, { today: "2026-10-25" }).map(i => i.key), L.map(i => i.key));
   check("today: hidden items stay out", VGRules.todayList(D, { today: "2026-10-25", hidden: [link.key] }).some(i => i.key === link.key), false);

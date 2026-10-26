@@ -455,7 +455,7 @@ class VaultGraphSuggestView extends ItemView {
 const { today, localDay } = VGRules;   // the shared date rules (this device's calendar day)
 // Every plugin method that writes to the vault. onload wraps each so it announces the change when done (every open
 // surface redraws); viewActions hands the same methods to every graph surface. A new write action goes in this list.
-const WRITE_ACTIONS = ["linkNotes", "writeNote", "appendSection", "moveNote", "setTaskStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
+const WRITE_ACTIONS = ["linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
   "addReference", "tickMocRow", "saveBinary", "stateSnapshots", "undo"];
 // The only methods that touch the vault for a write action. Each notes what it's about to change in the open undo
 // entry, so every action can be undone from the message that confirms it. tests/test_rules.js fails on a vault write
@@ -1058,6 +1058,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       linkText: (id, fromPath) => this.linkText(id, fromPath),
       addToMap: (mocId, ids) => this.addToMap(mocId, ids),
       createMap: clusterId => this.createMap(clusterId),
+      renameMap: (mapPath, clusterId) => this.renameMap(mapPath, clusterId),
       addReference: (notePath, holderPath) => this.addReference(notePath, holderPath),
       lastUndo: () => this.lastUndo(), undo: id => this.undo(id),   // VGActions offers Undo on the message an action shows
       outlinksOf: notePath => Object.keys((this.app.metadataCache.resolvedLinks || {})[notePath] || {}),   // stars on hubs the graph leaves out
@@ -1104,13 +1105,34 @@ module.exports = class VaultGraphPlugin extends Plugin {
   }
   // Give a topic its map: "<Topic> Hub" in 00-Inbox listing the topic's notes, best connected first. Its name and
   // tag make it a map candidate (VGRules.isMapCandidate), so it's the topic's map at once and after the analysis.
+  // A topic's map (Create map): "<name> Hub" listing the topic's notes best connected first, below the marker so the
+  // list can be made again
+  mapNote(data, c, path, name) {
+    const members = data.nodes.filter(x => x.cluster === c.id && !x.person && !x.moc && !x.ghost).sort((x, y) => (y.bc || 0) - (x.bc || 0));
+    return `---\ncreated: ${today()}\ntags:\n  - meta/hub\n---\n# ${name} Hub\n\nTopic cluster C${c.id} as of ${today()} (${members.length} notes).\n\n` +
+      `${MARKER} — edit above this line; everything below is regenerated %%\n\n## All notes\n${members.map(x => `- ${this.linkText(x.id, path)}`).join("\n")}\n`;
+  }
   async createMap(clusterId) {
     const data = await this.graphData(), c = data && data.clusters.find(k => k.id === clusterId);
     if (!c) throw new Error("that topic is gone");
-    const members = data.nodes.filter(x => x.cluster === clusterId && !x.person && !x.moc && !x.ghost).sort((x, y) => (y.bc || 0) - (x.bc || 0));
     const name = c.label || c.name, path = `${VGRules.folders.inbox}/${VGRules.safeName(name)} Hub.md`;
-    return this.writeNote(path, `---\ncreated: ${today()}\ntags:\n  - meta/hub\n---\n# ${name} Hub\n\nTopic cluster C${c.id} as of ${today()} (${members.length} notes).\n\n` +
-      `${MARKER} — edit above this line; everything below is regenerated %%\n\n## All notes\n${members.map(x => `- ${this.linkText(x.id, path)}`).join("\n")}\n`, { mode: "create", open: true });
+    return this.writeNote(path, this.mapNote(data, c, path, name), { mode: "create", open: true });
+  }
+  // A map Create map made, renamed to its topic's name now (the Today list offers it when they differ): the file is
+  // renamed through Obsidian, so links to it follow; its heading takes the new name and its list is made again
+  async renameMap(mapPath, clusterId) {
+    const data = await this.graphData(), c = data && data.clusters.find(k => k.id === clusterId);
+    const file = this.app.vault.getAbstractFileByPath(normalizePath(mapPath));
+    if (!c) throw new Error("that topic is gone");
+    if (!(file instanceof TFile)) throw new Error("the map isn't there");
+    const dir = file.parent && file.parent.path && file.parent.path !== "/" ? file.parent.path + "/" : "";
+    const dest = normalizePath(`${dir}${VGRules.safeName(c.name)} Hub.md`), old = file.basename.replace(/ Hub$/, "");
+    if (dest !== file.path && this.app.vault.getAbstractFileByPath(dest)) throw new Error(`${dest} already exists`);
+    if (dest !== file.path) await this.ioRename(file, dest);
+    const renamed = this.app.vault.getAbstractFileByPath(dest);
+    await this.ioProcess(renamed, text => text.split("\n").map(l => (l.replace(/\r$/, "") === `# ${old} Hub` ? `# ${c.name} Hub${l.endsWith("\r") ? "\r" : ""}` : l)).join("\n"));
+    await this.writeNote(dest, this.mapNote(data, c, dest, c.name), { mode: "regen" });
+    return dest;
   }
 
   // The one way to write a link to a note: Obsidian's own link text, so a same-name copy elsewhere (a root

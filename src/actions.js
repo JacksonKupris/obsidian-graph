@@ -154,6 +154,9 @@ const VGActions = (() => {
     chart: { label: "Create map", when: c => !!c.api.createMap,
       ask: it => ["Give the topic a map", `Create a map for ${it.name} in ${VGRules.folders.inbox}, listing its notes best connected first?`, "Create map"],
       run: async (it, c) => { await c.api.createMap(it.c); return `Map note for ${it.name}`; } },
+    rename: { label: "Rename", when: c => !!c.api.renameMap,
+      ask: it => ["Rename the map", `Rename ${it.from} Hub to ${it.name} Hub? Links to it follow; its list of notes is made again.`, "Rename"],
+      run: async (it, c) => { await c.api.renameMap(it.m, it.c); return `Renamed ${it.from} Hub to ${it.name} Hub`; } },
     adopt: { label: "Link to…", when: c => !!c.api.linkNotes && !!c.pick,
       run: (it, c, e) => BY_KEY.link.run({ id: it.id, name: it.name }, c, e) },
   };

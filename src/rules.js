@@ -367,7 +367,7 @@ const VGRules = (() => {
   // kinds: link (a suggested pair; from = the staler note, which gets the Related line), map (a note its topic's map
   // doesn't list), write (a note 3+ notes link to that doesn't exist), hub (a relied-on note gone quiet, or one you
   // pinned), chart (a topic of 6+ notes with no map), adopt (a note nothing links to a topic).
-  const TODAY_XP = { link: 10, map: 6, write: 12, hub: 4, chart: 25, adopt: 8 };
+  const TODAY_XP = { link: 10, map: 6, write: 12, hub: 4, chart: 25, adopt: 8, rename: 4 };
   const fnv = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; };
   function todayList(data, o = {}) {
     const nodes = data.nodes || [], byId = new Map(nodes.map(n => [n.id, n])), mocs = (data.mocs || []).filter(m => !m.nav);
@@ -394,6 +394,17 @@ const VGRules = (() => {
       add({ key: `review|${n.id}`, kind: "hub", id: n.id, name: n.name, ids: [n.id], title: `Review ${n.name}`, why: `#${rank.get(n.id)} by influence, quiet for ${data.recent_days || 30}+ days`, score: 1.5 }));
     (data.clusters || []).filter(c => c.size >= 6 && !mapForCluster(mocs, c.id)).slice(0, 3).forEach(c =>
       add({ key: `chart|${c.id}`, kind: "chart", c: c.id, name: c.label || c.name, ids: nodes.filter(n => n.cluster === c.id).map(n => n.id), title: `Give ${c.label || c.name} a map`, why: `${c.size} notes, and no map lists them`, score: 2.5 }));
+    // a map the plugin made (Create map) whose name no longer says anything about its topic: rename it to the topic's
+    // name. The topic's own name (c.name), not its label, which the analysis takes from the map that claims it. A name
+    // that still shares a word with the topic's name, keywords or central notes ("Serial Killers" for a topic whose
+    // central note is Ted Bundy) still describes it, and is kept.
+    const topicOf = new Map((data.clusters || []).map(c => [c.id, c]));
+    const words = t => new Set((String(t).toLowerCase().match(/[a-z0-9]{4,}/g) || []).map(w => w.replace(/s$/, "")));
+    mocs.filter(m => m.generated && (m.clusters || []).length === 1).forEach(m => { const c = topicOf.get(m.clusters[0]), now = c && c.name;
+      const about = c ? words([c.name, c.keywords || "", ...(c.core || [])].join(" ")) : new Set();
+      if (now && now.toLowerCase() !== String(m.title).toLowerCase() && ![...words(m.title)].some(w => about.has(w)))
+        add({ key: `rename|${m.id}|${now}`, kind: "rename", m: m.id, c: m.clusters[0], from: m.title, name: now, ids: [m.id],
+          title: `Rename ${m.title} Hub to ${now} Hub`, why: "Its topic is called that now", score: 2.2 }); });
     nodes.filter(n => plain(n) && n.isolated).sort((a, b) => (b.words || 0) - (a.words || 0)).slice(0, 5).forEach(n =>
       add({ key: `adopt|${n.id}`, kind: "adopt", id: n.id, name: n.name, ids: [n.id], title: `Link ${n.name} to its topic`, why: "Nothing links it to a topic note yet", score: 1.2 }));
     // best first; ties in a different order each day (seeded by the date), the same order all day
@@ -416,6 +427,7 @@ const VGRules = (() => {
     }
     if (q.kind === "write") return !g.wanted(q.id);   // gone from "wanted" = written (here or elsewhere)
     if (q.kind === "chart") return !!g.mapForCluster(q.c);
+    if (q.kind === "rename") { const m = g.mapById(q.m); return !m || String(m.title).toLowerCase() === String(q.name).toLowerCase(); }
     if (q.kind === "adopt") return !g.node(q.id) || !g.node(q.id).isolated;
     if (q.kind === "hub" && q.id && g.node(q.id) && g.node(q.id).age === 0) return true;   // reviewed/edited today
     return g.reviewed(q.key);
@@ -429,6 +441,7 @@ const VGRules = (() => {
     if (m.kind === "drift") return !!g.mapById(m.m);
     if (m.kind === "map") return !!g.mapById(m.m || String(m.key || "").split("|")[1]);
     if (m.kind === "adopt" || m.kind === "hub") return !!g.node(m.id);
+    if (m.kind === "rename") return !!g.mapById(m.m);
     return true;
   }
   // The standard graph over a data object (graph_data(), or the plugin's liveMerge of it). Built per call:

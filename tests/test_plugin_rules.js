@@ -7,7 +7,7 @@ const env = require("./env");
 const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) fails.push(`${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`); };
 
 // the plugin as built, under a stand-in Obsidian (tests/plugin_stub.js)
-const { Plugin, VGRules, VGActions } = require("./plugin_stub").load(env.rules);
+const { Plugin, VGRules, VGActions, TFile } = require("./plugin_stub").load(env.rules);
 
 const RULES = "_scripts/vault_graph_rules.json";
 function fakePlugin(files, { daily, newFolder, people = [] } = {}) {
@@ -42,6 +42,22 @@ function fakePlugin(files, { daily, newFolder, people = [] } = {}) {
     check("an existing Related section gets the line", add(rel, L).split("\n").slice(4, 7), ["- [[A]]", L, ""]);
     const ctx = "# X - Context\n\nbody\n\n---\n\n**Related Standups**\n- [[Daily Standup 2026-10-01]]";
     check("a context note's footer stays last", add(ctx, L).split("\n").slice(-4, -2), ["---", ""]); }
+  // Rename a made map: the file moves (links follow, through Obsidian), its heading takes the topic's name, the list
+  // below the marker is made again, and what you wrote above the marker stays
+  { const files = new Map(), mk = (p, text) => { const f = Object.assign(new TFile(), { path: p, basename: p.split("/").pop().replace(/\.md$/, ""), name: p.split("/").pop(), extension: "md", parent: { path: p.slice(0, p.lastIndexOf("/")) } }); files.set(p, { f, text }); return f; };
+    mk("00-Inbox/Old Name Hub.md", "---\ntags:\n  - meta/hub\n---\n# Old Name Hub\n\nMy own note about this topic.\n\n%% vault-graph:generated — edit above this line; everything below is regenerated %%\n\n## All notes\n- [[A]]\n");
+    mk("t/A.md", "a"); mk("t/B.md", "b");
+    const at = p => (files.get(p) || {}).f || null, renamed = [];
+    const app = { vault: { getAbstractFileByPath: at, read: async f => files.get(f.path).text, cachedRead: async f => files.get(f.path).text,
+        process: async (f, fn) => { const e = files.get(f.path); e.text = fn(e.text); return e.text; }, modify: async (f, t) => { files.get(f.path).text = t; },
+        createFolder: async () => {}, getMarkdownFiles: () => [...files.values()].map(e => e.f) },
+      fileManager: { renameFile: async (f, dest) => { const e = files.get(f.path); files.delete(f.path); Object.assign(f, { path: dest, basename: dest.split("/").pop().replace(/\.md$/, "") }); files.set(dest, e); renamed.push(dest); } },
+      metadataCache: { fileToLinktext: f => f.basename, getFirstLinkpathDest: () => null } };
+    const p = Object.assign(Object.create(Plugin.prototype), { app, settings: {} });
+    p.graphData = async () => ({ clusters: [{ id: 1, name: "Topic Now", size: 2 }], nodes: [{ id: "t/A.md", cluster: 1, bc: 0.2 }, { id: "t/B.md", cluster: 1, bc: 0.1 }] });
+    const dest = await p.renameMap("00-Inbox/Old Name Hub.md", 1), text = files.get(dest).text;
+    check("rename map: the file has the topic's name", [dest, renamed], ["00-Inbox/Topic Now Hub.md", ["00-Inbox/Topic Now Hub.md"]]);
+    check("rename map: heading, own text, and the list made again", [text.includes("# Topic Now Hub"), text.includes("My own note about this topic."), text.includes("- [[B]]")], [true, true, true]); }
   // a vault rules file wins over Obsidian's settings, key by key
   { const text = '{\n  "folders": {\n    "inbox": "00-Inbox",\n    "daily": "01-Daily",\n    "skip": ["_templates", "00-Inbox"]\n  },\n  "stale_days": 180,\n  "note":   "kept as written"\n}\n';
     const files = { [RULES]: text }, p = fakePlugin(files, { daily: "Journal", newFolder: "Inbox" });
