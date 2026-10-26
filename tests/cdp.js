@@ -34,7 +34,9 @@ async function open(o) {
     if (!CHROME) return null;
     tmp = path.join(os.tmpdir(), `vg-page-${process.pid}-${port}.html`); fs.writeFileSync(tmp, o.html);
     prof = fs.mkdtempSync(path.join(os.tmpdir(), "vg-prof-"));
-    proc = spawn(CHROME, ["--headless=new", "--disable-gpu", "--window-size=1400,900", `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, "about:blank"], { stdio: "ignore" });
+    // CI runners (Ubuntu) block the user namespaces Chrome's sandbox needs
+    const ci = process.env.CI ? ["--no-sandbox"] : [];
+    proc = spawn(CHROME, ["--headless=new", "--disable-gpu", ...ci, "--window-size=1400,900", `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, "about:blank"], { stdio: "ignore" });
   }
   let target;
   for (let i = 0; i < 80 && !target; i++) { try { target = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find(t => t.type === "page"); } catch (e) {} if (!target) await sleep(250); }

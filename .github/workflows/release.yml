@@ -17,7 +17,10 @@ jobs:
       - name: Tag matches the version
         run: test "$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
       - name: Test
-        run: npm test
+        # failing lines also go out as annotations, which show on the run page
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee test.log || { grep -E "FAIL|Error" test.log | head -20 | sed 's/^/::error::/'; exit 1; }
       - name: Build
         run: node build.js --out dist
       - name: Release
