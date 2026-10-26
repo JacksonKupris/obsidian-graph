@@ -366,15 +366,194 @@ const VGRules = (() => {
     return out.join("\n");
   }
 
+  // ---- HQ: the vault's own work, read from its notes (the rules file's "hq"): today's journal tasks, the last
+  // standup's plan, tasks carried over, scopes of work, the vault backlog, reports to tick, drafts to review,
+  // decisions and scheduled jobs. hqKind(path, frontmatter, today) says which notes to read; hqGather(files, o) reads
+  // them into data.hq, the same in the plugin (Obsidian's files) and the tests (a folder); todayList makes its items.
+  const H = R.hq || {};
+  const HQ_RX = k => (H[k] ? new RegExp(H[k]) : null), HQ_JOURNAL = HQ_RX("journal"), HQ_STANDUP = HQ_RX("standup");
+  const HQ_PLAN = H.plan_heading ? new RegExp(H.plan_heading, "i") : null;
+  const STATUS = H.statuses || {}, statusGroup = s => Object.keys(STATUS).find(k => (STATUS[k] || []).includes(String(s || "").toLowerCase())) || "other";
+  const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
+  // a task line as Obsidian counts it: "- [ ] text", numbered too; [prefix, mark, "] ", text]
+  const TASK_LINE = /^(\s*(?:[-*+]|\d+[.)]) \[)(.)(\] )(.*)$/;
+  // a task line with a new mark; done stamps the day in the completion field (the journal's "Completed Today" reads it)
+  function taskLine(line, mark, day) {
+    const m = String(line).match(TASK_LINE); if (!m) return line;
+    const field = H.completion_field, stamp = field && mark === "x" && !new RegExp(`\\[${field}::`).test(m[4]) ? ` [${field}:: ${day || today()}]` : "";
+    return m[1] + mark + m[3] + m[4].replace(/\s+$/, "") + stamp;
+  }
+  // an inline field added to a task line ([delegate:: claude]); a field it already has keeps its value
+  const taskField = (line, key, value) => new RegExp(`\\[${key}::`).test(line) ? line : `${String(line).replace(/\s+$/, "")} [${key}:: ${value}]`;
+  // a task's words without its inline fields, links as their text, bold and code marks gone
+  const plainTask = t => String(t).replace(/\[[\w-]+::[^\]]*\]/g, "").replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\*\*|__|`/g, "").replace(/\s+/g, " ").trim();
+  const inlineField = (t, key) => { const m = String(t).match(new RegExp(`\\[${key}::\\s*([^\\]]*)\\]`)); return m ? m[1].trim() : ""; };
+  // frontmatter as plain values: scalars and lists, enough for type, status, dates and tags
+  function frontOf(text) {
+    const m = String(text).match(/^---\r?\n([\s\S]*?)\r?\n---/); if (!m) return {};
+    const fm = {}; let key = null;
+    for (const line of m[1].split(/\r?\n/)) {
+      const kv = line.match(/^([\w-]+):\s*(.*)$/), item = line.match(/^\s+-\s+(.*)$/), clean = v => v.trim().replace(/^["']|["']$/g, "");
+      if (kv) { key = kv[1]; fm[key] = kv[2].trim() ? clean(kv[2]) : []; }
+      else if (item && key && Array.isArray(fm[key])) fm[key].push(clean(item[1]));
+    }
+    return fm;
+  }
+  const dateIn = (rx, path) => { const m = rx && String(path).match(rx); return m ? m[1] : null; };
+  const inDaily = path => String(path).startsWith(R.folders.daily + "/");
+  const reportPrefix = path => String(path).startsWith(R.folders.reports + "/") ? (H.reports || []).find(p => stemCase(path).startsWith(p + " ")) : null;
+  const automationReport = path => String(path).startsWith(R.folders.reports + "/") ? (H.automations || []).find(a => a.report && stemCase(path).startsWith(a.report)) : null;
+  // which kind of HQ note a path is, or null
+  function hqKind(path, fm, day) {
+    path = String(path); fm = fm || {}; day = day || today();
+    if (!H.journal || path.startsWith(R.folders.archive + "/") || path.startsWith(R.folders.templates + "/")) return null;
+    const ok = (d, n) => !!d && daysBetween(d, day) >= 0 && daysBetween(d, day) <= n;
+    if (inDaily(path)) {
+      if (ok(dateIn(HQ_JOURNAL, path), H.carry_days)) return "journal";
+      if (ok(dateIn(HQ_STANDUP, path), H.carry_days)) return "standup";
+    }
+    const type = String(fm.type || "").toLowerCase();
+    if (type && type === H.scope_type) return "scope";
+    if (path === H.backlog) return "backlog";
+    if (reportPrefix(path) || automationReport(path)) return "report";
+    if (type && type === H.review_type && path.startsWith(H.review_folder + "/")) return "review";
+    if (type && type === H.decision_type) return "decision";
+    if (H.run_log && path.startsWith(H.run_log + " ")) return "runlog";
+    return null;
+  }
+  // [{ line, text, mark, section }] for each top-level task in a note (subtasks travel with their parent)
+  function tasksIn(text) {
+    const out = []; let section = "", code = false;
+    String(text).split(/\r?\n/).forEach((l, i) => {
+      if (/^\s*(```|~~~)/.test(l)) { code = !code; return; } if (code) return;
+      const h = l.match(/^#{1,6}\s+(.*)/); if (h) { section = h[1].trim(); return; }
+      const m = l.match(TASK_LINE); if (m && !/^\s/.test(l)) out.push({ line: i, text: m[4], mark: m[2], section });
+    });
+    return out;
+  }
+  // the top-level items under the first heading matching rx (numbered or bulleted), until the next heading as big
+  function itemsUnder(text, rx) {
+    const lines = String(text).split(/\r?\n/), out = []; let level = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const h = lines[i].match(/^(#{1,6})\s+(.*)/);
+      if (h) { if (level && h[1].length <= level) break; if (!level && rx.test(h[2])) level = h[1].length; continue; }
+      const m = level && lines[i].match(/^(?:\d+[.)]|[-*+])\s+(?!\[.\] )(.*\S)/);
+      if (m) out.push({ line: i, text: m[1] });
+    }
+    return out;
+  }
+  const bodyOf = text => String(text).replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
+  // a scope's one-paragraph summary: its **Summary:** line, else the first paragraph under a "What" heading
+  function scopeSummary(text) {
+    const b = bodyOf(text), s = b.match(/^\*\*Summary:\*\*\s*(.+)$/m);
+    if (s) return plainTask(s[1]);
+    const lines = b.split(/\r?\n/), at = lines.findIndex(l => /^#{1,6}\s+What\b/i.test(l));
+    if (at < 0) return "";
+    const para = []; for (const l of lines.slice(at + 1)) { if (/^#/.test(l) || (para.length && !l.trim())) break; if (l.trim() && !/^[-|>]/.test(l.trim())) para.push(l.trim()); }
+    return plainTask(para.join(" "));
+  }
+  // its estimate as written ("3–5 days"): on a line that names an estimate (not a table row), or just under an
+  // "estimate" heading
+  function scopeEstimate(text) {
+    const lines = bodyOf(text).split(/\r?\n/), dur = l => l.match(/(\d+(?:\.\d+)?\s*[–-]\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(?:engineering\s+|working\s+)?(days?|weeks?)\b/i);
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i], near = /^#{1,6}\s.*estimat/i.test(l) ? lines.slice(i + 1, i + 4) : !/^\s*\|/.test(l) && /estimat|allowance/i.test(l) ? [l] : [];
+      for (const x of near) { const m = dur(x); if (m) return `${m[1].replace(/\s*[–-]\s*/, "–")} ${m[2].toLowerCase()}`; }
+    }
+    return "";
+  }
+  const titleOf = (text, path) => { const m = bodyOf(text).match(/^#\s+(.+)$/m); return plainTask(m ? m[1] : stemCase(path)); };
+  // hqGather(files, { today }) -> data.hq. files: [{ path, text, fm? }] (fm: Obsidian's frontmatter; read from the
+  // text when missing), plus each device's run records as { path, json } from the automation_status folder.
+  function hqGather(files, o = {}) {
+    const day = o.today || today(), hq = { date: day, journals: [], standups: [], scopes: [], backlog: [], reports: [], reviews: [], decisions: [], runs: {}, runlog: [] };
+    const newestReport = {};
+    for (const f of files || []) {
+      if (f.json) { Object.entries(f.json || {}).forEach(([name, run]) => { if (run && (!hq.runs[name] || String(run.last_run) > String(hq.runs[name].last_run))) hq.runs[name] = run; }); continue; }
+      const fm = f.fm || frontOf(f.text), kind = hqKind(f.path, fm, day), name = stemCase(f.path);
+      if (kind === "journal") hq.journals.push({ path: f.path, date: dateIn(HQ_JOURNAL, f.path), tasks: tasksIn(f.text) });
+      else if (kind === "standup") hq.standups.push({ path: f.path, date: dateIn(HQ_STANDUP, f.path), plan: HQ_PLAN ? itemsUnder(f.text, HQ_PLAN) : [],
+        deviation: Number(fm.deviation_hours) || 0, projects: [].concat(fm["related-projects"] || []).map(plainTask).filter(Boolean) });
+      else if (kind === "scope") hq.scopes.push({ path: f.path, name, title: titleOf(f.text, f.path).replace(/^Scope of Work\s*[—–-]\s*/i, ""), status: String(fm.status || "").toLowerCase(),
+        group: statusGroup(fm.status), summary: scopeSummary(f.text), estimate: scopeEstimate(f.text), created: String(fm.created || ""), updated: String(fm.updated || fm.created || "") });
+      else if (kind === "backlog") tasksIn(f.text).filter(t => t.mark === " ").forEach(t => hq.backlog.push({ path: f.path, ...t }));
+      else if (kind === "report") { const prefix = reportPrefix(f.path) || automationReport(f.path).report, date = (name.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || "";
+        if (!newestReport[prefix] || date > newestReport[prefix].date) newestReport[prefix] = { path: f.path, name, prefix, date, open: (String(f.text).match(/^\s*[-*] \[ \]/gm) || []).length, job: !reportPrefix(f.path) }; }
+      else if (kind === "review") hq.reviews.push({ path: f.path, name, title: titleOf(f.text, f.path), status: String(fm.status || "").toLowerCase(), task: plainTask(fm.task || ""), created: String(fm.created || "") });
+      else if (kind === "decision") hq.decisions.push({ path: f.path, name, title: titleOf(f.text, f.path), date: String(fm.date || fm.created || ""), status: String(fm.status || "").toLowerCase(),
+        by: plainTask([].concat(fm.decided_by || []).join(", ")), project: plainTask([].concat(fm.project || []).join(", ")) });
+      else if (kind === "runlog") String(f.text).split(/\r?\n/).filter(l => /^- \d{4}-\d{2}-\d{2}/.test(l)).forEach(l => hq.runlog.push(plainTask(l.slice(2))));
+      // how often each scope came up: the dailies in the window that name it (its file name, code name or title)
+      if (kind === "journal" || kind === "standup") (hq.mentionText = hq.mentionText || []).push([dateIn(kind === "journal" ? HQ_JOURNAL : HQ_STANDUP, f.path), String(f.text).toLowerCase()]);
+    }
+    hq.reports = Object.values(newestReport);
+    const code = s => s.name.replace(/^.*[—–-]\s*/, "").toLowerCase();
+    hq.scopes.forEach(s => { s.days = [...new Set((hq.mentionText || []).filter(([, t]) => t.includes(s.name.toLowerCase()) || t.includes(code(s)) || (s.title.length > 8 && t.includes(s.title.toLowerCase()))).map(([d]) => d))].sort(); });
+    delete hq.mentionText;
+    hq.journals.sort((a, b) => (a.date < b.date ? 1 : -1)); hq.standups.sort((a, b) => (a.date < b.date ? 1 : -1));
+    hq.scopes.sort((a, b) => (a.updated < b.updated ? 1 : a.updated > b.updated ? -1 : a.name < b.name ? -1 : 1));
+    hq.decisions.sort((a, b) => (a.date < b.date ? 1 : -1)); hq.runlog = hq.runlog.slice(-20);
+    return hq;
+  }
+  // Each scheduled job with its last run: ok, failed, late (no run in twice its interval; a work-hours job only counts
+  // as late during working hours) or never run. now: a Date
+  function hqJobs(hq, now) {
+    now = now || new Date();
+    const reports = new Map(((hq && hq.reports) || []).filter(r => r.job).map(r => [r.prefix, r]));
+    return (H.automations || []).map(a => {
+      const rep = a.report && reports.get(a.report), run = (hq && hq.runs || {})[a.name];
+      const last = rep ? rep.date + "T12:00:00" : run ? run.last_run : null, ok = rep ? true : run ? !!run.ok : null;
+      const hours = last ? (now - new Date(last)) / 36e5 : Infinity, h = now.getHours(), wd = now.getDay();
+      const late = !!last && hours > (a.every_hours || 24) * 2 && (!a.work_hours_only || (h >= 8 && h <= 18 && wd !== 0 && wd !== 6));
+      return { ...a, last, ok, late, summary: rep ? rep.name : run ? String(run.summary || "") : "", device: run ? run.device || "" : "", report: rep ? rep.path : null,
+        state: !last ? "never" : ok === false ? "failed" : late ? "late" : "ok" };
+    });
+  }
+  // The scopes of work as projects: status group, summary, estimate, the days the dailies named it, active decisions
+  function hqProjects(data) {
+    const hq = (data && data.hq) || {}, decisions = (hq.decisions || []).filter(d => d.status === "active");
+    return (hq.scopes || []).map(s => ({ ...s, decisions: decisions.filter(d => d.project && (d.project.includes(s.name) || d.project.toLowerCase().includes(s.title.toLowerCase()))) }));
+  }
+  // Which part of HQ shows an item: today (work), needs (only you can decide it) or upkeep (the vault itself)
+  const TODAY_GROUP = { task: "today", plan: "today", carried: "today", approval: "needs", review: "needs", job: "needs", backlog: "needs", report: "needs" };
+  const todayGroup = kind => TODAY_GROUP[kind] || "upkeep";
+  // the HQ items of todayList (see below), from data.hq
+  function hqItems(data, o, add) {
+    const hq = data.hq; if (!hq) return;
+    const day = o.today || hq.date || today(), marks = (o.review || {}).hq || {};
+    const skip = k => marks[k] === `later:${day}` || String(marks[k] || "").startsWith("done:");   // Later: for the day; Done: a plan item (no checkbox)
+    const put = it => { if (!skip(it.key)) add(it); };
+    const label = t => plainTask(t) || "(untitled task)";
+    const fieldsOf = t => ({ delegated: inlineField(t, H.delegate_field || "delegate"), review: inlineField(t, "review") });
+    hq.journals.filter(j => j.date === day).forEach(j => j.tasks.filter(t => t.mark === " ").forEach((t, i) =>
+      put({ key: `task|${j.path}|${t.text}`, kind: "task", path: j.path, line: t.line, text: t.text, ...fieldsOf(t.text), ids: [j.path], title: label(t.text), why: t.section || "Today's journal", score: 20 - i * 0.01 })));
+    const plan = hq.standups.find(s => s.date < day);
+    if (plan) plan.plan.forEach((p, i) => put({ key: `plan|${plan.path}|${i}|${p.text}`, kind: "plan", path: plan.path, line: p.line, text: p.text, ids: [plan.path], title: label(p.text), why: `Planned in ${stemCase(plan.path)}`, score: 15 - i * 0.01 }));
+    hq.scopes.filter(s => s.group === "waiting").forEach(s => { const waited = s.updated ? daysBetween(s.updated, day) : 0;
+      put({ key: `approval|${s.path}`, kind: "approval", path: s.path, ids: [s.path], title: s.title, why: `${s.status}${waited > 0 ? ` for ${waited} day${waited === 1 ? "" : "s"}` : ""}`, waited, score: waited > (H.approval_overdue_days || 3) ? 21 : 12 }); });
+    hq.reviews.filter(r => r.status === "waiting").forEach(r => put({ key: `review|${r.path}`, kind: "review", path: r.path, ids: [r.path], title: r.title, why: r.task ? `Draft for: ${r.task}` : "Draft waiting", score: 11.5 }));
+    hqJobs(hq, o.now).filter(j => j.state === "failed" || j.state === "late").forEach(j => put({ key: `job|${j.name}|${j.last}`, kind: "job", path: H.automations_note, name: j.name, ids: [],
+      title: `${j.name}: ${j.state === "failed" ? "failed" : "late"}`, why: j.summary || j.when, score: j.state === "failed" ? 13 : 10 }));
+    hq.journals.filter(j => j.date < day).forEach(j => { const age = daysBetween(j.date, day);
+      j.tasks.filter(t => t.mark === " ").forEach(t => put({ key: `carried|${j.path}|${t.text}`, kind: "carried", path: j.path, line: t.line, text: t.text, date: j.date, age, ...fieldsOf(t.text), ids: [j.path],
+        title: label(t.text), why: `From ${j.date} · ${age} day${age === 1 ? "" : "s"} ago`, score: Math.max(1, 9 - age * 0.25) })); });
+    hq.backlog.forEach(b => put({ key: `backlog|${b.path}|${b.text}`, kind: "backlog", path: b.path, line: b.line, text: b.text, ids: [b.path], title: label(b.text), why: stemCase(b.path), score: 3 }));
+    hq.reports.filter(r => r.open > 0 && !r.job).forEach(r => put({ key: `report|${r.path}`, kind: "report", path: r.path, ids: [r.path], title: `${r.name}: ${r.open} row${r.open === 1 ? "" : "s"} to tick`, why: "Tick the rows to apply", score: 2.8 }));
+  }
+
   // ---- Today: the one list of next steps. It replaced three overlapping lists (the review queue, the daily quests
   // and the missions). Each item is one action (VGActions.TODAY does it); the graph view, its game panel and the
   // sidebar all show this list, and questDone says when an item has been done, wherever it was done.
-  //   todayList(data, { review, hidden, today, skipDays }) -> [{ key, kind, title, why, ids, score, xp, ...fields }]
+  //   todayList(data, { review, hidden, today, skipDays, groups, now }) -> [{ key, kind, title, why, ids, score, xp, ...fields }]
+  // groups: only these (todayGroup: "today", "needs", "upkeep"); each surface filters the one list. HQ kinds (from
+  // data.hq): task (today's journal), plan (the last standup's next-day plan), carried (open tasks from earlier
+  // journals), approval (a scope waiting on approval), review (a draft to accept or reject), job (a scheduled job that
+  // failed or is late), backlog (an open vault decision), report (rows to tick). "Later" hides one for the day and Done marks a plan item (review.hq: key -> "later:<day>" | "done:<day>").
   // data: the graph data (graph_data() or the plugin's liveMerge of it; the view passes its live copy).
   // kinds: link (a suggested pair; from = the staler note, which gets the Related line), map (a note its topic's map
   // doesn't list), write (a note 3+ notes link to that doesn't exist), hub (a relied-on note gone quiet, or one you
   // pinned), chart (a topic of 6+ notes with no map), adopt (a note nothing links to a topic).
-  const TODAY_XP = { link: 10, map: 6, write: 12, hub: 4, chart: 25, adopt: 8, rename: 4 };
+  const TODAY_XP = { link: 10, map: 6, write: 12, hub: 4, chart: 25, adopt: 8, rename: 4, task: 5, plan: 5, carried: 5, approval: 3, review: 6, job: 3, backlog: 6, report: 4 };
   const fnv = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; };
   function todayList(data, o = {}) {
     const nodes = data.nodes || [], byId = new Map(nodes.map(n => [n.id, n])), mocs = (data.mocs || []).filter(m => !m.nav);
@@ -384,8 +563,9 @@ const VGRules = (() => {
     const rank = new Map(ranked.map((id, i) => [id, i + 1]));
     const review = o.review || {}, day = o.today || localDay(new Date()), skipDays = o.skipDays || 14;
     const skipped = k => !!(review.skipped && review.skipped[k]) && (Date.parse(day) - Date.parse(review.skipped[k])) / 864e5 < skipDays;
-    const hidden = new Set(o.hidden || []), out = [], seen = new Set();
-    const add = it => { if (seen.has(it.key) || hidden.has(it.key) || skipped(it.key)) return; seen.add(it.key); out.push({ xp: TODAY_XP[it.kind] || 5, ...it }); };
+    const hidden = new Set(o.hidden || []), out = [], seen = new Set(), groups = o.groups ? new Set(o.groups) : null;
+    const add = it => { if (seen.has(it.key) || hidden.has(it.key) || skipped(it.key) || (groups && !groups.has(todayGroup(it.kind)))) return; seen.add(it.key); out.push({ xp: TODAY_XP[it.kind] || 5, group: todayGroup(it.kind), ...it }); };
+    hqItems(data, { ...o, today: day }, add);
     (data.links || []).forEach(l => {
       if (!isSuggestion(l) || !byId.get(l.source) || !byId.get(l.target)) return;
       const [a, b] = [l.source, l.target], from = (byId.get(b).age || 0) > (byId.get(a).age || 0) ? b : a;
@@ -437,6 +617,7 @@ const VGRules = (() => {
     if (q.kind === "rename") { const m = g.mapById(q.m); return !m || String(m.title).toLowerCase() === String(q.name).toLowerCase(); }
     if (q.kind === "adopt") return !g.node(q.id) || !g.node(q.id).isolated;
     if (q.kind === "hub" && q.id && g.node(q.id) && g.node(q.id).age === 0) return true;   // reviewed/edited today
+    if (TODAY_GROUP[q.kind] && g.hqOpen && !g.hqOpen(q.key)) return true;   // an HQ item gone from the notes: done there (or anywhere)
     return g.reviewed(q.key);
   }
 
@@ -462,8 +643,11 @@ const VGRules = (() => {
     });
     const mocs = (data.mocs || []).filter(m => !m.nav), mocById = new Map(mocs.map(m => [m.id, m]));
     const clusters = new Set((data.clusters || []).map(c => c.id)), wanted = new Set((data.wanted || []).map(w => w.id));
-    const reviewed = (extra.review && extra.review.done) || {};
+    const reviewed = (extra.review && extra.review.done) || {}, hqMarks = (extra.review && extra.review.hq) || {};
+    let hqKeys = null;   // the HQ items the notes still hold (built when first asked)
+    const hqOpen = key => (hqKeys = hqKeys || new Set(todayList(data, { groups: ["today", "needs"], today: (data.hq || {}).date }).map(i => i.key))).has(key);
     return {
+      hqOpen,
       node: id => byId.get(id),
       linked: (a, b) => links.has(pairKey(a, b)),
       suggested: (a, b) => sugg.has(pairKey(a, b)),
@@ -471,7 +655,7 @@ const VGRules = (() => {
       mapForCluster: c => mapForCluster(mocs, c),
       hasCluster: c => clusters.has(c),
       wanted: id => wanted.has(id),
-      reviewed: key => !!reviewed[key],
+      reviewed: key => !!reviewed[key] || String(hqMarks[key] || "").startsWith("done:"),
     };
   }
 
@@ -505,7 +689,7 @@ const VGRules = (() => {
     const out = { ...disk, ...mine };
     const rb = obj(base.review), rm = obj(mine.review), rd = obj(disk.review);
     out.review = { ...rd, ...rm };
-    ["skipped", "done", "ft"].forEach(k => { out.review[k] = mergeMap(rb[k], rm[k], rd[k]); });
+    ["skipped", "done", "ft", "hq"].forEach(k => { out.review[k] = mergeMap(rb[k], rm[k], rd[k]); });   // hq: HQ's Later and Done marks (not in the ledgers, so Undo can take one back)
     out.review.pinned = mergeList(rb.pinned, rm.pinned, rd.pinned, str);
     const cb = obj(base.cosmos), cm = obj(mine.cosmos), cd = obj(disk.cosmos);
     if (mine.cosmos || disk.cosmos) {
@@ -579,7 +763,8 @@ const VGRules = (() => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
-  return { RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+  return { HQ: H, TASK_LINE, taskLine, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqKind, hqGather, hqJobs, hqProjects, todayGroup, TODAY_GROUP, statusGroup,
+    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)

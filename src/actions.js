@@ -159,12 +159,54 @@ const VGActions = (() => {
       run: async (it, c) => { await c.api.renameMap(it.m, it.c); return `Renamed ${it.from} Hub to ${it.name} Hub`; } },
     adopt: { label: "Link to…", when: c => !!c.api.linkNotes && !!c.pick,
       run: (it, c, e) => BY_KEY.link.run({ id: it.id, name: it.name }, c, e) },
+    // HQ items (VGRules.hqItems): work from the vault's own notes
+    task: { label: "Done", when: c => !!c.api.setTaskStatus, run: (it, c) => doneTask(it, c) },
+    carried: { label: "Done", when: c => !!c.api.setTaskStatus, run: (it, c) => doneTask(it, c) },
+    backlog: { label: "Done", when: c => !!c.api.setTaskStatus, run: (it, c) => doneTask(it, c) },
+    plan: { label: "Done", when: c => !!c.api.hqMark, run: async (it, c) => { await c.api.hqMark(it.key, "done"); return `Done: ${short(it.title)}`; } },
+    approval: { label: "Open", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },
+    report: { label: "Open", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },
+    job: { label: "Open", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },   // the automations note
+    review: { label: "Accept", when: c => !!c.api.setNoteStatus,
+      ask: it => ["Accept the draft", `Accept “${it.title}”? This sets its status to accepted. Applying what it describes stays with you.`, "Accept"],
+      run: async (it, c) => { await c.api.setNoteStatus(it.path, "accepted"); return `Accepted ${it.title}`; } },
   };
+  const short = t => (String(t).length > 60 ? String(t).slice(0, 59) + "…" : String(t));
+  async function doneTask(it, c) { await c.api.setTaskStatus(it.path, it.line, it.text, "x"); return `Done: ${short(it.title)}`; }
   const todayWhen = (it, c) => !!TODAY[it.kind] && TODAY[it.kind].when(c);
   const todayLabel = it => (TODAY[it.kind] || {}).label || "";
   function runToday(it, c, e) {
     const t = TODAY[it.kind]; if (!t || !t.when(c)) return Promise.resolve(false);
     return run({ label: () => t.label, title: () => it.title, ask: t.ask && (() => t.ask(it)), run: (_, cc, ee) => t.run(it, cc, ee) }, it, c, e);
+  }
+  // The other things an HQ item offers besides its main action, the same on every surface: Later (gone for today),
+  // Reject a draft (with the reason), Delegate a task to an agent, Open its note. Each is one write through c.api.
+  const TODAY_MORE = [
+    { key: "later", label: "Later", title: "Not today: it comes back tomorrow", when: (it, c) => !!VGRules.TODAY_GROUP[it.kind] && !!c.api.hqMark,
+      run: async (it, c) => { await c.api.hqMark(it.key, "later"); return `Later: ${short(it.title)}`; },
+      undo: (it, c) => c.api.hqMark(it.key, null) },
+    { key: "reject", label: "Reject", title: "Reject the draft, with the reason", when: (it, c) => it.kind === "review" && !!c.api.setNoteStatus,
+      run: async (it, c) => {
+        const why = c.input ? await c.input("Reject the draft", `Why reject “${it.title}”? The reason goes in the draft.`, "Reason") : (await c.ask("Reject the draft", `Reject “${it.title}”?`, "Reject")) ? "" : null;
+        if (why === null) return null;
+        await c.api.setNoteStatus(it.path, "rejected", why); return `Rejected ${it.title}`; } },
+    { key: "delegate", label: "Delegate", title: () => `Hand it to ${VGRules.HQ.delegate_to}: a draft comes back for review`,
+      when: (it, c) => (it.kind === "task" || it.kind === "carried") && !it.delegated && !!c.api.setTaskField && !!VGRules.HQ.delegate_field,
+      ask: it => ["Delegate the task", `Mark “${it.title}” for ${VGRules.HQ.delegate_to}? Its draft comes back for review; nothing is applied until you accept it.`, "Delegate"],
+      run: async (it, c) => { await c.api.setTaskField(it.path, it.line, it.text, VGRules.HQ.delegate_field, VGRules.HQ.delegate_to); return `Delegated: ${short(it.title)}`; } },
+    { key: "open", label: "Open", title: "Open the note it's in", when: (it, c) => !!it.path && !!c.api.openNote && !["approval", "report", "job"].includes(it.kind),
+      run: (it, c) => { c.api.openNote(it.path); return null; } },
+  ];
+  const todayMore = (it, c) => TODAY_MORE.filter(m => m.when(it, c));
+  // Run one of them: the same confirm, report and Undo as every action. Later has no note change to undo, so its Undo
+  // takes the mark back.
+  function runMore(m, it, c, e) {
+    if (typeof m === "string") m = TODAY_MORE.find(x => x.key === m);
+    if (!m) return Promise.resolve(false);
+    const title = typeof m.title === "function" ? m.title(it) : m.title;
+    if (m.undo) return (async () => { try { const msg = await m.run(it, c, e); if (msg) c.done(msg, () => m.undo(it, c).then(() => c.done(`Undone: ${msg}`), err => c.fail(`Couldn't undo: ${(err && err.message) || err}`))); return msg !== null; }
+      catch (err) { c.fail(`${m.label} didn't work: ${(err && err.message) || err}`); return false; } })();
+    return run({ label: () => m.label, title: () => title, ask: m.ask && (() => m.ask(it)), run: (_, cc, ee) => m.run(it, cc, ee) }, it, c, e);
   }
   async function undo(id, msg, c) {
     try { await c.api.undo(id); c.done(`Undone: ${msg}`); }
@@ -192,5 +234,5 @@ const VGActions = (() => {
     return box;
   }
 
-  return { ACTIONS, PROBLEMS, forNote, problems, run, render, archiveFolder, isArchived, nameOf, TODAY, todayWhen, todayLabel, runToday };
+  return { ACTIONS, PROBLEMS, forNote, problems, run, render, archiveFolder, isArchived, nameOf, TODAY, todayWhen, todayLabel, runToday, TODAY_MORE, todayMore, runMore };
 })();

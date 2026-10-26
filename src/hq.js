@@ -1,0 +1,274 @@
+// hq.js - Vault HQ, the vault's home screen: what to do next, what needs a decision from you, what the vault is
+// telling you, and where each project stands. Four screens (Home, Today, Needs you, Projects) over a week strip and a
+// dock. Every list here is the one Today list (VGRules.todayList) filtered by its group, and every button is a shared
+// action (VGActions.runToday / runMore), so HQ, the graph and the sidebar agree. Plain DOM: the plugin's HQ view and
+// the standalone test page mount the same thing. The build puts this after actions.js.
+//   mountVaultHQ(root, data, opts) -> { update(data, state), setScreen(name), screen(), destroy() }
+// opts: state { review, hidden } (the shared file: Later/Done marks, hidden items) · api (the plugin's viewActions:
+// openNote, openDaily, setTaskStatus, setTaskField, setNoteStatus, hqMark...) · ask(title, text, ok) / input(title,
+// text, placeholder) (else HQ's own dialog) · screen / onScreen(name) (the screen to start on, remembered by the host)
+// · onDone(message) (the host logs it) · openGraph() · now (a Date: tests)
+function mountVaultHQ(root, data, opts) {
+  opts = opts || {};
+  const SCREENS = [["home", "Home", "home"], ["today", "Today", "tasks"], ["needs", "Needs you", "inbox"], ["projects", "Projects", "folder"]];
+  const api = opts.api || {};
+  let DATA = data || { nodes: [], links: [] }, STATE = opts.state || {}, cur = SCREENS.some(s => s[0] === opts.screen) ? opts.screen : "home";
+  let gone = new Set(), feedAt = 0, filter = "active", drawer = null, carriedAll = false, clockTimer = null;
+  const now = () => opts.now || new Date(), day = () => VGRules.localDay(now());
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const plural = (n, w, ws) => `${n} ${n === 1 ? w : ws || w + "s"}`;
+  const nameOf = p => VGActions.nameOf(p);
+
+  // ---- the one list, and what each screen takes from it
+  let LIST = [], BY_KEY = new Map();
+  function compute() {
+    LIST = VGRules.todayList(DATA, { review: STATE.review, hidden: STATE.hidden, today: day(), now: now() }).filter(it => !gone.has(it.key));
+    BY_KEY = new Map(LIST.map(it => [it.key, it]));
+  }
+  const ofGroup = g => LIST.filter(it => it.group === g);
+  const ofKind = k => LIST.filter(it => it.kind === k);
+  const doNext = () => LIST.find(it => it.group === "today" || it.group === "needs") || null;
+  const hq = () => DATA.hq || null;
+
+  // ---- icons: small line icons drawn here (no icon font outside Obsidian)
+  const ICON = {
+    home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>', tasks: '<path d="M4 6h2M4 12h2M4 18h2"/><path d="M9 6h11M9 12h11M9 18h11"/>',
+    inbox: '<path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 3h6l1-3h5"/>', folder: '<path d="M3 6h6l2 2h10v11H3z"/>',
+    journal: '<path d="M6 3h10l3 3v15H6z"/><path d="M9 9h7M9 13h7M9 17h4"/>', left: '<path d="M15 5l-7 7 7 7"/>', right: '<path d="M9 5l7 7-7 7"/>',
+    check: '<path d="M5 12l5 5 9-10"/>', clock: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>', key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l2 2"/>',
+    eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', alert: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>',
+    draft: '<path d="M5 3h10l4 4v14H5z"/><path d="M14 3v5h5"/>', graph: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="10" cy="18" r="2.5"/><path d="M8 7l8 1M7 8l2 8M16 10l-5 6"/>',
+    close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  };
+  const icon = (k, s = 18) => `<svg class="vg-hq-ic" viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ""}</svg>`;
+  const KIND_ICON = { task: "check", plan: "tasks", carried: "clock", approval: "key", review: "draft", job: "alert", backlog: "check", report: "eye" };
+
+  // ---- card art: soft hills under a low sun, seeded by the card, tinted from the theme's accent
+  const seedOf = s => { let h = 2166136261; for (const ch of String(s)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
+  function hills(seed, h = 120) {
+    let r = seedOf(seed); const rnd = () => ((r = (r * 1103515245 + 12345) >>> 0) / 4294967296);
+    const layer = (y, amp, o) => { let d = `M0 ${h}L0 ${y}`; for (let x = 0; x <= 400; x += 50) d += ` Q${x + 25} ${y - amp * (rnd() - 0.3)} ${x + 50} ${y + amp * (rnd() - 0.5) * 0.6}`; return `<path d="${d} L400 ${h}Z" fill="currentColor" opacity="${o}"/>`; };
+    const sx = 260 + rnd() * 110, sy = 38 + rnd() * 16;
+    return `<svg class="vg-hq-art" viewBox="0 0 400 ${h}" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><circle class="vg-hq-sun" cx="${sx}" cy="${sy}" r="16"/>${layer(h * 0.55, 30, 0.22)}${layer(h * 0.7, 24, 0.32)}${layer(h * 0.85, 18, 0.5)}</svg>`;
+  }
+
+  // ---- the actions: a context for VGActions, with HQ's own dialog and toast when the host gives none
+  const toastEl = document.createElement("div");
+  let toastTimer = null;
+  function toast(msg, undo, bad) {
+    clearTimeout(toastTimer);
+    toastEl.className = "vg-hq-toast" + (bad ? " is-bad" : "");
+    toastEl.innerHTML = `<span>${esc(msg)}</span>${undo ? '<button class="vg-hq-btn vg-hq-btn-sm" data-undo>Undo</button>' : ""}`;
+    toastEl.hidden = false;
+    const b = toastEl.querySelector("[data-undo]"); if (b) b.onclick = () => { toastEl.hidden = true; undo(); };
+    toastTimer = setTimeout(() => { toastEl.hidden = true; }, undo ? 8000 : 3500);
+  }
+  function dialog(title, text, ok, withInput) {
+    return new Promise(resolve => {
+      const box = document.createElement("div"); box.className = "vg-hq-dialog"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", title);
+      box.innerHTML = `<div class="vg-hq-dialog-card"><b>${esc(title)}</b><p>${esc(text)}</p>${withInput ? `<input class="vg-hq-input" placeholder="${esc(withInput)}">` : ""}
+        <div class="vg-hq-row-end"><button class="vg-hq-btn" data-no>Cancel</button><button class="vg-hq-btn vg-hq-btn-primary" data-ok>${esc(ok || "OK")}</button></div></div>`;
+      const end = v => { box.remove(); resolve(v); };
+      box.querySelector("[data-no]").onclick = () => end(withInput ? null : false);
+      box.querySelector("[data-ok]").onclick = () => end(withInput ? box.querySelector("input").value.trim() : true);
+      box.onkeydown = e => { if (e.key === "Escape") end(withInput ? null : false); if (e.key === "Enter" && withInput) end(box.querySelector("input").value.trim()); };
+      el.appendChild(box); (box.querySelector("input") || box.querySelector("[data-ok]")).focus();
+    });
+  }
+  const ctx = () => ({
+    api, data: DATA,
+    ask: opts.ask || ((t, x, ok) => dialog(t, x, ok)),
+    input: opts.input || ((t, x, ph) => dialog(t, x, "Reject", ph || "Reason")),
+    done: (msg, undo) => { toast(msg, undo); if (opts.onDone) opts.onDone(msg); },
+    fail: msg => toast(msg, null, true),
+  });
+  // an item's buttons: its main action, then Later / Reject / Delegate / Open
+  function buttons(it, big) {
+    const c = ctx(), main = VGActions.todayWhen(it, c) ? `<button class="vg-hq-btn vg-hq-btn-primary${big ? "" : " vg-hq-btn-sm"}" data-act="main" data-key="${esc(it.key)}">${esc(VGActions.todayLabel(it))}</button>` : "";
+    const more = VGActions.todayMore(it, c).filter(m => !(m.key === "open" && VGActions.todayLabel(it) === "Open"))
+      .map(m => `<button class="vg-hq-btn${big ? "" : " vg-hq-btn-sm"}${m.key === "later" ? " vg-hq-btn-ghost" : ""}" data-act="${m.key}" data-key="${esc(it.key)}" title="${esc(typeof m.title === "function" ? m.title(it) : m.title)}">${esc(m.label)}</button>`).join("");
+    return main + more;
+  }
+  async function act(kind, key, btn) {
+    const it = BY_KEY.get(key); if (!it) return;
+    if (btn) btn.disabled = true;
+    const c = ctx();
+    const ok = kind === "main" ? await VGActions.runToday(it, c) : await VGActions.runMore(kind, it, c);
+    if (btn && btn.isConnected) btn.disabled = false;
+    // a write that changes the item (Done, Later, Accept...) takes it off at once; the host's update brings the truth
+    if (ok && !(kind === "open" || (kind === "main" && VGActions.todayLabel(it) === "Open"))) { gone.add(key); render(); }
+  }
+
+  // ---- the parts every screen shares
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const shortDate = d => { const x = new Date(d + "T12:00:00"); return isNaN(x) ? d : `${MONTHS[x.getMonth()].slice(0, 3)} ${x.getDate()}`; };
+  function strip() {
+    const h = hq(), t = now(), mon = new Date(t); mon.setDate(t.getDate() - ((t.getDay() + 6) % 7));
+    const journals = new Set(((h && h.journals) || []).map(j => j.date)), standups = new Set(((h && h.standups) || []).map(s => s.date));
+    const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return d; }).map(d => {
+      const iso = VGRules.localDay(d), on = iso === day(), marks = (journals.has(iso) ? '<i class="is-j" title="Journal"></i>' : "") + (standups.has(iso) ? '<i class="is-s" title="Standup"></i>' : "");
+      const j = ((h && h.journals) || []).find(x => x.date === iso);
+      return `<button class="vg-hq-day${on ? " is-today" : ""}" ${j ? `data-open="${esc(j.path)}"` : "disabled"} aria-label="${DAYS[d.getDay()]} ${d.getDate()}${j ? ", open its journal" : ""}"><span>${DAYS[d.getDay()]}</span><b>${d.getDate()}</b><span class="vg-hq-marks">${marks}</span></button>`;
+    }).join("");
+    const needs = ofGroup("needs").length, projects = VGRules.hqProjects(DATA).filter(p => p.group === "active").length, jobs = VGRules.hqJobs(h || {}, now());
+    const badJobs = jobs.filter(j => j.state === "failed" || j.state === "late").length;
+    const chip = (screen, ic, title, sub, dot) => `<button class="vg-hq-chip" data-go="${screen}">${icon(ic, 16)}<span><b>${esc(title)}</b>${dot ? '<i class="vg-hq-dot"></i>' : ""}<small>${esc(sub)}</small></span></button>`;
+    return `<nav class="vg-hq-strip" aria-label="This week"><div class="vg-hq-week">${days}</div><div class="vg-hq-chips">` +
+      chip("needs", "inbox", "Needs you", plural(needs, "item"), needs > 0) + chip("projects", "folder", "Projects", `${projects} active`) +
+      (jobs.length ? chip("needs", "clock", "Automations", badJobs ? `${badJobs} need${badJobs === 1 ? "s" : ""} a look` : `${jobs.length} scheduled`, badJobs > 0) : "") + `</div></nav>`;
+  }
+  function dock() {
+    const needs = ofGroup("needs").length;
+    return `<nav class="vg-hq-dock" aria-label="Screens">${SCREENS.map(([k, label, ic]) => `<button class="vg-hq-dockbtn${cur === k ? " is-on" : ""}" data-go="${k}" aria-label="${label}" ${cur === k ? 'aria-current="page"' : ""} title="${label}">${icon(ic, 20)}${k === "needs" && needs ? `<span class="vg-hq-badge">${needs}</span>` : ""}</button>`).join("")}` +
+      (api.openDaily ? `<span class="vg-hq-sep"></span><button class="vg-hq-dockbtn" data-daily aria-label="Open today's journal" title="Open today's journal">${icon("journal", 20)}</button>` : "") + `</nav>`;
+  }
+  function row(it) {
+    return `<div class="vg-hq-item" data-key="${esc(it.key)}"><span class="vg-hq-kind">${icon(KIND_ICON[it.kind] || "graph", 16)}</span>` +
+      `<div class="vg-hq-txt"><b>${esc(it.title)}</b>${it.why ? `<small>${esc(it.why)}${it.delegated ? ` · delegated to ${esc(it.delegated)}` : ""}</small>` : ""}</div>` +
+      `<div class="vg-hq-acts">${buttons(it)}</div></div>`;
+  }
+  const section = (title, items, more) => items.length ? `<section class="vg-hq-sec"><h3>${esc(title)}<span>${items.length}</span></h3>${items.map(row).join("")}${more || ""}</section>` : "";
+  // an empty screen says what's true and where to go next
+  const empty = (fact, next) => `<div class="vg-hq-empty"><p>${esc(fact)}</p><div class="vg-hq-row">${next.map(([label, attr]) => `<button class="vg-hq-btn" ${attr}>${esc(label)}</button>`).join("")}</div></div>`;
+  const nextSteps = () => [...(api.openDaily ? [["Open today's journal", "data-daily"]] : []), ...(opts.openGraph ? [["Open the graph", "data-graph"]] : []), ["Projects", 'data-go="projects"']];
+
+  // ---- Home: what the vault says (the feed), then Do next, Needs you and Projects, and vault upkeep
+  function feedCards() {
+    const h = hq() || {}, nodes = (DATA.nodes || []).filter(n => !n.person && !n.ghost && !n.moc), cards = [];
+    const stale = nodes.filter(n => VGRules.isStale(n, (DATA.quality || {}).stale_days));
+    if (nodes.length) cards.push({ id: "state", eyebrow: "The vault", title: "State of the vault",
+      sub: `${plural(nodes.length, "note")} · ${nodes.filter(n => !n.isolated).length} linked · ${plural((DATA.clusters || []).length, "topic")} · ${stale.length} not changed in ${(DATA.quality || {}).stale_days || VGRules.RULES.stale_days}+ days`,
+      go: opts.openGraph ? ["Open the graph", "data-graph"] : null });
+    const busy = (DATA.clusters || []).map(c => ({ c, n: nodes.filter(x => x.cluster === c.id).reduce((s, x) => s + (x.recent || 0), 0) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n)[0];
+    if (busy) cards.push({ id: "weather", eyebrow: "Weather", title: `${busy.c.label || busy.c.name} is busiest`, sub: `${plural(busy.n, "mention")} in the dailies over the last ${DATA.recent_days || 30} days`,
+      go: opts.openGraph ? ["Open the graph", "data-graph"] : null });
+    const keystones = nodes.filter(n => !n.isolated).sort((a, b) => (b.bc || 0) - (a.bc || 0)).slice(0, 30).filter(n => VGRules.isStale(n, (DATA.quality || {}).stale_days));
+    if (keystones.length) cards.push({ id: "keystones", eyebrow: "Keystones", title: `${plural(keystones.length, "relied-on note")} going stale`, sub: keystones.slice(0, 3).map(n => n.name).join(" · "), open: keystones[0].id });
+    const oldest = ofKind("carried").sort((a, b) => b.age - a.age)[0];
+    if (oldest) cards.push({ id: "oldest", eyebrow: "Waiting longest", title: oldest.title, sub: oldest.why, open: oldest.path, item: oldest });
+    const gap = (DATA.links || []).find(l => l.kind === "gap" && (DATA.nodes || []).some(n => n.id === l.source));
+    if (gap) cards.push({ id: "gap", eyebrow: "A gap between notes", title: `${nameOf(gap.source)} ↔ ${nameOf(gap.target)}`, sub: gap.why || "Named together, never linked", item: LIST.find(it => it.kind === "link" && it.a === gap.source && it.b === gap.target) });
+    const week = (h.decisions || []).filter(d => d.date && (Date.parse(day()) - Date.parse(d.date)) / 864e5 <= 7);
+    if (week.length) cards.push({ id: "decided", eyebrow: "Decided this week", title: week[0].title, sub: week.length > 1 ? `and ${plural(week.length - 1, "more decision")}: ${week.slice(1, 3).map(d => d.title).join(" · ")}` : week[0].by ? `Decided by ${week[0].by}` : "", open: week[0].path });
+    const ups = (h.standups || []).filter(s => (Date.parse(day()) - Date.parse(s.date)) / 864e5 < 7);
+    if (ups.length) { const per = {}; ups.forEach(s => s.projects.forEach(p => (per[p] = (per[p] || 0) + 1)));
+      const top = Object.entries(per).sort((a, b) => b[1] - a[1]).slice(0, 3), dev = ups.reduce((s, u) => s + (u.deviation || 0), 0);
+      cards.push({ id: "week", eyebrow: "This week's standups", title: top.length ? top.map(([p, n]) => `${p} ${n}d`).join(" · ") : plural(ups.length, "standup"),
+        sub: `${plural(ups.length, "standup")} · ${dev} hour${dev === 1 ? "" : "s"} off plan`, open: ups[0].path }); }
+    if ((h.runlog || []).length) { const last = h.runlog[h.runlog.length - 1], parts = last.split(" · ");
+      cards.push({ id: "runlog", eyebrow: "Latest agent run", title: parts[3] || last, sub: parts.slice(0, 3).join(" · ") }); }
+    return cards;
+  }
+  function home() {
+    const cards = feedCards(); feedAt = Math.min(feedAt, Math.max(0, cards.length - 1));
+    const card = (c, i) => `<article class="vg-hq-feedcard" data-i="${i}" aria-roledescription="slide" aria-label="${i + 1} of ${cards.length}">${hills(c.id)}
+      <div class="vg-hq-feedtxt"><div class="vg-hq-eyebrow">${esc(c.eyebrow)} <span>${String(i + 1).padStart(2, "0")} / ${String(cards.length).padStart(2, "0")}</span></div>
+      <h2>${esc(c.title)}</h2><p>${esc(c.sub)}</p><div class="vg-hq-row">${c.open ? `<button class="vg-hq-btn" data-open="${esc(c.open)}">Open</button>` : ""}${c.go ? `<button class="vg-hq-btn" ${c.go[1]}>${esc(c.go[0])}</button>` : ""}${c.item ? buttons(c.item) : ""}</div></div></article>`;
+    const feed = cards.length ? `<section class="vg-hq-feed"><div class="vg-hq-feedtrack">${cards.map(card).join("")}</div>
+      ${cards.length > 1 ? `<button class="vg-hq-feednav is-prev" data-feed="-1" aria-label="Previous">${icon("left")}</button><button class="vg-hq-feednav is-next" data-feed="1" aria-label="Next">${icon("right")}</button>
+      <div class="vg-hq-dots">${cards.map((_, i) => `<button class="${i === feedAt ? "is-on" : ""}" data-feedto="${i}" aria-label="Card ${i + 1}"></button>`).join("")}</div>` : ""}</section>` : "";
+    const next = doNext(), needs = ofGroup("needs"), projects = VGRules.hqProjects(DATA), count = g => projects.filter(p => p.group === g).length;
+    const needsBy = [["approval", "approval"], ["review", "draft to review", "drafts to review"], ["job", "job"], ["report", "report"], ["backlog", "vault decision"]]
+      .map(([k, w, ws]) => [needs.filter(i => i.kind === k).length, w, ws]).filter(([n]) => n).map(([n, w, ws]) => plural(n, w, ws)).join(" · ");
+    const tiles = `<div class="vg-hq-tiles">
+      <div class="vg-hq-tile"><div class="vg-hq-eyebrow">Do next</div>${next ? `<b>${esc(next.title)}</b><small>${esc(next.why)}</small><div class="vg-hq-row">${buttons(next)}</div>` : `<b>Nothing waiting.</b><div class="vg-hq-row">${api.openDaily ? '<button class="vg-hq-btn" data-daily>Open today\'s journal</button>' : ""}</div>`}</div>
+      <button class="vg-hq-tile" data-go="needs"><span class="vg-hq-eyebrow">Needs you</span><span class="vg-hq-big">${needs.length}</span><small>${esc(needsBy || "Nothing waiting on you")}</small></button>
+      <button class="vg-hq-tile" data-go="projects"><span class="vg-hq-eyebrow">Projects</span><span class="vg-hq-big">${count("active")}</span><small>in progress · ${count("planned")} planned · ${count("waiting")} waiting</small></button></div>`;
+    const upkeep = ofGroup("upkeep").slice(0, 3);
+    return `<h1 class="vg-hq-h1">${greeting()}</h1>${feed}${tiles}` +
+      (upkeep.length ? section("Vault upkeep", upkeep, opts.openGraph ? '<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-graph>Open the graph</button></div>' : "") : "");
+  }
+  const greeting = () => { const h = now().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
+
+  // ---- Today: Do next, then the day in order: today's journal, the last standup's plan, what's carried over
+  function todayScreen() {
+    const next = doNext(), tasks = ofKind("task"), plan = ofKind("plan"), carried = ofKind("carried");
+    const big = next ? `<section class="vg-hq-next"><div class="vg-hq-eyebrow">Do next</div><h2>${esc(next.title)}</h2><p>${esc(next.why)}</p><div class="vg-hq-row">${buttons(next, true)}</div></section>` : "";
+    const planFrom = plan.length ? `Plan from ${shortDate((plan[0].path.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || "")}` : "Plan";
+    const shown = carriedAll ? carried : carried.slice(0, 8);
+    const out = big + section("Today's journal", tasks.filter(t => t !== next)) + section(planFrom, plan.filter(t => t !== next)) +
+      section("Carried over", shown.filter(t => t !== next), carried.length > shown.length ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-carried>Show all ${carried.length}</button></div>` : "");
+    return `<h1 class="vg-hq-h1">Today</h1><p class="vg-hq-lede">${esc(new Date(day() + "T12:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))} · ${plural(tasks.length + plan.length, "item")} planned · ${carried.length} carried over</p>` +
+      (out || empty(hq() ? "No open tasks in today's journal, the plan or the last 30 days." : "No journal or standup notes found for HQ.", nextSteps()));
+  }
+
+  // ---- Needs you: decisions only you can make
+  function needsScreen() {
+    const out = section("Waiting on approval", ofKind("approval")) + section("Drafts to review", ofKind("review")) + section("Scheduled jobs", ofKind("job")) +
+      section("Reports to review", ofKind("report")) + section("Vault decisions", ofKind("backlog"));
+    const n = ofGroup("needs").length;
+    return `<h1 class="vg-hq-h1">Needs you</h1><p class="vg-hq-lede">${n ? `Decisions only you can make, ${n} in all.` : "Nothing waiting on you."}</p>` +
+      (out || empty("No approvals, drafts, failed jobs, reports or vault decisions waiting.", [["Today", 'data-go="today"'], ...nextSteps().filter(s => s[1] !== 'data-go="projects"')]));
+  }
+
+  // ---- Projects: every scope of work as a card; one opens in a drawer
+  const FILTERS = [["active", "In progress"], ["planned", "Planned"], ["waiting", "Waiting"], ["closed", "Done"], ["all", "All"]];
+  function spark(days) {
+    const set = new Set(days || []), t = Date.parse(day()), cells = [];
+    for (let i = 29; i >= 0; i--) cells.push(set.has(VGRules.localDay(new Date(t - i * 864e5))));
+    return `<span class="vg-hq-spark" title="${plural(set.size, "day")} named in the dailies (last 30 days)">${cells.map(on => `<i${on ? ' class="is-on"' : ""}></i>`).join("")}</span>`;
+  }
+  function projectsScreen() {
+    const all = VGRules.hqProjects(DATA), list = all.filter(p => filter === "all" || p.group === filter);
+    const pill = p => `<span class="vg-hq-pill is-${esc(p.group)}">${esc(p.status || "no status")}</span>`;
+    const card = p => `<button class="vg-hq-proj" data-proj="${esc(p.path)}">${hills(p.name, 70)}<span class="vg-hq-projbody"><span class="vg-hq-projhead"><small>${esc(p.name.replace(/^.*[—–-]\s*/, ""))}</small>${pill(p)}</span>
+      <b>${esc(p.title)}</b><span class="vg-hq-sum">${esc(p.summary || "No summary yet.")}</span><span class="vg-hq-projfoot">${spark(p.days)}<small>${esc(p.estimate || (p.updated ? `Updated ${shortDate(p.updated)}` : ""))}</small></span></span></button>`;
+    const chips = FILTERS.map(([k, label]) => `<button class="vg-hq-filter${filter === k ? " is-on" : ""}" data-filter="${k}" aria-pressed="${filter === k}">${label} <span>${k === "all" ? all.length : all.filter(p => p.group === k).length}</span></button>`).join("");
+    const body = list.length ? `<div class="vg-hq-grid">${list.map(card).join("")}</div>` : all.length
+      ? empty(`No ${FILTERS.find(f => f[0] === filter)[1].toLowerCase()} projects.`, [["All projects", 'data-filter="all"']])
+      : empty(`No scopes of work yet (notes with type: ${VGRules.HQ.scope_type || "scope"}).`, nextSteps().filter(s => s[1] !== 'data-go="projects"'));
+    return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">Every scope of work, newest first.</p><div class="vg-hq-filters" role="group" aria-label="Show">${chips}</div>${body}${drawerHtml(all)}`;
+  }
+  function drawerHtml(all) {
+    const p = drawer && all.find(x => x.path === drawer); if (!p) return "";
+    const facts = [["Status", p.status || "—"], ["Estimate", p.estimate || "—"], ["Updated", p.updated ? shortDate(p.updated) : "—"], ["Named in the dailies", `${plural((p.days || []).length, "day")} in 30`]];
+    return `<div class="vg-hq-scrim" data-closedrawer></div><aside class="vg-hq-drawer" role="dialog" aria-label="${esc(p.title)}"><button class="vg-hq-x" data-closedrawer aria-label="Close">${icon("close")}</button>
+      <small>${esc(p.name)}</small><h2>${esc(p.title)}</h2><p>${esc(p.summary || "No summary yet.")}</p>
+      <dl class="vg-hq-facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>${spark(p.days)}
+      ${p.decisions.length ? `<h3>Decisions</h3>${p.decisions.map(d => `<button class="vg-hq-link" data-open="${esc(d.path)}">${esc(d.title)}<small>${esc(d.date)}</small></button>`).join("")}` : ""}
+      <div class="vg-hq-row">${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-primary" data-open="${esc(p.path)}">Open the scope</button>` : ""}</div></aside>`;
+  }
+
+  // ---- the frame
+  const el = document.createElement("div");
+  el.className = "vg-hq" + (opts.mobile ? " is-mobile" : "");
+  root.appendChild(el);
+  function render() {
+    compute();
+    const label = SCREENS.find(s => s[0] === cur)[1], t = now();
+    const scroll = el.querySelector(".vg-hq-main") ? el.querySelector(".vg-hq-main").scrollTop : 0;
+    el.innerHTML = `<header class="vg-hq-top"><span class="vg-hq-crumb"><b>Vault HQ</b> / ${esc(label)}</span><span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}</span></span></header>` +
+      strip() + `<main class="vg-hq-main">${cur === "home" ? home() : cur === "today" ? todayScreen() : cur === "needs" ? needsScreen() : projectsScreen()}</main>` + dock();
+    el.appendChild(toastEl);
+    const main = el.querySelector(".vg-hq-main"); if (main) main.scrollTop = scroll;
+    const track = el.querySelector(".vg-hq-feedtrack"); if (track) { track.scrollLeft = feedAt * track.clientWidth;
+      track.onscroll = () => { const i = Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); if (i !== feedAt) { feedAt = i; el.querySelectorAll(".vg-hq-dots button").forEach((b, k) => b.classList.toggle("is-on", k === i)); } }; }
+  }
+  // one listener for every button (the screen is redrawn whole)
+  el.addEventListener("click", e => {
+    const b = e.target.closest("button, [data-closedrawer]"); if (!b || !el.contains(b) || b.disabled) return;
+    const d = b.dataset;
+    if (d.act) act(d.act, d.key, b);
+    else if (d.go) setScreen(d.go);
+    else if (d.open !== undefined) { if (api.openNote) api.openNote(d.open); }
+    else if (d.daily !== undefined) { if (api.openDaily) api.openDaily(); }
+    else if (d.graph !== undefined) { if (opts.openGraph) opts.openGraph(); }
+    else if (d.filter) { filter = d.filter; drawer = null; render(); }
+    else if (d.proj) { drawer = d.proj; render(); }
+    else if (d.closedrawer !== undefined) { drawer = null; render(); }
+    else if (d.carried !== undefined) { carriedAll = true; render(); }
+    else if (d.feed || d.feedto) { const n = el.querySelectorAll(".vg-hq-feedcard").length, track = el.querySelector(".vg-hq-feedtrack");
+      feedAt = d.feedto ? +d.feedto : (feedAt + +d.feed + n) % n; if (track) track.scrollTo({ left: feedAt * track.clientWidth, behavior: "smooth" });
+      el.querySelectorAll(".vg-hq-dots button").forEach((x, k) => x.classList.toggle("is-on", k === feedAt)); }
+  });
+  el.addEventListener("keydown", e => { if (e.key === "Escape" && drawer) { drawer = null; render(); } });
+  function setScreen(s) { if (!SCREENS.some(x => x[0] === s)) return; cur = s; drawer = null; render(); const m = el.querySelector(".vg-hq-main"); if (m) m.scrollTop = 0; if (opts.onScreen) opts.onScreen(s); }
+  render();
+  clockTimer = opts.now ? null : setInterval(() => { const c = el.querySelector(".vg-hq-clock b"); if (c) c.textContent = new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, ""); }, 30000);
+  return {
+    update(data, state) { DATA = data || DATA; if (state) STATE = state; gone = new Set(); render(); },
+    setScreen, screen: () => cur,
+    items: () => LIST.slice(),
+    destroy() { clearInterval(clockTimer); clearTimeout(toastTimer); el.remove(); },
+  };
+}

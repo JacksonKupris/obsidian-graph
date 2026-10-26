@@ -104,15 +104,37 @@ for (let d = 42; d >= 0; d--) {
   const day = new Date(TODAY - d * DAY), date = iso(day), [y, m] = date.split("-"), folder = `${F.daily}/${y}/${m}-${MONTHS[+m - 1]}`;
   const a = pick(active), b = pick(active), who = pick(PEOPLE);
   note(`${folder}/Journal/${date}.md`, { tags: ["daily/journal"] },
-    `# ${date}\n\n## Tasks\n\n- [ ] Follow up on ${a} with ${who.split(" ")[0]}\n${d % 3 ? `- [x] Check ${b} [completion:: ${date}]\n` : ""}\n## Notes\n\nTalked with [[${who}]] about [[${a}]] and ${b}.\n`);
+    `# ${date}\n\n## Tasks\n\n- [ ] Follow up on ${a} with ${who.split(" ")[0]}\n${d % 3 ? `- [x] Check ${b} [completion:: ${date}]\n` : ""}\n## Notes\n\nTalked with [[${who}]] about [[${a}]] and ${b}.\n`
+    + (d % 4 === 1 ? "Worked on the RA_Deposits scope.\n" : ""));   // a scope named in the dailies (HQ's project activity)
   if (day.getUTCDay() % 6) {
     const done = planned && d % 3 ? `2. ${topicOf(planned)}\n   - Finished the ${planned.toLowerCase()} changes\n` : "";
     planned = pick(active);
-    note(`${folder}/Standups/Daily Standup ${date}.md`, { tags: ["daily/standup"] },
+    note(`${folder}/Standups/Daily Standup ${date}.md`, { tags: ["daily/standup"], "related-projects": [`"[[${topicOf(a)} - Context]]"`], deviation_hours: d % 4 ? 0 : 1 },
       `# Daily Standup ${date}\n\n## 1. Work Completed\n\n1. ${topicOf(a)}\n   - Finished the ${a.toLowerCase()} changes\n   - Reviewed ${b.toLowerCase()} with ${who.split(" ")[0]}\n${done}\n`
       + `## 2. Work Expected Tomorrow\n\n1. Finish the ${planned.toLowerCase()} changes\n2. Start the ${pick(active).toLowerCase()} rollout\n`);
   }
 }
+
+// ---- Vault HQ's notes (rules file "hq"): scopes of work in each state, the vault backlog, drafts to review, a
+// decision, reports with rows to tick, scheduled jobs' runs (one failed) and the agents' run log
+const H = R.hq, SCOPES = [
+  ["RA_Deposits", "Card Deposits", "in-progress", ago(2), "Take a card deposit when a bike is booked, released when it comes back.", "- Estimate: 3–5 days"],
+  ["RA_GroupBookings", "Group Bookings", "planned", ago(9), "Book several bikes in one go for a group, with one payment.", "## Time estimate\n\nAbout 2 days of work."],
+  ["RA_LoyaltyPoints", "Loyalty Points", "proposed", ago(6), "Points for every rental, spent as a discount. Waiting on approval.", ""],
+  ["WH_ScannerUpgrade", "Scanner Upgrade", "complete", ago(30), "", ""],
+];
+SCOPES.forEach(([code, title, status, updated, summary, est]) => note(`02-Projects/Rental App/User Stories/Scope of Work — ${code}.md`,
+  { type: H.scope_type, status, created: ago(40), updated, tags: ["project/rental-app"] },
+  `# Scope of Work — ${title}\n\n${summary ? `**Summary:** ${summary}\n\n` : ""}## What it is\n\n${summary ? "" : `What ${title.toLowerCase()} changes for the shop and the riders.\n`}\n${est}\n\nSee [[Booking Flow]].\n`));
+note(H.backlog, { tags: ["meta/backlog"] }, "# Vault Backlog\n\n- [ ] Decide whether the old warehouse notes move to the archive\n- [ ] Merge the two warehouse handbooks\n- [x] Name the support topic's map\n");
+note(`${H.review_folder}/Refund email to riders.md`, { type: H.review_type, status: "waiting", task: "Draft the refund email for riders", created: ago(1) }, "# Refund email to riders\n\nA draft of the email.\n");
+note(`${H.review_folder}/Shelf labels.md`, { type: H.review_type, status: "accepted", task: "Shelf label wording", created: ago(8) }, "# Shelf labels\n\nAccepted.\n");
+note(`02-Projects/Decisions/Deposits Go Through the Card Reader ${ago(2)}.md`, { type: H.decision_type, date: ago(2), decided_by: `"[[${PEOPLE[0]}]]"`, project: '"[[Scope of Work — RA_Deposits]]"', status: "active" },
+  "# Deposits Go Through the Card Reader\n\n**Decision:** deposits are taken on the card reader, not online.\n");
+note(`${F.reports}/Gaps & Bridges ${ago(3)}.md`, { tags: ["type/report"] }, "# Gaps & Bridges\n\n- [ ] [[Refund Policy]] ↔ [[Ticket Triage]]\n- [ ] [[Server Backup]] ↔ [[VPN Setup]]\n- [x] [[Booking Flow]] ↔ [[Map Screen]]\n");
+note(`${F.reports}/${H.automations[1].report} ${ago(4)}.md`, { tags: ["type/report"] }, "# Cleanup Report\n\nMoved 12 files.\n");
+files.set(`${H.automation_status}/office-server.json`, JSON.stringify({ "nightly-backup": { last_run: `${ago(1)}T02:00:00+00:00`, ok: false, exit_code: 1, summary: "disk full", device: "office-server" } }, null, 1) + "\n");
+note(`${H.run_log} ${ago(0).slice(0, 7)}.md`, { tags: ["meta/tracking"] }, `# Run Log\n\n- ${ago(1)} · Office PC · Rental App · Wrote the deposits scope · [[Scope of Work — RA_Deposits]]\n- ${ago(0)} · Office PC · Vault · Filed the inbox · ${F.inbox}\n`);
 
 // ---- write
 fs.rmSync(OUT, { recursive: true, force: true });

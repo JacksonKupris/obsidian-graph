@@ -258,5 +258,63 @@
       ],
       "related": 3
     }
+  },
+  "hq": {
+    "_about": "Vault HQ, the plugin's home screen, reads the vault's own notes. journal / standup: paths (under the daily folder) of a journal and a standup, the date as the first group. carry_days: how far back open journal tasks carry over. plan_heading: the standup heading whose items are the next day's plan. completion_field / delegate_field: inline fields written on a task (Done stamps the day; Delegate hands it to delegate_to). scope_type, review_type, decision_type: frontmatter types. statuses: which scope statuses are active, planned, waiting (on approval) or closed; approval_overdue_days: after this long a waiting scope comes first. backlog: a note of open decisions about the vault. reports: report names (in the reports folder) with rows to tick. automations: scheduled jobs (name, where, when, what, every_hours, work_hours_only, report); automation_status: the folder each device records their runs in; automations_note: the note that lists them. run_log: the agents' run log notes, one per month (name + ' YYYY-MM').",
+    "journal": "/Journal/([0-9]{4}-[0-9]{2}-[0-9]{2})[.]md$",
+    "standup": "/Standups/Daily Standup ([0-9]{4}-[0-9]{2}-[0-9]{2})[.]md$",
+    "plan_heading": "Work Expected",
+    "carry_days": 30,
+    "completion_field": "completion",
+    "delegate_field": "delegate",
+    "delegate_to": "claude",
+    "scope_type": "scope-of-work",
+    "statuses": {
+      "active": [
+        "in-progress"
+      ],
+      "planned": [
+        "planned",
+        "pending"
+      ],
+      "waiting": [
+        "proposed"
+      ],
+      "closed": [
+        "complete",
+        "done",
+        "cancelled",
+        "rejected"
+      ]
+    },
+    "approval_overdue_days": 3,
+    "backlog": "03-Resources/Vault Backlog.md",
+    "reports": [
+      "Gaps & Bridges",
+      "MOC Alignment"
+    ],
+    "review_folder": "00-Inbox/For Review",
+    "review_type": "review-draft",
+    "decision_type": "decision",
+    "automation_status": "_System/Agents/automation-status",
+    "automations_note": "_System/Agents/Automations.md",
+    "automations": [
+      {
+        "name": "nightly-backup",
+        "where": "Office server (cron)",
+        "when": "Daily, 2 AM",
+        "what": "Backs up the booking database",
+        "every_hours": 24
+      },
+      {
+        "name": "weekly-cleanup",
+        "where": "Office PC",
+        "when": "Fridays",
+        "what": "Tidies the shared drive; writes a Cleanup Report",
+        "every_hours": 168,
+        "report": "Cleanup Report"
+      }
+    ],
+    "run_log": "_System/Agents/Run Log"
   }
 }

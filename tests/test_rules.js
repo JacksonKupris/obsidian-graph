@@ -5,7 +5,7 @@
 // 4. one action path; 6. note actions, scenes, shared state; the graph data and search on the vault under test.
 // (2 and 5, Python parity and the vault's dashboards, are the vault's own tests.)
 const fs = require("fs"), path = require("path"), { execFileSync } = require("child_process");
-const env = require("./env"), S = path.join(env.ROOT, "src"), build = require("../build");
+const env = require("./env"), S = path.join(env.ROOT, "src"), S_DIR = S, build = require("../build");
 const srcOf = f => (f === "view.js" ? build.viewSource() : fs.readFileSync(path.join(S, f), "utf8"));   // the renderer: src/view/*.js joined
 const PY = process.platform === "win32" ? "python" : "python3";   // Linux has no plain "python"
 const R = env.rules;
@@ -108,6 +108,94 @@ check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }
   check("today: every kind has an action", Object.keys(VGRules.TODAY_XP).filter(k => !A.TODAY[k]), []);
 }
 
+// Vault HQ: the notes it reads (hqKind), what it reads from them (hqGather), the items it makes in the one Today list,
+// the task writes it uses, its marks in the shared file, scheduled jobs and projects. With this test's own hq rules,
+// so it doesn't depend on the vault under test's.
+{
+  const H = { journal: "/Journal/([0-9]{4}-[0-9]{2}-[0-9]{2})[.]md$", standup: "/Standups/Daily Standup ([0-9]{4}-[0-9]{2}-[0-9]{2})[.]md$", plan_heading: "Work Expected",
+    carry_days: 30, completion_field: "completion", delegate_field: "delegate", delegate_to: "claude", scope_type: "scope-of-work",
+    statuses: { active: ["in-progress"], planned: ["planned"], waiting: ["proposed"], closed: ["complete"] }, approval_overdue_days: 3,
+    backlog: "Tools/Vault Backlog.md", reports: ["Gaps & Bridges"], review_folder: "Inbox/For Review", review_type: "review-draft", decision_type: "decision",
+    automation_status: "Sys/runs", automations_note: "Sys/Automations.md", run_log: "Sys/Run Log",
+    automations: [{ name: "backup", every_hours: 24 }, { name: "watch", every_hours: 1, work_hours_only: true }, { name: "garden", every_hours: 168, report: "Gardener Report" }, { name: "new-job", every_hours: 24 }] };
+  const Q = new Function(`${build.rulesSource({ ...R, hq: H })}; return VGRules;`)(), D = R.folders.daily, day = "2026-10-26";
+  const J = d => `${D}/2026/10-October/Journal/${d}.md`, S = d => `${D}/2026/10-October/Standups/Daily Standup ${d}.md`;
+  check("hq: a journal in the window", [Q.hqKind(J(day), {}, day), Q.hqKind(J("2026-09-26"), {}, day), Q.hqKind(J("2026-09-25"), {}, day), Q.hqKind(J("2026-10-27"), {}, day)], ["journal", "journal", null, null]);
+  check("hq: every kind of note", [Q.hqKind(S("2026-10-23"), {}, day), Q.hqKind("P/Scope.md", { type: "scope-of-work" }, day), Q.hqKind(H.backlog, {}, day),
+    Q.hqKind(`${R.folders.reports}/Gaps & Bridges 2026-10-25.md`, {}, day), Q.hqKind(`${R.folders.reports}/Gardener Report 2026-10-24.md`, {}, day),
+    Q.hqKind("Inbox/For Review/D.md", { type: "review-draft" }, day), Q.hqKind("Inbox/D.md", { type: "review-draft" }, day), Q.hqKind("W/Dec.md", { type: "decision" }, day),
+    Q.hqKind("Sys/Run Log 2026-10.md", {}, day), Q.hqKind(`${R.folders.archive}/P/Scope.md`, { type: "scope-of-work" }, day), Q.hqKind("P/Plain.md", {}, day)],
+    ["standup", "scope", "backlog", "report", "report", "review", null, "decision", "runlog", null, null]);
+  const journal = "---\ntags:\n  - daily/journal\n---\n# 2026-10-26\n\n### Today's Tasks\n- [ ] Ship the fix\n\t- [ ] a subtask\n- [x] Done already [completion:: 2026-10-26]\n- [ ]  Two spaces after the box\n"
+    + "1. [ ] A numbered task\n- [-] Cancelled\n\n```\n- [ ] not a task: code\n```\n\n## Notes\n- [ ] Under notes\n";
+  check("hq: top-level tasks with their section, subtasks and code left out", Q.tasksIn(journal).map(t => [t.mark, t.text, t.section]),
+    [[" ", "Ship the fix", "Today's Tasks"], ["x", "Done already [completion:: 2026-10-26]", "Today's Tasks"], [" ", " Two spaces after the box", "Today's Tasks"],
+      [" ", "A numbered task", "Today's Tasks"], ["-", "Cancelled", "Today's Tasks"], [" ", "Under notes", "Notes"]]);
+  const standup = "---\ntype: standup\ndeviation_hours: 2\nrelated-projects:\n  - \"[[Odoo - Context]]\"\n---\n## 3. Work Expected To Be Done Tomorrow\n\n1. **Finish** the alarms.\n\t1. a detail\n2. Count the stickers\n- A bullet too\n\n---\n\n## 4. User Stories\n1. Not the plan\n";
+  check("hq: the plan is the top-level items under its heading", Q.itemsUnder(standup, /Work Expected/i).map(i => i.text), ["**Finish** the alarms.", "Count the stickers", "A bullet too"]);
+  check("hq: a scope's summary line, else its What paragraph", [Q.scopeSummary("# S\n\n**Summary:** Adds **webhooks** for [[AWS|alarms]].\n"),
+    Q.scopeSummary("---\nstatus: x\n---\n# S\n\n## What is it\n\nFirst line\nsecond line.\n\nLater paragraph.\n"), Q.scopeSummary("# S\n\nNo summary.\n")], ["Adds webhooks for alarms.", "First line second line.", ""]);
+  check("hq: an estimate as written, not from a table row", [Q.scopeEstimate("- Estimate: 3–5 days of work"), Q.scopeEstimate("## Time estimate\n\nProvisional allowance: **4–8 engineering days**"),
+    Q.scopeEstimate("| A | Estimate |\n| x | 2 days |"), Q.scopeEstimate("A 30 day range takes 2 s")], ["3–5 days", "4–8 days", "", ""]);
+  check("hq: Done stamps the day once; cancel doesn't", [Q.taskLine("- [ ]  Two spaces", "x", day), Q.taskLine("- [ ] Had it [completion:: 2026-10-01]", "x", day), Q.taskLine("1. [ ] N", "-", day)],
+    ["- [x]  Two spaces [completion:: 2026-10-26]", "- [x] Had it [completion:: 2026-10-01]", "1. [-] N"]);
+  check("hq: a task field is added once", [Q.taskField("- [ ] T", "delegate", "claude"), Q.taskField("- [ ] T [delegate:: claude]", "delegate", "other")], ["- [ ] T [delegate:: claude]", "- [ ] T [delegate:: claude]"]);
+  // a small vault's HQ notes, and the items they make
+  const files = [
+    { path: J(day), text: journal }, { path: J("2026-10-20"), text: "- [ ] Old open task\n- [x] Old done task\n- [ ] Delegated [delegate:: claude]\n" }, { path: J("2026-09-01"), text: "- [ ] Too old\n" },
+    { path: S("2026-10-23"), text: standup }, { path: S(day), text: "## Work Expected Tomorrow\n1. Tomorrow's, not today's\n" },
+    { path: "P/Scope of Work — X_Waiting.md", text: "---\ntype: scope-of-work\nstatus: proposed\nupdated: 2026-10-20\n---\n# Scope of Work — Waiting One\n\n**Summary:** Waits.\n" },
+    { path: "P/Scope of Work — X_Fresh.md", text: "---\ntype: scope-of-work\nstatus: proposed\nupdated: 2026-10-25\n---\n# Fresh One\n" },
+    { path: "P/Scope of Work — X_Live.md", text: "---\ntype: scope-of-work\nstatus: in-progress\nupdated: 2026-10-24\n---\n# Live One\n\n- Estimate: 2 days\n" },
+    { path: H.backlog, text: "- [ ] Decide the archive\n- [x] Done one\n" },
+    { path: `${R.folders.reports}/Gaps & Bridges 2026-10-20.md`, text: "- [ ] old\n" }, { path: `${R.folders.reports}/Gaps & Bridges 2026-10-25.md`, text: "- [ ] a\n- [ ] b\n- [x] c\n" },
+    { path: `${R.folders.reports}/Gardener Report 2026-10-24.md`, text: "# Gardener\n" },
+    { path: "Inbox/For Review/Draft A.md", text: "---\ntype: review-draft\nstatus: waiting\ntask: Write the email\n---\n# Draft A\n" },
+    { path: "Inbox/For Review/Draft B.md", text: "---\ntype: review-draft\nstatus: accepted\n---\n# Draft B\n" },
+    { path: "W/Live Decision.md", text: "---\ntype: decision\ndate: 2026-10-25\nstatus: active\nproject: \"[[Scope of Work — X_Live]]\"\n---\n# Live Decision\n" },
+    { path: "Sys/runs/pc.json", json: { backup: { last_run: "2026-10-26T02:00:00", ok: false, summary: "disk full" }, watch: { last_run: "2026-10-25T09:00:00", ok: true } } },
+    { path: "Sys/runs/laptop.json", json: { backup: { last_run: "2026-10-25T02:00:00", ok: true } } },
+    { path: "Sys/Run Log 2026-10.md", text: "# Run Log\n\n- 2026-10-26 · PC · Vault · Did a thing · here\n" },
+    { path: J("2026-10-24"), text: "Worked on X_Live today.\n" },
+  ];
+  const hq = Q.hqGather(files.filter(f => f.json || Q.hqKind(f.path, Q.frontOf(f.text), day)), { today: day });
+  check("hq: what it gathers", [hq.journals.length, hq.standups.length, hq.scopes.length, hq.backlog.length, hq.reports.map(r => [r.name, r.open]), hq.reviews.length, hq.decisions.length, hq.runlog.length],
+    [3, 2, 3, 1, [["Gaps & Bridges 2026-10-25", 2], ["Gardener Report 2026-10-24", 0]], 2, 1, 1]);
+  check("hq: the newest run of a job across devices", hq.runs.backup.ok, false);
+  const now = new Date("2026-10-26T10:00:00");
+  const L = Q.todayList({ nodes: [], links: [], hq }, { today: day, now }), kinds = L.map(i => i.kind);
+  check("hq: every kind of item", ["task", "plan", "carried", "approval", "review", "job", "backlog", "report"].filter(k => !kinds.includes(k)), []);
+  check("hq: an approval waiting past its days comes first, then today's journal, then the plan", L.slice(0, 5).map(i => [i.kind, i.title]),
+    [["approval", "Waiting One"], ["task", "Ship the fix"], ["task", "Two spaces after the box"], ["task", "A numbered task"], ["task", "Under notes"]]);
+  check("hq: the plan is the last standup before today's", L.filter(i => i.kind === "plan").map(i => i.title), ["Finish the alarms.", "Count the stickers", "A bullet too"]);
+  check("hq: carried over from the window only, newest first", L.filter(i => i.kind === "carried").map(i => [i.title, i.delegated]), [["Old open task", ""], ["Delegated", "claude"]]);
+  check("hq: a failed or late job needs you; a never-run one doesn't", L.filter(i => i.kind === "job").map(i => i.name), ["backup", "watch"]);
+  check("hq: reports only with rows to tick", L.filter(i => i.kind === "report").map(i => i.title), ["Gaps & Bridges 2026-10-25: 2 rows to tick"]);
+  check("hq: groups filter the one list", [Q.todayList({ nodes: [], links: [], hq }, { today: day, now, groups: ["needs"] }).every(i => i.group === "needs"),
+    Q.todayList({ nodes: [], links: [], hq }, { today: day, now, groups: ["upkeep"] }).length], [true, 0]);
+  const task = L.find(i => i.kind === "task"), plan = L.find(i => i.kind === "plan");
+  check("hq: a task item carries what the write needs", [task.path, task.line, task.text], [J(day), 7, "Ship the fix"]);
+  const carried = L.find(i => i.kind === "carried"), marks = { [task.key]: `later:${day}`, [carried.key]: "later:2026-10-25", [plan.key]: `done:${day}` };
+  const has = it => Q.todayList({ nodes: [], links: [], hq }, { today: day, now, review: { hq: marks } }).some(i => i.key === it.key);
+  check("hq: Later lasts the day; Done takes a plan item off", [has(task), has(carried), has(plan)], [false, true, false]);
+  const g = Q.graph({ nodes: [], links: [], hq }, { review: { hq: marks } });
+  check("hq: an item is done once the notes no longer hold it, or it's marked done", [Q.questDone({ ...task, key: "task|gone|x" }, g), Q.questDone(task, g), Q.questDone(plan, g)], [true, false, true]);
+  // the marks live in the shared file: a mark from the other device is kept, one taken back here stays gone
+  const m1 = Q.mergeShared({ review: { hq: { a: "later:x" } } }, { review: { hq: {} } }, { review: { hq: { a: "later:x", b: "done:y" } } });
+  check("hq: marks merge across devices", m1.review.hq, { b: "done:y" });
+  const jobs = Q.hqJobs(hq, now);
+  check("hq: job states", jobs.map(j => [j.name, j.state]), [["backup", "failed"], ["watch", "late"], ["garden", "ok"], ["new-job", "never"]]);
+  check("hq: a work-hours job isn't late at night", Q.hqJobs(hq, new Date("2026-10-26T23:00:00")).find(j => j.name === "watch").state, "ok");
+  const P = Q.hqProjects({ hq });
+  check("hq: projects with status group, estimate, days named and decisions", P.map(p => [p.title, p.group, p.estimate, p.days, p.decisions.map(d => d.title)]),
+    [["Fresh One", "waiting", "", [], []], ["Live One", "active", "2 days", ["2026-10-24"], ["Live Decision"]], ["Waiting One", "waiting", "", [], []]]);   // newest first
+  const A = new Function("VGRules", `${fs.readFileSync(path.join(S_DIR, "actions.js"), "utf8")}; return VGActions;`)(Q);
+  check("hq: every kind has an action", Object.keys(Q.TODAY_GROUP).filter(k => !A.TODAY[k]), []);
+  const api = { setTaskStatus: 1, setTaskField: 1, setNoteStatus: 1, hqMark: 1, openNote: 1 }, more = it => A.todayMore(it, { api }).map(m => m.key);
+  check("hq: the other buttons each item offers", [more(task), more(L.find(i => i.kind === "review")), more(L.find(i => i.kind === "approval")), more(L.find(i => i.kind === "carried" && i.delegated))],
+    [["later", "delegate", "open"], ["later", "reject", "open"], ["later"], ["later", "open"]]);
+}
+
 // ---- 3. no private copies of shared rules in the surfaces
 const banned = [
   [/RECORD_TAG\s*=/, "record rule (use VGRules.isRecord / isStale)"],
@@ -123,7 +211,7 @@ const banned = [
   [/opts\.stampReviewed\(/,"reviewed stamp (use VGActions.run(\"current\", ...): one confirm, Undo and announcement)"],
   [/(?<!isRecord\(n\) && n\.)\bage\s*(<=|>)\s*(Q\.)?stale_days/, "stale rule (use VGRules.isStale: records are never stale)"],
 ];
-for (const f of ["view.js", "plugin.js"]) {
+for (const f of ["view.js", "plugin.js", "hq.js"]) {
   const src = srcOf(f);
   for (const [re, what] of banned) if (re.test(src)) fails.push(`${f} has its own ${what}`);
 }
@@ -183,9 +271,11 @@ for (const f of ["view.js", "plugin.js"]) {
     check("search: the chunk with both words beats the one with only the corrected word", hits[0] && hits[0].path, "a/Both.md");
     check("search: the corrected word alone counts as one word of two", score("b/One.md") < score("a/Both.md") / 2, true);
   }
-  // the plugin's task lines are the ones Obsidian counts as tasks: bullets and numbered items (Complete and Cancel act on them)
+  // the plugin's task lines are the ones Obsidian counts as tasks: bullets and numbered items (Complete and Cancel act
+  // on them). One rule (VGRules.TASK_LINE), which the plugin and HQ's reading of notes share.
   {
-    const src = fs.readFileSync(path.join(S, "plugin.js"), "utf8"), TL = new Function(`return ${src.match(/const TASK_LINE = (\/.*?\/);/)[1]}`)();
+    const TL = VGRules.TASK_LINE;
+    check("task lines: the plugin uses the shared rule", /const \{ TASK_LINE \} = VGRules;/.test(fs.readFileSync(path.join(S, "plugin.js"), "utf8")), true);
     check("task lines: -, *, +, 1. and 2) count; plain text doesn't", ["- [ ] a", "  * [ ] b", "+ [x] c", "1. [ ] d", "12) [ ] e", "[ ] f", "1. plain"].map(l => TL.test(l)), [true, true, true, true, true, false, false]);
   }
   // Add reference offers holders: any note the graph treats as a map (a system's map has a plain name), or a hub or index

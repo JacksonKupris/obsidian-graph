@@ -13,6 +13,7 @@ for (const [f, text] of Object.entries(build.buildPlugin(env.rules))) fs.writeFi
 const steps = [["main.js", ["--check", path.join(dir, "main.js")]], ["rules.js", [path.join(dir, "rules.js")]],
   ["test_rules.js", [path.join(__dirname, "test_rules.js"), ...env.args]], ["test_cdp.js", [path.join(__dirname, "test_cdp.js")]], ["test_plugin_rules.js", [path.join(__dirname, "test_plugin_rules.js")]], ["test_engine.js", [path.join(__dirname, "test_engine.js")]], ["test_engine_data.js", [path.join(__dirname, "test_engine_data.js")]],
   ["test_pick.js", [path.join(__dirname, "test_pick.js"), ...env.args]], ["test_today.js", [path.join(__dirname, "test_today.js"), ...env.args]],
+  ["test_hq_plugin.js", [path.join(__dirname, "test_hq_plugin.js"), ...env.args]], ["test_hq.js", [path.join(__dirname, "test_hq.js"), ...env.args]],
   ["smoke_page.js", [path.join(__dirname, "smoke_page.js"), ...env.args]]];
 let failed = 0;
 // the repo's manifest.json (what BRAT reads) is the one the build makes: same id, same version as package.json

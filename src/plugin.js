@@ -9,6 +9,9 @@ const HOME_TYPE = "vault-graph-home";   // for home-screen hosts such as Hearth'
 // home cards that always show one map: Hearth cards pick a view type, not a state, so each gets its own type
 const FIXED_HOME = { radar: "Radar", clock: "Heat clock", foodweb: "Food web", weather: "Weather", city: "City" };
 const fixedType = v => `vault-graph-${v}`;
+const HQ_TYPE = "vault-graph-hq";   // Vault HQ: the vault's home screen (src/hq.js)
+// every view that draws the one live state: each redraws when it changes (publish) and when the rules change
+const STATE_VIEWS = () => [VIEW_TYPE, LOCAL_TYPE, HOME_TYPE, ...Object.keys(FIXED_HOME).map(fixedType), HQ_TYPE];
 const HOME_FAVOURITES = ["foodweb", "clock", "weather", "sky"];   // what ‹ › cycles in the home card: the maps that read well small
 const MARKER = "%% vault-graph:generated";   // regenerated notes keep everything above this line
 const DEFAULTS = {
@@ -262,6 +265,65 @@ class VaultGraphHomeView extends ItemView {
 }
 
 
+// Obsidian's dialogs for the shared actions: a confirm (resolves true/false) and a line of text (resolves it, or null
+// when cancelled). Each answers before closing: close() runs onClose straight away, and a promise keeps its first
+// answer, so closing first turned every OK into a Cancel.
+function confirmModal(app, title, text, ok) {
+  return new Promise(resolve => {
+    const { Modal } = require("obsidian"), m = new Modal(app);
+    m.titleEl.setText(title); m.contentEl.createEl("p", { text });
+    const row = m.contentEl.createDiv({ cls: "modal-button-container" });
+    row.createEl("button", { text: "Cancel" }).onclick = () => { resolve(false); m.close(); };
+    const b = row.createEl("button", { text: ok || "Do it", cls: "mod-cta" }); b.onclick = () => { resolve(true); m.close(); };
+    m.onClose = () => resolve(false); m.open();
+  });
+}
+function inputModal(app, title, text, placeholder) {
+  return new Promise(resolve => {
+    const { Modal } = require("obsidian"), m = new Modal(app);
+    m.titleEl.setText(title); m.contentEl.createEl("p", { text });
+    const input = m.contentEl.createEl("input", { type: "text", attr: { placeholder: placeholder || "" } }); input.style.width = "100%";
+    const row = m.contentEl.createDiv({ cls: "modal-button-container" }), ok = () => { resolve(input.value.trim()); m.close(); };
+    row.createEl("button", { text: "Cancel" }).onclick = () => { resolve(null); m.close(); };
+    row.createEl("button", { text: "OK", cls: "mod-cta" }).onclick = ok;
+    input.addEventListener("keydown", e => { if (e.key === "Enter") ok(); });
+    m.onClose = () => resolve(null); m.open(); setTimeout(() => input.focus(), 0);
+  });
+}
+
+// Vault HQ: the vault's home screen (src/hq.js) over the one live state and the shared file's marks. It mounts once
+// and updates in place after each change, keeping its screen and scroll.
+class VaultHQView extends ItemView {
+  constructor(leaf, plugin) { super(leaf); this.plugin = plugin; this.handle = null; }
+  getViewType() { return HQ_TYPE; }
+  getDisplayText() { return "Vault HQ"; }
+  getIcon() { return "layout-dashboard"; }
+  async onOpen() { await this.render(); }
+  onload() { watchMobileNavbar(this); }
+  async onClose() { this.renderToken = (this.renderToken || 0) + 1; if (this.handle) { this.handle.destroy(); this.handle = null; } }
+  refreshLive() { return this.render(); }
+  renderSoon() { clearTimeout(this.t); this.t = setTimeout(() => this.render(), 150); }
+  async render() {
+    const token = this.renderToken = (this.renderToken || 0) + 1;   // only the newest overlapping render draws
+    const data = await this.plugin.graphData(), sh = await this.plugin.loadShared();
+    if (token !== this.renderToken) return;
+    const state = { review: (sh && sh.review) || {}, hidden: ((sh && sh.cosmos) || {}).hidden || [] };
+    const d = data || { nodes: [], links: [], hq: await this.plugin.hqData() };
+    if (this.handle) { this.handle.update(d, state); return; }
+    const el = this.contentEl; el.empty(); el.addClass("vg-hq-host");
+    const api = this.plugin.viewActions(this), open = api.openNote;
+    api.openNote = notePath => open(notePath, true);   // a note opens in its own tab: HQ stays where it is
+    this.handle = mountVaultHQ(el.createDiv({ cls: "vg-hq-root" }), d, {
+      api, state, mobile: Platform.isMobile, screen: this.plugin.settings.hqScreen,
+      onScreen: s => { this.plugin.settings.hqScreen = s; this.plugin.saveSettings(); },
+      ask: (title, text, ok) => confirmModal(this.app, title, text, ok),
+      input: (title, text, placeholder) => inputModal(this.app, title, text, placeholder),
+      onDone: msg => this.plugin.recordAction(msg),
+      openGraph: () => this.plugin.open(),
+    });
+  }
+}
+
 // Suggestions sidebar: the one next step for the note you're writing, plus today's quests. Built with
 // Obsidian's DOM helpers (no innerHTML). Actions ask first and count toward XP/quests in the graph.
 const SUGGEST_TYPE = "vault-graph-suggest";
@@ -279,18 +341,7 @@ class VaultGraphSuggestView extends ItemView {
     this.render();
   }
   renderSoon() { clearTimeout(this.t); this.t = setTimeout(() => this.render(), 150); }
-  async confirm(title, text, ok) {
-    return new Promise(resolve => {
-      const { Modal } = require("obsidian"), m = new Modal(this.app);
-      m.titleEl.setText(title); m.contentEl.createEl("p", { text });
-      const row = m.contentEl.createDiv({ cls: "modal-button-container" });
-      // answer before closing: close() runs onClose straight away, and a promise keeps its first answer,
-      // so closing first turned every OK into a Cancel (the sidebar's Link silently did nothing)
-      row.createEl("button", { text: "Cancel" }).onclick = () => { resolve(false); m.close(); };
-      const b = row.createEl("button", { text: ok || "Do it", cls: "mod-cta" }); b.onclick = () => { resolve(true); m.close(); };
-      m.onClose = () => resolve(false); m.open();
-    });
-  }
+  confirm(title, text, ok) { return confirmModal(this.app, title, text, ok); }
   async act(label, fn, logText) {
     try { await fn(); if (logText) await this.plugin.recordAction(logText); this.render(); }   // the action published the new state
     catch (e) { new Notice(`${label} didn't work: ${e.message || e}`); }
@@ -319,6 +370,7 @@ class VaultGraphSuggestView extends ItemView {
     return {
       api, data,
       ask: (title, text, ok) => this.confirm(title, text, ok),
+      input: (title, text, placeholder) => inputModal(this.app, title, text, placeholder),
       pick: (placeholder, filter) => this.pickNote(placeholder, f => !filter || filter(f.path)).then(f => (f ? f.path : null)),
       done: (msg, undo) => { undoNotice(msg, undo); this.plugin.recordAction(msg); },
       fail: msg => new Notice(msg),
@@ -438,7 +490,9 @@ class VaultGraphSuggestView extends ItemView {
       const acts = c.createDiv({ cls: "vg-s-acts" }), actions = [];
       if (VGActions.todayWhen(it, ctx)) actions.push([VGActions.todayLabel(it), async () => { if (await VGActions.runToday(it, ctx) && pick) await this.plugin.markQuestDone(it.key); }]);
       if (it.kind === "link") actions.push(["Not related", () => this.act("Dismiss", () => this.plugin.dismiss(it.a, it.b, "gap"), `Dismissed ${it.names[0]} ↔ ${it.names[1]}`)]);
-      if (tn) actions.push(openNote(noteId));
+      // an HQ item (a task, a draft...): the same Later, Reject, Delegate and Open as in Vault HQ
+      VGActions.todayMore(it, ctx).filter(m => !(m.key === "open" && VGActions.todayLabel(it) === "Open")).forEach(m => actions.push([m.label, () => VGActions.runMore(m, it, ctx)]));
+      if (tn && !VGRules.TODAY_GROUP[it.kind]) actions.push(openNote(noteId));
       if (tn && tn.tasks > 0) actions.push(taskAll(noteId, "x"), taskAll(noteId, "-"));   // the item's note has open tasks
       actions.forEach(([label, fn], i) => { const btn = acts.createEl("button", { text: label, cls: i === 0 ? "mod-cta" : "" }); btn.onclick = () => fn(); });
     };
@@ -455,7 +509,7 @@ class VaultGraphSuggestView extends ItemView {
 const { today, localDay } = VGRules;   // the shared date rules (this device's calendar day)
 // Every plugin method that writes to the vault. onload wraps each so it announces the change when done (every open
 // surface redraws); viewActions hands the same methods to every graph surface. A new write action goes in this list.
-const WRITE_ACTIONS = ["linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
+const WRITE_ACTIONS = ["linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "setTaskField", "setNoteStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
   "addReference", "tickMocRow", "saveBinary", "stateSnapshots", "undo"];
 // The only methods that touch the vault for a write action. Each notes what it's about to change in the open undo
 // entry, so every action can be undone from the message that confirms it. tests/test_rules.js fails on a vault write
@@ -465,8 +519,9 @@ const UNDO_KEEP = 20;   // actions that can still be undone (this session)
 // The plugin's own state files (game/shared state, content log), written outside WRITE_ACTIONS: their file watcher
 // redraws the sidebar. tests/test_rules.js fails if a vault write appears anywhere else.
 const STATE_WRITERS = ["saveContentSoon", "writeShared", "recordLedger", "writeLiveDiag", "setRule"];
-// "- [ ] text" -> [prefix "- [", mark, "] ", text]; the mark is " " open, "x" done, "-" cancelled
-const TASK_LINE = /^(\s*(?:[-*+]|\d+[.)]) \[)(.)(\] )(.*)$/;   // - [ ] x, and numbered: 1. [ ] x (Obsidian counts both)
+// "- [ ] text" -> [prefix "- [", mark, "] ", text]; the mark is " " open, "x" done, "-" cancelled (VGRules.TASK_LINE:
+// numbered tasks too, as Obsidian counts them; VGRules.taskLine writes a new mark and stamps the day on a done one)
+const { TASK_LINE } = VGRules;
 const NOTE_STATUS = { x: "status/done", "-": "status/cancelled" };
 // An action's result as a notice; with an Undo button (and longer on screen) when the action can be undone
 function undoNotice(msg, undo) {
@@ -505,6 +560,16 @@ module.exports = class VaultGraphPlugin extends Plugin {
     this.addCommand({ id: "self-test", name: "Run self-test (every view and lens, in the background; writes a report to the reports folder)", callback: () => this.selfTest(false) });
     this.addCommand({ id: "state-snapshots", name: "Add map snapshots to the latest State of the vault note", callback: () => this.stateSnapshots() });
     this.registerView(SUGGEST_TYPE, leaf => new VaultGraphSuggestView(leaf, this));
+    this.registerView(HQ_TYPE, leaf => new VaultHQView(leaf, this));
+    this.addCommand({ id: "open-hq", name: "Open Vault HQ", callback: () => this.openHQ() });
+    this.addRibbonIcon("layout-dashboard", "Open Vault HQ", () => this.openHQ());
+    // a note HQ reads changed (a task ticked in the journal, a draft's status set by hand): HQ and the sidebar redraw.
+    // The live signature can't see these (no file or link count changes).
+    this.registerEvent(this.app.metadataCache.on("changed", file => {
+      if (!VGRules.hqKind(file.path, (this.app.metadataCache.getFileCache(file) || {}).frontmatter, today())) return;
+      this.cacheStale = true; clearTimeout(this.hqTimer);
+      this.hqTimer = setTimeout(() => [HQ_TYPE, SUGGEST_TYPE].flatMap(t => this.app.workspace.getLeavesOfType(t)).forEach(l => (l.view.renderSoon || l.view.render).call(l.view)), 800);
+    }));
     this.addCommand({ id: "open-suggestions", name: "Open suggestions sidebar", callback: () => this.openSuggestions() });
     this.app.workspace.onLayoutReady(() => { if (!this.settings.suggestShown) { this.settings.suggestShown = true; this.saveSettings(); this.openSuggestions(); } });
     this.registerHoverLinkSource(VIEW_TYPE, { display: "Vault Graph", defaultMod: true });   // Ctrl+hover = preview
@@ -694,7 +759,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     this.cacheStale = true;
     const data = await this.graphData();
     this.lastLiveSig = this.liveSignature();
-    await Promise.all([VIEW_TYPE, LOCAL_TYPE, HOME_TYPE, ...Object.keys(FIXED_HOME).map(fixedType)]
+    await Promise.all(STATE_VIEWS()
       .flatMap(t => this.app.workspace.getLeavesOfType(t)).map(l => l.view.refreshLive && l.view.refreshLive(true)));
     (this.embeds || new Set()).forEach(e => e.refresh(data));
     this.app.workspace.getLeavesOfType(SUGGEST_TYPE).forEach(l => l.view.renderSoon && l.view.renderSoon());
@@ -723,6 +788,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       const data = structuredClone(this.base);
       try { liveMerge(this.app, data, this.dataMtime()); } catch (e) { console.error("Vault Graph: live merge failed", e); }
       data.scenes = await this.sceneBlocks();
+      try { data.hq = await this.hqData(); } catch (e) { console.error("Vault Graph: HQ notes not read", e); data.hq = null; }
       this.version = (this.version || 0) + 1;
       if (data.live && data.live.indexNotReady) this.mergeWhenIndexed();
       this.writeLiveDiag(data);
@@ -1058,6 +1124,9 @@ module.exports = class VaultGraphPlugin extends Plugin {
       toggleTask: (notePath, line, text) => this.setTaskStatus(notePath, line, text, "x"),
       setTaskStatus: (notePath, line, text, status) => this.setTaskStatus(notePath, line, text, status),
       setNoteTasks: (notePath, status) => this.setNoteTasks(notePath, status),
+      setTaskField: (notePath, line, text, key, value) => this.setTaskField(notePath, line, text, key, value),
+      setNoteStatus: (notePath, status, reason) => this.setNoteStatus(notePath, status, reason),
+      hqMark: (key, mark) => this.hqMark(key, mark),
       stampReviewed: notePath => this.stampReviewed(notePath),
       dismissPair: async (a, b, kind) => { await this.dismiss(a, b, kind); new Notice("Won't suggest that pair again"); },
       linkText: (id, fromPath) => this.linkText(id, fromPath),
@@ -1156,10 +1225,29 @@ module.exports = class VaultGraphPlugin extends Plugin {
     let done = false;
     await this.ioProcess(file, data => {
       const nl = data.includes("\r\n") ? "\r\n" : "\n", lines = data.split(/\r?\n/), m = lines[line] !== undefined && lines[line].match(TASK_LINE);
-      if (m && m[4] === text) { lines[line] = m[1] + status + m[3] + m[4]; done = true; }
+      if (m && m[4] === text) { lines[line] = VGRules.taskLine(lines[line], status); done = true; }
       return lines.join(nl);
     });
     if (!done) { new Notice("That task changed since — open the note to update it"); throw new Error("stale"); }
+  }
+  // An inline field on one task ([delegate:: claude]: Delegate in HQ), only if the line is still the one we showed
+  async setTaskField(notePath, line, text, key, value) {
+    const file = this.fileAt(notePath);
+    if (!file) throw new Error("missing note");
+    let done = false;
+    await this.ioProcess(file, data => {
+      const nl = data.includes("\r\n") ? "\r\n" : "\n", lines = data.split(/\r?\n/), m = lines[line] !== undefined && lines[line].match(TASK_LINE);
+      if (m && m[4] === text) { lines[line] = VGRules.taskField(lines[line], key, value); done = true; }
+      return lines.join(nl);
+    });
+    if (!done) { new Notice("That task changed since — open the note to update it"); throw new Error("stale"); }
+  }
+  // A note's status in its frontmatter (Accept or Reject a draft in HQ); a reason goes at the end as "**Why <status>:** ..."
+  async setNoteStatus(notePath, status, reason) {
+    const file = this.fileAt(notePath);
+    if (!file) throw new Error("missing note");
+    await this.ioFrontMatter(file, fm => { fm.status = status; });
+    if (reason) await this.ioProcess(file, text => { const nl = text.includes("\r\n") ? "\r\n" : "\n"; return text.replace(/\s*$/, "") + nl + nl + `**Why ${status}:** ${reason}` + nl; });
   }
   toggleTask(notePath, line, text) { return this.setTaskStatus(notePath, line, text, "x"); }
 
@@ -1171,7 +1259,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     let n = 0;
     await this.ioProcess(file, data => {
       const nl = data.includes("\r\n") ? "\r\n" : "\n";
-      return data.split(/\r?\n/).map(l => { const m = l.match(TASK_LINE); if (!m || m[2] !== " ") return l; n++; return m[1] + status + m[3] + m[4]; }).join(nl);
+      return data.split(/\r?\n/).map(l => { const m = l.match(TASK_LINE); if (!m || m[2] !== " ") return l; n++; return VGRules.taskLine(l, status); }).join(nl);
     });
     const tag = NOTE_STATUS[status];
     if (tag && n) await this.ioFrontMatter(file, fm => {   // only a note whose tasks did change is marked done or cancelled
@@ -1401,7 +1489,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   async rulesChanged() {
     await this.loadRules();
     this.base = null; this.cache = null;
-    [VIEW_TYPE, LOCAL_TYPE, HOME_TYPE, ...Object.keys(FIXED_HOME).map(fixedType)].flatMap(t => this.app.workspace.getLeavesOfType(t)).forEach(l => l.view.render && l.view.render());
+    STATE_VIEWS().flatMap(t => this.app.workspace.getLeavesOfType(t)).forEach(l => l.view.render && l.view.render());
     this.app.workspace.getLeavesOfType(SUGGEST_TYPE).forEach(l => l.view.renderSoon && l.view.renderSoon());
   }
   dataMtime() { const f = this.app.vault.getAbstractFileByPath(normalizePath(this.settings.dataPath)); return f instanceof TFile ? f.stat.mtime : 0; }
@@ -1460,6 +1548,49 @@ module.exports = class VaultGraphPlugin extends Plugin {
   async sharedChanged(file) {
     if (file.path !== normalizePath(this.settings.sharedPath)) { await this.loadDismissed(); this.cacheStale = true; }
     this.app.workspace.getLeavesOfType(SUGGEST_TYPE).forEach(l => l.view.renderSoon && l.view.renderSoon());
+    this.app.workspace.getLeavesOfType(HQ_TYPE).forEach(l => l.view.render && l.view.render());   // Later / Done marks
+  }
+  // HQ's marks on an item, in the shared file: "later" (gone for today), "done" (a plan item, which has no checkbox),
+  // or null to take one back (Undo). Marks from earlier days are dropped: Later lasts the day, and a plan item's
+  // standup is older than the carry-over window by then.
+  async hqMark(key, mark) {
+    const day = today(), keep = (VGRules.HQ.carry_days || 30) * 864e5;
+    await this.updateShared(sh => {
+      sh.review = sh.review || {};
+      const m = sh.review.hq = { ...(sh.review.hq || {}) };
+      if (mark) m[key] = `${mark}:${day}`; else delete m[key];
+      Object.keys(m).forEach(k => { const [how, d] = String(m[k]).split(":");
+        if ((how === "later" && d !== day) || Date.parse(day) - Date.parse(d) > keep) delete m[k]; });
+      return sh;
+    });
+    STATE_VIEWS().concat(SUGGEST_TYPE).flatMap(t => this.app.workspace.getLeavesOfType(t)).forEach(l => (l.view.renderSoon || l.view.render || (() => {})).call(l.view));
+  }
+  // data.hq: the notes HQ reads (VGRules.hqKind: journals and standups in the carry-over window, scopes of work, the
+  // backlog, reports, drafts, decisions, the run log) and each device's run records, through VGRules.hqGather. A note
+  // is read again only when it changed; which notes count comes from Obsidian's frontmatter, so nothing else is read.
+  async hqData() {
+    const H = VGRules.HQ;
+    if (!H || !H.journal) return null;
+    const day = today(), cache = this.hqTexts = this.hqTexts || new Map(), files = [];
+    for (const f of this.app.vault.getMarkdownFiles()) {
+      const fm = (this.app.metadataCache.getFileCache(f) || {}).frontmatter;
+      if (EXCLUDE_PREFIXES.some(x => f.path.startsWith(x)) || !VGRules.hqKind(f.path, fm, day)) { cache.delete(f.path); continue; }
+      let c = cache.get(f.path);
+      if (!c || c.mtime !== f.stat.mtime) cache.set(f.path, c = { mtime: f.stat.mtime, text: await this.app.vault.cachedRead(f) });
+      files.push({ path: f.path, text: c.text, fm: fm || {} });
+    }
+    const io = this.app.vault.adapter, dir = H.automation_status && normalizePath(H.automation_status);
+    try {
+      if (dir && await io.exists(dir)) for (const p of (await io.list(dir)).files.filter(x => x.endsWith(".json")))
+        try { files.push({ path: p, json: JSON.parse(await io.read(p)) }); } catch (e) { /* a record being written */ }
+    } catch (e) { /* no run records on this device */ }
+    return VGRules.hqGather(files, { today: day });
+  }
+  async openHQ() {
+    let leaf = this.app.workspace.getLeavesOfType(HQ_TYPE)[0];
+    if (!leaf) { leaf = this.app.workspace.getLeaf("tab"); await leaf.setViewState({ type: HQ_TYPE, active: true }); }
+    this.app.workspace.revealLeaf(leaf);
+    return leaf;
   }
   // A quest finished from the sidebar, or found already done ("Already in…"): mark it in the shared game file so
   // the sidebar and the graph agree. An open graph view checks its own quests (and writes this file itself).

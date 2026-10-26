@@ -60,7 +60,32 @@ function notes() {
   return { VGRules, list };
 }
 
+// data.hq for the vault under test, read the way the plugin reads it: the notes VGRules.hqKind picks, and each
+// device's run records, through VGRules.hqGather
+function hqData(today) {
+  const VGRules = new Function(`${build.rulesSource(rules)}; return VGRules;`)(), H = rules.hq || {};
+  const dir = module.exports.dir(), files = [], day = today || VGRules.today();
+  const skip = new Set([".obsidian", ".trash", ".git", ".cache", ".smart-env", "node_modules"]);
+  const walk = d => fs.readdirSync(d, { withFileTypes: true }).forEach(e => {
+    const p = path.join(d, e.name), rel = path.relative(dir, p).replace(/\\/g, "/");
+    if (e.isDirectory()) { if (!skip.has(e.name)) walk(p); return; }
+    if (H.automation_status && rel.startsWith(H.automation_status + "/") && e.name.endsWith(".json")) { try { files.push({ path: rel, json: JSON.parse(fs.readFileSync(p, "utf8")) }); } catch (err) { /* half-written */ } return; }
+    if (!e.name.endsWith(".md")) return;
+    const text = fs.readFileSync(p, "utf8");
+    if (VGRules.hqKind(rel, VGRules.frontOf(text), day)) files.push({ path: rel, text });
+  });
+  walk(dir);
+  return VGRules.hqGather(files, { today: day });
+}
+// the HQ page on the vault under test (graph data + its HQ notes), with extra mount options
+function hqPage(extra, o = {}) {
+  const d = { ...data(), hq: o.hq !== undefined ? o.hq : hqData(o.today) };
+  if (o.data) Object.assign(d, o.data);
+  const p = build.buildHQPage(d, rules);
+  return extra ? p.replace(build.HQ_OPTS, () => extra) : p;
+}
+
 // arguments to pass on to another test, so it runs on the same vault
 const args = VAULT ? ["--vault", VAULT] : [];
 
-module.exports = { ROOT, VAULT, RULES_FILE, rules, data, page, pageWith, inlineJson, out, notes, dir, args };
+module.exports = { ROOT, VAULT, RULES_FILE, rules, data, page, pageWith, hqData, hqPage, inlineJson, out, notes, dir, args };

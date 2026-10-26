@@ -38,10 +38,11 @@
   }
   // ---- Today: the one list of next steps (VGRules.todayList; it replaced the review queue, the daily quests and the
   // missions). Today's three are its first three, kept for the day (the XP layer ticks them off); "Next up" is the
-  // rest. The Insights card and the game panel draw the same rows; every button is VGActions.runToday.
+  // rest. The Insights card and the game panel draw the same rows; every button is VGActions.runToday. The graph shows
+  // the list's vault upkeep (VGRules.todayGroup); Vault HQ and the sidebar show the work items too.
   let review = { skipped: {} };
   const todayData = () => ({ ...DATA, links, mocs, wanted: ghosts.filter(g => !g.created).map(g => ({ id: g.id, name: g.name, refs: g.from, creatable: g.creatable })) });
-  const todayItems = () => VGRules.todayList(todayData(), { review, hidden: cos.hidden, today: today(), skipDays: UI.time.skipDays });
+  const todayItems = () => VGRules.todayList(todayData(), { review, hidden: cos.hidden, today: today(), skipDays: UI.time.skipDays, groups: ["upkeep"] });
   function pinReview(id) { review.pinned = [...new Set([...(review.pinned || []), id])]; persistSoon(); renderTodayList(); toast(`${byId[id].name} added to Today`, "ok"); }
   function todayRow(it, pick) {
     const done = !!(pick && pick.done), can = !done && VGActions.todayWhen(it, actionCtx());
