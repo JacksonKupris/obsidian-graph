@@ -56,10 +56,6 @@ TOP_SEMANTIC = 20
 # are reported as possible duplicates (for judgment, per the CLAUDE.md dedupe rule)
 DUPLICATE_SIMILARITY = 0.93
 WIKI_TOP = "Start Here/"
-# Rejected by Jackson -- never suggest again (sorted path pairs)
-NOT_DUPLICATES = {
-    ("03-Resources/Technical-Docs/CVR JSON Documentation.md", "03-Resources/Technical-Docs/CVR WI API Documentation.md"),  # 2026-10-18
-}
 SERIES_RE = re.compile(r"[\d\s_\-–—()]+")  # dated series: "Release Notes 2026-04" vs "-06"
 
 RECENT_DAYS = 30
@@ -499,7 +495,7 @@ def similar_unlinked(vectors: dict, adj: dict[str, Counter], quiet: set = frozen
     pairs = []
     for p in paths:
         for s, q in top[p]:
-            if (p < q and p not in quiet and q not in quiet and any(q2 == p for _, q2 in top[q]) and not _linked(p, q, adj) and (p, q) not in NOT_DUPLICATES
+            if (p < q and p not in quiet and q not in quiet and any(q2 == p for _, q2 in top[q]) and not _linked(p, q, adj)
                     and SERIES_RE.sub("", _name(p).lower()) != SERIES_RE.sub("", _name(q).lower())
                     and not (_series_key(p) and _series_key(p) == _series_key(q))):   # one dated series: alike by design
                 pairs.append([p, q, round(s, 3)])
@@ -853,13 +849,12 @@ def _readable_names(clusters: list[list[str]], keywords: list[str], core: list[l
 
 # A topic's stack: the technology (else project) tag most of its notes carry and few other topics do. Its name leads
 # the topic's name ("Odoo · Inventory Stock", "AWS SES · Bounce Handling"), so topics read by the system they're about.
-STACK_SKIP = set("api backend frontend automation programming refactor upgrade stack server storage memory hardware database "
-                 "kiosk stack excalidraw clickup git github".split())
-STACK_WORDS = {"aws": "AWS", "ses": "SES", "ec2": "EC2", "rds": "RDS", "s3": "S3", "iam": "IAM", "sns": "SNS", "sql": "SQL", "ssl": "SSL",
-               "ssh": "SSH", "vpn": "VPN", "voip": "VoIP", "ci-cd": "CI/CD", "rti": "RTI", "cvr": "CVR", "odoo": "Odoo", "nextjs": "Next.js",
-               "mysql": "MySQL", "postgres": "Postgres", "github-actions": "GitHub Actions", "us-cellular": "US Cellular", "t-mobile": "T-Mobile",
-               "google-maps": "Google Maps", "cloudwatch": "CloudWatch", "cloudtrail": "CloudTrail", "javascript": "JavaScript", "rti-console": "RTI Console"}
-STACK_PLATFORMS = {"project/odoo", "project/cvr", "project/resgrid"}   # project tags that name a platform, not a piece of work
+# The rules file's "stack" block: skip (tag words too broad to name a topic), words (spelling in a name: "aws" ->
+# "AWS"), platforms (project tags that name a platform, not a piece of work). The plugin's engine reads the same block.
+_STACK = rules.RULES.get("stack", {})
+STACK_SKIP = set(_STACK.get("skip", []))
+STACK_WORDS = dict(_STACK.get("words", {}))
+STACK_PLATFORMS = set(_STACK.get("platforms", []))
 STACK_MIN_SHARE = {"technology/": 0.2, "project/": 0.3}   # technology tags are sparser, and name a stack better
 
 
@@ -936,7 +931,6 @@ def _dismissed() -> set:
             pairs = []
         pairs += ledger_dismissed()
         _DISMISSED_CACHE = {frozenset((_name(p["a"]).lower(), _name(p["b"]).lower())) for p in pairs if p.get("a") and p.get("b")}
-        _DISMISSED_CACHE |= {frozenset((_name(a).lower(), _name(b).lower())) for a, b in NOT_DUPLICATES}
     return _DISMISSED_CACHE
 
 

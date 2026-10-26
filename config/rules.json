@@ -45,6 +45,13 @@
   "dated_name": "\\d{4}-\\d{2}-\\d{2}",
   "hub_name": "(hub|index|moc|people|dashboard|kanban)$|^(01-daily|home|readme)$",
   "private_name": "\\bprivate\\b|do not share|\\bsecrets?\\b",
+  "stack": {
+    "_about": "A topic's name leads with its stack: the technology (else project) tag most of its notes carry. skip: tag words too broad to name a topic. words: how a tag word is spelled in a name. platforms: project tags that name a platform, not a piece of work. Add your own systems here.",
+    "skip": ["api", "backend", "frontend", "automation", "programming", "refactor", "upgrade", "stack", "server", "storage", "memory", "hardware", "database", "excalidraw", "git", "github"],
+    "words": {"aws": "AWS", "ses": "SES", "ec2": "EC2", "rds": "RDS", "s3": "S3", "iam": "IAM", "sns": "SNS", "sql": "SQL", "ssl": "SSL", "ssh": "SSH", "vpn": "VPN", "voip": "VoIP", "ci-cd": "CI/CD",
+      "nextjs": "Next.js", "mysql": "MySQL", "postgres": "Postgres", "github-actions": "GitHub Actions", "t-mobile": "T-Mobile", "google-maps": "Google Maps", "cloudwatch": "CloudWatch", "cloudtrail": "CloudTrail", "javascript": "JavaScript"},
+    "platforms": []
+  },
   "not_map_name": "\\btasks?\\b|\\bepic\\b|release notes|\\barchive\\b",
   "not_map_tops": [
     "05-Archive",

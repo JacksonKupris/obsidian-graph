@@ -1199,7 +1199,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const raw = {};   // every topic note's text: topic keywords and word counts
     for (const r of T.knowledge) { const f = this.app.vault.getAbstractFileByPath(r); if (f instanceof TFile) raw[r] = await this.app.vault.cachedRead(f); }
     const tags = Object.fromEntries(notes.map(n => [n.path, n.tags]));
-    const ids = VGEngine.stableIds(topics, prev || {}), kw = VGEngine.topicWords(topics, raw), labels = topics.map(m => VGEngine.label(m, T.graph, tags)), st = VGEngine.stacks(topics, tags);
+    const ids = VGEngine.stableIds(topics, prev || {}), kw = VGEngine.topicWords(topics, raw), labels = topics.map(m => VGEngine.label(m, T.graph, tags)), st = VGEngine.stacks(topics, tags, VGRules.RULES.stack);
     const names = VGEngine.readableNames(topics, kw, labels.map(l => l.core)).map((n, i) => VGEngine.withStack(n, st[i]));
     return { topics: topics.map((m, i) => ({ id: ids[i], size: m.length, name: names[i], stack: st[i], keywords: kw[i], ...labels[i], members: m })),
       bc: VGEngine.betweenness(T.graph), knowledge: T.knowledge.length, vectors: vectors.size, notes: T.knowledge, graph: T.graph, raw, tags, files };

@@ -232,6 +232,12 @@ for (const f of ["view.js", "plugin.js"]) {
     const scenes = fs.readdirSync(path.join(S, "scenes")).map(f => [f, fs.readFileSync(path.join(S, "scenes", f), "utf8")]);
     [["view.js", view], ["plugin.js", plugin], ["actions.js", fs.readFileSync(path.join(S, "actions.js"), "utf8")], ...scenes].forEach(([f, t]) =>
       t.split(/\r?\n/).forEach((l, i) => { const code = l.replace(/\/\/.*$/, ""); if (/["'`/(](00-Inbox|01-Daily|04-People|05-Archive|_scripts|_System|_templates|03-Resources)\b/.test(code) || /\$\{[^}]*\}\s*in 00-Inbox/.test(code)) fails.push(`${f}:${i + 1} names a vault folder (use VGRules.folders)`); }));
+    // one vault's own systems (its stack words, platform tags) live in the rules file's "stack", not in the engine or
+    // the analysis: a quoted system name in their code (comments aside) fails
+    const SYSTEM_WORD = /["'](?:project\/)?(rti|cvr|odoo|resgrid|clickup|rti-console|us-cellular)["']/i;
+    [["engine.js", fs.readFileSync(path.join(S, "engine.js"), "utf8"), /\/\/.*$/],
+     ...fs.readdirSync(path.join(S, "..", "analysis")).filter(f => f.endsWith(".py")).map(f => [f, fs.readFileSync(path.join(S, "..", "analysis", f), "utf8"), /#.*$/])].forEach(([f, t, comment]) =>
+      t.split(/\r?\n/).forEach((l, i) => { if (SYSTEM_WORD.test(l.replace(comment, ""))) fails.push(`${f}:${i + 1} names one vault's system (put it in the rules file's "stack")`); }));
     // the content log's paths come from the rules file's "files": the backup outside the plugin folder is what
     // survives a plugin reinstall (2026-10-22), so no part names its own path
     check("the plugin can read the content log's paths", VGRules.files, R.files);   // the plugin failed to load without them (2026-10-22)

@@ -29,6 +29,8 @@ That's all it needs. The plugin reads your notes through Obsidian's own index, w
 
 Settings → Vault Graph → **This vault** shows the folders it uses (inbox, daily notes, people, archive, reports) and how many days until a note counts as stale, with where each value comes from: your Obsidian settings (the Daily notes folder, the folder new notes go in), the defaults, or the vault's rules file. Change one there and it's saved to the rules file.
 
+Topic names lead with the system they're about ("AWS SES · Bounce Handling"), taken from the `technology/` or `project/` tag most of a topic's notes share. To name your own systems well, add them to the rules file's `stack` block: `words` for how a tag is spelled in a name (`"odoo": "Odoo"`), `platforms` for project tags that name a platform, and `skip` for tags too broad to name a topic.
+
 ## Optional extras
 
 - **Smart Connections**: if that plugin has indexed your vault, Vault Graph uses its note similarity too, for topics and for "these two notes mean the same thing" suggestions.

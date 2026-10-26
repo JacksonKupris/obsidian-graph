@@ -442,15 +442,14 @@ const VGEngine = (() => {
     return names;
   }
   // a topic's stack: the technology (else project) tag most of its notes carry and few other topics do
-  const STACK_SKIP = new Set("api backend frontend automation programming refactor upgrade stack server storage memory hardware database kiosk stack excalidraw clickup git github".split(" "));
-  const STACK_WORDS = { aws: "AWS", ses: "SES", ec2: "EC2", rds: "RDS", s3: "S3", iam: "IAM", sns: "SNS", sql: "SQL", ssl: "SSL", ssh: "SSH", vpn: "VPN", voip: "VoIP", "ci-cd": "CI/CD",
-    rti: "RTI", cvr: "CVR", odoo: "Odoo", nextjs: "Next.js", mysql: "MySQL", postgres: "Postgres", "github-actions": "GitHub Actions", "us-cellular": "US Cellular", "t-mobile": "T-Mobile",
-    "google-maps": "Google Maps", cloudwatch: "CloudWatch", cloudtrail: "CloudTrail", javascript: "JavaScript", "rti-console": "RTI Console" };
-  const STACK_PLATFORMS = new Set(["project/odoo", "project/cvr", "project/resgrid"]), STACK_MIN_SHARE = { "technology/": 0.2, "project/": 0.3 };
-  const stackName = tag => { const parts = tag.split("/").slice(1);
-    if (parts[0] === "aws" && parts.length > 1) return "AWS " + (STACK_WORDS[parts[1]] || parts[1].toUpperCase());
-    const w = parts[parts.length - 1]; return STACK_WORDS[w] || w.split("-").map(x => STACK_WORDS[x] || capitalize(x)).join(" "); };
-  function stacks(clusters, tags) {
+  // s: the rules file's "stack" block (VGRules.RULES.stack): skip (tag words too broad to name a topic), words (how a
+  // tag word is spelled in a name: "aws" -> "AWS"), platforms (project tags that name a platform, not a piece of work)
+  const STACK_MIN_SHARE = { "technology/": 0.2, "project/": 0.3 };   // technology tags are sparser, and name a stack better
+  const stackName = (tag, words) => { const parts = tag.split("/").slice(1);
+    if (parts[0] === "aws" && parts.length > 1) return "AWS " + (words[parts[1]] || parts[1].toUpperCase());
+    const w = parts[parts.length - 1]; return words[w] || w.split("-").map(x => words[x] || capitalize(x)).join(" "); };
+  function stacks(clusters, tags, s = {}) {
+    const STACK_SKIP = new Set(s.skip || []), STACK_PLATFORMS = new Set(s.platforms || []), words = s.words || {};
     const kind = t => (t.startsWith("technology/") || STACK_PLATFORMS.has(t) ? "technology/" : "project/");
     const share = clusters.map(m => { const c = new Map();
       for (const r of m) for (const t of tags[r] || []) if ((t.startsWith("technology/") || t.startsWith("project/")) && !STACK_SKIP.has(t.split("/").pop())) bump(c, t);
@@ -459,7 +458,7 @@ const VGEngine = (() => {
     return share.map(sh => {
       const best = [...sh].filter(([t, v]) => v >= STACK_MIN_SHARE[kind(t)] && (kind(t) === "technology/" || df.get(t) <= 3))
         .map(([t, v]) => [v + (kind(t) === "technology/" ? 0.25 : 0) + 0.1 * (t.split("/").length - 2), t]).sort((a, b) => b[0] - a[0] || pyCmp(b[1], a[1]));
-      return best.length ? stackName(best[0][1]) : "";
+      return best.length ? stackName(best[0][1], words) : "";
     });
   }
   const withStack = (name, stack) => (!stack || stack.split(" ").some(w => cpLen(w) > 2 && name.toLowerCase().includes(w.toLowerCase())) ? name : `${stack} · ${name}`);
