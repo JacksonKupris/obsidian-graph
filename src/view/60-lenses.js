@@ -370,7 +370,9 @@
       svg += `<path class="vg-rg-arc" data-fold="${esc(f)}" fill="${col(i)}" d="M${pt(b0, R).join(",")}A${R},${R} 0 ${large},1 ${pt(b1, R).join(",")}L${pt(b1, R2).join(",")}A${R2},${R2} 0 ${large},0 ${pt(b0, R2).join(",")}Z"><title>${esc(f)}: ${plural(count[f], "note")}, ${out[i]} links out, ${inside[i]} inside</title></path>`;
       if (b1 - b0 > 0.08) svg += `<text x="${lx}" y="${ly}" text-anchor="${Math.sin(mid) > 0.2 ? "start" : Math.sin(mid) < -0.2 ? "end" : "middle"}" dominant-baseline="middle">${esc(ringLabel(f))}</text>`;
     });
-    const insular = folders.map((f, i) => ({ f, i, n: count[f], ratio: out[i] / Math.max(1, out[i] + inside[i]) })).filter(x => x.n >= 6).sort((a, b) => a.ratio - b.ratio).slice(0, 6);
+    // folders of 6+ notes; in a small vault (none that big), every folder on the ring
+    const rows = folders.map((f, i) => ({ f, i, n: count[f], ratio: out[i] / Math.max(1, out[i] + inside[i]) })), big = rows.filter(x => x.n >= 6);
+    const insular = (big.length ? big : rows).sort((a, b) => a.ratio - b.ratio).slice(0, 6);
     return `<svg class="vg-rg" viewBox="-60 -10 520 420" role="img" aria-label="Folder ring">${svg}</svg><div class="vg-rg-detail"></div>
       <p class="vg-muted vg-lens-note">Arcs are folders (two levels deep, the ${F} biggest), sized by links to other folders; chords are those links. Click a chord for the notes behind it, or an arc to light up that folder in the graph.</p>
       <div class="vg-list-h">Most inward-looking folders</div>${insular.map(x => `<div class="vg-fd-row"><button class="vg-fd-name vg-linkish" data-fold="${esc(x.f)}">${esc(x.f)}</button>

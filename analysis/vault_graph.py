@@ -754,7 +754,7 @@ def graph_data(a: dict) -> dict:
         "vault": vg.vl.VAULT.name, "date": a["date"], "since": a["since"], "recent_days": vg.RECENT_DAYS,
         "has_usage": has_usage,
         "dailies_used": a["dailies_used"],
-        "said_unlinked": [[r, n] for r, n in a["said_unlinked"] if r in paths],
+        "said_unlinked": [x for x in a["said_unlinked"] if x[0] in paths],
         "wanted": wanted, "series": series, "rhythm": rhythm(g),
         "nodes": nodes, "links": links,
         "mocs": gm["mocs"],

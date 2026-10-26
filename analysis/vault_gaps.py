@@ -192,6 +192,7 @@ def load_vault(since: str | None):
     recent_since = (date.today() - timedelta(days=RECENT_DAYS)).isoformat()
     recent: Counter = Counter()             # note -> daily mentions in the last RECENT_DAYS
     said_unlinked: Counter = Counter()      # note -> dailies naming it in text without linking it
+    said_days: dict = defaultdict(list)     # note -> those dailies (where "Link mentions" links it)
     pair_days: dict = defaultdict(list)     # (a, b) -> [(day, daily path)], the evidence behind a co-mention
     mention_days: dict = defaultdict(list)  # note -> [day, ...] it was linked or named in a daily (timeline view)
     for day, r, resolved in sorted(dailies):
@@ -210,6 +211,8 @@ def load_vault(since: str | None):
             continue
         used += 1
         said_unlinked.update(said - (resolved & knowledge))
+        for n in said - (resolved & knowledge):
+            said_days[n].append(r)
         mentions.update(here)
         for n in here:
             mention_days[n].append(day)
@@ -229,7 +232,7 @@ def load_vault(since: str | None):
         person_comention.update((p, n) for p in people_here for n in here)
     return (knowledge, hubs, tags, adj, comention, mentions, hub_degree,
             person_links, person_comention, used, recent, said_unlinked, raw,
-            {"pair_days": pair_days, "term_notes": term_notes, "mention_days": mention_days})
+            {"pair_days": pair_days, "term_notes": term_notes, "mention_days": mention_days, "said_days": said_days})
 
 
 def _make_resolver(by_name: dict[str, list[str]]):
@@ -1080,7 +1083,9 @@ def analyze(since: str | None) -> dict:
         "wiki_twins": wiki_twins,
         "person_topics": person_topics,
         "neglected": [[r, mentions[r]] for r in neglected],
-        "said_unlinked": [[r, n] for r, n in sorted(said_unlinked.items(), key=lambda kv: (-kv[1], kv[0])) if n >= 3][:TOP_COMENTIONS],
+        # [note, dailies, [those dailies]]: a mention counts on the day it's new, not on each day a task row carries it
+        "said_unlinked": [[r, n, ev_ctx["said_days"][r]] for r, n in sorted(said_unlinked.items(), key=lambda kv: (-kv[1], kv[0]))
+                          if n >= 3][:TOP_COMENTIONS],
         "evidence": _evidence([(x, y) for x, y, _ in unlinked] + [(x, y) for gp in gaps[:TOP_GAPS] for x, y, _ in gp["suggest"]],
                               ev_ctx, raw),
         # full structures for _scripts/vault_graph.py (not printed)
@@ -1194,7 +1199,7 @@ def report_md(a: dict) -> str:
         lines += ["", "## Mentioned in dailies, never linked there",
                   "_Daily notes that name a topic in plain text (title, context name or alias) without linking it — "
                   "the topic's note never hears about that work. Linking the first mention in a standup fixes it._", ""]
-        lines += [f"- [[{_name(r)}]] — named in {n} daily notes without a link" for r, n in a["said_unlinked"][:12]]
+        lines += [f"- [[{_name(r)}]] — named in {n} daily notes without a link" for r, n, _ in a["said_unlinked"][:12]]
     if a["person_topics"]:
         lines += ["", "## People ↔ topics, unlinked",
                   "_Person and note named together in ≥3 daily notes, but neither links the other. "

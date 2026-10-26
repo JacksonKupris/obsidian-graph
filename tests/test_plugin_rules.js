@@ -58,6 +58,16 @@ function fakePlugin(files, { daily, newFolder, people = [] } = {}) {
     const dest = await p.renameMap("00-Inbox/Old Name Hub.md", 1), text = files.get(dest).text;
     check("rename map: the file has the topic's name", [dest, renamed], ["00-Inbox/Topic Now Hub.md", ["00-Inbox/Topic Now Hub.md"]]);
     check("rename map: heading, own text, and the list made again", [text.includes("# Topic Now Hub"), text.includes("My own note about this topic."), text.includes("- [[B]]")], [true, true, true]); }
+  // Link mentions: only the dailies the analysis counted, not each later standup carrying the same task row
+  { const D = VGRules.folders.daily, mk = (p, text) => Object.assign(new TFile(), { path: p, basename: p.split("/").pop().replace(/\.md$/, ""), extension: "md", text });
+    const note = mk("k/Kiosk Report.md", "# Kiosk Report"), days = [1, 2, 3].map(i => mk(`${D}/Daily Standup 2026-09-0${i}.md`, "| **Kiosk Report** | Awaiting Review |"));
+    const all = [note, ...days], at = p => all.find(f => f.path === p) || null;
+    const app = { vault: { getAbstractFileByPath: at, getMarkdownFiles: () => all, cachedRead: async f => f.text },
+      metadataCache: { resolvedLinks: {}, getFileCache: () => null, fileToLinktext: f => f.basename } };
+    const p = Object.assign(Object.create(Plugin.prototype), { app, settings: {} });
+    check("link mentions: every daily naming it, with no analysis", (await p.linkMentions(note.path, true)).length, 3);
+    p.base = { said_unlinked: [[note.path, 1, [days[0].path]]] };
+    check("link mentions: only the dailies the analysis counted", await p.linkMentions(note.path, true), [days[0].path]); }
   // a vault rules file wins over Obsidian's settings, key by key
   { const text = '{\n  "folders": {\n    "inbox": "00-Inbox",\n    "daily": "01-Daily",\n    "skip": ["_templates", "00-Inbox"]\n  },\n  "stale_days": 180,\n  "note":   "kept as written"\n}\n';
     const files = { [RULES]: text }, p = fakePlugin(files, { daily: "Journal", newFolder: "Inbox" });

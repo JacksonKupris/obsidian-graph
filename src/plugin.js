@@ -872,6 +872,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
 
   // "Named in daily notes but never linked": turn the first plain mention of the note in each daily note that names
   // it into a link. dryRun lists those daily notes without writing. Frontmatter, code, existing links and URLs are left alone.
+  // Only the dailies the analysis counted (said_unlinked's third field): the day a mention is new, not every later
+  // standup whose task table carries the same row, nor the rollups that copy it.
   async linkMentions(notePath, dryRun) {
     const f = this.app.vault.getAbstractFileByPath(normalizePath(notePath)); if (!(f instanceof TFile)) throw new Error("missing note");
     // every way the analysis counts a mention (title, "<Topic> - Context" topic, aliases): shared rule
@@ -879,6 +881,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
     if (!names.length) return [];   // a generic title with no aliases: prose never names it
     const pat = names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), re = new RegExp(`(^|[^\\w\\[|/#])(${pat})(?![\\w\\]])`, "i");
     const resolved = this.app.metadataCache.resolvedLinks || {}, out = [];
+    const counted = (((this.base || {}).said_unlinked || []).find(([id]) => id === f.path) || [])[2];
+    const asked = Array.isArray(counted) ? new Set(counted) : null;
     const plainAt = line => { const m = re.exec(line); if (!m) return null; const at = m.index + m[1].length, before = line.slice(0, at);
       if ((before.match(/\[\[/g) || []).length > (before.match(/\]\]/g) || []).length || (before.match(/`/g) || []).length % 2 || /https?:\/\/\S*$/.test(before)) return null;
       return { at, text: m[2] }; };
@@ -892,6 +896,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       return null; };
     for (const d of this.app.vault.getMarkdownFiles()) {
       if (!d.path.startsWith(VGRules.folders.daily + "/") || (resolved[d.path] || {})[f.path]) continue;   // already links it
+      if (asked && !asked.has(d.path)) continue;
       const text = await this.app.vault.cachedRead(d); if (!re.test(text) || linkFirst(text, d.path) == null) continue;
       if (!dryRun) await this.ioProcess(d, t => linkFirst(t, d.path) ?? t);
       out.push(d.path);
