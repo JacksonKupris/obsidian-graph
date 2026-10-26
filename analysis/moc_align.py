@@ -29,7 +29,7 @@ MARK = "%% vault-graph:generated — edit above this line; everything below is r
 # live view and this analysis agree. 00-Inbox is allowed: the plugin's "Create map" writes there.
 rules = vg.rules
 NOT_MOC_NAME = rules.NOT_MAP_NAME_RE   # task lists, epics, series indexes
-NO_NEW_MOC_TOP = {"Start Here"}   # do-not-touch structure
+NO_NEW_MOC_TOP = rules.NOT_MAP_TOPS   # top folders where no map goes (the rules file's not_map_tops)
 NAV_SPREAD = 0.35         # big hubs whose biggest cluster holds < 35% of their members are navigation, not topic maps
 NAV_MIN = 60
 OVERLAP = 0.5             # MOCs sharing half of the smaller one's members overlap
@@ -135,11 +135,12 @@ def link(r: str) -> str:
 
 
 def suggest_moc_path(ms: list[str], cluster_name: str, taken: set) -> tuple[str, str]:
-    """Folder = where most of the cluster lives (never Start Here). Name = that folder when it's a real topic
-    folder holding most of the cluster, "Project Contexts" for the context-note blob, else the cluster's words."""
+    """Folder = where most of the cluster lives (never a not_map_tops folder; the inbox when none is left). Name = that
+    folder when it's a real topic folder holding most of the cluster, "Project Contexts" for the context-note blob,
+    else the cluster's words."""
     usable = [m for m in ms if "/" in m and m.split("/")[0] not in NO_NEW_MOC_TOP]
     folders = Counter(m.rsplit("/", 1)[0] for m in usable)
-    folder, n = folders.most_common(1)[0] if folders else ("03-Resources", 0)
+    folder, n = folders.most_common(1)[0] if folders else (rules.FOLDERS["inbox"], 0)
     leaf = re.sub(r"^\d+[-_ ]*", "", folder.split("/")[-1]).replace("-", " ").strip()
     if sum(1 for m in ms if m.endswith(" - Context.md")) >= 5:
         name = "Project Contexts"

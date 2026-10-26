@@ -55,7 +55,6 @@ TOP_SEMANTIC = 20
 # Same-name copies scored 0.93-0.999 with bge-micro-v2; above this, different-name pairs
 # are reported as possible duplicates (for judgment, per the CLAUDE.md dedupe rule)
 DUPLICATE_SIMILARITY = 0.93
-WIKI_TOP = "Start Here/"
 SERIES_RE = re.compile(r"[\d\s_\-–—()]+")  # dated series: "Release Notes 2026-04" vs "-06"
 
 RECENT_DAYS = 30
@@ -499,14 +498,9 @@ def similar_unlinked(vectors: dict, adj: dict[str, Counter], quiet: set = frozen
                     and SERIES_RE.sub("", _name(p).lower()) != SERIES_RE.sub("", _name(q).lower())
                     and not (_series_key(p) and _series_key(p) == _series_key(q))):   # one dated series: alike by design
                 pairs.append([p, q, round(s, 3)])
-    # Start Here/ pages were written as reworded copies of resource notes (26 of 75 had a
-    # >=0.93 twin on 2026-10-18, none linked) -- a structural pattern, reported on its own
-    wiki = lambda x: x[0].startswith(WIKI_TOP) != x[1].startswith(WIKI_TOP)
-    twins = _by_name((x for x in pairs if wiki(x)), 40)
-    rest = [x for x in pairs if not wiki(x)]
-    dupes = _by_name((x for x in rest if x[2] >= DUPLICATE_SIMILARITY), TOP_SEMANTIC)
-    related = _by_name((x for x in rest if x[2] < DUPLICATE_SIMILARITY and not (x[0] in codey and x[1] in codey)), TOP_SEMANTIC)   # two code dumps alike
-    return dupes, related, twins
+    dupes = _by_name((x for x in pairs if x[2] >= DUPLICATE_SIMILARITY), TOP_SEMANTIC)
+    related = _by_name((x for x in pairs if x[2] < DUPLICATE_SIMILARITY and not (x[0] in codey and x[1] in codey)), TOP_SEMANTIC)   # two code dumps alike
+    return dupes, related
 
 
 # ---------------------------------------------------------------- topic cohesion
@@ -1047,7 +1041,7 @@ def analyze(since: str | None) -> dict:
     codey = {r for r in knowledge if _mostly_code(raw.get(r, ""))}        # not "similar in meaning" by format alone
     unlinked = _by_name(((a, b, n) for (a, b), n in comention.items()
                          if not _linked(a, b, adj) and significant(a, b, n) and a not in quiet and b not in quiet), TOP_COMENTIONS, assoc)
-    near_dupes, semantic, wiki_twins = similar_unlinked(vectors, adj, quiet, codey) if vectors else ([], [], [])
+    near_dupes, semantic = similar_unlinked(vectors, adj, quiet, codey) if vectors else ([], [])
     # copies by their text first (linked or not), then the pairs only embeddings find
     twins = text_twins(knowledge, raw, quiet)
     seen_pairs = {frozenset(x[:2]) for x in twins}
@@ -1074,7 +1068,6 @@ def analyze(since: str | None) -> dict:
         "embedded_notes": len(vectors),
         "similar_unlinked": semantic,
         "near_duplicates": near_dupes,
-        "wiki_twins": wiki_twins,
         "person_topics": person_topics,
         "neglected": [[r, mentions[r]] for r in neglected],
         # [note, dailies, [those dailies]]: a mention counts on the day it's new, not on each day a task row carries it
@@ -1182,11 +1175,6 @@ def report_md(a: dict) -> str:
                       "The duplicate scan only compares same-name files, so these are new. "
                       "Judgment only — never merged automatically._", ""]
             lines += [f"- [ ] `{x[0]}` ↔ `{x[1]}` — {'same text, ' if x[3:] == ['text'] else ''}{x[2]}" for x in a["near_duplicates"]]
-        if a["wiki_twins"]:
-            lines += ["", "## Start Here wiki ↔ source twins",
-                      "_A `Start Here` page and a note elsewhere that say nearly the same thing, with no link "
-                      "between them. Decide per pair: link wiki → source, or pick one canonical copy._", ""]
-            lines += [f"- [ ] `{x}` ↔ `{y}` — {s}" for x, y, s in a["wiki_twins"]]
     else:
         lines.append("- Smart Connections index not found (`.smart-env/`); section skipped.")
     if a["said_unlinked"]:
