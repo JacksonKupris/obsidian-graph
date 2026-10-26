@@ -42,8 +42,10 @@ const ANALYSE_AFTER_IDLE = 30;
 function watchMobileNavbar(view) {
   if (!Platform.isMobile) return;
   const update = () => {
-    const nav = document.querySelector(".mobile-navbar");
-    const overlap = nav && nav.getClientRects().length ? Math.max(0, view.contentEl.getBoundingClientRect().bottom - nav.getBoundingClientRect().top) : 0;
+    const nav = document.querySelector(".mobile-navbar"), r = nav && nav.getClientRects().length ? nav.getBoundingClientRect() : null;
+    // never more than the bar is tall: pulling the pane down for Obsidian's actions moves it below the bar for a
+    // moment, which measured as a huge overlap and left the dock stuck halfway up the screen
+    const overlap = r ? Math.min(r.height, Math.max(0, view.contentEl.getBoundingClientRect().bottom - r.top)) : 0;
     // on the pane, not the graph's root: a remount (live refresh, re-render) makes a new root, which inherits it.
     // Set on the root, it was lost until the next resize and the bottom controls sat under Obsidian's bar.
     view.contentEl.style.setProperty("--vg-bottom", Math.round(overlap + (overlap ? 8 : 0)) + "px");
@@ -51,6 +53,9 @@ function watchMobileNavbar(view) {
   const ro = new ResizeObserver(update);
   ro.observe(view.contentEl);
   view.register(() => ro.disconnect());
+  // measured again once a swipe settles (the pull-down gesture moves the pane without resizing it)
+  const settle = () => { setTimeout(update, 50); setTimeout(update, 450); };
+  ["touchend", "touchcancel"].forEach(ev => view.registerDomEvent(document, ev, settle, { passive: true }));
   setTimeout(update, 300); setTimeout(update, 1500);
 }
 
