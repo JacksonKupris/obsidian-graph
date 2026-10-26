@@ -129,7 +129,9 @@ const VGActions = (() => {
     const mark = c.api.lastUndo ? c.api.lastUndo() : 0;
     try {
       const msg = await a.run(n, c, e);
-      if (msg) { const id = c.api.lastUndo ? c.api.lastUndo() : 0; c.done(msg, id && id !== mark && c.api.undo ? () => undo(id, msg, c) : null); }
+      // the Undo puts back what the plugin recorded for it, and runs the action's own undo (a mark in the shared file)
+      if (msg) { const id = c.api.lastUndo ? c.api.lastUndo() : 0, rec = id && id !== mark && c.api.undo ? id : 0;
+        c.done(msg, rec || a.undo ? () => undo(rec, msg, c, a.undo && (() => a.undo(n, c))) : null); }
       return msg !== null;
     }
     catch (err) { c.fail(`${a.label(n, c) || a.title(n, c)} didn't work: ${(err && err.message) || err}`); return false; }
@@ -160,10 +162,13 @@ const VGActions = (() => {
     adopt: { label: "Link to…", when: c => !!c.api.linkNotes && !!c.pick,
       run: (it, c, e) => BY_KEY.link.run({ id: it.id, name: it.name }, c, e) },
     // HQ items (VGRules.hqItems): work from the vault's own notes
-    task: { label: "Done", when: c => !!c.api.setTaskStatus, run: (it, c) => doneTask(it, c) },
-    carried: { label: "Done", when: c => !!c.api.setTaskStatus, run: (it, c) => doneTask(it, c) },
+    task: { label: "Done", when: c => !!c.api.setTaskStatus, run: (it, c) => doneWork(it, c) },
+    carried: { label: "Done", when: c => !!c.api.setTaskStatus, run: (it, c) => doneWork(it, c) },
     backlog: { label: "Done", when: c => !!c.api.setTaskStatus, run: (it, c) => doneTask(it, c) },
-    plan: { label: "Done", when: c => !!c.api.hqMark, run: async (it, c) => { await c.api.hqMark(it.key, "done"); return `Done: ${short(it.title)}`; } },
+    // a plan item has no checkbox: Done marks it in the shared file and adds it to today's standup
+    plan: { label: "Done", when: c => !!c.api.hqMark, undo: (it, c) => c.api.hqMark(it.key, null),
+      run: async (it, c) => { await c.api.hqMark(it.key, "done"); const logged = c.api.logWork ? await c.api.logWork(it.text) : false;
+        return `Done: ${short(it.title)}${logged ? ", added to today's standup" : ""}`; } },
     approval: { label: "Open", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },
     report: { label: "Open", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },
     job: { label: "Open", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },   // the automations note
@@ -173,15 +178,23 @@ const VGActions = (() => {
   };
   const short = t => (String(t).length > 60 ? String(t).slice(0, 59) + "…" : String(t));
   async function doneTask(it, c) { await c.api.setTaskStatus(it.path, it.line, it.text, "x"); return `Done: ${short(it.title)}`; }
+  // work done today: checked off in its journal and added to today's standup (one write, one Undo)
+  async function doneWork(it, c) {
+    if (!c.api.completeTask) return doneTask(it, c);
+    const logged = await c.api.completeTask(it.path, it.line, it.text);
+    return `Done: ${short(it.title)}${logged ? ", added to today's standup" : ""}`;
+  }
   const todayWhen = (it, c) => !!TODAY[it.kind] && TODAY[it.kind].when(c);
   const todayLabel = it => (TODAY[it.kind] || {}).label || "";
   function runToday(it, c, e) {
     const t = TODAY[it.kind]; if (!t || !t.when(c)) return Promise.resolve(false);
-    return run({ label: () => t.label, title: () => it.title, ask: t.ask && (() => t.ask(it)), run: (_, cc, ee) => t.run(it, cc, ee) }, it, c, e);
+    return run({ label: () => t.label, title: () => it.title, ask: t.ask && (() => t.ask(it)), run: (_, cc, ee) => t.run(it, cc, ee), undo: t.undo }, it, c, e);
   }
   // The other things an HQ item offers besides its main action, the same on every surface: Later (gone for today),
   // Reject a draft (with the reason), Delegate a task to an agent, Open its note. Each is one write through c.api.
   const TODAY_MORE = [
+    { key: "rows", label: "Review rows", title: "Tick or skip each row here", when: (it, c) => it.kind === "report" && !!c.showRows,
+      run: (it, c) => { c.showRows(it.path); return null; } },
     { key: "later", label: "Later", title: "Not today: it comes back tomorrow", when: (it, c) => !!VGRules.TODAY_GROUP[it.kind] && !!c.api.hqMark,
       run: async (it, c) => { await c.api.hqMark(it.key, "later"); return `Later: ${short(it.title)}`; },
       undo: (it, c) => c.api.hqMark(it.key, null) },
@@ -198,18 +211,30 @@ const VGActions = (() => {
       run: (it, c) => { c.api.openNote(it.path); return null; } },
   ];
   const todayMore = (it, c) => TODAY_MORE.filter(m => m.when(it, c));
+  // Several tasks at once (the carried-over sweep): done or cancelled in their own notes, one Undo for all. Done here
+  // is not today's work (it was finished some time ago), so nothing goes in the standup.
+  function runBatch(items, status, c, from) {
+    const rows = items.map(it => ({ path: it.path, line: it.line, text: it.text }));
+    return run({ label: () => (status === "x" ? "Done" : "Cancel"), title: () => from || "",
+      run: async () => { const n = await c.api.setTasksStatus(rows, status); return `${status === "x" ? "Done" : "Cancelled"}: ${plural(n, "task")}${from ? ` from ${from}` : ""}`; } }, null, c);
+  }
+  // One report row (VGRules.reportRows) ticked to apply ("x") or skipped ("-") in the report itself; the gardener applies
+  // the ticked rows and remembers the skipped ones
+  function runRow(row, mark, c) {
+    const words = short(VGRules.plainRow(row.text));
+    return run({ label: () => (mark === "x" ? "Tick" : "Skip"), title: () => words,
+      run: async () => { await c.api.setTaskStatus(row.path, row.line, row.text, mark); return `${mark === "x" ? "Ticked" : "Skipped"}: ${words}`; } }, row, c);
+  }
   // Run one of them: the same confirm, report and Undo as every action. Later has no note change to undo, so its Undo
   // takes the mark back.
   function runMore(m, it, c, e) {
     if (typeof m === "string") m = TODAY_MORE.find(x => x.key === m);
     if (!m) return Promise.resolve(false);
     const title = typeof m.title === "function" ? m.title(it) : m.title;
-    if (m.undo) return (async () => { try { const msg = await m.run(it, c, e); if (msg) c.done(msg, () => m.undo(it, c).then(() => c.done(`Undone: ${msg}`), err => c.fail(`Couldn't undo: ${(err && err.message) || err}`))); return msg !== null; }
-      catch (err) { c.fail(`${m.label} didn't work: ${(err && err.message) || err}`); return false; } })();
-    return run({ label: () => m.label, title: () => title, ask: m.ask && (() => m.ask(it)), run: (_, cc, ee) => m.run(it, cc, ee) }, it, c, e);
+    return run({ label: () => m.label, title: () => title, ask: m.ask && (() => m.ask(it)), run: (_, cc, ee) => m.run(it, cc, ee), undo: m.undo }, it, c, e);
   }
-  async function undo(id, msg, c) {
-    try { await c.api.undo(id); c.done(`Undone: ${msg}`); }
+  async function undo(id, msg, c, also) {
+    try { if (id) await c.api.undo(id); if (also) await also(); c.done(`Undone: ${msg}`); }
     catch (err) { c.fail(`Couldn't undo: ${(err && err.message) || err}`); }
   }
 
@@ -234,5 +259,5 @@ const VGActions = (() => {
     return box;
   }
 
-  return { ACTIONS, PROBLEMS, forNote, problems, run, render, archiveFolder, isArchived, nameOf, TODAY, todayWhen, todayLabel, runToday, TODAY_MORE, todayMore, runMore };
+  return { ACTIONS, PROBLEMS, forNote, problems, run, render, archiveFolder, isArchived, nameOf, TODAY, todayWhen, todayLabel, runToday, TODAY_MORE, todayMore, runMore, runBatch, runRow };
 })();

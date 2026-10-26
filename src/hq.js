@@ -11,8 +11,12 @@
 function mountVaultHQ(root, data, opts) {
   opts = opts || {};
   const SCREENS = [["home", "Home", "home"], ["today", "Today", "tasks"], ["needs", "Needs you", "inbox"], ["projects", "Projects", "folder"]];
+  // screens reached from another one (not in the dock): the carried-over sweep, and a report's rows; each has a way back
+  const SUB = { sweep: ["Sweep", "today"], rows: ["Report rows", "needs"] };
+  const known = s => SCREENS.some(x => x[0] === s) || !!SUB[s];
   const api = opts.api || {};
   let DATA = data || { nodes: [], links: [] }, STATE = opts.state || {}, cur = SCREENS.some(s => s[0] === opts.screen) ? opts.screen : "home";
+  let kept = new Set(), rowsPath = null;   // the sweep's Keep (this visit only); the report whose rows are open
   let gone = new Set(), feedAt = 0, filter = "active", drawer = null, carriedAll = false, clockTimer = null;
   const now = () => opts.now || new Date(), day = () => VGRules.localDay(now());
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -81,6 +85,7 @@ function mountVaultHQ(root, data, opts) {
     input: opts.input || ((t, x, ph) => dialog(t, x, "Reject", ph || "Reason")),
     done: (msg, undo) => { toast(msg, undo); if (opts.onDone) opts.onDone(msg); },
     fail: msg => toast(msg, null, true),
+    showRows: path => { rowsPath = path; setScreen("rows"); },
   });
   // an item's buttons: its main action, then Later / Reject / Delegate / Open
   function buttons(it, big) {
@@ -119,7 +124,7 @@ function mountVaultHQ(root, data, opts) {
   }
   function dock() {
     const needs = ofGroup("needs").length;
-    return `<nav class="vg-hq-dock" aria-label="Screens">${SCREENS.map(([k, label, ic]) => `<button class="vg-hq-dockbtn${cur === k ? " is-on" : ""}" data-go="${k}" aria-label="${label}" ${cur === k ? 'aria-current="page"' : ""} title="${label}">${icon(ic, 20)}${k === "needs" && needs ? `<span class="vg-hq-badge">${needs}</span>` : ""}</button>`).join("")}` +
+    return `<nav class="vg-hq-dock" aria-label="Screens">${SCREENS.map(([k, label, ic]) => `<button class="vg-hq-dockbtn${cur === k || (SUB[cur] && SUB[cur][1] === k) ? " is-on" : ""}" data-go="${k}" aria-label="${label}" ${cur === k ? 'aria-current="page"' : ""} title="${label}">${icon(ic, 20)}${k === "needs" && needs ? `<span class="vg-hq-badge">${needs}</span>` : ""}</button>`).join("")}` +
       (api.openDaily ? `<span class="vg-hq-sep"></span><button class="vg-hq-dockbtn" data-daily aria-label="Open today's journal" title="Open today's journal">${icon("journal", 20)}</button>` : "") + `</nav>`;
   }
   function row(it) {
@@ -187,7 +192,7 @@ function mountVaultHQ(root, data, opts) {
     const planFrom = plan.length ? `Plan from ${shortDate((plan[0].path.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || "")}` : "Plan";
     const shown = carriedAll ? carried : carried.slice(0, 8);
     const out = big + section("Today's journal", tasks.filter(t => t !== next)) + section(planFrom, plan.filter(t => t !== next)) +
-      section("Carried over", shown.filter(t => t !== next), carried.length > shown.length ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-carried>Show all ${carried.length}</button></div>` : "");
+      section("Carried over", shown.filter(t => t !== next), carried.length ? `<div class="vg-hq-row"><button class="vg-hq-btn" data-go="sweep">Sweep them, oldest first</button>${carried.length > shown.length ? `<button class="vg-hq-btn vg-hq-btn-ghost" data-carried>Show all ${carried.length}</button>` : ""}</div>` : "");
     return `<h1 class="vg-hq-h1">Today</h1><p class="vg-hq-lede">${esc(new Date(day() + "T12:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))} · ${plural(tasks.length + plan.length, "item")} planned · ${carried.length} carried over</p>` +
       (out || empty(hq() ? "No open tasks in today's journal, the plan or the last 30 days." : "No journal or standup notes found for HQ.", nextSteps()));
   }
@@ -229,16 +234,61 @@ function mountVaultHQ(root, data, opts) {
       <div class="vg-hq-row">${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-primary" data-open="${esc(p.path)}">Open the scope</button>` : ""}</div></aside>`;
   }
 
+  // ---- Sweep: the carried-over tasks a day at a time, oldest first: Done (finished some time ago, so it doesn't go in
+  // today's standup), Cancel, or Keep (stays open; gone from the sweep until you come back to it)
+  const SWEEP_OLD = 14;   // days: a day this old is marked
+  function sweepScreen() {
+    const items = ofKind("carried").filter(it => !kept.has(it.key)), days = [...new Set(items.map(it => it.date))].sort();
+    const head = `<button class="vg-hq-btn vg-hq-btn-ghost" data-go="today">${icon("left", 14)} Today</button><h1 class="vg-hq-h1">Sweep carried over</h1>`;
+    if (!items.length) return head + empty(kept.size ? `Swept. ${plural(kept.size, "task")} kept open.` : "No tasks carried over.", [["Today", 'data-go="today"'], ["Home", 'data-go="home"']]);
+    const group = d => { const its = items.filter(it => it.date === d), age = its[0].age;
+      return `<section class="vg-hq-sec vg-hq-sweep" data-day="${esc(d)}"><h3><span>${esc(new Date(d + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }))} · ${plural(its.length, "task")} · ${plural(age, "day")} ago${age >= SWEEP_OLD ? ' <em class="vg-hq-old">2+ weeks</em>' : ""}</span>
+        <span class="vg-hq-acts"><button class="vg-hq-btn vg-hq-btn-sm" data-batch="x" data-day="${esc(d)}">Done all</button><button class="vg-hq-btn vg-hq-btn-sm" data-batch="-" data-day="${esc(d)}">Cancel all</button><button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-batch="keep" data-day="${esc(d)}">Keep all</button></span></h3>` +
+        its.map(it => `<div class="vg-hq-item" data-key="${esc(it.key)}"><div class="vg-hq-txt"><b>${esc(it.title)}</b>${it.delegated ? `<small>delegated to ${esc(it.delegated)}</small>` : ""}</div><div class="vg-hq-acts">
+          <button class="vg-hq-btn vg-hq-btn-sm" data-one="x" data-key="${esc(it.key)}">Done</button><button class="vg-hq-btn vg-hq-btn-sm" data-one="-" data-key="${esc(it.key)}">Cancel</button>
+          <button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-one="keep" data-key="${esc(it.key)}">Keep</button>${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-open="${esc(it.path)}">Open</button>` : ""}</div></div>`).join("") + `</section>`; };
+    return head + `<p class="vg-hq-lede">${plural(items.length, "task")} from ${plural(days.length, "day")}, oldest first.</p>` + days.map(group).join("");
+  }
+  async function sweep(how, list, btn, from) {
+    if (!list.length) return;
+    if (how === "keep") { list.forEach(it => kept.add(it.key)); render(); return; }
+    if (btn) btn.disabled = true;
+    const ok = await VGActions.runBatch(list, how, ctx(), from);
+    if (ok) { list.forEach(it => gone.add(it.key)); render(); } else if (btn && btn.isConnected) btn.disabled = false;
+  }
+
+  // ---- Report rows: each row of the report to tick (apply) or skip, in the report itself
+  const rowKey = r => `${r.path}|${r.line}`;
+  function rowsScreen() {
+    const rep = ((hq() || {}).reports || []).find(r => r.path === rowsPath);
+    const head = `<button class="vg-hq-btn vg-hq-btn-ghost" data-go="needs">${icon("left", 14)} Needs you</button>`;
+    if (!rep) return head + empty("That report isn't there any more.", [["Needs you", 'data-go="needs"']]);
+    const rows = (rep.rows || []).map(r => ({ ...r, path: rep.path })).filter(r => !gone.has(rowKey(r)));
+    const sections = [...new Set(rows.map(r => r.section))];
+    return head + `<h1 class="vg-hq-h1">${esc(rep.name)}</h1><p class="vg-hq-lede">${rows.length ? `${plural(rows.length, "row")} to tick or skip. Ticked rows are applied by the gardener.` : "Every row is ticked or skipped."}</p>` +
+      (rows.length ? sections.map(sec => `<section class="vg-hq-sec"><h3>${esc(sec || rep.name)}<span>${rows.filter(r => r.section === sec).length}</span></h3>` + rows.filter(r => r.section === sec).map(r =>
+        `<div class="vg-hq-item"><div class="vg-hq-txt">${r.context ? `<small>${esc(VGRules.plainRow(r.context))}</small>` : ""}<b>${esc(VGRules.plainRow(r.text))}</b></div><div class="vg-hq-acts">
+          <button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-primary" data-row="x" data-rline="${r.line}">Tick</button><button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-row="-" data-rline="${r.line}">Skip</button></div></div>`).join("") + `</section>`).join("")
+        : empty("Every row is ticked or skipped.", [["Needs you", 'data-go="needs"'], ...(api.openNote ? [["Open the report", `data-open="${esc(rep.path)}"`]] : [])]));
+  }
+  async function tickRow(line, mark, btn) {
+    const rep = ((hq() || {}).reports || []).find(r => r.path === rowsPath), row = rep && (rep.rows || []).find(r => r.line === line);
+    if (!row) return;
+    if (btn) btn.disabled = true;
+    const r = { ...row, path: rep.path };
+    if (await VGActions.runRow(r, mark, ctx())) { gone.add(rowKey(r)); render(); } else if (btn && btn.isConnected) btn.disabled = false;
+  }
+
   // ---- the frame
   const el = document.createElement("div");
   el.className = "vg-hq" + (opts.mobile ? " is-mobile" : "");
   root.appendChild(el);
   function render() {
     compute();
-    const label = SCREENS.find(s => s[0] === cur)[1], t = now();
+    const label = SUB[cur] ? SUB[cur][0] : SCREENS.find(s => s[0] === cur)[1], t = now();
     const scroll = el.querySelector(".vg-hq-main") ? el.querySelector(".vg-hq-main").scrollTop : 0;
     el.innerHTML = `<header class="vg-hq-top"><span class="vg-hq-crumb"><b>Vault HQ</b> / ${esc(label)}</span><span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}</span></span></header>` +
-      strip() + `<main class="vg-hq-main">${cur === "home" ? home() : cur === "today" ? todayScreen() : cur === "needs" ? needsScreen() : projectsScreen()}</main>` + dock();
+      strip() + `<main class="vg-hq-main">${({ home, today: todayScreen, needs: needsScreen, projects: projectsScreen, sweep: sweepScreen, rows: rowsScreen })[cur]()}</main>` + dock();
     el.appendChild(toastEl);
     const main = el.querySelector(".vg-hq-main"); if (main) main.scrollTop = scroll;
     const track = el.querySelector(".vg-hq-feedtrack"); if (track) { track.scrollLeft = feedAt * track.clientWidth;
@@ -249,6 +299,9 @@ function mountVaultHQ(root, data, opts) {
     const b = e.target.closest("button, [data-closedrawer]"); if (!b || !el.contains(b) || b.disabled) return;
     const d = b.dataset;
     if (d.act) act(d.act, d.key, b);
+    else if (d.one) { const it = BY_KEY.get(d.key); if (it) sweep(d.one, [it], b); }
+    else if (d.batch) { const its = ofKind("carried").filter(it => it.date === d.day && !kept.has(it.key)); sweep(d.batch, its, b, d.day); }
+    else if (d.row) tickRow(+d.rline, d.row, b);
     else if (d.go) setScreen(d.go);
     else if (d.open !== undefined) { if (api.openNote) api.openNote(d.open); }
     else if (d.daily !== undefined) { if (api.openDaily) api.openDaily(); }
@@ -262,12 +315,13 @@ function mountVaultHQ(root, data, opts) {
       el.querySelectorAll(".vg-hq-dots button").forEach((x, k) => x.classList.toggle("is-on", k === feedAt)); }
   });
   el.addEventListener("keydown", e => { if (e.key === "Escape" && drawer) { drawer = null; render(); } });
-  function setScreen(s) { if (!SCREENS.some(x => x[0] === s)) return; cur = s; drawer = null; render(); const m = el.querySelector(".vg-hq-main"); if (m) m.scrollTop = 0; if (opts.onScreen) opts.onScreen(s); }
+  function setScreen(s) { if (!known(s)) return; if (s === "sweep" && cur !== "sweep") kept = new Set(); cur = s; drawer = null; render(); const m = el.querySelector(".vg-hq-main"); if (m) m.scrollTop = 0; if (opts.onScreen) opts.onScreen(s); }
   render();
   clockTimer = opts.now ? null : setInterval(() => { const c = el.querySelector(".vg-hq-clock b"); if (c) c.textContent = new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, ""); }, 30000);
   return {
     update(data, state) { DATA = data || DATA; if (state) STATE = state; gone = new Set(); render(); },
     setScreen, screen: () => cur,
+    showRows: path => ctx().showRows(path),   // a report's rows (the sidebar's Review rows opens HQ there)
     items: () => LIST.slice(),
     destroy() { clearInterval(clockTimer); clearTimeout(toastTimer); el.remove(); },
   };

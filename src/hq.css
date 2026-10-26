@@ -138,6 +138,11 @@
   .vg-hq .vg-hq-feedcard { padding: 22px 20px; min-height: 210px; } .vg-hq .vg-hq-feedtxt { max-width: 100%; } .vg-hq .vg-hq-art { width: 100%; height: 110px; opacity: .7; } .vg-hq .vg-hq-feedcard h2 { font-size: 26px; }
   .vg-hq .vg-hq-feednav { display: none; }
   .vg-hq .vg-hq-tiles { grid-template-columns: 1fr; } .vg-hq .vg-hq-tile { min-height: 0; }
-  .vg-hq .vg-hq-item { flex-wrap: wrap; } .vg-hq .vg-hq-acts { max-width: none; width: 100%; justify-content: flex-start; padding-left: 44px; }
+  .vg-hq .vg-hq-item { flex-wrap: wrap; } .vg-hq .vg-hq-acts { max-width: none; width: 100%; justify-content: flex-start; }
+  .vg-hq .vg-hq-kind ~ .vg-hq-acts { padding-left: 44px; }   /* under the text, past the icon */
 }
 @media (prefers-reduced-motion: reduce) { .vg-hq * { transition: none !important; scroll-behavior: auto !important; } }
+
+/* the carried-over sweep: a day per section, its buttons beside the day */
+.vg-hq .vg-hq-sweep h3 { align-items: center; gap: 8px; flex-wrap: wrap; } .vg-hq .vg-hq-sweep h3 .vg-hq-acts { max-width: none; }
+.vg-hq .vg-hq-old { font-style: normal; font-weight: 600; color: var(--hq-warn); margin-left: 6px; }

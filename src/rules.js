@@ -377,12 +377,47 @@ const VGRules = (() => {
   const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
   // a task line as Obsidian counts it: "- [ ] text", numbered too; [prefix, mark, "] ", text]
   const TASK_LINE = /^(\s*(?:[-*+]|\d+[.)]) \[)(.)(\] )(.*)$/;
-  // a task line with a new mark; done stamps the day in the completion field (the journal's "Completed Today" reads it)
-  function taskLine(line, mark, day) {
+  // a task line with a new mark; done stamps the day in the completion field (the journal's "Completed Today" reads
+  // it), except in a note whose ticks are instructions (stamp false: a report row the gardener applies)
+  function taskLine(line, mark, day, stamp = true) {
     const m = String(line).match(TASK_LINE); if (!m) return line;
-    const field = H.completion_field, stamp = field && mark === "x" && !new RegExp(`\\[${field}::`).test(m[4]) ? ` [${field}:: ${day || today()}]` : "";
-    return m[1] + mark + m[3] + m[4].replace(/\s+$/, "") + stamp;
+    const field = H.completion_field, add = stamp && field && mark === "x" && !new RegExp(`\\[${field}::`).test(m[4]) ? ` [${field}:: ${day || today()}]` : "";
+    return m[1] + mark + m[3] + (add ? m[4].replace(/\s+$/, "") + add : m[4]);
   }
+  // does ticking a task in this note stamp the day? Not in a report: its rows are read back by the gardener
+  const stampsDone = path => !reportPrefix(path) && !automationReport(path);
+  // today's standup with one more line under its "work completed" heading: numbered after the last top-level item
+  // (or a bullet when the section has none), before the section's end (the next heading as big, or a --- line).
+  // The text unchanged when the line is already there; null when the note has no such heading.
+  function addWorkLine(text, line) {
+    const rx = H.completed_heading ? new RegExp(H.completed_heading, "i") : null; if (!rx) return null;
+    const nl = String(text).includes("\r\n") ? "\r\n" : "\n", lines = String(text).split(/\r?\n/);
+    const at = lines.findIndex(l => { const h = l.match(/^#{1,6}\s+(.*)/); return h && rx.test(h[1]); });
+    if (at < 0) return null;
+    const level = lines[at].match(/^#+/)[0].length;
+    let end = lines.findIndex((l, i) => i > at && (/^---\s*$/.test(l) || ((l.match(/^(#{1,6})\s/) || [])[1] || "x".repeat(9)).length <= level));
+    if (end < 0) end = lines.length;
+    const body = lines.slice(at + 1, end), want = plainTask(line).toLowerCase();
+    if (body.some(l => plainTask(l.replace(/^\s*(?:\d+[.)]|[-*+])\s+/, "")).toLowerCase() === want)) return text;
+    const nums = body.map(l => l.match(/^(\d+)[.)]\s/)).filter(Boolean).map(m => +m[1]);
+    let last = end; while (last > at + 1 && !lines[last - 1].trim()) last--;
+    const item = `${nums.length ? Math.max(...nums) + 1 + "." : body.some(l => /^[-*+]\s/.test(l)) ? "-" : "1."} ${plainTask(line)}`;
+    lines.splice(last, 0, ...(last === at + 1 ? ["", item] : [item]));
+    return lines.join(nl);
+  }
+  // a report's rows to tick: every task line (any depth), its section, and the line it sits under (a MOC row's note)
+  function reportRows(text) {
+    const out = []; let section = "", context = "";
+    String(text).split(/\r?\n/).forEach((l, i) => {
+      const h = l.match(/^#{1,6}\s+(.*)/); if (h) { section = h[1].trim(); context = ""; return; }
+      const m = l.match(TASK_LINE);
+      if (m) out.push({ line: i, text: m[4], mark: m[2], section, context: /^\s/.test(l) ? context : "" });
+      else if (/^[-*+]\s/.test(l)) context = l.replace(/^[-*+]\s+/, "");
+    });
+    return out;
+  }
+  // a report row as words: links as their names, paths as file names, the gardener's %%act%% notes gone
+  const plainRow = t => plainTask(String(t).replace(/%%[\s\S]*?%%/g, "").replace(/`([^`]*\/)?([^`/]+?)(\.md)?`/g, "$2"));
   // an inline field added to a task line ([delegate:: claude]); a field it already has keeps its value
   const taskField = (line, key, value) => new RegExp(`\\[${key}::`).test(line) ? line : `${String(line).replace(/\s+$/, "")} [${key}:: ${value}]`;
   // a task's words without its inline fields, links as their text, bold and code marks gone
@@ -478,7 +513,8 @@ const VGRules = (() => {
         group: statusGroup(fm.status), summary: scopeSummary(f.text), estimate: scopeEstimate(f.text), created: String(fm.created || ""), updated: String(fm.updated || fm.created || "") });
       else if (kind === "backlog") tasksIn(f.text).filter(t => t.mark === " ").forEach(t => hq.backlog.push({ path: f.path, ...t }));
       else if (kind === "report") { const prefix = reportPrefix(f.path) || automationReport(f.path).report, date = (name.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || "";
-        if (!newestReport[prefix] || date > newestReport[prefix].date) newestReport[prefix] = { path: f.path, name, prefix, date, open: (String(f.text).match(/^\s*[-*] \[ \]/gm) || []).length, job: !reportPrefix(f.path) }; }
+        if (!newestReport[prefix] || date > newestReport[prefix].date) { const rows = reportRows(f.text).filter(r => r.mark === " ");
+          newestReport[prefix] = { path: f.path, name, prefix, date, open: rows.length, rows: reportPrefix(f.path) ? rows : [], job: !reportPrefix(f.path) }; } }
       else if (kind === "review") hq.reviews.push({ path: f.path, name, title: titleOf(f.text, f.path), status: String(fm.status || "").toLowerCase(), task: plainTask(fm.task || ""), created: String(fm.created || "") });
       else if (kind === "decision") hq.decisions.push({ path: f.path, name, title: titleOf(f.text, f.path), date: String(fm.date || fm.created || ""), status: String(fm.status || "").toLowerCase(),
         by: plainTask([].concat(fm.decided_by || []).join(", ")), project: plainTask([].concat(fm.project || []).join(", ")) });
@@ -763,7 +799,7 @@ const VGRules = (() => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
-  return { HQ: H, TASK_LINE, taskLine, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqKind, hqGather, hqJobs, hqProjects, todayGroup, TODAY_GROUP, statusGroup,
+  return { HQ: H, TASK_LINE, taskLine, stampsDone, addWorkLine, reportRows, plainRow, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqKind, hqGather, hqJobs, hqProjects, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

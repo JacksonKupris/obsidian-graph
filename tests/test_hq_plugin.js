@@ -43,6 +43,21 @@ const H = env.rules.hq;
   check("a task that changed since is refused", [refused, line("Changed since")], [true, "- [ ] Changed since"]);
   await p.setNoteStatus(DRAFT, "rejected", "Wrong customer list");
   check("Reject sets the draft's status and writes the reason", [/status: rejected/.test(files.get(DRAFT).text), files.get(DRAFT).text.trim().endsWith("**Why rejected:** Wrong customer list")], [true, true]);
+  // Done in HQ: checked off in the journal and added to today's standup; without today's standup only the task
+  const SU = `${VGRules.folders.daily}/2026/Standups/Daily Standup ${day}.md`, REP = `${VGRules.folders.reports}/${H.reports[0]} ${day}.md`;
+  files.get(J).text += "- [ ] Tell Ben\n- [ ] Order parts\n";
+  p.app.vault.getMarkdownFiles = () => [...files.values()].map(e => e.f);
+  check("Done with no standup today checks off the task only", [await p.completeTask(J, 5, "Tell Ben"), line("Tell Ben")], [false, `- [x] Tell Ben [${H.completion_field}:: ${day}]`]);
+  mk(SU, "## 1. Work Completed Today\n\n1. Wrote the scope\n\n---\n\n## 2. Blocks\n");
+  check("Done adds the task to today's standup", [await p.completeTask(J, 6, "Order parts"), files.get(SU).text], [true, "## 1. Work Completed Today\n\n1. Wrote the scope\n2. Order parts\n\n---\n\n## 2. Blocks\n"]);
+  // the sweep: several tasks in one action; one that changed since is left alone
+  files.get(J).text += "- [ ] Old one\n- [ ] Old two\n";
+  check("the sweep cancels several at once, skipping one that changed", [await p.setTasksStatus([{ path: J, line: 7, text: "Old one" }, { path: J, line: 8, text: "Changed" }], "-"), line("Old one"), line("Old two")], [1, "- [-] Old one", "- [ ] Old two"]);
+  // a report row ticked in HQ: [x] with no stamp, so the gardener reads the row as written
+  mk(REP, "# Gaps\n\n- [ ] [[A]] ↔ [[B]] — 0.8\n");
+  await p.setTaskStatus(REP, 2, "[[A]] ↔ [[B]] — 0.8", "x");
+  check("a report row is ticked without a stamp", files.get(REP).text, "# Gaps\n\n- [x] [[A]] ↔ [[B]] — 0.8\n");
+
   // marks: Later for today, Done on a plan item, Undo takes one back; marks from another day go
   shared["shared.json"] = JSON.stringify({ v: 1, review: { hq: { "carried|old": "later:2000-01-01" } } });
   await p.hqMark("task|a", "later"); await p.hqMark("plan|b", "done");

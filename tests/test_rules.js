@@ -139,6 +139,18 @@ check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }
     Q.scopeEstimate("| A | Estimate |\n| x | 2 days |"), Q.scopeEstimate("A 30 day range takes 2 s")], ["3–5 days", "4–8 days", "", ""]);
   check("hq: Done stamps the day once; cancel doesn't", [Q.taskLine("- [ ]  Two spaces", "x", day), Q.taskLine("- [ ] Had it [completion:: 2026-10-01]", "x", day), Q.taskLine("1. [ ] N", "-", day)],
     ["- [x]  Two spaces [completion:: 2026-10-26]", "- [x] Had it [completion:: 2026-10-01]", "1. [-] N"]);
+  // Done adds the task to today's standup; report rows are ticked without a stamp (the gardener reads them back)
+  { const Q2 = new Function(`${build.rulesSource({ ...R, hq: { ...H, completed_heading: "Work Completed" } })}; return VGRules;`)();
+    const su = "## Daily Work Summary\n\n## 1. Work Completed Today\n\n1. **Alarms**\n\t1. Wrote the scope\n2. Updated packages\n\n---\n\n## 2. Blocks\n\n1. Waiting on access\n";
+    check("hq: a done task is the next numbered item in the standup's work completed", Q2.addWorkLine(su, "Ship the **fix** [completion:: 2026-10-26]"), su.replace("2. Updated packages\n", "2. Updated packages\n3. Ship the fix\n"));
+    check("hq: the same work isn't added twice", Q2.addWorkLine(su, "Updated packages"), su);
+    check("hq: an empty section starts at 1, and a standup without the heading isn't touched", [Q2.addWorkLine("## Work Completed\n\n## Blocks\n", "A"), Q2.addWorkLine("# Notes\n", "A")], ["## Work Completed\n\n1. A\n\n## Blocks\n", null]);
+    check("hq: CRLF standups keep their line endings", Q2.addWorkLine("## Work Completed\r\n\r\n1. One\r\n", "Two"), "## Work Completed\r\n\r\n1. One\r\n2. Two\r\n");
+    const report = "# Gaps\n\n## Gaps\n- [ ] [[A]] ↔ [[B]] — 0.8\n- [x] [[C]] ↔ [[D]]\n## Overlapping MOCs\n- [[README]] (6 notes) overlaps [[Comms]]\n  - [ ] merge [[README]] into [[Comms]] %%act:{\"op\": \"merge\"}%%\n- [ ] `a/b/Some Note.md` ↔ `c/Other.md` — same text\n";
+    check("hq: report rows with their section and the line they sit under", Q2.reportRows(report).map(r => [r.line, r.mark, r.section, r.context]),
+      [[3, " ", "Gaps", ""], [4, "x", "Gaps", ""], [7, " ", "Overlapping MOCs", "[[README]] (6 notes) overlaps [[Comms]]"], [8, " ", "Overlapping MOCs", ""]]);
+    check("hq: a row in words", Q2.reportRows(report).map(r => Q2.plainRow(r.text)), ["A ↔ B — 0.8", "C ↔ D", "merge README into Comms", "Some Note ↔ Other — same text"]);
+    check("hq: a report row isn't stamped; a journal task is", [Q2.stampsDone(`${R.folders.reports}/Gaps & Bridges 2026-10-25.md`), Q2.stampsDone(J(day)), Q2.taskLine("  - [ ] row", "x", day, false)], [false, true, "  - [x] row"]); }
   check("hq: a task field is added once", [Q.taskField("- [ ] T", "delegate", "claude"), Q.taskField("- [ ] T [delegate:: claude]", "delegate", "other")], ["- [ ] T [delegate:: claude]", "- [ ] T [delegate:: claude]"]);
   // a small vault's HQ notes, and the items they make
   const files = [

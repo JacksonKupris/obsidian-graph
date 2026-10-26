@@ -7,7 +7,7 @@
 const cdp = require("./cdp"), env = require("./env");
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rec = k => `${k}: async (...a) => { (window.__calls = window.__calls || []).push(["${k}", ...a]); return true; },`;
-const OPTS = `api: { ${["setTaskStatus", "setTaskField", "setNoteStatus", "hqMark", "openNote", "openDaily"].map(rec).join(" ")} },
+const OPTS = `api: { ${["setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "hqMark", "openNote", "openDaily"].map(rec).join(" ")} },
   ask: async () => true, input: async () => "Not what we need", openGraph: () => { (window.__calls = window.__calls || []).push(["openGraph"]); },
   __errs: (addEventListener("error", e => (window.__errs = window.__errs || []).push(e.message)), addEventListener("unhandledrejection", e => (window.__errs = window.__errs || []).push(String(e.reason))), 0),`;
 
@@ -47,7 +47,7 @@ async function page(html, o = {}) {
       await ev("window.__calls = []");
       await click('[data-act="main"]', task[0]); await sleep(300);
       let c = await calls();
-      if (!(c[0] && c[0][0] === "setTaskStatus" && c[0][4] === "x")) fails.push(`Done on a task called ${JSON.stringify(c[0])}`);
+      if (!(c[0] && c[0][0] === "completeTask" && c[0][1] === task[0].split("|")[1])) fails.push(`Done on a task called ${JSON.stringify(c[0])}, want completeTask (journal + standup)`);
       if ((await items()).some(i => i[0] === task[0])) fails.push("a task done is still listed");
       await ev("window.__calls = []");
       await click('[data-act="later"]', carried[0][0]); await sleep(300);
@@ -63,7 +63,38 @@ async function page(html, o = {}) {
       await ev("window.__calls = []");
       await click('[data-act="main"]', plan[0]); await sleep(300);
       c = await calls();
-      if (!(c[0] && c[0][0] === "hqMark" && c[0][2] === "done")) fails.push(`Done on a plan item called ${JSON.stringify(c[0])}`);
+      if (!(c[0] && c[0][0] === "hqMark" && c[0][2] === "done" && c[1] && c[1][0] === "logWork")) fails.push(`Done on a plan item called ${JSON.stringify(c.slice(0, 2))}, want hqMark done + logWork`);
+      await click("[data-undo]"); await sleep(300);
+      c = await calls();
+      if (!c.some(x => x[0] === "hqMark" && x[1] === plan[0] && x[2] === null)) fails.push("Undo after a plan item's Done doesn't take the mark back");
+      // the sweep: the oldest day first; Done all sends that day's tasks in one batch (no standup line); Keep writes nothing
+      await ev("window.vaultHQ.update(null, null)"); await screen("today");
+      await click('[data-go="sweep"]'); await sleep(200);
+      if (await ev("window.vaultHQ.screen()") !== "sweep") fails.push("Today has no way into the sweep");
+      const days = await ev(`[...document.querySelectorAll(".vg-hq-sweep")].map(s => s.dataset.day)`);
+      if (JSON.stringify(days) !== JSON.stringify([...days].sort())) fails.push("the sweep isn't oldest first");
+      const oldest = all.filter(i => i[1] === "carried" && i[0].includes(`/${days[0]}.md|`)).length;
+      await ev("window.__calls = []");
+      await ev(`document.querySelector('[data-batch="x"][data-day="${days[0]}"]').click()`); await sleep(300);
+      c = await calls();
+      if (!(c.length === 1 && c[0][0] === "setTasksStatus" && c[0][1].length === oldest && c[0][2] === "x")) fails.push(`Done all on ${days[0]} called ${JSON.stringify(c.map(x => [x[0], (x[1] || []).length, x[2]]))}, want one setTasksStatus of ${oldest}`);
+      await ev("window.__calls = []");
+      await ev(`document.querySelector('[data-batch="keep"]').click()`); await sleep(150);
+      if ((await calls()).length) fails.push("Keep all wrote something");
+      if (await ev(`[...document.querySelectorAll(".vg-hq-sweep")].length`) !== days.length - 2) fails.push("a swept day is still on the sweep");
+      // report rows: Review rows opens them; Tick and Skip write the row in the report
+      await ev("window.vaultHQ.update(null, null)"); await screen("needs");
+      const report = all.find(i => i[1] === "report");
+      await click('[data-act="rows"]', report[0]); await sleep(200);
+      if (await ev("window.vaultHQ.screen()") !== "rows") fails.push("Review rows doesn't open the rows");
+      const nrows = await ev(`document.querySelectorAll("[data-row]").length / 2`);
+      await ev("window.__calls = []");
+      await ev(`document.querySelector('[data-row="x"]').click()`); await sleep(300);
+      await ev(`document.querySelector('[data-row="-"]').click()`); await sleep(300);
+      c = await calls();
+      const path = report[0].split("|")[1];
+      if (!(c.length === 2 && c[0][0] === "setTaskStatus" && c[0][1] === path && c[0][4] === "x" && c[1][4] === "-")) fails.push(`Tick then Skip called ${JSON.stringify(c)}`);
+      if (await ev(`document.querySelectorAll("[data-row]").length / 2`) !== nrows - 2) fails.push("ticked rows are still listed");
       // Needs you: Accept and Reject a draft, Open an approval
       await screen("needs");
       const review = all.find(i => i[1] === "review"), approval = all.find(i => i[1] === "approval");
@@ -91,7 +122,7 @@ async function page(html, o = {}) {
     }
     // every button on every screen can be clicked (dialogs answer themselves; the screen is reset after each)
     await ev("window.vaultHQ.update(null, null)");
-    for (const s of ["home", "today", "needs", "projects"]) {
+    for (const s of ["home", "today", "needs", "projects", "sweep", "rows"]) {
       await screen(s);
       const n = await ev(`document.querySelectorAll(".vg-hq-main button, .vg-hq-strip button").length`);
       for (let i = 0; i < n; i++) {
@@ -107,7 +138,7 @@ async function page(html, o = {}) {
   for (const [name, o, mobile] of [["an empty vault", { hq: null, data: { nodes: [], links: [], clusters: [] } }, false], ["no HQ notes", { hq: null }, false], ["a phone", {}, true]]) {
     const t = await page(env.hqPage(OPTS, o), { mobile });
     try {
-      for (const s of ["home", "today", "needs", "projects"]) {
+      for (const s of ["home", "today", "needs", "projects", "sweep", "rows"]) {
         await t.ev(`window.vaultHQ.setScreen(${JSON.stringify(s)})`); await sleep(120);
         if (!await t.ev(`document.querySelectorAll(".vg-hq-main button").length`)) fails.push(`${name}, ${s}: nothing to click`);
         if (o.hq === null && s !== "home" && !await t.ev(`!!document.querySelector(".vg-hq-empty button")`)) fails.push(`${name}, ${s}: an empty screen with no next step`);
@@ -121,6 +152,6 @@ async function page(html, o = {}) {
     } catch (err) { fails.push(`${name}: ${err.message}`); }
     await t.close();
   }
-  console.log(fails.length ? "FAIL - " + fails.join("\n  ") : "ok - Vault HQ: 4 screens, each kind's buttons write, every button clicks, no dead ends, phone width");
+  console.log(fails.length ? "FAIL - " + fails.join("\n  ") : "ok - Vault HQ: every screen (with the sweep and report rows), each kind's buttons write, every button clicks, no dead ends, phone width");
   process.exit(fails.length ? 1 : 0);
 })();

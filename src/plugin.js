@@ -376,6 +376,8 @@ class VaultGraphSuggestView extends ItemView {
       api, data,
       ask: (title, text, ok) => this.confirm(title, text, ok),
       input: (title, text, placeholder) => inputModal(this.app, title, text, placeholder),
+      showRows: async path => { const leaf = await this.plugin.openHQ();   // a report's rows, ticked in Vault HQ
+        for (let t = 0; t < 40 && !leaf.view.handle; t++) await sleep(100); if (leaf.view.handle) leaf.view.handle.showRows(path); },
       pick: (placeholder, filter) => this.pickNote(placeholder, f => !filter || filter(f.path)).then(f => (f ? f.path : null)),
       done: (msg, undo) => { undoNotice(msg, undo); this.plugin.recordAction(msg); },
       fail: msg => new Notice(msg),
@@ -514,7 +516,7 @@ class VaultGraphSuggestView extends ItemView {
 const { today, localDay } = VGRules;   // the shared date rules (this device's calendar day)
 // Every plugin method that writes to the vault. onload wraps each so it announces the change when done (every open
 // surface redraws); viewActions hands the same methods to every graph surface. A new write action goes in this list.
-const WRITE_ACTIONS = ["linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "setTaskField", "setNoteStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
+const WRITE_ACTIONS = ["linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
   "addReference", "tickMocRow", "saveBinary", "stateSnapshots", "undo"];
 // The only methods that touch the vault for a write action. Each notes what it's about to change in the open undo
 // entry, so every action can be undone from the message that confirms it. tests/test_rules.js fails on a vault write
@@ -1130,6 +1132,9 @@ module.exports = class VaultGraphPlugin extends Plugin {
       setTaskStatus: (notePath, line, text, status) => this.setTaskStatus(notePath, line, text, status),
       setNoteTasks: (notePath, status) => this.setNoteTasks(notePath, status),
       setTaskField: (notePath, line, text, key, value) => this.setTaskField(notePath, line, text, key, value),
+      completeTask: (notePath, line, text) => this.completeTask(notePath, line, text),
+      logWork: text => this.logWork(text),
+      setTasksStatus: (rows, status) => this.setTasksStatus(rows, status),
       setNoteStatus: (notePath, status, reason) => this.setNoteStatus(notePath, status, reason),
       hqMark: (key, mark) => this.hqMark(key, mark),
       stampReviewed: notePath => this.stampReviewed(notePath),
@@ -1230,10 +1235,31 @@ module.exports = class VaultGraphPlugin extends Plugin {
     let done = false;
     await this.ioProcess(file, data => {
       const nl = data.includes("\r\n") ? "\r\n" : "\n", lines = data.split(/\r?\n/), m = lines[line] !== undefined && lines[line].match(TASK_LINE);
-      if (m && m[4] === text) { lines[line] = VGRules.taskLine(lines[line], status); done = true; }
+      if (m && m[4] === text) { lines[line] = VGRules.taskLine(lines[line], status, today(), VGRules.stampsDone(file.path)); done = true; }
       return lines.join(nl);
     });
     if (!done) { new Notice("That task changed since — open the note to update it"); throw new Error("stale"); }
+  }
+  // Done in HQ: the task checked off in its journal, and the same words added to today's standup under its "work
+  // completed" heading (VGRules.addWorkLine), as one action with one Undo. Resolves whether the standup got the line
+  // (there's no standup for today yet, or it has no such heading: only the task is checked off).
+  async completeTask(notePath, line, text) {
+    await this.setTaskStatus(notePath, line, text, "x");
+    return this.logWork(text);
+  }
+  async logWork(text) {
+    const day = today(), file = this.app.vault.getMarkdownFiles().find(f => VGRules.hqKind(f.path, null, day) === "standup" && f.path.includes(day));
+    if (!file) return false;
+    let wrote = false;
+    await this.ioProcess(file, t => { const out = VGRules.addWorkLine(t, text); wrote = out != null && out !== t; return out == null ? t : out; });
+    return wrote;
+  }
+  // Several tasks at once (the carried-over sweep's Done all / Cancel all), as one action with one Undo. A task that
+  // changed since is left as it is. Resolves how many were changed.
+  async setTasksStatus(rows, status) {
+    let n = 0;
+    for (const r of rows) { try { await this.setTaskStatus(r.path, r.line, r.text, status); n++; } catch (e) { if (e.message !== "stale") throw e; } }
+    return n;
   }
   // An inline field on one task ([delegate:: claude]: Delegate in HQ), only if the line is still the one we showed
   async setTaskField(notePath, line, text, key, value) {
@@ -1264,7 +1290,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     let n = 0;
     await this.ioProcess(file, data => {
       const nl = data.includes("\r\n") ? "\r\n" : "\n";
-      return data.split(/\r?\n/).map(l => { const m = l.match(TASK_LINE); if (!m || m[2] !== " ") return l; n++; return VGRules.taskLine(l, status); }).join(nl);
+      return data.split(/\r?\n/).map(l => { const m = l.match(TASK_LINE); if (!m || m[2] !== " ") return l; n++; return VGRules.taskLine(l, status, today(), VGRules.stampsDone(file.path)); }).join(nl);
     });
     const tag = NOTE_STATUS[status];
     if (tag && n) await this.ioFrontMatter(file, fm => {   // only a note whose tasks did change is marked done or cancelled
