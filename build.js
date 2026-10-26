@@ -106,7 +106,10 @@ const HQ_OPTS = "/*@hq-opts*/";
 function buildHQPage(data, rules) {
   const js = rulesJs(rules) + "\n" + read("hq.js");
   if (js.toLowerCase().includes("</script")) throw new Error("inline script contains </script");
-  return PAGE.split("<script>")[0].replace("<title>Vault Graph</title>", "<title>Vault HQ</title>").replace("__CSS__", () => read("hq.css"))
+  // Obsidian's own rules for every button (mobile's included): HQ is tested against them, since they win over a
+  // single class (a project card showed one clipped line on the phone)
+  const obsidianButtons = "button { display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; height: 30px; padding: 4px 12px; background-color: #3a3a3a; box-shadow: 0 1px 2px rgba(0,0,0,.4); text-align: center; }\n";
+  return PAGE.split("<script>")[0].replace("<title>Vault Graph</title>", "<title>Vault HQ</title>").replace("__CSS__", () => obsidianButtons + read("hq.css"))
     .replace('<div id="vg" style="height:100%"></div>', '<div id="hq" style="height:100%"></div>')
     + `<script>\n${js}\nconst DATA = ${JSON.stringify(data).replace(/<\//g, "<\\/")};\n`
     + `window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, {\n  api: { openNote: p => { (window.__opened = window.__opened || []).push(p); } },\n  ${HQ_OPTS}\n});\n</script></body></html>\n`;

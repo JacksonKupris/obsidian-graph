@@ -18,7 +18,10 @@
 .vg-hq-host { padding: 0 !important; overflow: hidden; } .vg-hq-root { height: 100%; }
 .vg-hq *, .vg-hq *::before, .vg-hq *::after { box-sizing: border-box; }
 /* Obsidian styles every button (background, shadow, height): HQ's buttons are scoped under .vg-hq so its own rules win */
-.vg-hq button { font: inherit; color: inherit; cursor: pointer; box-shadow: none; height: auto; background: transparent; }
+.vg-hq button { font: inherit; color: inherit; cursor: pointer; box-shadow: none; height: auto; background: transparent; white-space: normal; overflow: visible; }
+/* buttons that hold a card (Obsidian mobile centres a button's content on one clipped line) */
+.vg-hq .vg-hq-proj, .vg-hq .vg-hq-tile, .vg-hq .vg-hq-chip, .vg-hq .vg-hq-link { justify-content: flex-start; text-align: left; }
+.vg-hq .vg-hq-proj { overflow: hidden; align-items: stretch; }
 .vg-hq button:focus-visible { outline: 2px solid var(--hq-accent); outline-offset: 2px; }
 .vg-hq .vg-hq-ic { flex: none; }
 
@@ -128,7 +131,8 @@
 /* narrow panes and phones */
 @container (max-width: 760px) {
   .vg-hq .vg-hq-top { padding: 12px 16px 8px; } .vg-hq .vg-hq-clock span { display: none; }
-  .vg-hq .vg-hq-strip { flex-direction: column; margin: 10px 16px 0; } .vg-hq .vg-hq-chips { overflow-x: auto; scrollbar-width: none; } .vg-hq .vg-hq-chips::-webkit-scrollbar { display: none; }
+  .vg-hq .vg-hq-strip { flex-direction: column; margin: 10px 16px 0; } .vg-hq .vg-hq-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
+  .vg-hq .vg-hq-chip { min-width: 0; padding: 6px 8px; gap: 6px; } .vg-hq .vg-hq-chip span { min-width: 0; } .vg-hq .vg-hq-chip b, .vg-hq .vg-hq-chip small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .vg-hq .vg-hq-main { padding: 4px 16px calc(96px + var(--hq-bottom)); }
   .vg-hq .vg-hq-h1 { font-size: 28px; }
   .vg-hq .vg-hq-feedcard { padding: 22px 20px; min-height: 210px; } .vg-hq .vg-hq-feedtxt { max-width: 100%; } .vg-hq .vg-hq-art { width: 100%; height: 110px; opacity: .7; } .vg-hq .vg-hq-feedcard h2 { font-size: 26px; }
