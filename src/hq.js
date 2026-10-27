@@ -17,7 +17,7 @@ function mountVaultHQ(root, data, opts) {
   const api = opts.api || {};
   let DATA = data || { nodes: [], links: [] }, STATE = opts.state || {}, cur = SCREENS.some(s => s[0] === opts.screen) ? opts.screen : "home";
   let kept = new Set(), rowsPath = null;   // the sweep's Keep (this visit only); the report whose rows are open
-  let gone = new Set(), feedAt = 0, filter = "active", drawer = null, carriedAll = false, clockTimer = null;
+  let gone = new Set(), feedAt = 0, filter = "active", kindFilter = "all", drawer = null, carriedAll = false, clockTimer = null;
   const now = () => opts.now || new Date(), day = () => VGRules.localDay(now());
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const plural = (n, w, ws) => `${n} ${n === 1 ? w : ws || w + "s"}`;
@@ -206,7 +206,8 @@ function mountVaultHQ(root, data, opts) {
       (out || empty("No approvals, drafts, failed jobs, reports or vault decisions waiting.", [["Today", 'data-go="today"'], ...nextSteps().filter(s => s[1] !== 'data-go="projects"')]));
   }
 
-  // ---- Projects: every scope of work as a card; one opens in a drawer
+  // ---- Projects: every project (scope of work, project note, user story) as a card; one opens in a drawer, where its
+  // status is set
   const FILTERS = [["active", "In progress"], ["planned", "Planned"], ["waiting", "Waiting"], ["closed", "Done"], ["all", "All"]];
   function spark(days) {
     const set = new Set(days || []), t = Date.parse(day()), cells = [];
@@ -214,15 +215,21 @@ function mountVaultHQ(root, data, opts) {
     return `<span class="vg-hq-spark" title="${plural(set.size, "day")} named in the dailies (last 30 days)">${cells.map(on => `<i${on ? ' class="is-on"' : ""}></i>`).join("")}</span>`;
   }
   function projectsScreen() {
-    const all = VGRules.hqProjects(DATA), list = all.filter(p => filter === "all" || p.group === filter);
+    const every = VGRules.hqProjects(DATA), kinds = [...new Set(every.map(p => p.kind))];
+    if (kindFilter !== "all" && !kinds.includes(kindFilter)) kindFilter = "all";
+    const all = every.filter(p => kindFilter === "all" || p.kind === kindFilter), list = all.filter(p => filter === "all" || p.group === filter);
     const pill = p => `<span class="vg-hq-pill is-${esc(p.group)}">${esc(p.status || "no status")}</span>`;
-    const card = p => `<button class="vg-hq-proj" data-proj="${esc(p.path)}">${hills(p.name, 70)}<span class="vg-hq-projbody"><span class="vg-hq-projhead"><small>${esc(p.name.replace(/^.*[—–-]\s*/, ""))}</small>${pill(p)}</span>
+    // a scope's code name (JK_Branch) beside its kind; other notes are named by their title
+    const sub = p => [p.kind, /^Scope of Work\b/i.test(p.name) ? p.name.replace(/^.*[—–-]\s*/, "") : ""].filter(Boolean).join(" · ");
+    const card = p => `<button class="vg-hq-proj" data-proj="${esc(p.path)}">${hills(p.name, 70)}<span class="vg-hq-projbody"><span class="vg-hq-projhead"><small>${esc(sub(p))}</small>${pill(p)}</span>
       <b>${esc(p.title)}</b><span class="vg-hq-sum">${esc(p.summary || "No summary yet.")}</span><span class="vg-hq-projfoot">${spark(p.days)}<small>${esc(p.estimate || (p.updated ? `Updated ${shortDate(p.updated)}` : ""))}</small></span></span></button>`;
     const chips = FILTERS.map(([k, label]) => `<button class="vg-hq-filter${filter === k ? " is-on" : ""}" data-filter="${k}" aria-pressed="${filter === k}">${label} <span>${k === "all" ? all.length : all.filter(p => p.group === k).length}</span></button>`).join("");
+    const kindChips = kinds.length > 1 ? `<div class="vg-hq-filters" role="group" aria-label="Kind">${[["all", "All kinds", every.length], ...kinds.map(k => [k, k, every.filter(p => p.kind === k).length])]
+      .map(([k, label, n]) => `<button class="vg-hq-filter${kindFilter === k ? " is-on" : ""}" data-kind="${esc(k)}" aria-pressed="${kindFilter === k}">${esc(label)} <span>${n}</span></button>`).join("")}</div>` : "";
     const body = list.length ? `<div class="vg-hq-grid">${list.map(card).join("")}</div>` : all.length
       ? empty(`No ${FILTERS.find(f => f[0] === filter)[1].toLowerCase()} projects.`, [["All projects", 'data-filter="all"']])
-      : empty(`No scopes of work yet (notes with type: ${VGRules.HQ.scope_type || "scope"}).`, nextSteps().filter(s => s[1] !== 'data-go="projects"'));
-    return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">Every scope of work, newest first.</p><div class="vg-hq-filters" role="group" aria-label="Show">${chips}</div>${body}${drawerHtml(all)}`;
+      : empty(`No projects yet (notes with type: ${Object.keys(VGRules.PROJECT_TYPES).join(", ") || "scope-of-work"}).`, nextSteps().filter(s => s[1] !== 'data-go="projects"'));
+    return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">Every project, newest first.</p>${kindChips}<div class="vg-hq-filters" role="group" aria-label="Show">${chips}</div>${body}${drawerHtml(every)}`;
   }
   function drawerHtml(all) {
     const p = drawer && all.find(x => x.path === drawer); if (!p) return "";
@@ -230,8 +237,21 @@ function mountVaultHQ(root, data, opts) {
     return `<div class="vg-hq-scrim" data-closedrawer></div><aside class="vg-hq-drawer" role="dialog" aria-label="${esc(p.title)}"><button class="vg-hq-x" data-closedrawer aria-label="Close">${icon("close")}</button>
       <small>${esc(p.name)}</small><h2>${esc(p.title)}</h2><p>${esc(p.summary || "No summary yet.")}</p>
       <dl class="vg-hq-facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>${spark(p.days)}
+      ${api.setProjectStatus && VGRules.STATUS_CHOICES.length ? `<h3>Status</h3><div class="vg-hq-filters" role="group" aria-label="Set status">${VGRules.STATUS_CHOICES.map(s =>
+        `<button class="vg-hq-filter${p.status === s ? " is-on" : ""}" data-setstatus="${esc(s)}" aria-pressed="${p.status === s}">${esc(s)}</button>`).join("")}</div>` : ""}
       ${p.decisions.length ? `<h3>Decisions</h3>${p.decisions.map(d => `<button class="vg-hq-link" data-open="${esc(d.path)}">${esc(d.title)}<small>${esc(d.date)}</small></button>`).join("")}` : ""}
       <div class="vg-hq-row">${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-primary" data-open="${esc(p.path)}">Open the scope</button>` : ""}</div></aside>`;
+  }
+
+  // a project's status from its drawer, as a shared action (its message and Undo): shown at once, the host's redraw
+  // brings the note's truth
+  async function setStatus(path, status, btn) {
+    const p = ((hq() || {}).projects || []).find(x => x.path === path); if (!p || p.status === status) return;
+    btn.disabled = true;
+    const ok = await VGActions.run({ label: () => "Set status", title: () => p.title,
+      run: async () => { await api.setProjectStatus(path, status); return `${p.title}: ${status}`; } }, p, ctx());
+    if (!ok) { if (btn.isConnected) btn.disabled = false; return; }
+    Object.assign(p, { status, group: VGRules.statusGroup(status), updated: day() }); render();
   }
 
   // ---- Sweep: the carried-over tasks a day at a time, oldest first: Done (finished some time ago, so it doesn't go in
@@ -307,6 +327,8 @@ function mountVaultHQ(root, data, opts) {
     else if (d.daily !== undefined) { if (api.openDaily) api.openDaily(); }
     else if (d.graph !== undefined) { if (opts.openGraph) opts.openGraph(); }
     else if (d.filter) { filter = d.filter; drawer = null; render(); }
+    else if (d.kind) { kindFilter = d.kind; drawer = null; render(); }
+    else if (d.setstatus) setStatus(drawer, d.setstatus, b);
     else if (d.proj) { drawer = d.proj; render(); }
     else if (d.closedrawer !== undefined) { drawer = null; render(); }
     else if (d.carried !== undefined) { carriedAll = true; render(); }

@@ -7,7 +7,7 @@
 const cdp = require("./cdp"), env = require("./env");
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rec = k => `${k}: async (...a) => { (window.__calls = window.__calls || []).push(["${k}", ...a]); return true; },`;
-const OPTS = `api: { ${["setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "hqMark", "openNote", "openDaily"].map(rec).join(" ")} },
+const OPTS = `api: { ${["setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "hqMark", "openNote", "openDaily"].map(rec).join(" ")} },
   ask: async () => true, input: async () => "Not what we need", openGraph: () => { (window.__calls = window.__calls || []).push(["openGraph"]); },
   __errs: (addEventListener("error", e => (window.__errs = window.__errs || []).push(e.message)), addEventListener("unhandledrejection", e => (window.__errs = window.__errs || []).push(String(e.reason))), 0),`;
 
@@ -117,6 +117,13 @@ async function page(html, o = {}) {
       if (await ev(`document.querySelectorAll(".vg-hq-proj").length`) !== 4) fails.push("All doesn't show the 4 sample projects");
       await ev(`[...document.querySelectorAll(".vg-hq-proj")].find(b => /Card Deposits/.test(b.textContent)).click()`); await sleep(150);
       if (!await ev(`!!document.querySelector(".vg-hq-drawer") && /Card Reader/.test(document.querySelector(".vg-hq-drawer").textContent)`)) fails.push("the project drawer doesn't show its decision");
+      // its status chips set the status, and the card shows it at once
+      await ev("window.__calls = []");
+      await ev(`document.querySelector('.vg-hq-drawer [data-setstatus="testing"]').click()`); await sleep(300);
+      c = await calls();
+      if (!(c[0] && c[0][0] === "setProjectStatus" && /RA_Deposits/.test(c[0][1]) && c[0][2] === "testing")) fails.push(`Set status called ${JSON.stringify(c[0])}`);
+      if (!await ev(`/testing/.test([...document.querySelectorAll(".vg-hq-proj")].find(b => /Card Deposits/.test(b.textContent)).textContent)`)) fails.push("the card doesn't show the new status");
+      if (!await ev(`!!document.querySelector('.vg-hq-drawer [data-setstatus="testing"][aria-pressed="true"]')`)) fails.push("the drawer doesn't mark the new status");
       await ev(`document.querySelector(".vg-hq-drawer").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`); await sleep(100);
       if (await ev(`!!document.querySelector(".vg-hq-drawer")`)) fails.push("Escape doesn't close the drawer");
     }

@@ -113,8 +113,10 @@ check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }
 // so it doesn't depend on the vault under test's.
 {
   const H = { journal: "/Journal/([0-9]{4}-[0-9]{2}-[0-9]{2})[.]md$", standup: "/Standups/Daily Standup ([0-9]{4}-[0-9]{2}-[0-9]{2})[.]md$", plan_heading: "Work Expected",
-    carry_days: 30, completion_field: "completion", delegate_field: "delegate", delegate_to: "claude", scope_type: "scope-of-work",
-    statuses: { active: ["in-progress"], planned: ["planned"], waiting: ["proposed"], closed: ["complete"] }, approval_overdue_days: 3,
+    carry_days: 30, completion_field: "completion", delegate_field: "delegate", delegate_to: "claude",
+    project_types: { "scope-of-work": "Scope", project: "Project", "user-story": "Story" },
+    statuses: { active: ["in-progress"], planned: ["planned"], waiting: ["proposed"], closed: ["complete", "cancelled"] }, approval_overdue_days: 3,
+    status_choices: ["planned", "in-progress"], status_tags: { active: "status/in-progress", planned: "status/open", waiting: "status/open", closed: "status/done", cancelled: "status/cancelled" },
     backlog: "Tools/Vault Backlog.md", reports: ["Gaps & Bridges"], review_folder: "Inbox/For Review", review_type: "review-draft", decision_type: "decision",
     automation_status: "Sys/runs", automations_note: "Sys/Automations.md", run_log: "Sys/Run Log",
     automations: [{ name: "backup", every_hours: 24 }, { name: "watch", every_hours: 1, work_hours_only: true }, { name: "garden", every_hours: 168, report: "Gardener Report" }, { name: "new-job", every_hours: 24 }] };
@@ -125,7 +127,14 @@ check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }
     Q.hqKind(`${R.folders.reports}/Gaps & Bridges 2026-10-25.md`, {}, day), Q.hqKind(`${R.folders.reports}/Gardener Report 2026-10-24.md`, {}, day),
     Q.hqKind("Inbox/For Review/D.md", { type: "review-draft" }, day), Q.hqKind("Inbox/D.md", { type: "review-draft" }, day), Q.hqKind("W/Dec.md", { type: "decision" }, day),
     Q.hqKind("Sys/Run Log 2026-10.md", {}, day), Q.hqKind(`${R.folders.archive}/P/Scope.md`, { type: "scope-of-work" }, day), Q.hqKind("P/Plain.md", {}, day)],
-    ["standup", "scope", "backlog", "report", "report", "review", null, "decision", "runlog", null, null]);
+    ["standup", "project", "backlog", "report", "report", "review", null, "decision", "runlog", null, null]);
+  check("hq: projects are scopes, project notes and user stories, by their type field", [Q.hqKind("P/Story.md", { type: "user-story" }, day), Q.hqKind("P/Proj.md", { type: "Project" }, day),
+    Q.hqKind("P/Tagged hub.md", { tags: ["type/project", "project/odoo"] }, day), Q.tagsOf({ tags: "#type/user-story, project/x" }),
+    Q.hqKind(`${R.folders.system}/memory/project_x.md`, { type: "project" }, day), Q.hqKind(H.backlog, { type: "project" }, day), Q.hqKind("P/Other.md", { type: "note", tags: ["type/project"] }, day)],
+    ["project", "project", null, ["type/user-story", "project/x"], null, "backlog", null]);
+  check("hq: a project's status tag, by status then group, replacing the old one", [Q.projectStatusTag("cancelled"), Q.projectStatusTag("complete"), Q.projectStatusTag("Planned"), Q.projectStatusTag("odd"),
+    Q.withStatusTag({ tags: ["type/user-story", "status/done"] }, "in-progress"), Q.withStatusTag({ tags: ["status/done"] }, "odd")],
+    ["status/cancelled", "status/done", "status/open", null, ["type/user-story", "status/in-progress"], ["status/done"]]);
   const journal = "---\ntags:\n  - daily/journal\n---\n# 2026-10-26\n\n### Today's Tasks\n- [ ] Ship the fix\n\t- [ ] a subtask\n- [x] Done already [completion:: 2026-10-26]\n- [ ]  Two spaces after the box\n"
     + "1. [ ] A numbered task\n- [-] Cancelled\n\n```\n- [ ] not a task: code\n```\n\n## Notes\n- [ ] Under notes\n";
   check("hq: top-level tasks with their section, subtasks and code left out", Q.tasksIn(journal).map(t => [t.mark, t.text, t.section]),
@@ -134,7 +143,8 @@ check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }
   const standup = "---\ntype: standup\ndeviation_hours: 2\nrelated-projects:\n  - \"[[Odoo - Context]]\"\n---\n## 3. Work Expected To Be Done Tomorrow\n\n1. **Finish** the alarms.\n\t1. a detail\n2. Count the stickers\n- A bullet too\n\n---\n\n## 4. User Stories\n1. Not the plan\n";
   check("hq: the plan is the top-level items under its heading", Q.itemsUnder(standup, /Work Expected/i).map(i => i.text), ["**Finish** the alarms.", "Count the stickers", "A bullet too"]);
   check("hq: a scope's summary line, else its What paragraph", [Q.scopeSummary("# S\n\n**Summary:** Adds **webhooks** for [[AWS|alarms]].\n"),
-    Q.scopeSummary("---\nstatus: x\n---\n# S\n\n## What is it\n\nFirst line\nsecond line.\n\nLater paragraph.\n"), Q.scopeSummary("# S\n\nNo summary.\n")], ["Adds webhooks for alarms.", "First line second line.", ""]);
+    Q.scopeSummary("---\nstatus: x\n---\n# S\n\n## What is it\n\nFirst line\nsecond line.\n\nLater paragraph.\n"), Q.scopeSummary("# S\n\nNo summary.\n"),
+    Q.scopeSummary("# S\n\n**Summary**: Colon outside.\n"), Q.scopeSummary("# User Story: S\n\n## Story\n\nAs a tech, I want it.\n")], ["Adds webhooks for alarms.", "First line second line.", "", "Colon outside.", "As a tech, I want it."]);
   check("hq: an estimate as written, not from a table row", [Q.scopeEstimate("- Estimate: 3–5 days of work"), Q.scopeEstimate("## Time estimate\n\nProvisional allowance: **4–8 engineering days**"),
     Q.scopeEstimate("| A | Estimate |\n| x | 2 days |"), Q.scopeEstimate("A 30 day range takes 2 s")], ["3–5 days", "4–8 days", "", ""]);
   check("hq: Done stamps the day once; cancel doesn't", [Q.taskLine("- [ ]  Two spaces", "x", day), Q.taskLine("- [ ] Had it [completion:: 2026-10-01]", "x", day), Q.taskLine("1. [ ] N", "-", day)],
@@ -171,7 +181,7 @@ check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }
     { path: J("2026-10-24"), text: "Worked on X_Live today.\n" },
   ];
   const hq = Q.hqGather(files.filter(f => f.json || Q.hqKind(f.path, Q.frontOf(f.text), day)), { today: day });
-  check("hq: what it gathers", [hq.journals.length, hq.standups.length, hq.scopes.length, hq.backlog.length, hq.reports.map(r => [r.name, r.open]), hq.reviews.length, hq.decisions.length, hq.runlog.length],
+  check("hq: what it gathers", [hq.journals.length, hq.standups.length, hq.projects.length, hq.backlog.length, hq.reports.map(r => [r.name, r.open]), hq.reviews.length, hq.decisions.length, hq.runlog.length],
     [3, 2, 3, 1, [["Gaps & Bridges 2026-10-25", 2], ["Gardener Report 2026-10-24", 0]], 2, 1, 1]);
   check("hq: the newest run of a job across devices", hq.runs.backup.ok, false);
   const now = new Date("2026-10-26T10:00:00");

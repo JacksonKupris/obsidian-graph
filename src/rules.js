@@ -367,13 +367,23 @@ const VGRules = (() => {
   }
 
   // ---- HQ: the vault's own work, read from its notes (the rules file's "hq"): today's journal tasks, the last
-  // standup's plan, tasks carried over, scopes of work, the vault backlog, reports to tick, drafts to review,
+  // standup's plan, tasks carried over, projects, the vault backlog, reports to tick, drafts to review,
   // decisions and scheduled jobs. hqKind(path, frontmatter, today) says which notes to read; hqGather(files, o) reads
   // them into data.hq, the same in the plugin (Obsidian's files) and the tests (a folder); todayList makes its items.
   const H = R.hq || {};
   const HQ_RX = k => (H[k] ? new RegExp(H[k]) : null), HQ_JOURNAL = HQ_RX("journal"), HQ_STANDUP = HQ_RX("standup");
   const HQ_PLAN = H.plan_heading ? new RegExp(H.plan_heading, "i") : null;
   const STATUS = H.statuses || {}, statusGroup = s => Object.keys(STATUS).find(k => (STATUS[k] || []).includes(String(s || "").toLowerCase())) || "other";
+  // the project kinds by frontmatter type, with their labels (an older rules file names one scope_type)
+  const PROJECT_TYPES = H.project_types || (H.scope_type ? { [H.scope_type]: "Scope" } : {});
+  // a note's frontmatter tags, without #: a list, or Obsidian's comma or space separated text
+  const tagsOf = fm => [].concat((fm && fm.tags) || []).flatMap(t => String(t).split(/[\s,]+/)).map(t => t.replace(/^#/, "")).filter(Boolean);
+  // a note's project type: its type field (a type/ tag alone isn't enough: hubs and docs carry type/project too)
+  const projectType = fm => { const type = String((fm && fm.type) || "").toLowerCase(); return PROJECT_TYPES[type] ? type : null; };
+  // the status tag a project status carries (status_tags: by status, else by its group), or null to leave the tags alone
+  const projectStatusTag = s => { const T = H.status_tags || {}, k = String(s || "").toLowerCase(); return T[k] || T[statusGroup(k)] || null; };
+  // a project's tags with its status tag set: the other status/ tags go
+  const withStatusTag = (fm, s) => { const tag = projectStatusTag(s), tags = tagsOf(fm); return tag ? [...tags.filter(t => !t.startsWith("status/")), tag] : tags; };
   const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
   // a task line as Obsidian counts it: "- [ ] text", numbered too; [prefix, mark, "] ", text]
   const TASK_LINE = /^(\s*(?:[-*+]|\d+[.)]) \[)(.)(\] )(.*)$/;
@@ -448,8 +458,9 @@ const VGRules = (() => {
       if (ok(dateIn(HQ_STANDUP, path), H.carry_days)) return "standup";
     }
     const type = String(fm.type || "").toLowerCase();
-    if (type && type === H.scope_type) return "scope";
     if (path === H.backlog) return "backlog";
+    // a project note outside the vault's tooling folder (agent memory there uses type: project too)
+    if (projectType(fm) && !path.startsWith(R.folders.system + "/")) return "project";
     if (reportPrefix(path) || automationReport(path)) return "report";
     if (type && type === H.review_type && path.startsWith(H.review_folder + "/")) return "review";
     if (type && type === H.decision_type) return "decision";
@@ -478,11 +489,12 @@ const VGRules = (() => {
     return out;
   }
   const bodyOf = text => String(text).replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
-  // a scope's one-paragraph summary: its **Summary:** line, else the first paragraph under a "What" heading
+  // a project's one-paragraph summary: its **Summary:** (or **Summary**:) line, else the first paragraph under a
+  // "What", "Story" or "Summary" heading
   function scopeSummary(text) {
-    const b = bodyOf(text), s = b.match(/^\*\*Summary:\*\*\s*(.+)$/m);
+    const b = bodyOf(text), s = b.match(/^\*\*Summary(?::\*\*|\*\*:)\s*(.+)$/m);
     if (s) return plainTask(s[1]);
-    const lines = b.split(/\r?\n/), at = lines.findIndex(l => /^#{1,6}\s+What\b/i.test(l));
+    const lines = b.split(/\r?\n/), at = lines.findIndex(l => /^#{1,6}\s+(What|Story|Summary)\b/i.test(l));
     if (at < 0) return "";
     const para = []; for (const l of lines.slice(at + 1)) { if (/^#/.test(l) || (para.length && !l.trim())) break; if (l.trim() && !/^[-|>]/.test(l.trim())) para.push(l.trim()); }
     return plainTask(para.join(" "));
@@ -501,7 +513,7 @@ const VGRules = (() => {
   // hqGather(files, { today }) -> data.hq. files: [{ path, text, fm? }] (fm: Obsidian's frontmatter; read from the
   // text when missing), plus each device's run records as { path, json } from the automation_status folder.
   function hqGather(files, o = {}) {
-    const day = o.today || today(), hq = { date: day, journals: [], standups: [], scopes: [], backlog: [], reports: [], reviews: [], decisions: [], runs: {}, runlog: [] };
+    const day = o.today || today(), hq = { date: day, journals: [], standups: [], projects: [], backlog: [], reports: [], reviews: [], decisions: [], runs: {}, runlog: [] };
     const newestReport = {};
     for (const f of files || []) {
       if (f.json) { Object.entries(f.json || {}).forEach(([name, run]) => { if (run && (!hq.runs[name] || String(run.last_run) > String(hq.runs[name].last_run))) hq.runs[name] = run; }); continue; }
@@ -509,8 +521,9 @@ const VGRules = (() => {
       if (kind === "journal") hq.journals.push({ path: f.path, date: dateIn(HQ_JOURNAL, f.path), tasks: tasksIn(f.text) });
       else if (kind === "standup") hq.standups.push({ path: f.path, date: dateIn(HQ_STANDUP, f.path), plan: HQ_PLAN ? itemsUnder(f.text, HQ_PLAN) : [],
         deviation: Number(fm.deviation_hours) || 0, projects: [].concat(fm["related-projects"] || []).map(plainTask).filter(Boolean) });
-      else if (kind === "scope") hq.scopes.push({ path: f.path, name, title: titleOf(f.text, f.path).replace(/^Scope of Work\s*[—–-]\s*/i, ""), status: String(fm.status || "").toLowerCase(),
-        group: statusGroup(fm.status), summary: scopeSummary(f.text), estimate: scopeEstimate(f.text), created: String(fm.created || ""), updated: String(fm.updated || fm.created || "") });
+      else if (kind === "project") hq.projects.push({ path: f.path, name, kind: PROJECT_TYPES[projectType(fm)], title: titleOf(f.text, f.path).replace(/^(Scope of Work|User Story)\s*[—–:-]\s*/i, ""),
+        status: String(fm.status || "").toLowerCase(), group: statusGroup(fm.status), summary: scopeSummary(f.text), estimate: scopeEstimate(f.text), created: String(fm.created || ""),
+        updated: String(fm.updated || fm.modified || fm.created || "") });
       else if (kind === "backlog") tasksIn(f.text).filter(t => t.mark === " ").forEach(t => hq.backlog.push({ path: f.path, ...t }));
       else if (kind === "report") { const prefix = reportPrefix(f.path) || automationReport(f.path).report, date = (name.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || "";
         if (!newestReport[prefix] || date > newestReport[prefix].date) { const rows = reportRows(f.text).filter(r => r.mark === " ");
@@ -519,15 +532,15 @@ const VGRules = (() => {
       else if (kind === "decision") hq.decisions.push({ path: f.path, name, title: titleOf(f.text, f.path), date: String(fm.date || fm.created || ""), status: String(fm.status || "").toLowerCase(),
         by: plainTask([].concat(fm.decided_by || []).join(", ")), project: plainTask([].concat(fm.project || []).join(", ")) });
       else if (kind === "runlog") String(f.text).split(/\r?\n/).filter(l => /^- \d{4}-\d{2}-\d{2}/.test(l)).forEach(l => hq.runlog.push(plainTask(l.slice(2))));
-      // how often each scope came up: the dailies in the window that name it (its file name, code name or title)
+      // how often each project came up: the dailies in the window that name it (its file name, code name or title)
       if (kind === "journal" || kind === "standup") (hq.mentionText = hq.mentionText || []).push([dateIn(kind === "journal" ? HQ_JOURNAL : HQ_STANDUP, f.path), String(f.text).toLowerCase()]);
     }
     hq.reports = Object.values(newestReport);
     const code = s => s.name.replace(/^.*[—–-]\s*/, "").toLowerCase();
-    hq.scopes.forEach(s => { s.days = [...new Set((hq.mentionText || []).filter(([, t]) => t.includes(s.name.toLowerCase()) || t.includes(code(s)) || (s.title.length > 8 && t.includes(s.title.toLowerCase()))).map(([d]) => d))].sort(); });
+    hq.projects.forEach(s => { s.days = [...new Set((hq.mentionText || []).filter(([, t]) => t.includes(s.name.toLowerCase()) || t.includes(code(s)) || (s.title.length > 8 && t.includes(s.title.toLowerCase()))).map(([d]) => d))].sort(); });
     delete hq.mentionText;
     hq.journals.sort((a, b) => (a.date < b.date ? 1 : -1)); hq.standups.sort((a, b) => (a.date < b.date ? 1 : -1));
-    hq.scopes.sort((a, b) => (a.updated < b.updated ? 1 : a.updated > b.updated ? -1 : a.name < b.name ? -1 : 1));
+    hq.projects.sort((a, b) => (a.updated < b.updated ? 1 : a.updated > b.updated ? -1 : a.name < b.name ? -1 : 1));
     hq.decisions.sort((a, b) => (a.date < b.date ? 1 : -1)); hq.runlog = hq.runlog.slice(-20);
     return hq;
   }
@@ -545,10 +558,11 @@ const VGRules = (() => {
         state: !last ? "never" : ok === false ? "failed" : late ? "late" : "ok" };
     });
   }
-  // The scopes of work as projects: status group, summary, estimate, the days the dailies named it, active decisions
+  // The projects (scopes of work, project notes, user stories): kind, status group, summary, estimate, the days the
+  // dailies named it, active decisions
   function hqProjects(data) {
     const hq = (data && data.hq) || {}, decisions = (hq.decisions || []).filter(d => d.status === "active");
-    return (hq.scopes || []).map(s => ({ ...s, decisions: decisions.filter(d => d.project && (d.project.includes(s.name) || d.project.toLowerCase().includes(s.title.toLowerCase()))) }));
+    return (hq.projects || []).map(s => ({ ...s, decisions: decisions.filter(d => d.project && (d.project.includes(s.name) || d.project.toLowerCase().includes(s.title.toLowerCase()))) }));
   }
   // Which part of HQ shows an item: today (work), needs (only you can decide it) or upkeep (the vault itself)
   const TODAY_GROUP = { task: "today", plan: "today", carried: "today", approval: "needs", review: "needs", job: "needs", backlog: "needs", report: "needs" };
@@ -565,7 +579,7 @@ const VGRules = (() => {
       put({ key: `task|${j.path}|${t.text}`, kind: "task", path: j.path, line: t.line, text: t.text, ...fieldsOf(t.text), ids: [j.path], title: label(t.text), why: t.section || "Today's journal", score: 20 - i * 0.01 })));
     const plan = hq.standups.find(s => s.date < day);
     if (plan) plan.plan.forEach((p, i) => put({ key: `plan|${plan.path}|${i}|${p.text}`, kind: "plan", path: plan.path, line: p.line, text: p.text, ids: [plan.path], title: label(p.text), why: `Planned in ${stemCase(plan.path)}`, score: 15 - i * 0.01 }));
-    hq.scopes.filter(s => s.group === "waiting").forEach(s => { const waited = s.updated ? daysBetween(s.updated, day) : 0;
+    hq.projects.filter(s => s.group === "waiting").forEach(s => { const waited = s.updated ? daysBetween(s.updated, day) : 0;
       put({ key: `approval|${s.path}`, kind: "approval", path: s.path, ids: [s.path], title: s.title, why: `${s.status}${waited > 0 ? ` for ${waited} day${waited === 1 ? "" : "s"}` : ""}`, waited, score: waited > (H.approval_overdue_days || 3) ? 21 : 12 }); });
     hq.reviews.filter(r => r.status === "waiting").forEach(r => put({ key: `review|${r.path}`, kind: "review", path: r.path, ids: [r.path], title: r.title, why: r.task ? `Draft for: ${r.task}` : "Draft waiting", score: 11.5 }));
     hqJobs(hq, o.now).filter(j => j.state === "failed" || j.state === "late").forEach(j => put({ key: `job|${j.name}|${j.last}`, kind: "job", path: H.automations_note, name: j.name, ids: [],
@@ -799,7 +813,7 @@ const VGRules = (() => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
-  return { HQ: H, TASK_LINE, taskLine, stampsDone, addWorkLine, reportRows, plainRow, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqKind, hqGather, hqJobs, hqProjects, todayGroup, TODAY_GROUP, statusGroup,
+  return { HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, TASK_LINE, taskLine, stampsDone, addWorkLine, reportRows, plainRow, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqKind, hqGather, hqJobs, hqProjects, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

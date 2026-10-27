@@ -26,12 +26,16 @@ const H = env.rules.hq;
   const files = new Map(), mk = (p, text) => { const f = Object.assign(new TFile(), { path: p, basename: p.split("/").pop().replace(/\.md$/, ""), name: p.split("/").pop(), extension: "md" }); files.set(p, { f, text }); };
   mk(J, "# Today\n\n- [ ]  Ship the fix\n- [ ] Write it up\n- [ ] Changed since\n");
   mk(DRAFT, "---\ntype: review-draft\nstatus: waiting\n---\n# Draft\n\nText.\n");
+  const STORY = "Systems/User Stories/Story.md";
+  mk(STORY, "---\ntype: user-story\nstatus: planned\nmodified: '2026-03-13'\ntags:\n  - type/user-story\n  - status/done\n---\n# User Story: Story\n");
   const at = p => (files.get(p) || {}).f || null, shared = {};
   const app = { vault: { getAbstractFileByPath: at, read: async f => files.get(f.path).text, cachedRead: async f => files.get(f.path).text,
       process: async (f, fn) => { const e = files.get(f.path); e.text = fn(e.text); return e.text; }, modify: async (f, t) => { files.get(f.path).text = t; },
       adapter: { read: async p => { if (p in shared) return shared[p]; throw new Error("no file"); }, write: async (p, t) => { shared[p] = t; }, exists: async p => p in shared, list: async () => ({ files: [], folders: [] }), mkdir: async () => {} } },
-    fileManager: { processFrontMatter: async (f, fn) => { const e = files.get(f.path), fm = {}; fn(fm);
-      e.text = e.text.replace(/^---\n([\s\S]*?)\n---/, (all, body) => `---\n${body.split("\n").map(l => { const k = l.split(":")[0]; return k in fm ? `${k}: ${fm[k]}` : l; }).join("\n")}\n---`); } },
+    // Obsidian's frontmatter write, for these notes: read it, change it, write every key back (lists as items)
+    fileManager: { processFrontMatter: async (f, fn) => { const e = files.get(f.path), fm = VGRules.frontOf(e.text); fn(fm);
+      const yaml = Object.entries(fm).map(([k, v]) => (Array.isArray(v) ? [`${k}:`, ...v.map(x => `  - ${x}`)].join("\n") : `${k}: ${v}`)).join("\n");
+      e.text = /^---\n/.test(e.text) ? e.text.replace(/^---\n[\s\S]*?\n---/, `---\n${yaml}\n---`) : `---\n${yaml}\n---\n${e.text}`; } },
     metadataCache: {}, workspace: { getLeavesOfType: () => [] }, loadLocalStorage: () => "test-device", saveLocalStorage() {} };
   const p = Object.assign(Object.create(Plugin.prototype), { app, settings: { sharedPath: "shared.json" } });
   const line = t => files.get(J).text.split("\n").find(l => l.includes(t));
@@ -43,6 +47,10 @@ const H = env.rules.hq;
   check("a task that changed since is refused", [refused, line("Changed since")], [true, "- [ ] Changed since"]);
   await p.setNoteStatus(DRAFT, "rejected", "Wrong customer list");
   check("Reject sets the draft's status and writes the reason", [/status: rejected/.test(files.get(DRAFT).text), files.get(DRAFT).text.trim().endsWith("**Why rejected:** Wrong customer list")], [true, true]);
+  // a project's status from its drawer: the status, the updated date and the one status tag the rules give it
+  await p.setProjectStatus(STORY, "in-progress");
+  const sfm = VGRules.frontOf(files.get(STORY).text);
+  check("Set status writes the status, the day and its status tag", [sfm.status, sfm.updated, sfm.tags], ["in-progress", day, ["type/user-story", VGRules.projectStatusTag("in-progress")]]);
   // Done in HQ: checked off in the journal and added to today's standup; without today's standup only the task
   const SU = `${VGRules.folders.daily}/2026/Standups/Daily Standup ${day}.md`, REP = `${VGRules.folders.reports}/${H.reports[0]} ${day}.md`;
   files.get(J).text += "- [ ] Tell Ben\n- [ ] Order parts\n";

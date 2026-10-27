@@ -124,7 +124,7 @@ const H = R.hq, SCOPES = [
   ["WH_ScannerUpgrade", "Scanner Upgrade", "complete", ago(30), "", ""],
 ];
 SCOPES.forEach(([code, title, status, updated, summary, est]) => note(`02-Projects/Rental App/User Stories/Scope of Work — ${code}.md`,
-  { type: H.scope_type, status, created: ago(40), updated, tags: ["project/rental-app"] },
+  { type: Object.keys(H.project_types)[0], status, created: ago(40), updated, tags: ["project/rental-app"] },
   `# Scope of Work — ${title}\n\n${summary ? `**Summary:** ${summary}\n\n` : ""}## What it is\n\n${summary ? "" : `What ${title.toLowerCase()} changes for the shop and the riders.\n`}\n${est}\n\nSee [[Booking Flow]].\n`));
 note(H.backlog, { tags: ["meta/backlog"] }, "# Vault Backlog\n\n- [ ] Decide whether the old warehouse notes move to the archive\n- [ ] Merge the two warehouse handbooks\n- [x] Name the support topic's map\n");
 note(`${H.review_folder}/Refund email to riders.md`, { type: H.review_type, status: "waiting", task: "Draft the refund email for riders", created: ago(1) }, "# Refund email to riders\n\nA draft of the email.\n");

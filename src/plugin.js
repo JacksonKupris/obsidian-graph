@@ -516,7 +516,7 @@ class VaultGraphSuggestView extends ItemView {
 const { today, localDay } = VGRules;   // the shared date rules (this device's calendar day)
 // Every plugin method that writes to the vault. onload wraps each so it announces the change when done (every open
 // surface redraws); viewActions hands the same methods to every graph surface. A new write action goes in this list.
-const WRITE_ACTIONS = ["linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
+const WRITE_ACTIONS = ["linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
   "addReference", "tickMocRow", "saveBinary", "stateSnapshots", "undo"];
 // The only methods that touch the vault for a write action. Each notes what it's about to change in the open undo
 // entry, so every action can be undone from the message that confirms it. tests/test_rules.js fails on a vault write
@@ -1136,6 +1136,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       logWork: text => this.logWork(text),
       setTasksStatus: (rows, status) => this.setTasksStatus(rows, status),
       setNoteStatus: (notePath, status, reason) => this.setNoteStatus(notePath, status, reason),
+      setProjectStatus: (notePath, status) => this.setProjectStatus(notePath, status),
       hqMark: (key, mark) => this.hqMark(key, mark),
       stampReviewed: notePath => this.stampReviewed(notePath),
       dismissPair: async (a, b, kind) => { await this.dismiss(a, b, kind); new Notice("Won't suggest that pair again"); },
@@ -1279,6 +1280,12 @@ module.exports = class VaultGraphPlugin extends Plugin {
     if (!file) throw new Error("missing note");
     await this.ioFrontMatter(file, fm => { fm.status = status; });
     if (reason) await this.ioProcess(file, text => { const nl = text.includes("\r\n") ? "\r\n" : "\n"; return text.replace(/\s*$/, "") + nl + nl + `**Why ${status}:** ${reason}` + nl; });
+  }
+  // A project's status from HQ: its status, its updated date and its status tag (VGRules.withStatusTag), in one write
+  async setProjectStatus(notePath, status) {
+    const file = this.fileAt(notePath);
+    if (!file) throw new Error("missing note");
+    await this.ioFrontMatter(file, fm => { fm.status = status; fm.updated = today(); fm.tags = VGRules.withStatusTag(fm, status); });
   }
   toggleTask(notePath, line, text) { return this.setTaskStatus(notePath, line, text, "x"); }
 
