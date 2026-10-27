@@ -9,6 +9,7 @@
     "test": "node tests/run.js",
     "test:vault": "node tests/run.js --vault",
     "deploy": "node scripts/deploy.js",
+    "release": "node scripts/release.js",
     "sample": "node fixtures/make_sample.js"
   },
   "engines": {

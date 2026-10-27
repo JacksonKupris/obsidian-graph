@@ -45,7 +45,8 @@ How it's put together: [ARCHITECTURE.md](ARCHITECTURE.md). Where it's going: [RO
 npm test                      # build + rules/code checks + every view and lens on the sample vault
 npm run test:vault            # the same on a real vault (local.json's "vault", or --vault <dir>)
 npm run build                 # dist/: main.js, styles.css, manifest.json, rules.js, engine.js (sample rules)
-npm run deploy                # build with the vault's rules, test, install plugin and analysis into the vault, reload in Obsidian
+npm run deploy                # test on the vault, install the analysis and its check files there (--plugin: this build too, until the next release)
+npm run release [-- minor]    # bump, test, tag and push; CI publishes the release, then BRAT installs it in a running Obsidian
 npm run page -- --data <graph.json> [--rules <file>]   # the standalone graph page, in .out/
 npm run sample -- --analyse   # regenerate fixtures/ with analysis/ (uses the vault's _System/vault_lib.py)
 ```
