@@ -136,6 +136,10 @@ check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }
     Q.withStatusTag({ tags: ["type/user-story", "status/done"] }, "in-progress"), Q.withStatusTag({ tags: ["status/done"] }, "odd")],
     ["status/cancelled", "status/done", "status/open", null, ["type/user-story", "status/in-progress"], ["status/done"]]);
   check("hq: which mark closing a project gives its tasks", [Q.closeMark("complete"), Q.closeMark("cancelled"), Q.closeMark("planned"), Q.closeMark("odd")], ["x", "-", null, null]);
+  { const E = new Function(`${build.rulesSource({ ...R, hq: { ...H, completion_field: "✅" } })}; return VGRules;`)();
+    check("hq: done stamps the emoji form, and either form already there counts", [E.taskLine("- [ ] Ship it", "x", "2026-10-27"), E.taskLine("- [ ] Ship it ✅ 2026-10-20", "x", "2026-10-27"),
+      E.taskLine("- [ ] Ship it [completion:: 2026-10-20]", "x", "2026-10-27"), Q.taskLine("- [ ] Ship it", "x", "2026-10-27"), Q.taskLine("- [ ] Ship it ✅ 2026-10-20", "x", "2026-10-27")],
+      ["- [x] Ship it ✅ 2026-10-27", "- [x] Ship it ✅ 2026-10-20", "- [x] Ship it [completion:: 2026-10-20]", "- [x] Ship it [completion:: 2026-10-27]", "- [x] Ship it ✅ 2026-10-20"]); }
   check("hq: a project carries its open tasks, subtasks marked", Q.hqGather([{ path: "P/Story.md", text: "---\ntype: user-story\nstatus: planned\n---\n# User Story: S\n\n- [ ] **Build** it\n\t- [ ] Sub\n- [x] Done\n" }], { today: day })
     .projects[0].tasks, [{ line: 6, text: "**Build** it", title: "Build it", sub: false }, { line: 7, text: "Sub", title: "Sub", sub: true }]);
   check("hq: open tasks to close, subtasks too, not in code", Q.openTaskLines("- [ ] A\n\t- [ ] B\n- [x] C\n```\n- [ ] D\n```\n").map(t => [t.line, t.text]), [[0, "A"], [1, "B"]]);

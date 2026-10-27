@@ -387,11 +387,15 @@ const VGRules = (() => {
   const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
   // a task line as Obsidian counts it: "- [ ] text", numbered too; [prefix, mark, "] ", text]
   const TASK_LINE = /^(\s*(?:[-*+]|\d+[.)]) \[)(.)(\] )(.*)$/;
-  // a task line with a new mark; done stamps the day in the completion field (the journal's "Completed Today" reads
-  // it), except in a note whose ticks are instructions (stamp false: a report row the gardener applies)
+  // the done date as the vault writes it (rules "completion_field"): the Tasks plugin's emoji ("✅" -> "✅ 2026-10-27"),
+  // or an inline field ("completion" -> "[completion:: 2026-10-27]"). Either form already on a line counts as stamped.
+  const completionStamp = day => (/^\w+$/.test(H.completion_field || "") ? `[${H.completion_field}:: ${day}]` : `${H.completion_field} ${day}`);
+  const hasCompletion = text => /✅ \d{4}-\d{2}-\d{2}|\[completion:: ?\d{4}/.test(text) || (/^\w+$/.test(H.completion_field || "") && new RegExp(`\\[${H.completion_field}::`).test(text));
+  // a task line with a new mark; done stamps the day (the journal's "Completed Today" reads it), except in a note whose
+  // ticks are instructions (stamp false: a report row the gardener applies)
   function taskLine(line, mark, day, stamp = true) {
     const m = String(line).match(TASK_LINE); if (!m) return line;
-    const field = H.completion_field, add = stamp && field && mark === "x" && !new RegExp(`\\[${field}::`).test(m[4]) ? ` [${field}:: ${day || today()}]` : "";
+    const add = stamp && H.completion_field && mark === "x" && !hasCompletion(m[4]) ? " " + completionStamp(day || today()) : "";
     return m[1] + mark + m[3] + (add ? m[4].replace(/\s+$/, "") + add : m[4]);
   }
   // does ticking a task in this note stamp the day? Not in a report: its rows are read back by the gardener
@@ -820,7 +824,7 @@ const VGRules = (() => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
-  return { HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, stampsDone, addWorkLine, reportRows, plainRow, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqKind, hqGather, hqJobs, hqProjects, todayGroup, TODAY_GROUP, statusGroup,
+  return { HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqKind, hqGather, hqJobs, hqProjects, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

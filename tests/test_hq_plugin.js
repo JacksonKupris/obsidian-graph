@@ -40,7 +40,7 @@ const H = env.rules.hq;
   const p = Object.assign(Object.create(Plugin.prototype), { app, settings: { sharedPath: "shared.json" } });
   const line = t => files.get(J).text.split("\n").find(l => l.includes(t));
   await p.setTaskStatus(J, 2, " Ship the fix", "x");
-  check("Done checks the task off in its journal and stamps the day", line("Ship the fix"), `- [x]  Ship the fix [${H.completion_field}:: ${day}]`);
+  check("Done checks the task off in its journal and stamps the day", line("Ship the fix"), `- [x]  Ship the fix ${VGRules.completionStamp(day)}`);
   await p.setTaskField(J, 3, "Write it up", H.delegate_field, H.delegate_to);
   check("Delegate adds the field to the task", line("Write it up"), `- [ ] Write it up [${H.delegate_field}:: ${H.delegate_to}]`);
   let refused = false; try { await p.setTaskStatus(J, 4, "Changed since — no", "x"); } catch (e) { refused = e.message === "stale"; }
@@ -53,13 +53,13 @@ const H = env.rules.hq;
   check("Set status writes the status, the day and its status tag", [sfm.status, sfm.updated, sfm.tags], ["in-progress", day, ["type/user-story", VGRules.projectStatusTag("in-progress")]]);
   // a closing status with closeTasks ticks every open task (subtasks too, code left alone) in the same write
   const ticked = await p.setProjectStatus(STORY, "complete", true), st = files.get(STORY).text;
-  check("Complete ticks the open tasks, stamps them and tags it done", [ticked, /- \[x\] Build it \[/.test(st), /\t- \[x\] A subtask \[/.test(st), st.includes("- [ ] not a task: code"),
+  check("Complete ticks the open tasks, stamps them and tags it done", [ticked, st.includes("- [x] Build it " + VGRules.completionStamp(day)), st.includes("\t- [x] A subtask " + VGRules.completionStamp(day)), st.includes("- [ ] not a task: code"),
     VGRules.frontOf(st).tags], [2, true, true, true, ["type/user-story", "status/done"]]);
   // Done in HQ: checked off in the journal and added to today's standup; without today's standup only the task
   const SU = `${VGRules.folders.daily}/2026/Standups/Daily Standup ${day}.md`, REP = `${VGRules.folders.reports}/${H.reports[0]} ${day}.md`;
   files.get(J).text += "- [ ] Tell Ben\n- [ ] Order parts\n";
   p.app.vault.getMarkdownFiles = () => [...files.values()].map(e => e.f);
-  check("Done with no standup today checks off the task only", [await p.completeTask(J, 5, "Tell Ben"), line("Tell Ben")], [false, `- [x] Tell Ben [${H.completion_field}:: ${day}]`]);
+  check("Done with no standup today checks off the task only", [await p.completeTask(J, 5, "Tell Ben"), line("Tell Ben")], [false, `- [x] Tell Ben ${VGRules.completionStamp(day)}`]);
   mk(SU, "## 1. Work Completed Today\n\n1. Wrote the scope\n\n---\n\n## 2. Blocks\n");
   check("Done adds the task to today's standup", [await p.completeTask(J, 6, "Order parts"), files.get(SU).text], [true, "## 1. Work Completed Today\n\n1. Wrote the scope\n2. Order parts\n\n---\n\n## 2. Blocks\n"]);
   // the sweep: several tasks in one action; one that changed since is left alone
