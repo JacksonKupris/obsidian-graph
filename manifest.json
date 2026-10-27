@@ -1,7 +1,7 @@
 {
   "id": "jk-vault-graph",
   "name": "Vault Graph",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "minAppVersion": "1.4.0",
   "description": "Maps the vault: topic clusters, bridge notes and gaps, with views and lenses for acting on them.",
   "author": "Jackson",
