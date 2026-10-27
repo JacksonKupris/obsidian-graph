@@ -60,7 +60,9 @@ const ok = listed ? await b.betaPlugins.updatePlugin(repo, false, false) : await
 return ok ? "installed" : "BRAT couldn't install it";`;
   const r = spawnSync(process.platform === "win32" ? "python" : "python3", ["-c",
     "import sys, json; sys.path.insert(0, sys.argv[1]); import obsidian_cli; print(json.dumps(obsidian_cli.eval_js(sys.argv[2])))", path.dirname(helper), js], { encoding: "utf8" });
-  const out = (r.stdout || "").trim();
-  console.log(out === '"installed"' ? `BRAT installed ${version} in Obsidian`
-    : out === "null" ? "Obsidian isn't running: BRAT installs it next time it opens" : `BRAT: ${out || (r.stderr || "").trim()}`);
+  // the plugin folder's manifest says what was installed (the CLI's own reply can be cut off while BRAT reloads the plugin)
+  const out = (r.stdout || "").trim(), id = JSON.parse(fs.readFileSync(path.join(ROOT, "manifest.json"), "utf8")).id;
+  let now = null; try { now = JSON.parse(fs.readFileSync(path.join(vault, ".obsidian", "plugins", id, "manifest.json"), "utf8")).version; } catch (e) { /* not installed */ }
+  console.log(now === version ? `BRAT installed ${version} in Obsidian`
+    : out === "null" ? "Obsidian isn't running: BRAT installs it next time it opens" : `BRAT didn't install ${version}: ${out || (r.stderr || "").trim().split("\n").pop()}`);
 })();
