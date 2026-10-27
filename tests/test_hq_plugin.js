@@ -27,7 +27,7 @@ const H = env.rules.hq;
   mk(J, "# Today\n\n- [ ]  Ship the fix\n- [ ] Write it up\n- [ ] Changed since\n");
   mk(DRAFT, "---\ntype: review-draft\nstatus: waiting\n---\n# Draft\n\nText.\n");
   const STORY = "Systems/User Stories/Story.md";
-  mk(STORY, "---\ntype: user-story\nstatus: planned\nmodified: '2026-03-13'\ntags:\n  - type/user-story\n  - status/done\n---\n# User Story: Story\n");
+  mk(STORY, "---\ntype: user-story\nstatus: planned\nmodified: '2026-03-13'\ntags:\n  - type/user-story\n  - status/done\n---\n# User Story: Story\n\n- [ ] Build it\n\t- [ ] A subtask\n- [x] Done already\n\n```\n- [ ] not a task: code\n```\n");
   const at = p => (files.get(p) || {}).f || null, shared = {};
   const app = { vault: { getAbstractFileByPath: at, read: async f => files.get(f.path).text, cachedRead: async f => files.get(f.path).text,
       process: async (f, fn) => { const e = files.get(f.path); e.text = fn(e.text); return e.text; }, modify: async (f, t) => { files.get(f.path).text = t; },
@@ -51,6 +51,10 @@ const H = env.rules.hq;
   await p.setProjectStatus(STORY, "in-progress");
   const sfm = VGRules.frontOf(files.get(STORY).text);
   check("Set status writes the status, the day and its status tag", [sfm.status, sfm.updated, sfm.tags], ["in-progress", day, ["type/user-story", VGRules.projectStatusTag("in-progress")]]);
+  // a closing status with closeTasks ticks every open task (subtasks too, code left alone) in the same write
+  const ticked = await p.setProjectStatus(STORY, "complete", true), st = files.get(STORY).text;
+  check("Complete ticks the open tasks, stamps them and tags it done", [ticked, /- \[x\] Build it \[/.test(st), /\t- \[x\] A subtask \[/.test(st), st.includes("- [ ] not a task: code"),
+    VGRules.frontOf(st).tags], [2, true, true, true, ["type/user-story", "status/done"]]);
   // Done in HQ: checked off in the journal and added to today's standup; without today's standup only the task
   const SU = `${VGRules.folders.daily}/2026/Standups/Daily Standup ${day}.md`, REP = `${VGRules.folders.reports}/${H.reports[0]} ${day}.md`;
   files.get(J).text += "- [ ] Tell Ben\n- [ ] Order parts\n";

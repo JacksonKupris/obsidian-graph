@@ -135,6 +135,8 @@ check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }
   check("hq: a project's status tag, by status then group, replacing the old one", [Q.projectStatusTag("cancelled"), Q.projectStatusTag("complete"), Q.projectStatusTag("Planned"), Q.projectStatusTag("odd"),
     Q.withStatusTag({ tags: ["type/user-story", "status/done"] }, "in-progress"), Q.withStatusTag({ tags: ["status/done"] }, "odd")],
     ["status/cancelled", "status/done", "status/open", null, ["type/user-story", "status/in-progress"], ["status/done"]]);
+  check("hq: which mark closing a project gives its tasks", [Q.closeMark("complete"), Q.closeMark("cancelled"), Q.closeMark("planned"), Q.closeMark("odd")], ["x", "-", null, null]);
+  check("hq: open tasks to close, subtasks too, not in code", Q.openTaskLines("- [ ] A\n\t- [ ] B\n- [x] C\n```\n- [ ] D\n```\n").map(t => [t.line, t.text]), [[0, "A"], [1, "B"]]);
   const journal = "---\ntags:\n  - daily/journal\n---\n# 2026-10-26\n\n### Today's Tasks\n- [ ] Ship the fix\n\t- [ ] a subtask\n- [x] Done already [completion:: 2026-10-26]\n- [ ]  Two spaces after the box\n"
     + "1. [ ] A numbered task\n- [-] Cancelled\n\n```\n- [ ] not a task: code\n```\n\n## Notes\n- [ ] Under notes\n";
   check("hq: top-level tasks with their section, subtasks and code left out", Q.tasksIn(journal).map(t => [t.mark, t.text, t.section]),

@@ -233,7 +233,7 @@ function mountVaultHQ(root, data, opts) {
   }
   function drawerHtml(all) {
     const p = drawer && all.find(x => x.path === drawer); if (!p) return "";
-    const facts = [["Status", p.status || "—"], ["Estimate", p.estimate || "—"], ["Updated", p.updated ? shortDate(p.updated) : "—"], ["Named in the dailies", `${plural((p.days || []).length, "day")} in 30`]];
+    const facts = [["Status", p.status || "—"], ["Estimate", p.estimate || "—"], ["Updated", p.updated ? shortDate(p.updated) : "—"], ["Named in the dailies", `${plural((p.days || []).length, "day")} in 30`], ["Open tasks", String(p.open || 0)]];
     return `<div class="vg-hq-scrim" data-closedrawer></div><aside class="vg-hq-drawer" role="dialog" aria-label="${esc(p.title)}"><button class="vg-hq-x" data-closedrawer aria-label="Close">${icon("close")}</button>
       <small>${esc(p.name)}</small><h2>${esc(p.title)}</h2><p>${esc(p.summary || "No summary yet.")}</p>
       <dl class="vg-hq-facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>${spark(p.days)}
@@ -244,14 +244,17 @@ function mountVaultHQ(root, data, opts) {
   }
 
   // a project's status from its drawer, as a shared action (its message and Undo): shown at once, the host's redraw
-  // brings the note's truth
+  // brings the note's truth. A closing status with open tasks asks first, then ticks (or cancels) them in the same write.
   async function setStatus(path, status, btn) {
     const p = ((hq() || {}).projects || []).find(x => x.path === path); if (!p || p.status === status) return;
+    const mark = p.open ? VGRules.closeMark(status) : null, done = mark === "x" ? "ticked" : "cancelled";
+    const list = (p.openTasks || []).slice(0, 6).join("; ") + ((p.openTasks || []).length > 6 ? `; and ${p.openTasks.length - 6} more` : "");
     btn.disabled = true;
     const ok = await VGActions.run({ label: () => "Set status", title: () => p.title,
-      run: async () => { await api.setProjectStatus(path, status); return `${p.title}: ${status}`; } }, p, ctx());
+      ask: mark ? () => [`Set ${p.title} to ${status}?`, `${plural(p.open, "open task")} will be ${done}: ${list}.`, `Set to ${status}, ${done === "ticked" ? "tick" : "cancel"} ${plural(p.open, "task")}`] : null,
+      run: async () => { const n = await api.setProjectStatus(path, status, !!mark); return `${p.title}: ${status}${n ? ` · ${plural(n, "task")} ${done}` : ""}`; } }, p, ctx());
     if (!ok) { if (btn.isConnected) btn.disabled = false; return; }
-    Object.assign(p, { status, group: VGRules.statusGroup(status), updated: day() }); render();
+    Object.assign(p, { status, group: VGRules.statusGroup(status), updated: day() }, mark ? { open: 0, openTasks: [] } : {}); render();
   }
 
   // ---- Sweep: the carried-over tasks a day at a time, oldest first: Done (finished some time ago, so it doesn't go in

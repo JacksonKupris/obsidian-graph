@@ -467,16 +467,22 @@ const VGRules = (() => {
     if (H.run_log && path.startsWith(H.run_log + " ")) return "runlog";
     return null;
   }
-  // [{ line, text, mark, section }] for each top-level task in a note (subtasks travel with their parent)
-  function tasksIn(text) {
+  // [{ line, text, mark, section }] for each top-level task in a note (subtasks travel with their parent); nested:
+  // subtasks too. Tasks in code blocks aren't tasks.
+  function tasksIn(text, o = {}) {
     const out = []; let section = "", code = false;
     String(text).split(/\r?\n/).forEach((l, i) => {
       if (/^\s*(```|~~~)/.test(l)) { code = !code; return; } if (code) return;
       const h = l.match(/^#{1,6}\s+(.*)/); if (h) { section = h[1].trim(); return; }
-      const m = l.match(TASK_LINE); if (m && !/^\s/.test(l)) out.push({ line: i, text: m[4], mark: m[2], section });
+      const m = l.match(TASK_LINE); if (m && (o.nested || !/^\s/.test(l))) out.push({ line: i, text: m[4], mark: m[2], section });
     });
     return out;
   }
+  // every open task in a note, subtasks too: what closing the whole note ticks
+  const openTaskLines = text => tasksIn(text, { nested: true }).filter(t => t.mark === " ");
+  // the mark a project's open tasks get when it's set to this status: x when it closes it, - when it closes it as
+  // cancelled (its status tag is status/cancelled), null when it doesn't close it
+  const closeMark = s => statusGroup(s) !== "closed" ? null : projectStatusTag(s) === "status/cancelled" ? "-" : "x";
   // the top-level items under the first heading matching rx (numbered or bulleted), until the next heading as big
   function itemsUnder(text, rx) {
     const lines = String(text).split(/\r?\n/), out = []; let level = 0;
@@ -523,6 +529,7 @@ const VGRules = (() => {
         deviation: Number(fm.deviation_hours) || 0, projects: [].concat(fm["related-projects"] || []).map(plainTask).filter(Boolean) });
       else if (kind === "project") hq.projects.push({ path: f.path, name, kind: PROJECT_TYPES[projectType(fm)], title: titleOf(f.text, f.path).replace(/^(Scope of Work|User Story)\s*[—–:-]\s*/i, ""),
         status: String(fm.status || "").toLowerCase(), group: statusGroup(fm.status), summary: scopeSummary(f.text), estimate: scopeEstimate(f.text), created: String(fm.created || ""),
+        open: openTaskLines(f.text).length, openTasks: tasksIn(f.text).filter(t => t.mark === " ").map(t => plainTask(t.text)),
         updated: String(fm.updated || fm.modified || fm.created || "") });
       else if (kind === "backlog") tasksIn(f.text).filter(t => t.mark === " ").forEach(t => hq.backlog.push({ path: f.path, ...t }));
       else if (kind === "report") { const prefix = reportPrefix(f.path) || automationReport(f.path).report, date = (name.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || "";
@@ -813,7 +820,7 @@ const VGRules = (() => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
-  return { HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, TASK_LINE, taskLine, stampsDone, addWorkLine, reportRows, plainRow, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqKind, hqGather, hqJobs, hqProjects, todayGroup, TODAY_GROUP, statusGroup,
+  return { HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, stampsDone, addWorkLine, reportRows, plainRow, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqKind, hqGather, hqJobs, hqProjects, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

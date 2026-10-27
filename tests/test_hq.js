@@ -8,7 +8,7 @@ const cdp = require("./cdp"), env = require("./env");
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rec = k => `${k}: async (...a) => { (window.__calls = window.__calls || []).push(["${k}", ...a]); return true; },`;
 const OPTS = `api: { ${["setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "hqMark", "openNote", "openDaily"].map(rec).join(" ")} },
-  ask: async () => true, input: async () => "Not what we need", openGraph: () => { (window.__calls = window.__calls || []).push(["openGraph"]); },
+  ask: async (...a) => { (window.__asked = window.__asked || []).push(a); return true; }, input: async () => "Not what we need", openGraph: () => { (window.__calls = window.__calls || []).push(["openGraph"]); },
   __errs: (addEventListener("error", e => (window.__errs = window.__errs || []).push(e.message)), addEventListener("unhandledrejection", e => (window.__errs = window.__errs || []).push(String(e.reason))), 0),`;
 
 async function page(html, o = {}) {
@@ -124,6 +124,17 @@ async function page(html, o = {}) {
       if (!(c[0] && c[0][0] === "setProjectStatus" && /RA_Deposits/.test(c[0][1]) && c[0][2] === "testing")) fails.push(`Set status called ${JSON.stringify(c[0])}`);
       if (!await ev(`/testing/.test([...document.querySelectorAll(".vg-hq-proj")].find(b => /Card Deposits/.test(b.textContent)).textContent)`)) fails.push("the card doesn't show the new status");
       if (!await ev(`!!document.querySelector('.vg-hq-drawer [data-setstatus="testing"][aria-pressed="true"]')`)) fails.push("the drawer doesn't mark the new status");
+      // a closing status with open tasks asks first, then ticks them in the same write
+      await ev(`Object.assign(DATA.hq.projects.find(p => /RA_Deposits/.test(p.path)), { open: 2, openTasks: ["Wire the reader", "Test refunds"] }); window.vaultHQ.update(null, null)`); await sleep(150);
+      await ev("window.__calls = []; window.__asked = []");
+      await ev(`document.querySelector('.vg-hq-drawer [data-setstatus="complete"]').click()`); await sleep(300);
+      c = await calls();
+      const asked = await ev("JSON.stringify(window.__asked)").then(JSON.parse);
+      if (!(asked.length === 1 && /2 open tasks will be ticked: Wire the reader; Test refunds/.test(asked[0][1]))) fails.push(`Complete with open tasks asked ${JSON.stringify(asked)}`);
+      if (!(c[0] && c[0][0] === "setProjectStatus" && c[0][2] === "complete" && c[0][3] === true)) fails.push(`Complete with open tasks called ${JSON.stringify(c[0])}`);
+      await ev("window.__calls = []; window.__asked = []");
+      await ev(`document.querySelector('.vg-hq-drawer [data-setstatus="planned"]').click()`); await sleep(300);
+      if (await ev("window.__asked.length") !== 0) fails.push("a status that doesn't close the project asks");
       await ev(`document.querySelector(".vg-hq-drawer").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`); await sleep(100);
       if (await ev(`!!document.querySelector(".vg-hq-drawer")`)) fails.push("Escape doesn't close the drawer");
     }

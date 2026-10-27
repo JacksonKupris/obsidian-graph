@@ -1136,7 +1136,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       logWork: text => this.logWork(text),
       setTasksStatus: (rows, status) => this.setTasksStatus(rows, status),
       setNoteStatus: (notePath, status, reason) => this.setNoteStatus(notePath, status, reason),
-      setProjectStatus: (notePath, status) => this.setProjectStatus(notePath, status),
+      setProjectStatus: (notePath, status, closeTasks) => this.setProjectStatus(notePath, status, closeTasks),
       hqMark: (key, mark) => this.hqMark(key, mark),
       stampReviewed: notePath => this.stampReviewed(notePath),
       dismissPair: async (a, b, kind) => { await this.dismiss(a, b, kind); new Notice("Won't suggest that pair again"); },
@@ -1281,11 +1281,24 @@ module.exports = class VaultGraphPlugin extends Plugin {
     await this.ioFrontMatter(file, fm => { fm.status = status; });
     if (reason) await this.ioProcess(file, text => { const nl = text.includes("\r\n") ? "\r\n" : "\n"; return text.replace(/\s*$/, "") + nl + nl + `**Why ${status}:** ${reason}` + nl; });
   }
-  // A project's status from HQ: its status, its updated date and its status tag (VGRules.withStatusTag), in one write
-  async setProjectStatus(notePath, status) {
+  // A project's status from HQ: its status, its updated date and its status tag (VGRules.withStatusTag), in one write.
+  // closeTasks: a closing status also ticks (or cancels) every open task in it (VGRules.closeMark). Returns how many.
+  async setProjectStatus(notePath, status, closeTasks = false) {
     const file = this.fileAt(notePath);
     if (!file) throw new Error("missing note");
+    const mark = closeTasks && VGRules.closeMark(status), n = mark ? await this.markOpenTasks(file, mark) : 0;
     await this.ioFrontMatter(file, fm => { fm.status = status; fm.updated = today(); fm.tags = VGRules.withStatusTag(fm, status); });
+    return n;
+  }
+  // every open task in a note (VGRules.openTaskLines) gets the mark, done ones stamped with the day; how many changed
+  async markOpenTasks(file, mark) {
+    let n = 0;
+    await this.ioProcess(file, data => {
+      const nl = data.includes("\r\n") ? "\r\n" : "\n", lines = data.split(/\r?\n/);
+      VGRules.openTaskLines(data).forEach(t => { lines[t.line] = VGRules.taskLine(lines[t.line], mark, today(), VGRules.stampsDone(file.path)); n++; });
+      return lines.join(nl);
+    });
+    return n;
   }
   toggleTask(notePath, line, text) { return this.setTaskStatus(notePath, line, text, "x"); }
 
@@ -1294,12 +1307,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   async setNoteTasks(notePath, status = "x") {
     const file = this.app.vault.getAbstractFileByPath(normalizePath(notePath));
     if (!(file instanceof TFile)) throw new Error("missing note");
-    let n = 0;
-    await this.ioProcess(file, data => {
-      const nl = data.includes("\r\n") ? "\r\n" : "\n";
-      return data.split(/\r?\n/).map(l => { const m = l.match(TASK_LINE); if (!m || m[2] !== " ") return l; n++; return VGRules.taskLine(l, status, today(), VGRules.stampsDone(file.path)); }).join(nl);
-    });
-    const tag = NOTE_STATUS[status];
+    const n = await this.markOpenTasks(file, status), tag = NOTE_STATUS[status];
     if (tag && n) await this.ioFrontMatter(file, fm => {   // only a note whose tasks did change is marked done or cancelled
       const tags = [].concat(fm.tags || []).map(t => String(t).replace(/^#/, "")).filter(t => !t.startsWith("status/"));
       fm.tags = [...tags, tag];
