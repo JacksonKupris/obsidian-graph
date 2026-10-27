@@ -233,28 +233,46 @@ function mountVaultHQ(root, data, opts) {
   }
   function drawerHtml(all) {
     const p = drawer && all.find(x => x.path === drawer); if (!p) return "";
-    const facts = [["Status", p.status || "—"], ["Estimate", p.estimate || "—"], ["Updated", p.updated ? shortDate(p.updated) : "—"], ["Named in the dailies", `${plural((p.days || []).length, "day")} in 30`], ["Open tasks", String(p.open || 0)]];
+    const facts = [["Status", p.status || "—"], ["Estimate", p.estimate || "—"], ["Updated", p.updated ? shortDate(p.updated) : "—"], ["Named in the dailies", `${plural((p.days || []).length, "day")} in 30`]];
+    // its open tasks, in the sweep's rows: Done / Cancel each, or all at once (the shared batch action)
+    const tasks = p.tasks || [], canTick = !!api.setTasksStatus;
+    const taskList = `<h3>Open tasks · ${tasks.length}</h3>` + (!tasks.length ? `<p class="vg-hq-lede">No open tasks.</p>`
+      : (canTick ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-sm" data-pbatch="x">Done all</button><button class="vg-hq-btn vg-hq-btn-sm" data-pbatch="-">Cancel all</button></div>` : "")
+      + tasks.map(t => `<div class="vg-hq-item${t.sub ? " is-sub" : ""}"><div class="vg-hq-txt"><b>${esc(t.title)}</b></div>${canTick ? `<div class="vg-hq-acts">
+          <button class="vg-hq-btn vg-hq-btn-sm" data-ptask="x" data-line="${t.line}">Done</button><button class="vg-hq-btn vg-hq-btn-sm" data-ptask="-" data-line="${t.line}">Cancel</button></div>` : ""}</div>`).join(""));
     return `<div class="vg-hq-scrim" data-closedrawer></div><aside class="vg-hq-drawer" role="dialog" aria-label="${esc(p.title)}"><button class="vg-hq-x" data-closedrawer aria-label="Close">${icon("close")}</button>
       <small>${esc(p.name)}</small><h2>${esc(p.title)}</h2><p>${esc(p.summary || "No summary yet.")}</p>
       <dl class="vg-hq-facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>${spark(p.days)}
       ${api.setProjectStatus && VGRules.STATUS_CHOICES.length ? `<h3>Status</h3><div class="vg-hq-filters" role="group" aria-label="Set status">${VGRules.STATUS_CHOICES.map(s =>
         `<button class="vg-hq-filter${p.status === s ? " is-on" : ""}" data-setstatus="${esc(s)}" aria-pressed="${p.status === s}">${esc(s)}</button>`).join("")}</div>` : ""}
+      ${taskList}
       ${p.decisions.length ? `<h3>Decisions</h3>${p.decisions.map(d => `<button class="vg-hq-link" data-open="${esc(d.path)}">${esc(d.title)}<small>${esc(d.date)}</small></button>`).join("")}` : ""}
-      <div class="vg-hq-row">${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-primary" data-open="${esc(p.path)}">Open the scope</button>` : ""}</div></aside>`;
+      <div class="vg-hq-row">${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-primary" data-open="${esc(p.path)}">Open the note</button>` : ""}</div></aside>`;
   }
 
   // a project's status from its drawer, as a shared action (its message and Undo): shown at once, the host's redraw
   // brings the note's truth. A closing status with open tasks asks first, then ticks (or cancels) them in the same write.
   async function setStatus(path, status, btn) {
     const p = ((hq() || {}).projects || []).find(x => x.path === path); if (!p || p.status === status) return;
-    const mark = p.open ? VGRules.closeMark(status) : null, done = mark === "x" ? "ticked" : "cancelled";
-    const list = (p.openTasks || []).slice(0, 6).join("; ") + ((p.openTasks || []).length > 6 ? `; and ${p.openTasks.length - 6} more` : "");
+    const open = (p.tasks || []).length, top = (p.tasks || []).filter(t => !t.sub).map(t => t.title);
+    const mark = open ? VGRules.closeMark(status) : null, done = mark === "x" ? "ticked" : "cancelled";
+    const list = top.slice(0, 6).join("; ") + (top.length > 6 ? `; and ${top.length - 6} more` : "");
     btn.disabled = true;
     const ok = await VGActions.run({ label: () => "Set status", title: () => p.title,
-      ask: mark ? () => [`Set ${p.title} to ${status}?`, `${plural(p.open, "open task")} will be ${done}: ${list}.`, `Set to ${status}, ${done === "ticked" ? "tick" : "cancel"} ${plural(p.open, "task")}`] : null,
+      ask: mark ? () => [`Set ${p.title} to ${status}?`, `${plural(open, "open task")} will be ${done}: ${list}.`, `Set to ${status}, ${done === "ticked" ? "tick" : "cancel"} ${plural(open, "task")}`] : null,
       run: async () => { const n = await api.setProjectStatus(path, status, !!mark); return `${p.title}: ${status}${n ? ` · ${plural(n, "task")} ${done}` : ""}`; } }, p, ctx());
     if (!ok) { if (btn.isConnected) btn.disabled = false; return; }
-    Object.assign(p, { status, group: VGRules.statusGroup(status), updated: day() }, mark ? { open: 0, openTasks: [] } : {}); render();
+    Object.assign(p, { status, group: VGRules.statusGroup(status), updated: day() }, mark ? { tasks: [] } : {}); render();
+  }
+  // Done ("x") or Cancel ("-") on a project's open tasks from its drawer: one (its line) or all of them
+  async function projectTasks(how, line, btn) {
+    const p = ((hq() || {}).projects || []).find(x => x.path === drawer); if (!p) return;
+    const list = (p.tasks || []).filter(t => line === null || t.line === line).map(t => ({ ...t, path: p.path }));
+    if (!list.length) return;
+    btn.disabled = true;
+    const ok = await VGActions.runBatch(list, how, ctx(), p.title);
+    if (!ok) { if (btn.isConnected) btn.disabled = false; return; }
+    const lines = new Set(list.map(t => t.line)); p.tasks = p.tasks.filter(t => !lines.has(t.line)); render();
   }
 
   // ---- Sweep: the carried-over tasks a day at a time, oldest first: Done (finished some time ago, so it doesn't go in
@@ -332,6 +350,8 @@ function mountVaultHQ(root, data, opts) {
     else if (d.filter) { filter = d.filter; drawer = null; render(); }
     else if (d.kind) { kindFilter = d.kind; drawer = null; render(); }
     else if (d.setstatus) setStatus(drawer, d.setstatus, b);
+    else if (d.ptask) projectTasks(d.ptask, +d.line, b);
+    else if (d.pbatch) projectTasks(d.pbatch, null, b);
     else if (d.proj) { drawer = d.proj; render(); }
     else if (d.closedrawer !== undefined) { drawer = null; render(); }
     else if (d.carried !== undefined) { carriedAll = true; render(); }

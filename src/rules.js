@@ -468,13 +468,13 @@ const VGRules = (() => {
     return null;
   }
   // [{ line, text, mark, section }] for each top-level task in a note (subtasks travel with their parent); nested:
-  // subtasks too. Tasks in code blocks aren't tasks.
+  // subtasks too, with sub: true. Tasks in code blocks aren't tasks.
   function tasksIn(text, o = {}) {
     const out = []; let section = "", code = false;
     String(text).split(/\r?\n/).forEach((l, i) => {
       if (/^\s*(```|~~~)/.test(l)) { code = !code; return; } if (code) return;
       const h = l.match(/^#{1,6}\s+(.*)/); if (h) { section = h[1].trim(); return; }
-      const m = l.match(TASK_LINE); if (m && (o.nested || !/^\s/.test(l))) out.push({ line: i, text: m[4], mark: m[2], section });
+      const m = l.match(TASK_LINE), sub = /^\s/.test(l); if (m && (o.nested || !sub)) out.push({ line: i, text: m[4], mark: m[2], section, ...(o.nested ? { sub } : {}) });
     });
     return out;
   }
@@ -529,7 +529,7 @@ const VGRules = (() => {
         deviation: Number(fm.deviation_hours) || 0, projects: [].concat(fm["related-projects"] || []).map(plainTask).filter(Boolean) });
       else if (kind === "project") hq.projects.push({ path: f.path, name, kind: PROJECT_TYPES[projectType(fm)], title: titleOf(f.text, f.path).replace(/^(Scope of Work|User Story)\s*[—–:-]\s*/i, ""),
         status: String(fm.status || "").toLowerCase(), group: statusGroup(fm.status), summary: scopeSummary(f.text), estimate: scopeEstimate(f.text), created: String(fm.created || ""),
-        open: openTaskLines(f.text).length, openTasks: tasksIn(f.text).filter(t => t.mark === " ").map(t => plainTask(t.text)),
+        tasks: openTaskLines(f.text).map(t => ({ line: t.line, text: t.text, title: plainTask(t.text), sub: t.sub })),
         updated: String(fm.updated || fm.modified || fm.created || "") });
       else if (kind === "backlog") tasksIn(f.text).filter(t => t.mark === " ").forEach(t => hq.backlog.push({ path: f.path, ...t }));
       else if (kind === "report") { const prefix = reportPrefix(f.path) || automationReport(f.path).report, date = (name.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || "";

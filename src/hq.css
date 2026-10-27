@@ -82,6 +82,7 @@
 /* rows */
 .vg-hq-sec { margin: 18px 0; } .vg-hq .vg-hq-sec h3 { display: flex; justify-content: space-between; font-size: 13px; color: var(--hq-muted); font-weight: 600; margin: 0 4px 8px; }
 .vg-hq .vg-hq-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 8px; border: 1px solid var(--hq-line); border-radius: var(--hq-r-sm); background: var(--hq-surface); }
+.vg-hq .vg-hq-item.is-sub { margin-left: 22px; } .vg-hq .vg-hq-drawer .vg-hq-item { padding: 8px 10px; }
 .vg-hq .vg-hq-kind { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--hq-accent-soft); color: var(--hq-accent); flex: none; }
 .vg-hq .vg-hq-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; } .vg-hq .vg-hq-txt b { font-weight: 600; overflow-wrap: anywhere; } .vg-hq .vg-hq-txt small { color: var(--hq-muted); }
 .vg-hq .vg-hq-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; flex: none; max-width: 50%; }

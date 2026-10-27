@@ -124,8 +124,23 @@ async function page(html, o = {}) {
       if (!(c[0] && c[0][0] === "setProjectStatus" && /RA_Deposits/.test(c[0][1]) && c[0][2] === "testing")) fails.push(`Set status called ${JSON.stringify(c[0])}`);
       if (!await ev(`/testing/.test([...document.querySelectorAll(".vg-hq-proj")].find(b => /Card Deposits/.test(b.textContent)).textContent)`)) fails.push("the card doesn't show the new status");
       if (!await ev(`!!document.querySelector('.vg-hq-drawer [data-setstatus="testing"][aria-pressed="true"]')`)) fails.push("the drawer doesn't mark the new status");
+      // its open tasks are listed: Done ticks one, Cancel all sends the rest in one batch
+      const TASKS = `[{ line: 5, text: "Wire the reader", title: "Wire the reader", sub: false }, { line: 6, text: "Pick a reader", title: "Pick a reader", sub: true }, { line: 7, text: "Test refunds", title: "Test refunds", sub: false }]`;
+      await ev(`DATA.hq.projects.find(p => /RA_Deposits/.test(p.path)).tasks = ${TASKS}; window.vaultHQ.update(null, null)`); await sleep(150);
+      if (await ev(`document.querySelectorAll(".vg-hq-drawer .vg-hq-item").length`) !== 3) fails.push("the drawer doesn't list the project's 3 open tasks");
+      if (await ev(`document.querySelectorAll(".vg-hq-drawer .vg-hq-item.is-sub").length`) !== 1) fails.push("the drawer doesn't indent the subtask");
+      await ev("window.__calls = []");
+      await ev(`document.querySelector('.vg-hq-drawer [data-ptask="x"][data-line="5"]').click()`); await sleep(300);
+      c = await calls();
+      if (!(c.length === 1 && c[0][0] === "setTasksStatus" && c[0][1].length === 1 && c[0][1][0].line === 5 && /RA_Deposits/.test(c[0][1][0].path) && c[0][2] === "x")) fails.push(`Done on a drawer task called ${JSON.stringify(c)}`);
+      if (await ev(`document.querySelectorAll(".vg-hq-drawer .vg-hq-item").length`) !== 2) fails.push("a done task stays in the drawer");
+      await ev("window.__calls = []");
+      await ev(`document.querySelector('.vg-hq-drawer [data-pbatch="-"]').click()`); await sleep(300);
+      c = await calls();
+      if (!(c.length === 1 && c[0][0] === "setTasksStatus" && c[0][1].map(r => r.line).join() === "6,7" && c[0][2] === "-")) fails.push(`Cancel all in the drawer called ${JSON.stringify(c)}`);
+      if (!await ev(`/No open tasks/.test(document.querySelector(".vg-hq-drawer").textContent)`)) fails.push("the drawer doesn't say there are no open tasks left");
       // a closing status with open tasks asks first, then ticks them in the same write
-      await ev(`Object.assign(DATA.hq.projects.find(p => /RA_Deposits/.test(p.path)), { open: 2, openTasks: ["Wire the reader", "Test refunds"] }); window.vaultHQ.update(null, null)`); await sleep(150);
+      await ev(`DATA.hq.projects.find(p => /RA_Deposits/.test(p.path)).tasks = ${TASKS}.filter(t => !t.sub).map(t => ({ ...t, line: t.line + 10 })); window.vaultHQ.update(null, null)`); await sleep(150);
       await ev("window.__calls = []; window.__asked = []");
       await ev(`document.querySelector('.vg-hq-drawer [data-setstatus="complete"]').click()`); await sleep(300);
       c = await calls();
