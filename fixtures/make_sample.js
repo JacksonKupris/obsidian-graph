@@ -129,7 +129,7 @@ SCOPES.forEach(([code, title, status, updated, summary, est]) => note(`02-Projec
 note(H.backlog, { tags: ["meta/backlog"] }, "# Vault Backlog\n\n- [ ] Decide whether the old warehouse notes move to the archive\n- [ ] Merge the two warehouse handbooks\n- [x] Name the support topic's map\n");
 note(`${H.review_folder}/Refund email to riders.md`, { type: H.review_type, status: "waiting", task: "Draft the refund email for riders", created: ago(1) }, "# Refund email to riders\n\nA draft of the email.\n");
 note(`${H.review_folder}/Shelf labels.md`, { type: H.review_type, status: "accepted", task: "Shelf label wording", created: ago(8) }, "# Shelf labels\n\nAccepted.\n");
-note(`02-Projects/Decisions/Deposits Go Through the Card Reader ${ago(2)}.md`, { type: H.decision_type, date: ago(2), decided_by: `"[[${PEOPLE[0]}]]"`, project: '"[[Scope of Work — RA_Deposits]]"', status: "active" },
+note(`02-Projects/Decisions/Deposits Go Through the Card Reader 2026-10-24.md`, { type: H.decision_type, date: ago(2), decided_by: `"[[${PEOPLE[0]}]]"`, project: '"[[Scope of Work — RA_Deposits]]"', status: "active" },
   "# Deposits Go Through the Card Reader\n\n**Decision:** deposits are taken on the card reader, not online.\n");
 note(`${F.reports}/Gaps & Bridges ${ago(3)}.md`, { tags: ["type/report"] }, "# Gaps & Bridges\n\n- [ ] [[Refund Policy]] ↔ [[Ticket Triage]]\n- [ ] [[Server Backup]] ↔ [[VPN Setup]]\n- [x] [[Booking Flow]] ↔ [[Map Screen]]\n");
 note(`${F.reports}/${H.automations[1].report} ${ago(4)}.md`, { tags: ["type/report"] }, "# Cleanup Report\n\nMoved 12 files.\n");
