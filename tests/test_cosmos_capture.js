@@ -10,7 +10,7 @@ function capture(bodies) {
   const neighbours = { A: ["via", "tie", "blocked"], via: ["nearB"], B: ["nearB", "tie"], nearB: ["third"], third: ["fourth"] };
   const context = {
     cos: { bodies, auto: { nebula: false } }, active: nodes, nodes,
-    GM_GAL: 1,
+    GM_GAL: 1, hash: () => 0,
     special: () => false, graphNb: id => new Set(neighbours[id] || []),
     anchorNb: id => new Set(neighbours[id] || []), links: [], mocMembers: {},
     byId: Object.fromEntries(nodes.map(n => [n.id, n])),
@@ -19,8 +19,8 @@ function capture(bodies) {
     initOrbit: (n, c) => { n.orb = { b: c.b.id, role: "orbit" }; },
   };
   vm.createContext(context);
-  vm.runInContext(`let capture, repelled, bodyCaptured;\n${source.slice(start, end)}\ncosmosCapture(); result = [...capture].map(([id,c]) => [id, c.b.id, c.ring]);`, context);
-  return new Map(context.result.map(([id, body, ring]) => [id, { body, ring }]));
+  vm.runInContext(`let capture, repelled, bodyCaptured;\n${source.slice(start, end)}\ncosmosCapture(); result = [...capture].map(([id,c]) => [id, c.b.id, c.ring, c.lagrange, c.anchor]);`, context);
+  return new Map(context.result.map(([id, body, ring, lagrange, anchor]) => [id, { body, ring, lagrange, anchor }]));
 }
 const a = { id: "starA", type: "star", target: "A" };
 const b = { id: "starB", type: "star", target: "B" };
@@ -38,4 +38,20 @@ assert.ok(!first.has("A") && !first.has("B"));
 const single = capture([a, hole, planet]);
 assert.ok(!single.has("fourth"));
 assert.equal(single.get("nearB").ring, 2);
+// a binary on the same two maps as placed stars still captures their direct neighbours (it was always 0)
+const bin = { id: "bin", type: "binary", target: ["A", "B"] };
+const withBin = capture([a, b, hole, bin, planet]);
+assert.equal(withBin.get("tie").body, "bin");
+assert.ok(withBin.get("tie").lagrange);
+assert.equal(withBin.get("via").body, "bin");
+assert.equal(withBin.get("via").anchor, 0);
+assert.equal(withBin.get("nearB").anchor, 1);
+assert.equal(withBin.get("third").body, "starB");
+assert.equal(withBin.get("blocked").body, "hole");
+assert.ok(!withBin.has("A") && !withBin.has("B"));
+const binOnly = capture([bin]);
+assert.deepEqual([...binOnly.keys()].sort(), ["blocked", "nearB", "tie", "via"]);
+const starNearBin = capture([{ id: "starVia", type: "star", target: "via" }, bin]);
+assert.equal(starNearBin.get("nearB").body, "bin");
+console.log("ok - binaries capture their stars' neighbours alongside placed stars");
 console.log("ok - nearest star, deterministic ties, anchors, three-hop limit, black-hole priority and planets");

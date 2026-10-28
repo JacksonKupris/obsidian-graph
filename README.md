@@ -9,7 +9,7 @@ An Obsidian plugin that maps your vault: it finds the topics your notes form, th
 - **Scenes**: the same notes as pictures (a city, a garden, a palace, the sky, a food web…), and scenes you write yourself in a note.
 - **Lenses**: questions you can ask (what's important but stale, what to write next, which notes are duplicates, what a folder mixes).
 - **Search**: finds what you half remember: misspellings, "last week", a person's name, "near" a note.
-- **Cosmos**: stars capture notes up to three links away. The nearest star wins; equal distances use target-path order, independent of placement order. Black holes keep priority. Saved stars must target existing notes after vault reorganizations.
+- **Cosmos**: stars capture notes up to three links away. The nearest star wins; equal distances use target-path order, independent of placement order. A binary claims both its stars' direct neighbours and wins ties with a star. Black holes keep priority. Saved stars must target existing notes after vault reorganizations.
 
 It never changes a note without asking, and every change it makes can be undone.
 
