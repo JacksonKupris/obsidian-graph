@@ -246,12 +246,12 @@ function mountVaultHQ(root, data, opts) {
     const systems = [...new Set(every.flatMap(p => p.systems || []))].sort((a, b) => a.localeCompare(b));
     const all = every.filter(p => (kindFilter === "all" || p.kind === kindFilter) && (systemFilter === "all" || (p.systems || []).includes(systemFilter)));
     const query = projectQuery.trim().toLowerCase();
-    const list = all.filter(p => (filter === "all" || p.group === filter) && (!query || `${p.title} ${p.summary || ""}`.toLowerCase().includes(query)));
+    const list = VGRules.hqProjectSearch(DATA, all.filter(p => filter === "all" || p.group === filter), query, { today: day() });
     const pill = p => `<span class="vg-hq-pill is-${esc(p.group)}">${esc(p.status || "no status")}</span>`;
     // a scope's code name (JK_Branch) beside its kind; other notes are named by their title
     const sub = p => [p.kind, /^Scope of Work\b/i.test(p.name) ? p.name.replace(/^.*[—–-]\s*/, "") : ""].filter(Boolean).join(" · ");
     const card = p => `<button class="vg-hq-proj" data-proj="${esc(p.path)}">${hills(p.name, 70)}<span class="vg-hq-projbody"><span class="vg-hq-projhead"><small>${esc(sub(p))}</small>${pill(p)}</span>
-      <b>${esc(p.title)}</b><span class="vg-hq-sum">${esc(p.summary || "No summary yet.")}</span>${(p.systems || []).length ? `<small class="vg-hq-project-systems">${esc(p.systems.join(" · "))}</small>` : ""}<span class="vg-hq-projfoot">${spark(p.days)}<small>${esc(p.estimate || (p.updated ? `Updated ${shortDate(p.updated)}` : ""))}</small></span></span></button>`;
+      <b>${esc(p.title)}</b><span class="vg-hq-sum">${esc(p.summary || "No summary yet.")}</span>${p.searchHit ? `<small class="vg-hq-search-hit">${esc([p.searchHit.heading, p.searchHit.why.join(" · ")].filter(Boolean).join(" · "))}${p.searchHit.snippet ? `<span>${esc(p.searchHit.snippet)}</span>` : ""}</small>` : ""}${(p.systems || []).length ? `<small class="vg-hq-project-systems">${esc(p.systems.join(" · "))}</small>` : ""}<span class="vg-hq-projfoot">${spark(p.days)}<small>${esc(p.estimate || (p.updated ? `Updated ${shortDate(p.updated)}` : ""))}</small></span></span></button>`;
     const kindChips = kinds.length > 1 ? `<div class="vg-hq-filters" role="group" aria-label="Kind">${[["all", "All kinds", every.length], ...kinds.map(k => [k, k, every.filter(p => p.kind === k).length])]
       .map(([k, label, n]) => `<button class="vg-hq-filter${kindFilter === k ? " is-on" : ""}" data-kind="${esc(k)}" aria-pressed="${kindFilter === k}">${esc(label)} <span>${n}</span></button>`).join("")}</div>` : "";
     const systemChips = systems.length ? `<div class="vg-hq-filters" role="group" aria-label="System">${[["all", "All systems"], ...systems.map(s => [s, s])]
@@ -260,8 +260,8 @@ function mountVaultHQ(root, data, opts) {
     const body = list.length ? `<div class="vg-hq-grid${compactProjects ? " is-compact" : ""}">${list.map(card).join("")}</div>` : every.length
       ? empty(`No projects match the current filters${query ? ` or search “${projectQuery.trim()}”` : ""}.`, [["Clear search", 'data-clearsearch'], ["All projects", 'data-filter="all"'], ["All systems", 'data-system="all"']])
       : empty(`No projects yet (notes with type: ${Object.keys(VGRules.PROJECT_TYPES).join(", ") || "scope-of-work"}).`, nextSteps().filter(s => s[1] !== 'data-go="projects"'));
-    return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">Every project, newest first.</p>
-      <div class="vg-hq-project-tools"><label class="vg-hq-searchlabel">Search title or summary<input class="vg-hq-project-search" type="search" value="${esc(projectQuery)}" aria-label="Search project titles and summaries"></label>
+    return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">${query ? "Graph search · best matches first, within your filters." : "Every project, newest first."}</p>
+      <div class="vg-hq-project-tools"><label class="vg-hq-searchlabel">Search projects and their notes<input class="vg-hq-project-search" type="search" value="${esc(projectQuery)}" placeholder="Names, partial words, or something from the note…" aria-label="Search projects and their notes"></label>
       <button class="vg-hq-filter" data-compact aria-pressed="${compactProjects}">${compactProjects ? "Card view" : "Compact list"}</button></div>
       ${kindChips}${systemChips}<div class="vg-hq-filters" role="group" aria-label="Project status">${statusChips}</div>${body}${drawerHtml(every)}`;
   }

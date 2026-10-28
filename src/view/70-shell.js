@@ -74,17 +74,7 @@
   }
 
   // ---------------------------------------------------------------- search palette
-  const fuzzy = (q, s) => {   // subsequence score: contiguous + word-start matches rank higher
-    s = s.toLowerCase(); q = q.replace(/\s+/g, ""); let i = 0, score = 0, run = 0, prev = -2;   // spaces separate words; titles often use - or _ instead
-    for (const ch of q) {
-      const j = s.indexOf(ch, i); if (j < 0) return -1;
-      run = j === prev + 1 ? run + 1 : 0; score += 1 + run * 2 + (j === 0 || " -_/·".includes(s[j - 1]) ? 3 : 0);
-      prev = j; i = j + 1;
-    }
-    // letters scattered through a long text (a cluster's keywords) match almost any query: not a match
-    if (q.length > 3 && score < q.length * 1.6) return -1;
-    return score - s.length * 0.01;
-  };
+  const fuzzy = VGRules.fuzzyScore;
   // a word list (a cluster's keywords): each query word has to begin, or sit inside, one of its words; half of them at least
   const wordHits = (q, s) => {
     const qw = q.split(/\s+/).filter(w => w.length > 1), sw = s.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);

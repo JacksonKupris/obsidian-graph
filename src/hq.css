@@ -118,6 +118,8 @@
 .vg-hq .vg-hq-projhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; } .vg-hq .vg-hq-projhead small { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--hq-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vg-hq .vg-hq-proj b { font-size: 17px; line-height: 1.2; }
 .vg-hq .vg-hq-sum { color: var(--hq-muted); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.vg-hq .vg-hq-search-hit { color: var(--hq-muted); overflow-wrap: anywhere; }
+.vg-hq .vg-hq-search-hit span { display: block; margin-top: 4px; white-space: pre-line; }
 .vg-hq .vg-hq-projfoot { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: auto; } .vg-hq .vg-hq-projfoot small { color: var(--hq-muted); white-space: nowrap; }
 .vg-hq .vg-hq-pill { flex: none; padding: 2px 9px; border-radius: 99px; border: 1px solid currentColor; font-size: 11px; font-weight: 600; white-space: nowrap; color: var(--hq-muted); }
 .vg-hq .vg-hq-pill.is-active { color: var(--hq-warn); } .vg-hq .vg-hq-pill.is-planned { color: var(--hq-info); } .vg-hq .vg-hq-pill.is-waiting { color: var(--hq-accent); } .vg-hq .vg-hq-pill.is-closed { color: var(--hq-ok); }

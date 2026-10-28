@@ -128,6 +128,17 @@ const VGRules = (() => {
     every: ["activity", "tasks", "stale"],          // how often an event fires: as busy as the group is, or by its counts
     verb: ["shoot", "spark", "dispatch", "spar"],   // shoot/spark: a bolt at the nearest match; dispatch: a run there and
   };                                                // back; spar: two from the group trade blows, the more relied-on wins
+  const fuzzyScore = (query, text) => {
+    const s = String(text).toLowerCase(), q = String(query).toLowerCase().replace(/\s+/g, "");
+    let i = 0, score = 0, run = 0, prev = -2;
+    for (const ch of q) {
+      const j = s.indexOf(ch, i); if (j < 0) return -1;
+      run = j === prev + 1 ? run + 1 : 0; score += 1 + run * 2 + (j === 0 || " -_/·".includes(s[j - 1]) ? 3 : 0);
+      prev = j; i = j + 1;
+    }
+    if (q.length > 3 && score < q.length * 1.6) return -1;
+    return score - s.length * 0.01;
+  };
   // Recall: find where something was dealt with before, inside notes, from whatever is half-remembered: words (also
   // misspelled or partial), when ("last month", "in June"), who (a name from the people folder), what kind of thing
   // (a command, SQL, a table, a checklist, a screenshot, an error) and where (a folder word). The same engine as
@@ -565,7 +576,7 @@ const VGRules = (() => {
         const references = value => [].concat(value || []).map(v => String(v).replace(/^\[\[|\]\]$/g, "").split("|")[0]).filter(Boolean);
         hq.projects.push({ path: f.path, name, kind: PROJECT_TYPES[projectType(fm)], title: titleOf(f.text, f.path).replace(/^(Scope of Work|User Story)\s*[—–:-]\s*/i, ""),
         status: String(fm.status || "").toLowerCase(), group: statusGroup(fm.status), summary: scopeSummary(f.text), estimate: scopeEstimate(f.text), created: String(fm.created || ""),
-        tags, systems, tasks, parents: references(fm.parent || fm["Parent task"]), related: references(fm.related),
+        tags, systems, tasks, chunks: recallChunks(f.text), parents: references(fm.parent || fm["Parent task"]), related: references(fm.related),
         updated: String(fm.updated || fm.modified || fm.created || "") });
       }
       else if (kind === "backlog") tasksIn(f.text).filter(t => t.mark === " ").forEach(t => hq.backlog.push({ path: f.path, ...t }));
@@ -616,6 +627,21 @@ const VGRules = (() => {
   function hqProjects(data) {
     const hq = (data && data.hq) || {}, decisions = (hq.decisions || []).filter(d => d.status === "active");
     return (hq.projects || []).map(s => ({ ...s, decisions: decisions.filter(d => d.project && (d.project.includes(s.name) || d.project.toLowerCase().includes(s.title.toLowerCase()))) }));
+  }
+  function hqProjectSearch(data, projects, query, o = {}) {
+    const q = String(query).trim(); if (!q) return projects;
+    const graph = {
+      links: (data.links || []).filter(l => l.kind === "link" || l.kind === "similar").map(l => [l.source, l.target, l.kind]),
+      use: Object.fromEntries((data.nodes || []).map(n => [n.id, (n.inlinks || 0) + (n.opens90 || 0)])),
+    };
+    const notes = projects.map(p => ({ path: p.path, date: p.created || "", chunks: p.chunks || [["section", p.title, 1, p.summary || p.title, ""]] }));
+    const hits = q.length >= 3 ? recallSearch(notes, q, { n: Math.max(1, projects.length * (RC.per_note || 2)), graph, today: o.today }) : [];
+    const byPath = new Map();
+    hits.filter(h => h.kind !== "related").forEach(h => { if (!byPath.has(h.path)) byPath.set(h.path, h); });
+    return projects.map(p => ({ p, hit: byPath.get(p.path), score: Math.max(fuzzyScore(q, p.title), fuzzyScore(q, p.name || ""),
+      fuzzyScore(q, p.path) - 2) })).filter(r => r.score >= 0 || r.hit)
+      .sort((a, b) => Number(b.score >= 0) - Number(a.score >= 0) || b.score - a.score || (b.hit?.score || 0) - (a.hit?.score || 0) || a.p.path.localeCompare(b.p.path))
+      .map(r => ({ ...r.p, searchHit: r.hit }));
   }
   // Which part of HQ shows an item: today (work), needs (only you can decide it) or upkeep (the vault itself)
   const TODAY_GROUP = { task: "today", plan: "today", carried: "today", approval: "needs", review: "needs", job: "needs", backlog: "needs", report: "needs" };
@@ -868,7 +894,7 @@ const VGRules = (() => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
-  return { HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, todayGroup, TODAY_GROUP, statusGroup,
+  return { HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

@@ -30,6 +30,22 @@ assert.deepEqual(hq.projects[0].systems, ["project/odoo"]);
 assert.equal(hq.projects[0].tasks[0].section, "Acceptance");
 assert.equal(hq.projects[0].tasks[1].parent.title, "Check behavior");
 assert(!hq.projects[0].tasks[2].parent, "headings reset parent context");
+const searchData = {nodes:[],links:[],hq:Q.hqGather([
+  {path:"Projects/Print Consumption.md",text:"---\ntype: user-story\nstatus: in-progress\n---\n# Print Consumption\n## Summary\nTrack roll balances from kiosk printing.\n## Acceptance criteria\n- [ ] Verify silicone reconciliation after paper replacement."},
+  {path:"Projects/Other.md",text:"---\ntype: project\nstatus: planned\n---\n# Other\n## Summary\nA completely unrelated network maintenance project."},
+],{today:day})};
+const projects = Q.hqProjects(searchData);
+assert(Q.fuzzyScore("prnt cons", "Print Consumption") >= 0);
+assert.equal(Q.fuzzyScore("zzzz", "Print Consumption"), -1);
+for (const query of ["prnt cons", "consumption print", "silcone", "reconcil", "roll balances"]) {
+  const found = Q.hqProjectSearch(searchData, projects, query, {today:day});
+  assert.equal(found[0]?.path, "Projects/Print Consumption.md", `graph matching: ${query}`);
+}
+assert(Q.hqProjectSearch(searchData,projects,"silcone")[0].searchHit.why.includes("close spelling"));
+assert.equal(Q.hqProjectSearch(searchData,projects,"zzzzzz").length, 0);
+assert.strictEqual(Q.hqProjectSearch(searchData,projects,"   "), projects, "clearing search preserves original order");
+assert.equal(Q.hqProjectSearch(searchData,projects.filter(p=>p.group==="planned"),"silcone").length,0,"search respects project filters");
+assert.equal(Q.hqProjectSearch(searchData,projects,"print")[0].path,"Projects/Print Consumption.md","name matches rank first");
 assert.equal(Q.stripAnsi("\x1b[1mWorked\x1b[0m"), "Worked");
 assert(Q.plainRowFull("merge `A/README.md` into `B/README.md`").includes("A/README.md"));
 assert(Q.plainRowFull("merge `A/README.md` into `B/README.md`").includes("B/README.md"));

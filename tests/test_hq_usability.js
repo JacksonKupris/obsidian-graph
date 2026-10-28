@@ -34,6 +34,12 @@ const assert = require("assert"), cdp = require("./cdp"), env = require("./env")
       assert.equal(await tab.ev(`document.querySelectorAll(".vg-hq-proj").length`), 1);
       assert.equal(await tab.ev(`document.querySelector("input[type=search]").value`), "roll balances");
       assert(await tab.ev(`!!document.querySelector(".vg-hq-grid.is-compact")`));
+      for (const query of ["prnt cons", "balances roll", "balnces"]) {
+        await tab.ev(`(() => {const s=document.querySelector("input[type=search]");s.value=${JSON.stringify(query)};s.dispatchEvent(new Event("input",{bubbles:true}));window.vaultHQ.update(null,null);})()`);
+        assert.equal(await tab.ev(`document.querySelectorAll(".vg-hq-proj").length`),1,`graph-style search: ${query}`);
+        assert.equal(await tab.ev(`document.querySelector(".vg-hq-proj").dataset.proj`),"Child.md");
+      }
+      assert(await tab.ev(`!!document.querySelector(".vg-hq-search-hit")`), "recall results explain the content match");
       await tab.ev(`document.querySelector(".vg-hq-proj").click()`);
       assert(await tab.ev(`document.querySelector(".vg-hq-drawer").textContent.includes("Parent: Parent.md")`));
       assert(await tab.ev(`document.querySelector(".vg-hq-drawer").textContent.includes("Source heading: Acceptance")`));
