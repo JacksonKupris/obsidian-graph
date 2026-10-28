@@ -43,15 +43,38 @@
     capture = new Map(); repelled = new Map(); bodyCaptured = new Map();
     const order = { blackhole: 0, star: 1, binary: 2, planet: 3 };
     const vis = active.filter(n => !special(n) || n.moc);
+    const starClaims = new Map();
+    const stars = cos.bodies.filter(b => b.type === "star" && b.target)
+      .sort((a, b) => String(a.target).localeCompare(String(b.target)) || String(a.id).localeCompare(String(b.id)));
+    const starAnchors = new Set(stars.map(b => b.target));
+    for (const b of stars) {
+      const dist = new Map([[b.target, 0]]), queue = [b.target];
+      for (let i = 0; i < queue.length; i++) {
+        const v = queue[i], d = dist.get(v);
+        if (d >= 3) continue;
+        (v === b.target ? anchorNb(v) : graphNb(v)).forEach(m => {
+          if (!dist.has(m)) { dist.set(m, d + 1); queue.push(m); }
+        });
+      }
+      for (const [id, d] of dist) {
+        if (!d || starAnchors.has(id)) continue;
+        const previous = starClaims.get(id);
+        if (!previous || d < previous.d) starClaims.set(id, { b, d });
+      }
+    }
     [...cos.bodies].sort((a, b) => (order[a.type] ?? 9) - (order[b.type] ?? 9)).forEach(b => {
       const got = [];
       const take = (n, info) => { if (!capture.has(n.id) && !(b.type === "star" && n.id === b.target)) { capture.set(n.id, { b, ...info }); got.push(n.id); } };
       if (b.type === "star" && b.target) {
-        const dist = new Map([[b.target, 0]]), queue = [b.target];
-        while (queue.length) { const v = queue.shift(), d = dist.get(v); if (d >= 3) continue; (v === b.target ? anchorNb(v) : graphNb(v)).forEach(m => { if (!dist.has(m)) { dist.set(m, d + 1); queue.push(m); } }); }
         // one link out and the star doesn't link back (it links to the map, the map doesn't list it): retrograde
         const out = byId[b.target] ? new Set([...links.filter(l => l.kind === "link" && l.s.id === b.target).map(l => l.t.id), ...(mocMembers[b.target] || [])]) : anchorNb(b.target);
-        vis.forEach(n => { const d = dist.get(n.id); if (d) take(n, { r: 30 + d * 55, spin: 0.55 / Math.sqrt(d), ring: d, retro: d === 1 && !out.has(n.id) }); });
+        vis.forEach(n => {
+          const claim = starClaims.get(n.id);
+          if (claim && claim.b === b) {
+            const d = claim.d;
+            take(n, { r: 30 + d * 55, spin: 0.55 / Math.sqrt(d), ring: d, retro: d === 1 && !out.has(n.id) });
+          }
+        });
       } else if (b.type === "planet") {
         const ms = vis.filter(matchQuery(b.target)); ms.forEach((n, i) => take(n, { r: 34 + Math.sqrt(ms.length) * 5 + (i % 3) * 8, spin: 0.7 }));
       } else if (b.type === "binary" && Array.isArray(b.target)) {
