@@ -41,59 +41,40 @@
   const bhTest = f => f === "notinmap" ? (n => inMoc(n.id) === false) : OVERLAYS[f] ? OVERLAYS[f].test : matchQuery(f);
   function cosmosCapture() {
     capture = new Map(); repelled = new Map(); bodyCaptured = new Map();
-    const order = { blackhole: 0, star: 1, binary: 2, planet: 3 };
     const vis = active.filter(n => !special(n) || n.moc);
-    // Stars and binaries share one claim table: each note goes to the nearest system. A binary claims its two
-    // stars' direct neighbours at distance 1 and wins ties with a star (it is the more specific question).
-    const starClaims = new Map(), key = t => [].concat(t).join("|");
-    const stars = cos.bodies.filter(b => b.type === "star" && b.target)
-      .sort((a, b) => String(a.target).localeCompare(String(b.target)) || String(a.id).localeCompare(String(b.id)));
-    const binaries = cos.bodies.filter(b => b.type === "binary" && Array.isArray(b.target))
-      .sort((a, b) => key(a.target).localeCompare(key(b.target)) || String(a.id).localeCompare(String(b.id)));
-    const starAnchors = new Set([...stars.map(b => b.target), ...binaries.flatMap(b => b.target)]);
-    const claim = (id, b, d) => { const previous = starClaims.get(id); if (!previous || d < previous.d) starClaims.set(id, { b, d }); };
-    for (const b of binaries) b.target.forEach(t => anchorNb(t).forEach(id => { if (!starAnchors.has(id)) claim(id, b, 1); }));
-    for (const b of stars) {
-      const dist = new Map([[b.target, 0]]), queue = [b.target];
-      for (let i = 0; i < queue.length; i++) {
-        const v = queue[i], d = dist.get(v);
-        if (d >= 3) continue;
-        (v === b.target ? anchorNb(v) : graphNb(v)).forEach(m => {
-          if (!dist.has(m)) { dist.set(m, d + 1); queue.push(m); }
-        });
-      }
-      for (const [id, d] of dist) {
-        if (!d || starAnchors.has(id)) continue;
-        claim(id, b, d);
-      }
-    }
-    [...cos.bodies].sort((a, b) => (order[a.type] ?? 9) - (order[b.type] ?? 9)).forEach(b => {
-      const got = [];
-      const take = (n, info) => { if (!capture.has(n.id) && !(b.type === "star" && n.id === b.target)) { capture.set(n.id, { b, ...info }); got.push(n.id); } };
+    // One claim table for every body: each body offers the notes it would hold at a distance (black hole 0, a
+    // binary's or planet's notes 1, a star's ring 1-3) and each note goes to the nearest. Equal distances go to
+    // the more specific body (RANK), then by target and id, so placement order never matters.
+    const RANK = { blackhole: 0, binary: 1, planet: 2, star: 3 }, key = b => [].concat(b.target || "").join("|");
+    const anchors = new Set(cos.bodies.flatMap(b => b.type === "star" ? [b.target] : b.type === "binary" ? (b.target || []) : []));
+    const claims = new Map();
+    const better = (x, y) => x.d - y.d || RANK[x.b.type] - RANK[y.b.type] || key(x.b).localeCompare(key(y.b)) || String(x.b.id).localeCompare(String(y.b.id));
+    const claim = (id, b, d, info) => { if (anchors.has(id)) return; const c = { b, d, info }, prev = claims.get(id); if (!prev || better(c, prev) < 0) claims.set(id, c); };
+    for (const b of cos.bodies) {
       if (b.type === "star" && b.target) {
+        const dist = new Map([[b.target, 0]]), queue = [b.target];
+        for (let i = 0; i < queue.length; i++) {
+          const v = queue[i], d = dist.get(v);
+          if (d >= 3) continue;
+          (v === b.target ? anchorNb(v) : graphNb(v)).forEach(m => { if (!dist.has(m)) { dist.set(m, d + 1); queue.push(m); } });
+        }
         // one link out and the star doesn't link back (it links to the map, the map doesn't list it): retrograde
         const out = byId[b.target] ? new Set([...links.filter(l => l.kind === "link" && l.s.id === b.target).map(l => l.t.id), ...(mocMembers[b.target] || [])]) : anchorNb(b.target);
-        vis.forEach(n => {
-          const claim = starClaims.get(n.id);
-          if (claim && claim.b === b) {
-            const d = claim.d;
-            take(n, { r: 30 + d * 55, spin: 0.55 / Math.sqrt(d), ring: d, retro: d === 1 && !out.has(n.id) });
-          }
-        });
+        vis.forEach(n => { const d = dist.get(n.id); if (d) claim(n.id, b, d, { r: 30 + d * 55, spin: 0.55 / Math.sqrt(d), ring: d, retro: d === 1 && !out.has(n.id) }); });
       } else if (b.type === "planet") {
-        const ms = vis.filter(matchQuery(b.target)); ms.forEach((n, i) => take(n, { r: 34 + Math.sqrt(ms.length) * 5 + (i % 3) * 8, spin: 0.7 }));
+        const ms = vis.filter(matchQuery(b.target)); ms.forEach((n, i) => claim(n.id, b, 1, { r: 34 + Math.sqrt(ms.length) * 5 + (i % 3) * 8, spin: 0.7 }));
       } else if (b.type === "binary" && Array.isArray(b.target)) {
-        const [A, B] = b.target, na = anchorNb(A), nB = anchorNb(B);
-        vis.forEach(n => { const own = starClaims.get(n.id); if (!own || own.b !== b) return; const ia = na.has(n.id), ib = nB.has(n.id);
-          if (ia && ib) take(n, { r: 6 + (hash(n.id) % 18), spin: 0.2, lagrange: true }); else if (ia) take(n, { r: 42, spin: 0.6, anchor: 0 }); else if (ib) take(n, { r: 42, spin: 0.6, anchor: 1 }); });
+        const [na, nB] = b.target.map(anchorNb);
+        vis.forEach(n => { const ia = na.has(n.id), ib = nB.has(n.id);
+          if (ia && ib) claim(n.id, b, 1, { r: 6 + (hash(n.id) % 18), spin: 0.2, lagrange: true }); else if (ia || ib) claim(n.id, b, 1, { r: 42, spin: 0.6, anchor: ia ? 0 : 1 }); });
       } else if (b.type === "blackhole") {
-        const test = bhTest(b.target), kept = new Set(cos.kept || []); vis.filter(n => !n.moc && !kept.has(n.id) && test(n)).forEach((n, i) => take(n, { r: 12 + (i % 6) * 5, spin: 1.4, hole: true }));
+        const test = bhTest(b.target), kept = new Set(cos.kept || []); vis.filter(n => !n.moc && !kept.has(n.id) && test(n)).forEach((n, i) => claim(n.id, b, 0, { r: 12 + (i % 6) * 5, spin: 1.4, hole: true }));
       } else if (b.type === "repulsor") {
         vis.filter(matchQuery(b.target)).forEach(n => repelled.set(n.id, b));
       }
-      bodyCaptured.set(b.id, got);
-    });
-    const anchors = new Set(cos.bodies.flatMap(b => b.type === "star" ? [b.target] : b.type === "binary" ? (b.target || []) : []));
+    }
+    cos.bodies.forEach(b => bodyCaptured.set(b.id, []));
+    vis.forEach(n => { const c = claims.get(n.id); if (c) { capture.set(n.id, { b: c.b, ...c.info }); bodyCaptured.get(c.b.id).push(n.id); } });
     for (const n of nodes) {
       const c = capture.get(n.id);
       if (!c) {   // field notes: circular orbits about the galactic centre (inner ones faster: differential rotation)

@@ -15,7 +15,7 @@ function capture(bodies) {
     anchorNb: id => new Set(neighbours[id] || []), links: [], mocMembers: {},
     byId: Object.fromEntries(nodes.map(n => [n.id, n])),
     bhTest: () => n => n.id === "blocked",
-    matchQuery: () => n => n.id === "planetOnly",
+    matchQuery: q => q ? (n => n.id === q) : (n => n.id === "planetOnly"),
     initOrbit: (n, c) => { n.orb = { b: c.b.id, role: "orbit" }; },
   };
   vm.createContext(context);
@@ -53,5 +53,15 @@ const binOnly = capture([bin]);
 assert.deepEqual([...binOnly.keys()].sort(), ["blocked", "nearB", "tie", "via"]);
 const starNearBin = capture([{ id: "starVia", type: "star", target: "via" }, bin]);
 assert.equal(starNearBin.get("nearB").body, "bin");
+// one rule for every body: a planet's match inside a star's rings goes to the planet, a black hole beats a binary
+const starOnly = capture([a]), viaPlanet = { id: "pv", type: "planet", target: "fourth" };
+assert.equal(starOnly.get("nearB").ring, 2);
+const shared = capture([a, b, viaPlanet]);
+assert.equal(shared.get("fourth").body, "pv");
+assert.equal(capture([viaPlanet, a, b]).get("fourth").body, "pv");
+assert.equal(capture([hole, bin]).get("blocked").body, "hole");
+const bins = capture([bin, { id: "pa", type: "planet", target: "via" }]);
+assert.equal(bins.get("via").body, "bin");
+console.log("ok - every body type shares the nearest-claim rule");
 console.log("ok - binaries capture their stars' neighbours alongside placed stars");
 console.log("ok - nearest star, deterministic ties, anchors, three-hop limit, black-hole priority and planets");
