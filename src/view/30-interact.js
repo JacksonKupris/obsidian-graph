@@ -293,6 +293,7 @@
   }
 
   // ---------------------------------------------------------------- keyboard
+  root.addEventListener("keyup", e => { const d = SCENES[st.view]; if (d && d.key) d.key(e.key.toLowerCase(), false); });
   root.addEventListener("keydown", e => {
     const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName);
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
@@ -323,6 +324,8 @@
   // Every keyboard shortcut, once: the handler above runs them and the shortcuts sheet (?) lists them, so the two can't
   // disagree. keys[0] is the key matched unless match() says otherwise; an entry without run() is only listed.
   const KEYS = [
+    { keys: ["W A S D", "Space"], label: "Walk and attack (Dungeon)", prevent: true, match: e => !!(SCENES[st.view] && SCENES[st.view].keys && SCENES[st.view].keys.test(e.key.toLowerCase())),
+      run: e => { SCENES[st.view].key(e.key.toLowerCase(), true); kick(); } },
     { keys: ["W A S D", "Q E"], label: "Fly the ship (Cosmos, ship on)", prevent: true, match: e => st.ship && isCosmos() && /^(w|a|s|d|q|e|arrowup|arrowdown|arrowleft|arrowright)$/.test(e.key.toLowerCase()),
       run: e => { ship.keys.add(e.key.toLowerCase()); kick(); } },
     { keys: ["/", "Ctrl K"], label: "Search notes, clusters and inside notes", prevent: true, run: () => openPalette() },
