@@ -53,6 +53,8 @@ npm run sample -- --analyse   # regenerate fixtures/ with analysis/ (uses the va
 
 Slower checks, by hand: `node tests/click_all.js [--mobile]` (every control, about 5 minutes), `node tests/layout_random.js`, `node tests/shots.js [--mobile]`, `node tests/polish_loop.js [--full]`. Each takes `--vault` too. They need Chrome.
 
+HQ's Automations shortcut opens every scheduled job, including healthy jobs; Needs you keeps the jobs that need attention. The navigation regression uses real pointer clicks between Needs you, Projects and Automations on desktop and phone layouts. Sample-vault notes regenerate when the local calendar day changes, so cached journals cannot silently remove today's test tasks.
+
 `local.json` (not committed) says where your vault is on this machine:
 
 ```json

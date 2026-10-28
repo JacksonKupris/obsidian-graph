@@ -12,10 +12,10 @@ function mountVaultHQ(root, data, opts) {
   opts = opts || {};
   const SCREENS = [["home", "Home", "home"], ["today", "Today", "tasks"], ["needs", "Needs you", "inbox"], ["projects", "Projects", "folder"]];
   // screens reached from another one (not in the dock): the carried-over sweep, and a report's rows; each has a way back
-  const SUB = { sweep: ["Sweep", "today"], rows: ["Report rows", "needs"] };
+  const SUB = { sweep: ["Sweep", "today"], rows: ["Report rows", "needs"], automations: ["Automations", "needs"] };
   const known = s => SCREENS.some(x => x[0] === s) || !!SUB[s];
   const api = opts.api || {};
-  let DATA = data || { nodes: [], links: [] }, STATE = opts.state || {}, cur = SCREENS.some(s => s[0] === opts.screen) ? opts.screen : "home";
+  let DATA = data || { nodes: [], links: [] }, STATE = opts.state || {}, cur = SCREENS.some(s => s[0] === opts.screen) || opts.screen === "automations" ? opts.screen : "home";
   let kept = new Set(), rowsPath = null;   // the sweep's Keep (this visit only); the report whose rows are open
   let gone = new Set(), feedAt = 0, filter = "active", kindFilter = "all", drawer = null, carriedAll = false, clockTimer = null;
   const now = () => opts.now || new Date(), day = () => VGRules.localDay(now());
@@ -120,7 +120,7 @@ function mountVaultHQ(root, data, opts) {
     const chip = (screen, ic, title, sub, dot) => `<button class="vg-hq-chip" data-go="${screen}">${icon(ic, 16)}<span><b>${esc(title)}</b>${dot ? '<i class="vg-hq-dot"></i>' : ""}<small>${esc(sub)}</small></span></button>`;
     return `<nav class="vg-hq-strip" aria-label="This week"><div class="vg-hq-week">${days}</div><div class="vg-hq-chips">` +
       chip("needs", "inbox", "Needs you", plural(needs, "item"), needs > 0) + chip("projects", "folder", "Projects", `${projects} active`) +
-      (jobs.length ? chip("needs", "clock", "Automations", badJobs ? `${badJobs} need${badJobs === 1 ? "s" : ""} a look` : `${jobs.length} scheduled`, badJobs > 0) : "") + `</div></nav>`;
+      (jobs.length ? chip("automations", "clock", "Automations", badJobs ? `${badJobs} need${badJobs === 1 ? "s" : ""} a look` : `${jobs.length} scheduled`, badJobs > 0) : "") + `</div></nav>`;
   }
   function dock() {
     const needs = ofGroup("needs").length;
@@ -204,6 +204,15 @@ function mountVaultHQ(root, data, opts) {
     const n = ofGroup("needs").length;
     return `<h1 class="vg-hq-h1">Needs you</h1><p class="vg-hq-lede">${n ? `Decisions only you can make, ${n} in all.` : "Nothing waiting on you."}</p>` +
       (out || empty("No approvals, drafts, failed jobs, reports or vault decisions waiting.", [["Today", 'data-go="today"'], ...nextSteps().filter(s => s[1] !== 'data-go="projects"')]));
+  }
+
+  function automationsScreen() {
+    const jobs = VGRules.hqJobs(hq() || {}, now()), labels = { ok: "Worked", failed: "Failed", late: "Late", never: "No run recorded" };
+    const cards = jobs.map(j => `<div class="vg-hq-item"><span class="vg-hq-kind">${icon("clock", 16)}</span><div class="vg-hq-txt"><b>${esc(j.name)} · ${esc(j.state === "late" && j.ok === false ? "Late · Failed" : labels[j.state])}</b>
+      <small>${esc(j.where)} · ${esc(j.when)}</small><p>${esc(j.what)}</p><small>${j.last ? `Last run: ${esc(new Date(j.last).toLocaleString())}` : "No run recorded"}${j.summary ? ` · ${esc(j.summary)}` : ""}${j.device ? ` · ${esc(j.device)}` : ""}</small></div>
+      ${api.openNote && (j.report || VGRules.HQ.automations_note) ? `<div class="vg-hq-acts"><button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(j.report || VGRules.HQ.automations_note)}">${j.report ? "Open report" : "Details"}</button></div>` : ""}</div>`).join("");
+    return `<h1 class="vg-hq-h1">Automations</h1><p class="vg-hq-lede">${plural(jobs.length, "scheduled job")}. Collection success is not human approval.</p>` +
+      (cards ? `<section class="vg-hq-sec">${cards}</section>` : empty("No scheduled jobs configured.", [["Needs you", 'data-go="needs"'], ["Projects", 'data-go="projects"']]));
   }
 
   // ---- Projects: every project (scope of work, project note, user story) as a card; one opens in a drawer, where its
@@ -329,7 +338,7 @@ function mountVaultHQ(root, data, opts) {
     const label = SUB[cur] ? SUB[cur][0] : SCREENS.find(s => s[0] === cur)[1], t = now();
     const scroll = el.querySelector(".vg-hq-main") ? el.querySelector(".vg-hq-main").scrollTop : 0;
     el.innerHTML = `<header class="vg-hq-top"><span class="vg-hq-crumb"><b>Vault HQ</b> / ${esc(label)}</span><span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}</span></span></header>` +
-      strip() + `<main class="vg-hq-main">${({ home, today: todayScreen, needs: needsScreen, projects: projectsScreen, sweep: sweepScreen, rows: rowsScreen })[cur]()}</main>` + dock();
+      strip() + `<main class="vg-hq-main">${({ home, today: todayScreen, needs: needsScreen, projects: projectsScreen, automations: automationsScreen, sweep: sweepScreen, rows: rowsScreen })[cur]()}</main>` + dock();
     el.appendChild(toastEl);
     const main = el.querySelector(".vg-hq-main"); if (main) main.scrollTop = scroll;
     const track = el.querySelector(".vg-hq-feedtrack"); if (track) { track.scrollLeft = feedAt * track.clientWidth;

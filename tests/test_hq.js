@@ -155,7 +155,7 @@ async function page(html, o = {}) {
     }
     // every button on every screen can be clicked (dialogs answer themselves; the screen is reset after each)
     await ev("window.vaultHQ.update(null, null)");
-    for (const s of ["home", "today", "needs", "projects", "sweep", "rows"]) {
+    for (const s of ["home", "today", "needs", "projects", "automations", "sweep", "rows"]) {
       await screen(s);
       const n = await ev(`document.querySelectorAll(".vg-hq-main button, .vg-hq-strip button").length`);
       for (let i = 0; i < n; i++) {
@@ -171,10 +171,10 @@ async function page(html, o = {}) {
   for (const [name, o, mobile] of [["an empty vault", { hq: null, data: { nodes: [], links: [], clusters: [] } }, false], ["no HQ notes", { hq: null }, false], ["a phone", {}, true]]) {
     const t = await page(env.hqPage(OPTS, o), { mobile });
     try {
-      for (const s of ["home", "today", "needs", "projects", "sweep", "rows"]) {
+      for (const s of ["home", "today", "needs", "projects", "automations", "sweep", "rows"]) {
         await t.ev(`window.vaultHQ.setScreen(${JSON.stringify(s)})`); await sleep(120);
         if (!await t.ev(`document.querySelectorAll(".vg-hq-main button").length`)) fails.push(`${name}, ${s}: nothing to click`);
-        if (o.hq === null && s !== "home" && !await t.ev(`!!document.querySelector(".vg-hq-empty button")`)) fails.push(`${name}, ${s}: an empty screen with no next step`);
+        if (o.hq === null && s !== "home" && !(s === "automations" && (env.rules.hq.automations || []).length) && !await t.ev(`!!document.querySelector(".vg-hq-empty button")`)) fails.push(`${name}, ${s}: an empty screen with no next step`);
         if (mobile && await t.ev(`document.querySelector(".vg-hq-main").scrollWidth > document.querySelector(".vg-hq-main").clientWidth + 1 || document.documentElement.scrollWidth > innerWidth + 1`)) fails.push(`${name}, ${s}: scrolls sideways`);
         // card-like buttons (projects, tiles, chips) keep their text inside them, under Obsidian's button rules
         const out = await t.ev(`[...document.querySelectorAll(".vg-hq-proj, .vg-hq-tile, .vg-hq-chip")].filter(c => c.offsetParent).flatMap(c => { const r = c.getBoundingClientRect();

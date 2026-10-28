@@ -39,8 +39,11 @@ const out = (...p) => path.join(ROOT, ".out", ...p);
 function dir() {
   if (VAULT) return VAULT;
   const d = path.join(SAMPLE, "sample-vault");
-  // made again when missing, or older than the graph data (fixtures regenerated since): it must hold every graph note
-  const stale = () => fs.statSync(d).mtimeMs < fs.statSync(path.join(SAMPLE, "sample-graph.json")).mtimeMs
+  // HQ's tasks are relative to the local day; a yesterday cache is stale even if graph data is unchanged.
+  const generated = path.join(d, ".generated-day"), now = new Date();
+  const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const stale = () => !fs.existsSync(generated) || fs.readFileSync(generated, "utf8").trim() !== day
+    || fs.statSync(d).mtimeMs < fs.statSync(path.join(SAMPLE, "sample-graph.json")).mtimeMs
     || data().nodes.some(n => !n.ghost && !n.person && !fs.existsSync(path.join(d, n.id)));
   if (!fs.existsSync(d) || stale()) require("child_process").execFileSync(process.execPath, [path.join(SAMPLE, "make_sample.js")], { stdio: "ignore" });
   return d;

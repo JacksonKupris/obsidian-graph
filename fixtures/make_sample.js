@@ -15,8 +15,8 @@ const F = R.folders;
 let seed = 7;
 const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
 const pick = xs => xs[Math.floor(rand() * xs.length)];
-const DAY = 864e5, TODAY = new Date(new Date().toISOString().slice(0, 10) + "T12:00:00Z");
-const iso = d => d.toISOString().slice(0, 10);
+const DAY = 864e5, TODAY = new Date(); TODAY.setHours(12, 0, 0, 0);
+const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const ago = n => iso(new Date(TODAY - n * DAY));
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -137,6 +137,7 @@ files.set(`${H.automation_status}/office-server.json`, JSON.stringify({ "nightly
 note(`${H.run_log} ${ago(0).slice(0, 7)}.md`, { tags: ["meta/tracking"] }, `# Run Log\n\n- ${ago(1)} · Office PC · Rental App · Wrote the deposits scope · [[Scope of Work — RA_Deposits]]\n- ${ago(0)} · Office PC · Vault · Filed the inbox · ${F.inbox}\n`);
 
 // ---- write
+files.set(".generated-day", iso(TODAY) + "\n");
 fs.rmSync(OUT, { recursive: true, force: true });
 for (const [rel, text] of files) { const p = path.join(OUT, rel); fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, text); }
 console.log(`Wrote ${files.size} notes to ${path.relative(process.cwd(), OUT)}`);
