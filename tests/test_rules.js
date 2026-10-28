@@ -141,7 +141,7 @@ check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }
       E.taskLine("- [ ] Ship it [completion:: 2026-10-20]", "x", "2026-10-27"), Q.taskLine("- [ ] Ship it", "x", "2026-10-27"), Q.taskLine("- [ ] Ship it ✅ 2026-10-20", "x", "2026-10-27")],
       ["- [x] Ship it ✅ 2026-10-27", "- [x] Ship it ✅ 2026-10-20", "- [x] Ship it [completion:: 2026-10-20]", "- [x] Ship it [completion:: 2026-10-27]", "- [x] Ship it ✅ 2026-10-20"]); }
   check("hq: a project carries its open tasks, subtasks marked", Q.hqGather([{ path: "P/Story.md", text: "---\ntype: user-story\nstatus: planned\n---\n# User Story: S\n\n- [ ] **Build** it\n\t- [ ] Sub\n- [x] Done\n" }], { today: day })
-    .projects[0].tasks, [{ line: 6, text: "**Build** it", title: "Build it", sub: false }, { line: 7, text: "Sub", title: "Sub", sub: true }]);
+    .projects[0].tasks.map(({line, text, title, sub}) => ({line, text, title, sub})), [{ line: 6, text: "**Build** it", title: "Build it", sub: false }, { line: 7, text: "Sub", title: "Sub", sub: true }]);
   check("hq: open tasks to close, subtasks too, not in code", Q.openTaskLines("- [ ] A\n\t- [ ] B\n- [x] C\n```\n- [ ] D\n```\n").map(t => [t.line, t.text]), [[0, "A"], [1, "B"]]);
   const journal = "---\ntags:\n  - daily/journal\n---\n# 2026-10-26\n\n### Today's Tasks\n- [ ] Ship the fix\n\t- [ ] a subtask\n- [x] Done already [completion:: 2026-10-26]\n- [ ]  Two spaces after the box\n"
     + "1. [ ] A numbered task\n- [-] Cancelled\n\n```\n- [ ] not a task: code\n```\n\n## Notes\n- [ ] Under notes\n";

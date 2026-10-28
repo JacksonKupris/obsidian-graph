@@ -22,7 +22,7 @@ function frontmatter(text) {
   const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/); if (!m) return undefined;
   const fm = {}; let key = null;
   for (const line of m[1].split(/\r?\n/)) {
-    const kv = line.match(/^([\w-]+):\s*(.*)$/), item = line.match(/^\s+-\s+(.*)$/);
+    const kv = line.match(/^([\w][\w -]*):\s*(.*)$/), item = line.match(/^\s+-\s+(.*)$/);
     if (kv) { key = kv[1]; fm[key] = kv[2] ? kv[2].replace(/^["']|["']$/g, "") : []; }
     else if (item && key && Array.isArray(fm[key])) fm[key].push(item[1].replace(/^["']|["']$/g, ""));
   }

@@ -432,23 +432,44 @@ const VGRules = (() => {
   }
   // a report row as words: links as their names, paths as file names, the gardener's %%act%% notes gone
   const plainRow = t => plainTask(String(t).replace(/%%[\s\S]*?%%/g, "").replace(/`([^`]*\/)?([^`/]+?)(\.md)?`/g, "$2"));
+  const plainRowFull = t => plainTask(stripAnsi(String(t).replace(/%%[\s\S]*?%%/g, "")
+    .replace(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]/g, (_, target, alias) => alias ? `${target} (${alias})` : target)
+    .replace(/`([^`]+\/[^`]+)`/g, "$1").replace(/`/g, "")));
   // an inline field added to a task line ([delegate:: claude]); a field it already has keeps its value
   const taskField = (line, key, value) => new RegExp(`\\[${key}::`).test(line) ? line : `${String(line).replace(/\s+$/, "")} [${key}:: ${value}]`;
   // a task's words without its inline fields, links as their text, bold and code marks gone
-  const plainTask = t => String(t).replace(/\[[\w-]+::[^\]]*\]/g, "").replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\*\*|__|`/g, "").replace(/\s+/g, " ").trim();
+  const stripAnsi = t => String(t).replace(/\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001b\\))/g, "");
+  const plainTask = t => stripAnsi(t).replace(/\[[\w-]+::[^\]]*\]/g, "").replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\*\*|__|`/g, "").replace(/\s+/g, " ").trim();
   const inlineField = (t, key) => { const m = String(t).match(new RegExp(`\\[${key}::\\s*([^\\]]*)\\]`)); return m ? m[1].trim() : ""; };
   // frontmatter as plain values: scalars and lists, enough for type, status, dates and tags
   function frontOf(text) {
     const m = String(text).match(/^---\r?\n([\s\S]*?)\r?\n---/); if (!m) return {};
     const fm = {}; let key = null;
     for (const line of m[1].split(/\r?\n/)) {
-      const kv = line.match(/^([\w-]+):\s*(.*)$/), item = line.match(/^\s+-\s+(.*)$/), clean = v => v.trim().replace(/^["']|["']$/g, "");
+      const kv = line.match(/^([\w][\w -]*):\s*(.*)$/), item = line.match(/^\s+-\s+(.*)$/), clean = v => v.trim().replace(/^["']|["']$/g, "");
       if (kv) { key = kv[1]; fm[key] = kv[2].trim() ? clean(kv[2]) : []; }
       else if (item && key && Array.isArray(fm[key])) fm[key].push(clean(item[1]));
     }
     return fm;
   }
   const dateIn = (rx, path) => { const m = rx && String(path).match(rx); return m ? m[1] : null; };
+  const hqJournalDate = path => dateIn(HQ_JOURNAL, path);
+  const journalRank = (path, date) => {
+    const [year, month] = String(date || "").split("-"), p = String(path).toLowerCase();
+    const monthName = month && new Date(`${date}T12:00:00`).toLocaleString("en-US", { month: "long" }).toLowerCase();
+    const monthShort = monthName && monthName.slice(0, 3);
+    const parts = p.split("/");
+    const yearAt = year ? parts.indexOf(year) : -1, monthPart = yearAt < 0 ? "" : parts[yearAt + 1];
+    const hasYear = yearAt >= 0;
+    const hasMonth = !!monthPart && (monthPart === month || monthPart === `${month}-${monthName}` || monthPart === monthName || monthPart === monthShort);
+    return hasYear && hasMonth ? 3 : hasYear ? 2 : 1;
+  };
+  const canonicalJournalPath = (paths, date) => (paths || []).map(x => typeof x === "string" ? x : x.path)
+    .filter(p => p.startsWith(R.folders.daily + "/") && hqJournalDate(p) === date).sort((a, b) => journalRank(b, date) - journalRank(a, date) || a.localeCompare(b))[0] || null;
+  const canonicalJournal = (hq, date) => {
+    const journals = (hq && hq.journals) || [], path = canonicalJournalPath(journals, date);
+    return journals.find(j => j.path === path) || null;
+  };
   const inDaily = path => String(path).startsWith(R.folders.daily + "/");
   const reportPrefix = path => String(path).startsWith(R.folders.reports + "/") ? (H.reports || []).find(p => stemCase(path).startsWith(p + " ")) : null;
   const automationReport = path => String(path).startsWith(R.folders.reports + "/") ? (H.automations || []).find(a => a.report && stemCase(path).startsWith(a.report)) : null;
@@ -465,8 +486,8 @@ const VGRules = (() => {
     if (path === H.backlog) return "backlog";
     // a project note outside the vault's tooling folder (agent memory there uses type: project too)
     if (projectType(fm) && !path.startsWith(R.folders.system + "/")) return "project";
+    if (type && type === H.review_type && (path.startsWith(H.review_folder + "/") || path.startsWith(R.folders.reports + "/"))) return "review";
     if (reportPrefix(path) || automationReport(path)) return "report";
-    if (type && type === H.review_type && path.startsWith(H.review_folder + "/")) return "review";
     if (type && type === H.decision_type) return "decision";
     if (H.run_log && path.startsWith(H.run_log + " ")) return "runlog";
     return null;
@@ -474,11 +495,17 @@ const VGRules = (() => {
   // [{ line, text, mark, section }] for each top-level task in a note (subtasks travel with their parent); nested:
   // subtasks too, with sub: true. Tasks in code blocks aren't tasks.
   function tasksIn(text, o = {}) {
-    const out = []; let section = "", code = false;
+    const out = [], stack = []; let section = "", code = false;
     String(text).split(/\r?\n/).forEach((l, i) => {
       if (/^\s*(```|~~~)/.test(l)) { code = !code; return; } if (code) return;
-      const h = l.match(/^#{1,6}\s+(.*)/); if (h) { section = h[1].trim(); return; }
-      const m = l.match(TASK_LINE), sub = /^\s/.test(l); if (m && (o.nested || !sub)) out.push({ line: i, text: m[4], mark: m[2], section, ...(o.nested ? { sub } : {}) });
+      const h = l.match(/^#{1,6}\s+(.*)/); if (h) { section = h[1].trim(); stack.length = 0; return; }
+      const m = l.match(TASK_LINE), indent = (l.match(/^\s*/) || [""])[0].length, sub = indent > 0;
+      if (!m) return;
+      while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop();
+      const parent = stack[stack.length - 1], task = { line: i, text: m[4], mark: m[2], section,
+        ...(o.nested ? { sub, ...(parent ? { parent: { line: parent.line, title: plainTask(parent.text) } } : {}) } : {}) };
+      if (o.nested || !sub) out.push(task);
+      stack.push({ indent, line: i, text: m[4] });
     });
     return out;
   }
@@ -531,15 +558,23 @@ const VGRules = (() => {
       if (kind === "journal") hq.journals.push({ path: f.path, date: dateIn(HQ_JOURNAL, f.path), tasks: tasksIn(f.text) });
       else if (kind === "standup") hq.standups.push({ path: f.path, date: dateIn(HQ_STANDUP, f.path), plan: HQ_PLAN ? itemsUnder(f.text, HQ_PLAN) : [],
         deviation: Number(fm.deviation_hours) || 0, projects: [].concat(fm["related-projects"] || []).map(plainTask).filter(Boolean) });
-      else if (kind === "project") hq.projects.push({ path: f.path, name, kind: PROJECT_TYPES[projectType(fm)], title: titleOf(f.text, f.path).replace(/^(Scope of Work|User Story)\s*[—–:-]\s*/i, ""),
+      else if (kind === "project") {
+        const tasks = openTaskLines(f.text).map(t => ({ ...t, title: plainTask(t.text),
+          related: [...String(t.text).matchAll(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]+)?\]\]/g)].map(m => m[1]) }));
+        const tags = tagsOf(fm), systems = [...new Set([...tags.filter(t => /^(?:system|project)\//i.test(t)), ...[].concat(fm.system || [], fm.project || []).map(plainTask).filter(Boolean)])];
+        const references = value => [].concat(value || []).map(v => String(v).replace(/^\[\[|\]\]$/g, "").split("|")[0]).filter(Boolean);
+        hq.projects.push({ path: f.path, name, kind: PROJECT_TYPES[projectType(fm)], title: titleOf(f.text, f.path).replace(/^(Scope of Work|User Story)\s*[—–:-]\s*/i, ""),
         status: String(fm.status || "").toLowerCase(), group: statusGroup(fm.status), summary: scopeSummary(f.text), estimate: scopeEstimate(f.text), created: String(fm.created || ""),
-        tasks: openTaskLines(f.text).map(t => ({ line: t.line, text: t.text, title: plainTask(t.text), sub: t.sub })),
+        tags, systems, tasks, parents: references(fm.parent || fm["Parent task"]), related: references(fm.related),
         updated: String(fm.updated || fm.modified || fm.created || "") });
+      }
       else if (kind === "backlog") tasksIn(f.text).filter(t => t.mark === " ").forEach(t => hq.backlog.push({ path: f.path, ...t }));
       else if (kind === "report") { const prefix = reportPrefix(f.path) || automationReport(f.path).report, date = (name.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || "";
-        if (!newestReport[prefix] || date > newestReport[prefix].date) { const rows = reportRows(f.text).filter(r => r.mark === " ");
-          newestReport[prefix] = { path: f.path, name, prefix, date, open: rows.length, rows: reportPrefix(f.path) ? rows : [], job: !reportPrefix(f.path) }; } }
-      else if (kind === "review") hq.reviews.push({ path: f.path, name, title: titleOf(f.text, f.path), status: String(fm.status || "").toLowerCase(), task: plainTask(fm.task || ""), created: String(fm.created || "") });
+        const rows = reportRows(f.text).filter(r => r.mark === " ");
+        if (!newestReport[prefix] || f.path.localeCompare(newestReport[prefix].path) > 0)
+          newestReport[prefix] = { path: f.path, name, prefix, date, open: rows.length, rows: reportPrefix(f.path) ? rows : [], job: !reportPrefix(f.path) }; }
+      else if (kind === "review") hq.reviews.push({ path: f.path, name, title: titleOf(f.text, f.path), status: String(fm.status || "").toLowerCase(), task: plainTask(fm.task || ""), created: String(fm.created || ""),
+        reviewOnly: f.path.startsWith(R.folders.reports + "/") });
       else if (kind === "decision") hq.decisions.push({ path: f.path, name, title: titleOf(f.text, f.path), date: String(fm.date || fm.created || ""), status: String(fm.status || "").toLowerCase(),
         by: plainTask([].concat(fm.decided_by || []).join(", ")), project: plainTask([].concat(fm.project || []).join(", ")) });
       else if (kind === "runlog") String(f.text).split(/\r?\n/).filter(l => /^- \d{4}-\d{2}-\d{2}/.test(l)).forEach(l => hq.runlog.push(plainTask(l.slice(2))));
@@ -547,10 +582,14 @@ const VGRules = (() => {
       if (kind === "journal" || kind === "standup") (hq.mentionText = hq.mentionText || []).push([dateIn(kind === "journal" ? HQ_JOURNAL : HQ_STANDUP, f.path), String(f.text).toLowerCase()]);
     }
     hq.reports = Object.values(newestReport);
+    hq.journalDuplicates = [...new Set(hq.journals.map(j => j.date).filter(Boolean))].map(date => {
+      const paths = hq.journals.filter(j => j.date === date).map(j => j.path);
+      return paths.length > 1 ? { date, canonical: canonicalJournalPath(paths, date), paths: paths.sort() } : null;
+    }).filter(Boolean);
     const code = s => s.name.replace(/^.*[—–-]\s*/, "").toLowerCase();
     hq.projects.forEach(s => { s.days = [...new Set((hq.mentionText || []).filter(([, t]) => t.includes(s.name.toLowerCase()) || t.includes(code(s)) || (s.title.length > 8 && t.includes(s.title.toLowerCase()))).map(([d]) => d))].sort(); });
     delete hq.mentionText;
-    hq.journals.sort((a, b) => (a.date < b.date ? 1 : -1)); hq.standups.sort((a, b) => (a.date < b.date ? 1 : -1));
+    hq.journals.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : a.path.localeCompare(b.path))); hq.standups.sort((a, b) => (a.date < b.date ? 1 : -1));
     hq.projects.sort((a, b) => (a.updated < b.updated ? 1 : a.updated > b.updated ? -1 : a.name < b.name ? -1 : 1));
     hq.decisions.sort((a, b) => (a.date < b.date ? 1 : -1)); hq.runlog = hq.runlog.slice(-20);
     return hq;
@@ -562,11 +601,14 @@ const VGRules = (() => {
     const reports = new Map(((hq && hq.reports) || []).filter(r => r.job).map(r => [r.prefix, r]));
     return (H.automations || []).map(a => {
       const rep = a.report && reports.get(a.report), run = (hq && hq.runs || {})[a.name];
-      const last = rep ? rep.date + "T12:00:00" : run ? run.last_run : null, ok = rep ? true : run ? !!run.ok : null;
+      const last = rep ? rep.date + "T12:00:00" : run ? run.last_run : null;
+      const ok = rep ? true : run && typeof run.ok === "boolean" ? run.ok : null;
       const hours = last ? (now - new Date(last)) / 36e5 : Infinity, h = now.getHours(), wd = now.getDay();
-      const late = !!last && hours > (a.every_hours || 24) * 2 && (!a.work_hours_only || (h >= 8 && h <= 18 && wd !== 0 && wd !== 6));
-      return { ...a, last, ok, late, summary: rep ? rep.name : run ? String(run.summary || "") : "", device: run ? run.device || "" : "", report: rep ? rep.path : null,
-        state: !last ? "never" : ok === false ? "failed" : late ? "late" : "ok" };
+      const late = !!last && Number.isFinite(hours) && hours > (a.every_hours || 24) * 2 && (!a.work_hours_only || (h >= 8 && h <= 18 && wd !== 0 && wd !== 6));
+      const collectedReport = a.review_report
+        ? ((hq && hq.reviews) || []).filter(r => r.reviewOnly && r.name.startsWith(a.review_report + " ")).sort((a, b) => b.path.localeCompare(a.path))[0] : null;
+      return { ...a, last, ok, late, summary: stripAnsi(rep ? rep.name : run ? String(run.summary || "") : ""), device: run ? run.device || "" : "", report: rep ? rep.path : collectedReport ? collectedReport.path : null,
+        state: !last ? "never" : ok === false ? "failed" : late ? "late" : ok === true ? "ok" : "unknown" };
     });
   }
   // The projects (scopes of work, project notes, user stories): kind, status group, summary, estimate, the days the
@@ -586,16 +628,18 @@ const VGRules = (() => {
     const put = it => { if (!skip(it.key)) add(it); };
     const label = t => plainTask(t) || "(untitled task)";
     const fieldsOf = t => ({ delegated: inlineField(t, H.delegate_field || "delegate"), review: inlineField(t, "review") });
-    hq.journals.filter(j => j.date === day).forEach(j => j.tasks.filter(t => t.mark === " ").forEach((t, i) =>
+    const todayJournal = canonicalJournal(hq, day);
+    (todayJournal ? [todayJournal] : []).forEach(j => j.tasks.filter(t => t.mark === " ").forEach((t, i) =>
       put({ key: `task|${j.path}|${t.text}`, kind: "task", path: j.path, line: t.line, text: t.text, ...fieldsOf(t.text), ids: [j.path], title: label(t.text), why: t.section || "Today's journal", score: 20 - i * 0.01 })));
     const plan = hq.standups.find(s => s.date < day);
     if (plan) plan.plan.forEach((p, i) => put({ key: `plan|${plan.path}|${i}|${p.text}`, kind: "plan", path: plan.path, line: p.line, text: p.text, ids: [plan.path], title: label(p.text), why: `Planned in ${stemCase(plan.path)}`, score: 15 - i * 0.01 }));
     hq.projects.filter(s => s.group === "waiting").forEach(s => { const waited = s.updated ? daysBetween(s.updated, day) : 0;
       put({ key: `approval|${s.path}`, kind: "approval", path: s.path, ids: [s.path], title: s.title, why: `${s.status}${waited > 0 ? ` for ${waited} day${waited === 1 ? "" : "s"}` : ""}`, waited, score: waited > (H.approval_overdue_days || 3) ? 21 : 12 }); });
-    hq.reviews.filter(r => r.status === "waiting").forEach(r => put({ key: `review|${r.path}`, kind: "review", path: r.path, ids: [r.path], title: r.title, why: r.task ? `Draft for: ${r.task}` : "Draft waiting", score: 11.5 }));
+    hq.reviews.filter(r => r.status === "waiting" || r.reviewOnly && ["pending", "proposed"].includes(r.status)).forEach(r => put({ key: `review|${r.path}`, kind: "review", path: r.path, ids: [r.path], title: r.reviewOnly ? r.name : r.title,
+      why: r.reviewOnly ? "Review only · no rows applied" : r.task ? `Draft for: ${r.task}` : "Draft waiting", reviewOnly: !!r.reviewOnly, score: 11.5 }));
     hqJobs(hq, o.now).filter(j => j.state === "failed" || j.state === "late").forEach(j => put({ key: `job|${j.name}|${j.last}`, kind: "job", path: H.automations_note, name: j.name, ids: [],
       title: `${j.name}: ${j.state === "failed" ? "failed" : "late"}`, why: j.summary || j.when, score: j.state === "failed" ? 13 : 10 }));
-    hq.journals.filter(j => j.date < day).forEach(j => { const age = daysBetween(j.date, day);
+    [...new Set(hq.journals.map(j => j.date).filter(d => d < day))].map(d => canonicalJournal(hq, d)).filter(Boolean).forEach(j => { const age = daysBetween(j.date, day);
       j.tasks.filter(t => t.mark === " ").forEach(t => put({ key: `carried|${j.path}|${t.text}`, kind: "carried", path: j.path, line: t.line, text: t.text, date: j.date, age, ...fieldsOf(t.text), ids: [j.path],
         title: label(t.text), why: `From ${j.date} · ${age} day${age === 1 ? "" : "s"} ago`, score: Math.max(1, 9 - age * 0.25) })); });
     hq.backlog.forEach(b => put({ key: `backlog|${b.path}|${b.text}`, kind: "backlog", path: b.path, line: b.line, text: b.text, ids: [b.path], title: label(b.text), why: stemCase(b.path), score: 3 }));
@@ -824,7 +868,7 @@ const VGRules = (() => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
-  return { HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqKind, hqGather, hqJobs, hqProjects, todayGroup, TODAY_GROUP, statusGroup,
+  return { HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

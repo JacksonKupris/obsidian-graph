@@ -170,7 +170,7 @@ const VGActions = (() => {
       run: async (it, c) => { await c.api.hqMark(it.key, "done"); const logged = c.api.logWork ? await c.api.logWork(it.text) : false;
         return `Done: ${short(it.title)}${logged ? ", added to today's standup" : ""}`; } },
     approval: { label: "Open", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },
-    report: { label: "Open", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },
+    report: { label: "Open source report", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },
     job: { label: "Open", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },   // the automations note
     review: { label: "Accept", when: c => !!c.api.setNoteStatus,
       ask: it => ["Accept the draft", `Accept “${it.title}”? This sets its status to accepted. Applying what it describes stays with you.`, "Accept"],
@@ -184,21 +184,26 @@ const VGActions = (() => {
     const logged = await c.api.completeTask(it.path, it.line, it.text);
     return `Done: ${short(it.title)}${logged ? ", added to today's standup" : ""}`;
   }
-  const todayWhen = (it, c) => !!TODAY[it.kind] && TODAY[it.kind].when(c);
-  const todayLabel = it => (TODAY[it.kind] || {}).label || "";
+  const todayWhen = (it, c) => it.reviewOnly ? !!c.api.openNote : !!TODAY[it.kind] && TODAY[it.kind].when(c);
+  const todayLabel = it => it.reviewOnly ? "Open for review" : (TODAY[it.kind] || {}).label || "";
   function runToday(it, c, e) {
+    if (it.reviewOnly) { c.api.openNote(it.path); return Promise.resolve(false); }
     const t = TODAY[it.kind]; if (!t || !t.when(c)) return Promise.resolve(false);
     return run({ label: () => t.label, title: () => it.title, ask: t.ask && (() => t.ask(it)), run: (_, cc, ee) => t.run(it, cc, ee), undo: t.undo }, it, c, e);
   }
   // The other things an HQ item offers besides its main action, the same on every surface: Later (gone for today),
   // Reject a draft (with the reason), Delegate a task to an agent, Open its note. Each is one write through c.api.
   const TODAY_MORE = [
+    { key: "reviewed", label: "Mark reviewed", title: "Record the review only; do not apply recommendations",
+      when: (it, c) => !!it.reviewOnly && !!c.api.setNoteStatus,
+      ask: it => ["Mark report reviewed", `Mark “${it.title}” reviewed? This does not apply its recommendations or complete source tasks.`, "Mark reviewed"],
+      run: async (it, c) => { await c.api.setNoteStatus(it.path, "reviewed"); return `Reviewed: ${short(it.title)}`; } },
     { key: "rows", label: "Review rows", title: "Tick or skip each row here", when: (it, c) => it.kind === "report" && !!c.showRows,
       run: (it, c) => { c.showRows(it.path); return null; } },
     { key: "later", label: "Later", title: "Not today: it comes back tomorrow", when: (it, c) => !!VGRules.TODAY_GROUP[it.kind] && !!c.api.hqMark,
       run: async (it, c) => { await c.api.hqMark(it.key, "later"); return `Later: ${short(it.title)}`; },
       undo: (it, c) => c.api.hqMark(it.key, null) },
-    { key: "reject", label: "Reject", title: "Reject the draft, with the reason", when: (it, c) => it.kind === "review" && !!c.api.setNoteStatus,
+    { key: "reject", label: "Reject", title: "Reject the draft, with the reason", when: (it, c) => it.kind === "review" && !it.reviewOnly && !!c.api.setNoteStatus,
       run: async (it, c) => {
         const why = c.input ? await c.input("Reject the draft", `Why reject “${it.title}”? The reason goes in the draft.`, "Reason") : (await c.ask("Reject the draft", `Reject “${it.title}”?`, "Reject")) ? "" : null;
         if (why === null) return null;

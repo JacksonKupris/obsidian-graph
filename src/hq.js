@@ -17,7 +17,8 @@ function mountVaultHQ(root, data, opts) {
   const api = opts.api || {};
   let DATA = data || { nodes: [], links: [] }, STATE = opts.state || {}, cur = SCREENS.some(s => s[0] === opts.screen) || opts.screen === "automations" ? opts.screen : "home";
   let kept = new Set(), rowsPath = null;   // the sweep's Keep (this visit only); the report whose rows are open
-  let gone = new Set(), feedAt = 0, filter = "active", kindFilter = "all", drawer = null, carriedAll = false, clockTimer = null;
+  let gone = new Set(), feedAt = 0, filter = "active", kindFilter = "all", needFilter = "all", systemFilter = "all",
+    projectQuery = "", compactProjects = false, drawer = null, focusDrawerOnRender = false, carriedAll = false, clockTimer = null;
   const now = () => opts.now || new Date(), day = () => VGRules.localDay(now());
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const plural = (n, w, ws) => `${n} ${n === 1 ? w : ws || w + "s"}`;
@@ -31,7 +32,7 @@ function mountVaultHQ(root, data, opts) {
   }
   const ofGroup = g => LIST.filter(it => it.group === g);
   const ofKind = k => LIST.filter(it => it.kind === k);
-  const doNext = () => LIST.find(it => it.group === "today" || it.group === "needs") || null;
+  const doNext = () => LIST.find(it => it.group === "today") || null;
   const hq = () => DATA.hq || null;
 
   // ---- icons: small line icons drawn here (no icon font outside Obsidian)
@@ -90,7 +91,7 @@ function mountVaultHQ(root, data, opts) {
   // an item's buttons: its main action, then Later / Reject / Delegate / Open
   function buttons(it, big) {
     const c = ctx(), main = VGActions.todayWhen(it, c) ? `<button class="vg-hq-btn vg-hq-btn-primary${big ? "" : " vg-hq-btn-sm"}" data-act="main" data-key="${esc(it.key)}">${esc(VGActions.todayLabel(it))}</button>` : "";
-    const more = VGActions.todayMore(it, c).filter(m => !(m.key === "open" && VGActions.todayLabel(it) === "Open"))
+    const more = VGActions.todayMore(it, c).filter(m => !(m.key === "open" && (VGActions.todayLabel(it) === "Open" || it.reviewOnly)))
       .map(m => `<button class="vg-hq-btn${big ? "" : " vg-hq-btn-sm"}${m.key === "later" ? " vg-hq-btn-ghost" : ""}" data-act="${m.key}" data-key="${esc(it.key)}" title="${esc(typeof m.title === "function" ? m.title(it) : m.title)}">${esc(m.label)}</button>`).join("");
     return main + more;
   }
@@ -112,15 +113,16 @@ function mountVaultHQ(root, data, opts) {
     const journals = new Set(((h && h.journals) || []).map(j => j.date)), standups = new Set(((h && h.standups) || []).map(s => s.date));
     const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return d; }).map(d => {
       const iso = VGRules.localDay(d), on = iso === day(), marks = (journals.has(iso) ? '<i class="is-j" title="Journal"></i>' : "") + (standups.has(iso) ? '<i class="is-s" title="Standup"></i>' : "");
-      const j = ((h && h.journals) || []).find(x => x.date === iso);
-      return `<button class="vg-hq-day${on ? " is-today" : ""}" ${j ? `data-open="${esc(j.path)}"` : "disabled"} aria-label="${DAYS[d.getDay()]} ${d.getDate()}${j ? ", open its journal" : ""}"><span>${DAYS[d.getDay()]}</span><b>${d.getDate()}</b><span class="vg-hq-marks">${marks}</span></button>`;
+      const j = VGRules.canonicalJournal(h, iso);
+      const duplicate = j && ((h && h.journalDuplicates) || []).find(x => x.date === iso);
+      return `<button class="vg-hq-day${on ? " is-today" : ""}" ${j ? `data-open="${esc(j.path)}"` : "disabled"} ${duplicate ? `title="Duplicate journal date; using ${esc(j.path)}"` : ""} aria-label="${DAYS[d.getDay()]} ${d.getDate()}${j ? ", open its journal" : ""}${duplicate ? ", duplicate journal paths; canonical copy selected" : ""}"><span>${DAYS[d.getDay()]}</span><b>${d.getDate()}</b><span class="vg-hq-marks">${marks}</span></button>`;
     }).join("");
     const needs = ofGroup("needs").length, projects = VGRules.hqProjects(DATA).filter(p => p.group === "active").length, jobs = VGRules.hqJobs(h || {}, now());
     const badJobs = jobs.filter(j => j.state === "failed" || j.state === "late").length;
     const chip = (screen, ic, title, sub, dot) => `<button class="vg-hq-chip" data-go="${screen}">${icon(ic, 16)}<span><b>${esc(title)}</b>${dot ? '<i class="vg-hq-dot"></i>' : ""}<small>${esc(sub)}</small></span></button>`;
     return `<nav class="vg-hq-strip" aria-label="This week"><div class="vg-hq-week">${days}</div><div class="vg-hq-chips">` +
       chip("needs", "inbox", "Needs you", plural(needs, "item"), needs > 0) + chip("projects", "folder", "Projects", `${projects} active`) +
-      (jobs.length ? chip("automations", "clock", "Automations", badJobs ? `${badJobs} need${badJobs === 1 ? "s" : ""} a look` : `${jobs.length} scheduled`, badJobs > 0) : "") + `</div></nav>`;
+      (jobs.length ? chip("automations", "clock", "Automations", badJobs ? `${badJobs} need${badJobs === 1 ? "s" : ""} a look` : `${jobs.length} configured`, badJobs > 0) : "") + `</div></nav>`;
   }
   function dock() {
     const needs = ofGroup("needs").length;
@@ -132,18 +134,31 @@ function mountVaultHQ(root, data, opts) {
       `<div class="vg-hq-txt"><b>${esc(it.title)}</b>${it.why ? `<small>${esc(it.why)}${it.delegated ? ` · delegated to ${esc(it.delegated)}` : ""}</small>` : ""}</div>` +
       `<div class="vg-hq-acts">${buttons(it)}</div></div>`;
   }
-  const section = (title, items, more) => items.length ? `<section class="vg-hq-sec"><h3>${esc(title)}<span>${items.length}</span></h3>${items.map(row).join("")}${more || ""}</section>` : "";
+  const duplicateKey = it => VGRules.plainTask(it.text || it.title).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  function taskRows(items) {
+    const groups = new Map();
+    items.forEach(it => { const key = ["task", "carried", "plan"].includes(it.kind) ? duplicateKey(it) : it.key; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(it); });
+    return [...groups.values()].map(group => group.length === 1 ? row(group[0]) :
+      `<details class="vg-hq-duplicates"><summary>Possible duplicate wording · ${group.length} source tasks · review separately</summary>${group.map(row).join("")}</details>`).join("");
+  }
+  const section = (title, items, more) => items.length ? `<section class="vg-hq-sec"><h3>${esc(title)}<span>${items.length}</span></h3>${taskRows(items)}${more || ""}</section>` : "";
   // an empty screen says what's true and where to go next
   const empty = (fact, next) => `<div class="vg-hq-empty"><p>${esc(fact)}</p><div class="vg-hq-row">${next.map(([label, attr]) => `<button class="vg-hq-btn" ${attr}>${esc(label)}</button>`).join("")}</div></div>`;
   const nextSteps = () => [...(api.openDaily ? [["Open today's journal", "data-daily"]] : []), ...(opts.openGraph ? [["Open the graph", "data-graph"]] : []), ["Projects", 'data-go="projects"']];
+  const journalWarning = () => ((hq() || {}).journalDuplicates || []).length
+    ? `<aside class="vg-hq-warning" role="status"><b>Duplicate journal paths detected.</b> No notes were merged or removed. Vault HQ uses the expected year/month path when available; other copies remain untouched.
+      ${hq().journalDuplicates.map(d => `<p>${esc(d.date)} · using <code>${esc(d.canonical)}</code></p><div class="vg-hq-row">${(d.paths || []).map(path => api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(path)}">Open ${esc(path)}</button>` : `<code>${esc(path)}</code>`).join("")}</div>`).join("")}</aside>` : "";
 
   // ---- Home: what the vault says (the feed), then Do next, Needs you and Projects, and vault upkeep
   function feedCards() {
     const h = hq() || {}, nodes = (DATA.nodes || []).filter(n => !n.person && !n.ghost && !n.moc), cards = [];
     const stale = nodes.filter(n => VGRules.isStale(n, (DATA.quality || {}).stale_days));
-    if (nodes.length) cards.push({ id: "state", eyebrow: "The vault", title: "State of the vault",
-      sub: `${plural(nodes.length, "note")} · ${nodes.filter(n => !n.isolated).length} linked · ${plural((DATA.clusters || []).length, "topic")} · ${stale.length} not changed in ${(DATA.quality || {}).stale_days || VGRules.RULES.stale_days}+ days`,
+    if (nodes.length) cards.push({ id: "state", eyebrow: "Analysis coverage · graph only", title: "Analyzed graph",
+      sub: `${plural(nodes.length, "represented note")} · ${plural((DATA.clusters || []).length, "topic")} · ${Number.isFinite(DATA.dailies_used) ? `${DATA.dailies_used} dailies used` : "daily coverage not recorded"}`,
       go: opts.openGraph ? ["Open the graph", "data-graph"] : null });
+    const analysisDate = DATA.date, age = analysisDate && /^\d{4}-\d{2}-\d{2}$/.test(analysisDate) ? Math.max(0, Math.floor((Date.parse(`${day()}T12:00:00`) - Date.parse(`${analysisDate}T12:00:00`)) / 864e5)) : null;
+    cards.push({ id: "freshness", eyebrow: "Analysis freshness", title: analysisDate ? `Analysis dated ${shortDate(analysisDate)}` : "Analysis date unavailable",
+      sub: age === null ? "Freshness cannot be determined from the available data." : age === 0 ? "Analysis is dated today." : `${plural(age, "day")} since the analysis date.` });
     const busy = (DATA.clusters || []).map(c => ({ c, n: nodes.filter(x => x.cluster === c.id).reduce((s, x) => s + (x.recent || 0), 0) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n)[0];
     if (busy) cards.push({ id: "weather", eyebrow: "Weather", title: `${busy.c.label || busy.c.name} is busiest`, sub: `${plural(busy.n, "mention")} in the dailies over the last ${DATA.recent_days || 30} days`,
       go: opts.openGraph ? ["Open the graph", "data-graph"] : null });
@@ -176,11 +191,11 @@ function mountVaultHQ(root, data, opts) {
     const needsBy = [["approval", "approval"], ["review", "draft to review", "drafts to review"], ["job", "job"], ["report", "report"], ["backlog", "vault decision"]]
       .map(([k, w, ws]) => [needs.filter(i => i.kind === k).length, w, ws]).filter(([n]) => n).map(([n, w, ws]) => plural(n, w, ws)).join(" · ");
     const tiles = `<div class="vg-hq-tiles">
-      <div class="vg-hq-tile"><div class="vg-hq-eyebrow">Do next</div>${next ? `<b>${esc(next.title)}</b><small>${esc(next.why)}</small><div class="vg-hq-row">${buttons(next)}</div>` : `<b>Nothing waiting.</b><div class="vg-hq-row">${api.openDaily ? '<button class="vg-hq-btn" data-daily>Open today\'s journal</button>' : ""}</div>`}</div>
+      <div class="vg-hq-tile"><div class="vg-hq-eyebrow">Do next</div>${next ? `<b>${esc(next.title)}</b><small>${esc(next.why)}</small><div class="vg-hq-row">${buttons(next)}</div>` : `<b>No daily work queued.</b><div class="vg-hq-row">${api.openDaily ? '<button class="vg-hq-btn" data-daily>Open today\'s journal</button>' : ""}</div>`}</div>
       <button class="vg-hq-tile" data-go="needs"><span class="vg-hq-eyebrow">Needs you</span><span class="vg-hq-big">${needs.length}</span><small>${esc(needsBy || "Nothing waiting on you")}</small></button>
       <button class="vg-hq-tile" data-go="projects"><span class="vg-hq-eyebrow">Projects</span><span class="vg-hq-big">${count("active")}</span><small>in progress · ${count("planned")} planned · ${count("waiting")} waiting</small></button></div>`;
     const upkeep = ofGroup("upkeep").slice(0, 3);
-    return `<h1 class="vg-hq-h1">${greeting()}</h1>${feed}${tiles}` +
+    return `<h1 class="vg-hq-h1">${greeting()}</h1>${journalWarning()}${feed}${tiles}` +
       (upkeep.length ? section("Vault upkeep", upkeep, opts.openGraph ? '<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-graph>Open the graph</button></div>' : "") : "");
   }
   const greeting = () => { const h = now().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
@@ -188,36 +203,39 @@ function mountVaultHQ(root, data, opts) {
   // ---- Today: Do next, then the day in order: today's journal, the last standup's plan, what's carried over
   function todayScreen() {
     const next = doNext(), tasks = ofKind("task"), plan = ofKind("plan"), carried = ofKind("carried");
-    const big = next ? `<section class="vg-hq-next"><div class="vg-hq-eyebrow">Do next</div><h2>${esc(next.title)}</h2><p>${esc(next.why)}</p><div class="vg-hq-row">${buttons(next, true)}</div></section>` : "";
+    const big = next ? `<section class="vg-hq-next vg-hq-item" data-key="${esc(next.key)}"><div class="vg-hq-eyebrow">Do next</div><h2>${esc(next.title)}</h2><p>${esc(next.why)}</p><div class="vg-hq-row">${buttons(next, true)}</div></section>` : "";
     const planFrom = plan.length ? `Plan from ${shortDate((plan[0].path.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || "")}` : "Plan";
     const shown = carriedAll ? carried : carried.slice(0, 8);
     const out = big + section("Today's journal", tasks.filter(t => t !== next)) + section(planFrom, plan.filter(t => t !== next)) +
       section("Carried over", shown.filter(t => t !== next), carried.length ? `<div class="vg-hq-row"><button class="vg-hq-btn" data-go="sweep">Sweep them, oldest first</button>${carried.length > shown.length ? `<button class="vg-hq-btn vg-hq-btn-ghost" data-carried>Show all ${carried.length}</button>` : ""}</div>` : "");
-    return `<h1 class="vg-hq-h1">Today</h1><p class="vg-hq-lede">${esc(new Date(day() + "T12:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))} · ${plural(tasks.length + plan.length, "item")} planned · ${carried.length} carried over</p>` +
+    return `<h1 class="vg-hq-h1">Today</h1>${journalWarning()}<p class="vg-hq-lede">${esc(new Date(day() + "T12:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))} · ${plural(tasks.length + plan.length, "item")} planned · ${carried.length} carried over</p>` +
       (out || empty(hq() ? "No open tasks in today's journal, the plan or the last 30 days." : "No journal or standup notes found for HQ.", nextSteps()));
   }
 
   // ---- Needs you: decisions only you can make
   function needsScreen() {
-    const out = section("Waiting on approval", ofKind("approval")) + section("Drafts to review", ofKind("review")) + section("Scheduled jobs", ofKind("job")) +
-      section("Reports to review", ofKind("report")) + section("Vault decisions", ofKind("backlog"));
-    const n = ofGroup("needs").length;
-    return `<h1 class="vg-hq-h1">Needs you</h1><p class="vg-hq-lede">${n ? `Decisions only you can make, ${n} in all.` : "Nothing waiting on you."}</p>` +
-      (out || empty("No approvals, drafts, failed jobs, reports or vault decisions waiting.", [["Today", 'data-go="today"'], ...nextSteps().filter(s => s[1] !== 'data-go="projects"')]));
+    const items = ofGroup("needs"), filters = [["all", "All"], ["approval", "Approvals"], ["review", "Drafts"], ["job", "Automations"], ["report", "Reports"], ["backlog", "Vault decisions"]];
+    const shown = needFilter === "all" ? items : items.filter(i => i.kind === needFilter);
+    const chips = filters.map(([k, label]) => `<button class="vg-hq-filter${needFilter === k ? " is-on" : ""}" data-needfilter="${k}" aria-pressed="${needFilter === k}">${label} <span>${k === "all" ? items.length : items.filter(i => i.kind === k).length}</span></button>`).join("");
+    const out = section("Waiting on approval", shown.filter(i => i.kind === "approval")) + section("Drafts to review", shown.filter(i => i.kind === "review")) +
+      section("Automations needing attention", shown.filter(i => i.kind === "job")) + section("Reports to review", shown.filter(i => i.kind === "report")) +
+      section("Vault decisions", shown.filter(i => i.kind === "backlog"));
+    return `<h1 class="vg-hq-h1">Needs you</h1><p class="vg-hq-lede">${items.length ? `Decisions only you can make, ${items.length} in all.` : "Nothing waiting on you."}</p><div class="vg-hq-filters" role="group" aria-label="Filter Needs you">${chips}</div>` +
+      (out || empty(needFilter === "all" ? "No approvals, drafts, failed jobs, reports or vault decisions waiting." : `No ${filters.find(f => f[0] === needFilter)[1].toLowerCase()} waiting.`, [["Show all", 'data-needfilter="all"'], ["Today", 'data-go="today"']]));
   }
 
   function automationsScreen() {
-    const jobs = VGRules.hqJobs(hq() || {}, now()), labels = { ok: "Worked", failed: "Failed", late: "Late", never: "No run recorded" };
+    const jobs = VGRules.hqJobs(hq() || {}, now()), labels = { ok: "Last result: succeeded", failed: "Last result: failed", late: "Late", never: "No run recorded", unknown: "Run state unknown" };
     const cards = jobs.map(j => `<div class="vg-hq-item"><span class="vg-hq-kind">${icon("clock", 16)}</span><div class="vg-hq-txt"><b>${esc(j.name)} · ${esc(j.state === "late" && j.ok === false ? "Late · Failed" : labels[j.state])}</b>
-      <small>${esc(j.where)} · ${esc(j.when)}</small><p>${esc(j.what)}</p><small>${j.last ? `Last run: ${esc(new Date(j.last).toLocaleString())}` : "No run recorded"}${j.summary ? ` · ${esc(j.summary)}` : ""}${j.device ? ` · ${esc(j.device)}` : ""}</small></div>
-      ${api.openNote && (j.report || VGRules.HQ.automations_note) ? `<div class="vg-hq-acts"><button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(j.report || VGRules.HQ.automations_note)}">${j.report ? "Open report" : "Details"}</button></div>` : ""}</div>`).join("");
-    return `<h1 class="vg-hq-h1">Automations</h1><p class="vg-hq-lede">${plural(jobs.length, "scheduled job")}. Collection success is not human approval.</p>` +
-      (cards ? `<section class="vg-hq-sec">${cards}</section>` : empty("No scheduled jobs configured.", [["Needs you", 'data-go="needs"'], ["Projects", 'data-go="projects"']]));
+      <small>${esc(j.where)}${j.when ? ` · ${esc(j.when)}` : ""}${j.every_hours ? ` · configured interval: ${j.every_hours}h` : ""}</small><p>${esc(j.what)}</p><small>${j.last ? `Last recorded run: ${esc(new Date(j.last).toLocaleString())}` : "No run recorded"}${j.summary ? ` · ${esc(j.summary)}` : ""}${j.device ? ` · ${esc(j.device)}` : ""}</small></div>
+      ${api.openNote && (j.report || VGRules.HQ.automations_note) ? `<div class="vg-hq-acts"><button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(j.report || VGRules.HQ.automations_note)}">${j.report ? "Open latest report" : "Details"}</button></div>` : ""}</div>`).join("");
+    return `<h1 class="vg-hq-h1">Automations</h1><p class="vg-hq-lede">${plural(jobs.length, "configured automation")}. Run records describe outcomes, not human approval; schedule enablement is shown only when the source records it.</p>` +
+      (cards ? `<section class="vg-hq-sec">${cards}</section>` : empty("No automations configured.", [["Needs you", 'data-go="needs"'], ["Projects", 'data-go="projects"']]));
   }
 
   // ---- Projects: every project (scope of work, project note, user story) as a card; one opens in a drawer, where its
   // status is set
-  const FILTERS = [["active", "In progress"], ["planned", "Planned"], ["waiting", "Waiting"], ["closed", "Done"], ["all", "All"]];
+  const FILTERS = [["active", "In progress"], ["planned", "Planned"], ["waiting", "Waiting"], ["closed", "Done"], ["other", "Needs classification"], ["all", "All"]];
   function spark(days) {
     const set = new Set(days || []), t = Date.parse(day()), cells = [];
     for (let i = 29; i >= 0; i--) cells.push(set.has(VGRules.localDay(new Date(t - i * 864e5))));
@@ -225,33 +243,52 @@ function mountVaultHQ(root, data, opts) {
   }
   function projectsScreen() {
     const every = VGRules.hqProjects(DATA), kinds = [...new Set(every.map(p => p.kind))];
-    if (kindFilter !== "all" && !kinds.includes(kindFilter)) kindFilter = "all";
-    const all = every.filter(p => kindFilter === "all" || p.kind === kindFilter), list = all.filter(p => filter === "all" || p.group === filter);
+    const systems = [...new Set(every.flatMap(p => p.systems || []))].sort((a, b) => a.localeCompare(b));
+    const all = every.filter(p => (kindFilter === "all" || p.kind === kindFilter) && (systemFilter === "all" || (p.systems || []).includes(systemFilter)));
+    const query = projectQuery.trim().toLowerCase();
+    const list = all.filter(p => (filter === "all" || p.group === filter) && (!query || `${p.title} ${p.summary || ""}`.toLowerCase().includes(query)));
     const pill = p => `<span class="vg-hq-pill is-${esc(p.group)}">${esc(p.status || "no status")}</span>`;
     // a scope's code name (JK_Branch) beside its kind; other notes are named by their title
     const sub = p => [p.kind, /^Scope of Work\b/i.test(p.name) ? p.name.replace(/^.*[—–-]\s*/, "") : ""].filter(Boolean).join(" · ");
     const card = p => `<button class="vg-hq-proj" data-proj="${esc(p.path)}">${hills(p.name, 70)}<span class="vg-hq-projbody"><span class="vg-hq-projhead"><small>${esc(sub(p))}</small>${pill(p)}</span>
-      <b>${esc(p.title)}</b><span class="vg-hq-sum">${esc(p.summary || "No summary yet.")}</span><span class="vg-hq-projfoot">${spark(p.days)}<small>${esc(p.estimate || (p.updated ? `Updated ${shortDate(p.updated)}` : ""))}</small></span></span></button>`;
-    const chips = FILTERS.map(([k, label]) => `<button class="vg-hq-filter${filter === k ? " is-on" : ""}" data-filter="${k}" aria-pressed="${filter === k}">${label} <span>${k === "all" ? all.length : all.filter(p => p.group === k).length}</span></button>`).join("");
+      <b>${esc(p.title)}</b><span class="vg-hq-sum">${esc(p.summary || "No summary yet.")}</span>${(p.systems || []).length ? `<small class="vg-hq-project-systems">${esc(p.systems.join(" · "))}</small>` : ""}<span class="vg-hq-projfoot">${spark(p.days)}<small>${esc(p.estimate || (p.updated ? `Updated ${shortDate(p.updated)}` : ""))}</small></span></span></button>`;
     const kindChips = kinds.length > 1 ? `<div class="vg-hq-filters" role="group" aria-label="Kind">${[["all", "All kinds", every.length], ...kinds.map(k => [k, k, every.filter(p => p.kind === k).length])]
       .map(([k, label, n]) => `<button class="vg-hq-filter${kindFilter === k ? " is-on" : ""}" data-kind="${esc(k)}" aria-pressed="${kindFilter === k}">${esc(label)} <span>${n}</span></button>`).join("")}</div>` : "";
-    const body = list.length ? `<div class="vg-hq-grid">${list.map(card).join("")}</div>` : all.length
-      ? empty(`No ${FILTERS.find(f => f[0] === filter)[1].toLowerCase()} projects.`, [["All projects", 'data-filter="all"']])
+    const systemChips = systems.length ? `<div class="vg-hq-filters" role="group" aria-label="System">${[["all", "All systems"], ...systems.map(s => [s, s])]
+      .map(([s, label]) => `<button class="vg-hq-filter${systemFilter === s ? " is-on" : ""}" data-system="${esc(s)}" aria-pressed="${systemFilter === s}">${esc(label)}</button>`).join("")}</div>` : "";
+    const statusChips = FILTERS.map(([k, label]) => `<button class="vg-hq-filter${filter === k ? " is-on" : ""}" data-filter="${k}" aria-pressed="${filter === k}">${label} <span>${k === "all" ? all.length : all.filter(p => p.group === k).length}</span></button>`).join("");
+    const body = list.length ? `<div class="vg-hq-grid${compactProjects ? " is-compact" : ""}">${list.map(card).join("")}</div>` : every.length
+      ? empty(`No projects match the current filters${query ? ` or search “${projectQuery.trim()}”` : ""}.`, [["Clear search", 'data-clearsearch'], ["All projects", 'data-filter="all"'], ["All systems", 'data-system="all"']])
       : empty(`No projects yet (notes with type: ${Object.keys(VGRules.PROJECT_TYPES).join(", ") || "scope-of-work"}).`, nextSteps().filter(s => s[1] !== 'data-go="projects"'));
-    return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">Every project, newest first.</p>${kindChips}<div class="vg-hq-filters" role="group" aria-label="Show">${chips}</div>${body}${drawerHtml(every)}`;
+    return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">Every project, newest first.</p>
+      <div class="vg-hq-project-tools"><label class="vg-hq-searchlabel">Search title or summary<input class="vg-hq-project-search" type="search" value="${esc(projectQuery)}" aria-label="Search project titles and summaries"></label>
+      <button class="vg-hq-filter" data-compact aria-pressed="${compactProjects}">${compactProjects ? "Card view" : "Compact list"}</button></div>
+      ${kindChips}${systemChips}<div class="vg-hq-filters" role="group" aria-label="Project status">${statusChips}</div>${body}${drawerHtml(every)}`;
   }
   function drawerHtml(all) {
     const p = drawer && all.find(x => x.path === drawer); if (!p) return "";
-    const facts = [["Status", p.status || "—"], ["Estimate", p.estimate || "—"], ["Updated", p.updated ? shortDate(p.updated) : "—"], ["Named in the dailies", `${plural((p.days || []).length, "day")} in 30`]];
+    const facts = [["Status", p.status || "—"], ["Estimate", p.estimate || "—"], ["Updated", p.updated ? shortDate(p.updated) : "—"], ["Named in the dailies", `${plural((p.days || []).length, "day")} in 30`],
+      ...(p.systems && p.systems.length ? [["Systems", p.systems.join(", ")]] : []), ...(p.tags && p.tags.length ? [["Tags", p.tags.join(", ")]] : [])];
     // its open tasks, in the sweep's rows: Done / Cancel each, or all at once (the shared batch action)
     const tasks = p.tasks || [], canTick = !!api.setTasksStatus;
+    const duplicates = new Map();
+    tasks.forEach(t => { const key = VGRules.plainTask(t.text).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim(); if (key) duplicates.set(key, (duplicates.get(key) || 0) + 1); });
     const taskList = `<h3>Open tasks · ${tasks.length}</h3>` + (!tasks.length ? `<p class="vg-hq-lede">No open tasks.</p>`
       : (canTick ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-sm" data-pbatch="x">Done all</button><button class="vg-hq-btn vg-hq-btn-sm" data-pbatch="-">Cancel all</button></div>` : "")
-      + tasks.map(t => `<div class="vg-hq-item${t.sub ? " is-sub" : ""}"><div class="vg-hq-txt"><b>${esc(t.title)}</b></div>${canTick ? `<div class="vg-hq-acts">
-          <button class="vg-hq-btn vg-hq-btn-sm" data-ptask="x" data-line="${t.line}">Done</button><button class="vg-hq-btn vg-hq-btn-sm" data-ptask="-" data-line="${t.line}">Cancel</button></div>` : ""}</div>`).join(""));
-    return `<div class="vg-hq-scrim" data-closedrawer></div><aside class="vg-hq-drawer" role="dialog" aria-label="${esc(p.title)}"><button class="vg-hq-x" data-closedrawer aria-label="Close">${icon("close")}</button>
-      <small>${esc(p.name)}</small><h2>${esc(p.title)}</h2><p>${esc(p.summary || "No summary yet.")}</p>
+      + tasks.map(t => { const key = VGRules.plainTask(t.text).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim(), same = duplicates.get(key) > 1;
+        const refs = (t.related || []).map(target => `<button class="vg-hq-link" data-open="${esc(target)}">Related: ${esc(target)}</button>`).join("");
+        return `<div class="vg-hq-item${t.sub ? " is-sub" : ""}" id="vg-hq-task-${t.line}" data-taskline="${t.line}" tabindex="-1"><div class="vg-hq-txt"><b>${esc(t.title)}</b>
+          ${same ? `<small class="vg-hq-duplicate">Possible duplicate wording · review only</small>` : ""}
+          ${t.section ? `<small>Source heading: ${esc(t.section)}</small>` : ""}
+          ${t.parent ? `<small>Subtask of <button class="vg-hq-inline-link" data-parentline="${t.parent.line}">${esc(t.parent.title)}</button></small>` : ""}
+          ${refs}</div>${canTick ? `<div class="vg-hq-acts">
+          <button class="vg-hq-btn vg-hq-btn-sm" data-ptask="x" data-line="${t.line}">Done</button><button class="vg-hq-btn vg-hq-btn-sm" data-ptask="-" data-line="${t.line}">Cancel</button></div>` : ""}</div>`; }).join(""));
+    const relationships = [...(p.parents || []).map(target => [target, "Parent"]), ...(p.related || []).map(target => [target, "Related"])];
+    return `<div class="vg-hq-scrim" data-closedrawer></div><aside class="vg-hq-drawer" role="dialog" aria-modal="false" aria-labelledby="vg-hq-drawer-title" tabindex="-1"><button class="vg-hq-x" data-closedrawer aria-label="Close project details">${icon("close")}</button>
+      <button class="vg-hq-btn vg-hq-btn-ghost vg-hq-drawer-back" data-closedrawer>${icon("left", 14)} Back to projects</button>
+      <small>${esc(p.name)}</small><h2 id="vg-hq-drawer-title">${esc(p.title)}</h2><p>${esc(p.summary || "No summary yet.")}</p>
       <dl class="vg-hq-facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>${spark(p.days)}
+      ${relationships.length && api.openNote ? `<h3>Relationships</h3>${relationships.map(([target, label]) => `<button class="vg-hq-link" data-open="${esc(target)}">${label}: ${esc(target)}</button>`).join("")}` : ""}
       ${api.setProjectStatus && VGRules.STATUS_CHOICES.length ? `<h3>Status</h3><div class="vg-hq-filters" role="group" aria-label="Set status">${VGRules.STATUS_CHOICES.map(s =>
         `<button class="vg-hq-filter${p.status === s ? " is-on" : ""}" data-setstatus="${esc(s)}" aria-pressed="${p.status === s}">${esc(s)}</button>`).join("")}</div>` : ""}
       ${taskList}
@@ -297,7 +334,12 @@ function mountVaultHQ(root, data, opts) {
         its.map(it => `<div class="vg-hq-item" data-key="${esc(it.key)}"><div class="vg-hq-txt"><b>${esc(it.title)}</b>${it.delegated ? `<small>delegated to ${esc(it.delegated)}</small>` : ""}</div><div class="vg-hq-acts">
           <button class="vg-hq-btn vg-hq-btn-sm" data-one="x" data-key="${esc(it.key)}">Done</button><button class="vg-hq-btn vg-hq-btn-sm" data-one="-" data-key="${esc(it.key)}">Cancel</button>
           <button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-one="keep" data-key="${esc(it.key)}">Keep</button>${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-open="${esc(it.path)}">Open</button>` : ""}</div></div>`).join("") + `</section>`; };
-    return head + `<p class="vg-hq-lede">${plural(items.length, "task")} from ${plural(days.length, "day")}, oldest first.</p>` + days.map(group).join("");
+    const repeats = new Map();
+    items.forEach(it => { const key = duplicateKey(it); if (!repeats.has(key)) repeats.set(key, []); repeats.get(key).push(it); });
+    const duplicates = [...repeats.values()].filter(g => g.length > 1);
+    const review = duplicates.length ? `<details class="vg-hq-duplicates"><summary>Review ${plural(duplicates.length, "repeated wording group")} · no tasks merged</summary>${duplicates.map(g =>
+      `<div class="vg-hq-txt"><b>${esc(g[0].title)}</b>${g.map(it => `<p>${api.openNote ? `<button class="vg-hq-inline-link" data-open="${esc(it.path)}">${esc(it.path)}</button>` : esc(it.path)} · line ${it.line + 1}</p>`).join("")}</div>`).join("")}</details>` : "";
+    return head + `<p class="vg-hq-lede">${plural(items.length, "task")} from ${plural(days.length, "day")}, oldest first.</p>${review}` + days.map(group).join("");
   }
   async function sweep(how, list, btn, from) {
     if (!list.length) return;
@@ -311,13 +353,13 @@ function mountVaultHQ(root, data, opts) {
   const rowKey = r => `${r.path}|${r.line}`;
   function rowsScreen() {
     const rep = ((hq() || {}).reports || []).find(r => r.path === rowsPath);
-    const head = `<button class="vg-hq-btn vg-hq-btn-ghost" data-go="needs">${icon("left", 14)} Needs you</button>`;
+    const head = `<button class="vg-hq-btn vg-hq-btn-ghost" data-go="needs">${icon("left", 14)} Needs you</button>${api.openNote && rep ? `<button class="vg-hq-btn vg-hq-btn-ghost" data-open="${esc(rep.path)}">Open source report</button>` : ""}`;
     if (!rep) return head + empty("That report isn't there any more.", [["Needs you", 'data-go="needs"']]);
     const rows = (rep.rows || []).map(r => ({ ...r, path: rep.path })).filter(r => !gone.has(rowKey(r)));
     const sections = [...new Set(rows.map(r => r.section))];
     return head + `<h1 class="vg-hq-h1">${esc(rep.name)}</h1><p class="vg-hq-lede">${rows.length ? `${plural(rows.length, "row")} to tick or skip. Ticked rows are applied by the gardener.` : "Every row is ticked or skipped."}</p>` +
       (rows.length ? sections.map(sec => `<section class="vg-hq-sec"><h3>${esc(sec || rep.name)}<span>${rows.filter(r => r.section === sec).length}</span></h3>` + rows.filter(r => r.section === sec).map(r =>
-        `<div class="vg-hq-item"><div class="vg-hq-txt">${r.context ? `<small>${esc(VGRules.plainRow(r.context))}</small>` : ""}<b>${esc(VGRules.plainRow(r.text))}</b></div><div class="vg-hq-acts">
+        `<div class="vg-hq-item"><div class="vg-hq-txt">${r.context ? `<small>${esc(VGRules.plainRowFull(r.context))}</small>` : ""}<b>${esc(VGRules.plainRowFull(r.text))}</b><small>Source report: ${esc(rep.path)}</small></div><div class="vg-hq-acts">
           <button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-primary" data-row="x" data-rline="${r.line}">Tick</button><button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-row="-" data-rline="${r.line}">Skip</button></div></div>`).join("") + `</section>`).join("")
         : empty("Every row is ticked or skipped.", [["Needs you", 'data-go="needs"'], ...(api.openNote ? [["Open the report", `data-open="${esc(rep.path)}"`]] : [])]));
   }
@@ -337,10 +379,13 @@ function mountVaultHQ(root, data, opts) {
     compute();
     const label = SUB[cur] ? SUB[cur][0] : SCREENS.find(s => s[0] === cur)[1], t = now();
     const scroll = el.querySelector(".vg-hq-main") ? el.querySelector(".vg-hq-main").scrollTop : 0;
+    const search = el.querySelector(".vg-hq-project-search"), restoreSearch = search && document.activeElement === search ? search.selectionStart : null;
     el.innerHTML = `<header class="vg-hq-top"><span class="vg-hq-crumb"><b>Vault HQ</b> / ${esc(label)}</span><span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}</span></span></header>` +
       strip() + `<main class="vg-hq-main">${({ home, today: todayScreen, needs: needsScreen, projects: projectsScreen, automations: automationsScreen, sweep: sweepScreen, rows: rowsScreen })[cur]()}</main>` + dock();
     el.appendChild(toastEl);
-    const main = el.querySelector(".vg-hq-main"); if (main) main.scrollTop = scroll;
+    const main = el.querySelector(".vg-hq-main"); if (main) { main.scrollTop = scroll; el.style.setProperty("--hq-panel-top", `${main.offsetTop}px`); }
+    if (restoreSearch !== null) { const next = el.querySelector(".vg-hq-project-search"); if (next) { next.focus(); next.setSelectionRange(restoreSearch, restoreSearch); } }
+    if (focusDrawerOnRender) { focusDrawerOnRender = false; const close = el.querySelector(".vg-hq-drawer .vg-hq-x"); if (close) close.focus(); }
     const track = el.querySelector(".vg-hq-feedtrack"); if (track) { track.scrollLeft = feedAt * track.clientWidth;
       track.onscroll = () => { const i = Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); if (i !== feedAt) { feedAt = i; el.querySelectorAll(".vg-hq-dots button").forEach((b, k) => b.classList.toggle("is-on", k === i)); } }; }
   }
@@ -354,21 +399,38 @@ function mountVaultHQ(root, data, opts) {
     else if (d.row) tickRow(+d.rline, d.row, b);
     else if (d.go) setScreen(d.go);
     else if (d.open !== undefined) { if (api.openNote) api.openNote(d.open); }
-    else if (d.daily !== undefined) { if (api.openDaily) api.openDaily(); }
+    else if (d.daily !== undefined) { if (api.openDaily) api.openDaily(day()); }
     else if (d.graph !== undefined) { if (opts.openGraph) opts.openGraph(); }
     else if (d.filter) { filter = d.filter; drawer = null; render(); }
     else if (d.kind) { kindFilter = d.kind; drawer = null; render(); }
+    else if (d.system !== undefined) { systemFilter = d.system; drawer = null; render(); }
+    else if (d.needfilter) { needFilter = d.needfilter; render(); }
+    else if (d.clearsearch !== undefined) { projectQuery = ""; filter = "all"; kindFilter = "all"; systemFilter = "all"; render(); }
+    else if (d.compact !== undefined) { compactProjects = !compactProjects; render(); }
     else if (d.setstatus) setStatus(drawer, d.setstatus, b);
     else if (d.ptask) projectTasks(d.ptask, +d.line, b);
     else if (d.pbatch) projectTasks(d.pbatch, null, b);
-    else if (d.proj) { drawer = d.proj; render(); }
-    else if (d.closedrawer !== undefined) { drawer = null; render(); }
+    else if (d.proj) { drawer = d.proj; focusDrawerOnRender = true; render(); }
+    else if (d.parentline !== undefined) { const target = el.querySelector(`#vg-hq-task-${Number(d.parentline)}`); if (target) { target.scrollIntoView({ block: "center" }); target.focus(); } }
+    else if (d.closedrawer !== undefined) { const path = drawer; drawer = null; render(); const opener = [...el.querySelectorAll("[data-proj]")].find(x => x.dataset.proj === path); if (opener) opener.focus(); }
     else if (d.carried !== undefined) { carriedAll = true; render(); }
     else if (d.feed || d.feedto) { const n = el.querySelectorAll(".vg-hq-feedcard").length, track = el.querySelector(".vg-hq-feedtrack");
       feedAt = d.feedto ? +d.feedto : (feedAt + +d.feed + n) % n; if (track) track.scrollTo({ left: feedAt * track.clientWidth, behavior: "smooth" });
       el.querySelectorAll(".vg-hq-dots button").forEach((x, k) => x.classList.toggle("is-on", k === feedAt)); }
   });
-  el.addEventListener("keydown", e => { if (e.key === "Escape" && drawer) { drawer = null; render(); } });
+  el.addEventListener("input", e => { if (e.target.matches(".vg-hq-project-search")) { projectQuery = e.target.value; render(); } });
+  el.addEventListener("keydown", e => {
+    if (e.key === "Escape" && drawer) {
+      e.preventDefault(); const path = drawer; drawer = null; render();
+      const opener = [...el.querySelectorAll("[data-proj]")].find(x => x.dataset.proj === path); if (opener) opener.focus();
+    }
+  });
+  el.addEventListener("keydown", e => {
+    if (e.target.matches("[data-taskline]") && (e.key === "Enter" || e.key === " ")) {
+      const line = e.target.dataset.taskline;
+      if (line && e.target.matches(".vg-hq-item")) { e.preventDefault(); e.target.scrollIntoView({ block: "center" }); }
+    }
+  });
   function setScreen(s) { if (!known(s)) return; if (s === "sweep" && cur !== "sweep") kept = new Set(); cur = s; drawer = null; render(); const m = el.querySelector(".vg-hq-main"); if (m) m.scrollTop = 0; if (opts.onScreen) opts.onScreen(s); }
   render();
   clockTimer = opts.now ? null : setInterval(() => { const c = el.querySelector(".vg-hq-clock b"); if (c) c.textContent = new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, ""); }, 30000);

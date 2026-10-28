@@ -1115,12 +1115,21 @@ module.exports = class VaultGraphPlugin extends Plugin {
   viewActions(owner) {
     return {
       openNote: (notePath, newPane) => {
-        const file = this.app.vault.getAbstractFileByPath(notePath);
+        const target = String(notePath || "");
+        const file = this.app.vault.getAbstractFileByPath(target) ||
+          (this.app.metadataCache.getFirstLinkpathDest && this.app.metadataCache.getFirstLinkpathDest(target.replace(/\.md$/i, ""), ""));
         if (file instanceof TFile) this.app.workspace.getLeaf(newPane ? "tab" : false).openFile(file);
         else new Notice(`Not found (renamed since the last refresh?): ${notePath}`);
       },
       // today's daily note through whichever daily-note plugin is on (Periodic Notes knows this vault's folders)
-      openDaily: () => { const id = ["periodic-notes:open-daily-note", "daily-notes"].find(c => this.app.commands.commands[c]);
+      openDaily: date => {
+        const target = date || today(), files = this.app.vault.getMarkdownFiles().filter(f => VGRules.hqJournalDate(f.path) === target);
+        const selected = VGRules.canonicalJournalPath(files.map(f => f.path), target);
+        if (selected) {
+          const file = this.app.vault.getAbstractFileByPath(selected);
+          if (file instanceof TFile) { this.app.workspace.getLeaf("tab").openFile(file); return; }
+        }
+        const id = ["periodic-notes:open-daily-note", "daily-notes"].find(c => this.app.commands.commands[c]);
         if (id) this.app.commands.executeCommandById(id); else new Notice("Turn on Daily notes (core plugin) to open today's note."); },
       linkNotes: (fromPath, toPath, why) => this.linkNotes(fromPath, toPath, why),
       linkMentions: (notePath, dryRun) => this.linkMentions(notePath, dryRun),

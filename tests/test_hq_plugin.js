@@ -69,6 +69,21 @@ const H = env.rules.hq;
   mk(REP, "# Gaps\n\n- [ ] [[A]] ↔ [[B]] — 0.8\n");
   await p.setTaskStatus(REP, 2, "[[A]] ↔ [[B]] — 0.8", "x");
   check("a report row is ticked without a stamp", files.get(REP).text, "# Gaps\n\n- [x] [[A]] ↔ [[B]] — 0.8\n");
+  const BACKLOG_REPORT = `${VGRules.folders.reports}/Backlog Reconciliation ${day}.md`;
+  mk(BACKLOG_REPORT, "---\ntype: review-draft\nstatus: pending\n---\n- [ ] Evidence recommendation\n");
+  const originalJournal = files.get(J).text;
+  await p.setNoteStatus(BACKLOG_REPORT, "reviewed");
+  check("reviewed only changes report metadata, not report checkboxes or source tasks",
+    [files.get(BACKLOG_REPORT).text.includes("status: reviewed"), files.get(BACKLOG_REPORT).text.includes("- [ ] Evidence recommendation"), files.get(J).text],
+    [true, true, originalJournal]);
+  const [year, month] = day.split("-"), monthName = new Date(day+"T12:00:00").toLocaleString("en-US",{month:"long"});
+  const wrong = `${VGRules.folders.daily}/${year}/00-WrongMonth/Journal/${day}.md`;
+  const right = `${VGRules.folders.daily}/${year}/${month}-${monthName}/Journal/${day}.md`;
+  mk(wrong, "- [ ] Wrong"); mk(right, "- [ ] Canonical");
+  const opened = [];
+  app.workspace.getLeaf = () => ({openFile:f => opened.push(f.path)});
+  p.viewActions({}).openDaily(day);
+  check("journal shortcut chooses the canonical path, not insertion order", opened, [right]);
 
   // marks: Later for today, Done on a plan item, Undo takes one back; marks from another day go
   shared["shared.json"] = JSON.stringify({ v: 1, review: { hq: { "carried|old": "later:2000-01-01" } } });

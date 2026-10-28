@@ -55,6 +55,12 @@ Slower checks, by hand: `node tests/click_all.js [--mobile]` (every control, abo
 
 HQ's Automations shortcut opens every scheduled job, including healthy jobs; Needs you keeps the jobs that need attention. The navigation regression uses real pointer clicks between Needs you, Projects and Automations on desktop and phone layouts. Sample-vault notes regenerate when the local calendar day changes, so cached journals cannot silently remove today's test tasks.
 
+HQ Projects includes title/summary search, system filters (`project/` and `system/` tags or `system`/`project` frontmatter), a compact list, and a **Needs classification** filter for notes without a recognized status. Details show parent/related links and each task's source heading and parent task. Filters survive live refreshes; header and dock navigation remain available while details are open.
+
+Today prioritizes daily work over old approvals. Repeated task wording is grouped for review, not merged: every source retains its own actions. Daily shortcuts prefer the matching year/month journal path and warn about other copies; they do not delete or merge notes or fix the daily-note creator's configuration.
+
+Pending `review-draft` reports in the reports folder appear in Needs you as review-only evidence, separate from gardener application rows. **Open for review** reads the evidence; **Mark reviewed** records `status: reviewed` after confirmation without applying suggestions or completing source tasks. Older pending reports stay visible. An automation's optional `review_report` filename prefix links its latest review-only report (distinct from the gardener's `report` prefix). Automation cards distinguish a recorded run result from unknown schedule/enabled state and strip terminal color codes. Home labels graph analysis coverage and freshness rather than claiming a whole-vault note count.
+
 `local.json` (not committed) says where your vault is on this machine:
 
 ```json
