@@ -18,7 +18,8 @@ function mountVaultHQ(root, data, opts) {
   let DATA = data || { nodes: [], links: [] }, STATE = opts.state || {}, cur = SCREENS.some(s => s[0] === opts.screen) || opts.screen === "automations" ? opts.screen : "home";
   let kept = new Set(), rowsPath = null;   // the sweep's Keep (this visit only); the report whose rows are open
   let gone = new Set(), feedAt = 0, filter = "active", kindFilter = "all", needFilter = "all", systemFilter = "all",
-    projectQuery = "", compactProjects = false, drawer = null, focusDrawerOnRender = false, carriedAll = false, clockTimer = null;
+    globalQuery = "", noteHits = [], noteSearchError = "", searchPending = false, searchTimer = null, searchToken = 0,
+    compactProjects = false, drawer = null, focusDrawerOnRender = false, carriedAll = false, clockTimer = null;
   const now = () => opts.now || new Date(), day = () => VGRules.localDay(now());
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const plural = (n, w, ws) => `${n} ${n === 1 ? w : ws || w + "s"}`;
@@ -280,8 +281,7 @@ function mountVaultHQ(root, data, opts) {
     const every = VGRules.hqProjects(DATA), kinds = [...new Set(every.map(p => p.kind))];
     const systems = [...new Set(every.flatMap(p => p.systems || []))].sort((a, b) => a.localeCompare(b));
     const all = every.filter(p => (kindFilter === "all" || p.kind === kindFilter) && (systemFilter === "all" || (p.systems || []).includes(systemFilter)));
-    const query = projectQuery.trim().toLowerCase();
-    const list = VGRules.hqProjectSearch(DATA, all.filter(p => filter === "all" || p.group === filter), query, { today: day() });
+    const list = VGRules.hqProjectSearch(DATA, all.filter(p => filter === "all" || p.group === filter), "", { today: day() });
     const pill = p => `<span class="vg-hq-pill is-${esc(p.group)}">${esc(p.status || "no status")}</span>`;
     // a scope's code name (JK_Branch) beside its kind; other notes are named by their title
     const sub = p => [p.kind, /^Scope of Work\b/i.test(p.name) ? p.name.replace(/^.*[—–-]\s*/, "") : ""].filter(Boolean).join(" · ");
@@ -295,13 +295,12 @@ function mountVaultHQ(root, data, opts) {
     const filters = dropdown("kind", "Kind", kindFilter, [["all", `All kinds (${every.length})`], ...kinds.map(k => [k, `${k} (${every.filter(p => p.kind === k).length})`])]) +
       dropdown("system", "System", systemFilter, [["all", "All systems"], ...systems.map(s => [s, s])]) +
       dropdown("status", "Project status", filter, FILTERS.map(([k, label]) => [k, `${label} (${k === "all" ? all.length : all.filter(p => p.group === k).length})`]));
-    const body = list.length ? `<div class="vg-hq-grid${compactProjects ? " is-compact" : ""}">${list.map(card).join("")}</div>` : every.length
-      ? empty(`No projects match the current filters${query ? ` or search “${projectQuery.trim()}”` : ""}.`, [["Clear search", 'data-clearsearch'], ["All projects", 'data-filter="all"'], ["All systems", 'data-system="all"']])
-      : empty(`No projects yet (notes with type: ${Object.keys(VGRules.PROJECT_TYPES).join(", ") || "scope-of-work"}).`, nextSteps().filter(s => s[1] !== 'data-go="projects"'));
-    return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">${query ? "Graph search · best matches first, within your filters." : "Every project, newest first."}</p>
-      <div class="vg-hq-project-tools"><label class="vg-hq-searchlabel">Search projects and their notes<input class="vg-hq-project-search" type="search" value="${esc(projectQuery)}" placeholder="Names, partial words, or something from the note…" aria-label="Search projects and their notes"></label>
-      <button class="vg-hq-filter" data-compact aria-pressed="${compactProjects}">${compactProjects ? "Card view" : "Compact list"}</button></div>
-      <div class="vg-hq-project-filters">${filters}</div>${body}${drawerHtml(every)}`;
+    const body = list.length ? `<div class="vg-hq-grid${compactProjects ? " is-compact" : ""}">${list.map(card).join("")}</div>`     : every.length
+    ? empty("No projects match the current filters.", [["Reset filters", 'data-clearsearch'], ["All systems", 'data-system="all"']])
+    : empty(`No projects yet (notes with type: ${Object.keys(VGRules.PROJECT_TYPES).join(", ") || "scope-of-work"}).`, nextSteps().filter(s => s[1] !== 'data-go="projects"'));
+    return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">Every project, newest first.</p>
+    <div class="vg-hq-project-tools"><button class="vg-hq-filter" data-compact aria-pressed="${compactProjects}">${compactProjects ? "Card view" : "Compact list"}</button></div>
+    <div class="vg-hq-project-filters">${filters}</div>${body}${drawerHtml(every)}`;
   }
   function drawerHtml(all) {
     const p = drawer && all.find(x => x.path === drawer); if (!p) return "";
@@ -332,6 +331,50 @@ function mountVaultHQ(root, data, opts) {
       ${taskList}
       ${p.decisions.length ? `<h3>Decisions</h3>${p.decisions.map(d => `<button class="vg-hq-link" data-open="${esc(d.path)}">${esc(d.title)}<small>${esc(d.date)}</small></button>`).join("")}` : ""}
       <div class="vg-hq-row">${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-primary" data-open="${esc(p.path)}">Open the note</button>` : ""}</div></aside>`;
+  }
+
+  function searchScreen() {
+    const query = globalQuery.trim(), projects = VGRules.hqProjectSearch(DATA, VGRules.hqProjects(DATA), query, { today: day() });
+    const itemHits = LIST.map(it => ({ it, score: Math.max(VGRules.fuzzyScore(query, it.title), VGRules.fuzzyScore(query, it.text || ""),
+      VGRules.fuzzyScore(query, it.path || "") - 2, VGRules.fuzzyScore(query, it.why || "") - 3) }))
+      .filter(x => x.score >= 0).sort((a, b) => b.score - a.score || a.it.title.localeCompare(b.it.title)).slice(0, 12);
+    const projectPaths = new Set((DATA.hq && DATA.hq.projects || []).map(p => p.path));
+    const notes = noteHits.filter(hit => !projectPaths.has(hit.path)).slice(0, 16);
+    const projectRows = projects.map(p => `<button class="vg-hq-proj vg-hq-search-proj" data-proj="${esc(p.path)}"><span class="vg-hq-projbody">
+      <span class="vg-hq-projhead"><small>${esc(p.kind || "Project")}</small><span class="vg-hq-pill is-${esc(p.group)}">${esc(p.status || "no status")}</span></span>
+      <b>${esc(p.title)}</b><span class="vg-hq-sum">${esc(p.summary || "No summary yet.")}</span>
+      ${p.searchHit ? `<small class="vg-hq-search-hit">${esc([p.searchHit.heading, p.searchHit.why.join(" · ")].filter(Boolean).join(" · "))}${p.searchHit.snippet ? `<span>${esc(p.searchHit.snippet)}</span>` : ""}</small>` : ""}
+      <small>${esc(p.path)}</small></span></button>`).join("");
+    const noteRows = notes.map(hit => `<article class="vg-hq-note-hit"><div><b>${esc(hit.heading || hit.path.split("/").pop())}</b>
+      <small>${esc(hit.path)}${hit.line ? ` · line ${hit.line}` : ""}${hit.why && hit.why.length ? ` · ${esc(hit.why.join(" · "))}` : ""}</small>
+      ${hit.snippet ? `<p>${esc(hit.snippet)}</p>` : ""}</div>${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(hit.path)}">Open source</button>` : ""}</article>`).join("");
+    const itemRows = itemHits.map(({ it }) => row(it)).join("");
+    const pending = searchPending;
+    const emptyResult = !projectRows && !itemRows && !noteRows
+      ? `<div class="vg-hq-empty">${noteSearchError ? esc(noteSearchError) : pending ? "Searching vault notes…" : "No matching HQ items or vault notes."}</div>` : "";
+    return `<h1 class="vg-hq-h1">Search results</h1><p class="vg-hq-lede">Across HQ items, every project, and vault notes. Project filters do not limit these results.</p>` +
+      (itemRows ? section("HQ items", itemHits.map(x => x.it)) : "") +
+      (projectRows ? `<section class="vg-hq-sec"><h3>Projects <span>${projects.length}</span></h3><div class="vg-hq-grid">${projectRows}</div></section>` : "") +
+      (noteRows ? `<section class="vg-hq-sec"><h3>Vault notes <span>${notes.length}</span></h3>${noteRows}</section>` : "") +
+      (pending || noteSearchError ? `<p class="vg-hq-lede" role="status">${esc(noteSearchError || "Searching vault notes…")}</p>` : "") +
+      emptyResult + drawerHtml(VGRules.hqProjects(DATA));
+  }
+  function searchNotes(query, delay = 180) {
+    clearTimeout(searchTimer);
+    const token = ++searchToken;
+    noteHits = []; noteSearchError = ""; searchPending = !!(query.trim() && api.searchNotes);
+    if (!query.trim() || !api.searchNotes) return;
+    searchTimer = setTimeout(async () => {
+      try {
+        const hits = await api.searchNotes(query.trim(), 24);
+        if (token !== searchToken) return;
+        noteHits = Array.isArray(hits) ? hits : []; searchPending = false;
+      } catch (error) {
+        if (token !== searchToken) return;
+        noteSearchError = "Vault note search is unavailable right now."; searchPending = false;
+      }
+      render();
+    }, delay);
   }
 
   // a project's status from its drawer, as a shared action (its message and Undo): shown at once, the host's redraw
@@ -417,13 +460,18 @@ function mountVaultHQ(root, data, opts) {
     compute();
     const label = SUB[cur] ? SUB[cur][0] : SCREENS.find(s => s[0] === cur)[1], t = now();
     const scroll = el.querySelector(".vg-hq-main") ? el.querySelector(".vg-hq-main").scrollTop : 0;
-    const search = el.querySelector(".vg-hq-project-search"), restoreSearch = search && document.activeElement === search ? search.selectionStart : null;
+    const search = el.querySelector(".vg-hq-global-search"), restoreSearch = search && document.activeElement === search
+      ? [search.selectionStart, search.selectionEnd] : null;
     const focusedFilter = document.activeElement && document.activeElement.dataset.projectFilter;
-    el.innerHTML = `<header class="vg-hq-top"><span class="vg-hq-crumb"><b>Vault HQ</b> / ${esc(label)}</span><span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}</span></span></header>` +
-      strip() + `<main class="vg-hq-main">${({ home, today: todayScreen, needs: needsScreen, projects: projectsScreen, automations: automationsScreen, sweep: sweepScreen, rows: rowsScreen })[cur]()}</main>` + dock();
+    el.innerHTML = `<header class="vg-hq-top"><span class="vg-hq-crumb"><b>Vault HQ</b> / ${esc(label)}</span>
+      <div class="vg-hq-global-tools"><label class="vg-hq-global-searchlabel">Search all HQ and vault notes<input class="vg-hq-global-search vg-hq-project-search" type="search" value="${esc(globalQuery)}"
+        placeholder="Search projects, tasks, and notes…" aria-label="Search all HQ and vault notes"></label>
+        ${globalQuery ? '<button class="vg-hq-btn vg-hq-btn-sm vg-hq-global-clear" data-clear-global aria-label="Clear HQ search">Clear</button>' : ""}</div>
+      <span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}</span></span></header>` +
+      strip() + `<main class="vg-hq-main">${globalQuery.trim() ? searchScreen() : ({ home, today: todayScreen, needs: needsScreen, projects: projectsScreen, automations: automationsScreen, sweep: sweepScreen, rows: rowsScreen })[cur]()}</main>` + dock();
     el.appendChild(toastEl);
     const main = el.querySelector(".vg-hq-main"); if (main) { main.scrollTop = scroll; el.style.setProperty("--hq-panel-top", `${main.offsetTop}px`); }
-    if (restoreSearch !== null) { const next = el.querySelector(".vg-hq-project-search"); if (next) { next.focus(); next.setSelectionRange(restoreSearch, restoreSearch); } }
+    if (restoreSearch !== null) { const next = el.querySelector(".vg-hq-global-search"); if (next) { next.focus(); next.setSelectionRange(...restoreSearch); } }
     if (focusedFilter) { const next = el.querySelector(`[data-project-filter="${focusedFilter}"]`); if (next) next.focus(); }
     if (focusDrawerOnRender) { focusDrawerOnRender = false; const close = el.querySelector(".vg-hq-drawer .vg-hq-x"); if (close) close.focus(); }
     const track = el.querySelector(".vg-hq-feedtrack"); if (track) { track.scrollLeft = feedAt * track.clientWidth;
@@ -446,7 +494,8 @@ function mountVaultHQ(root, data, opts) {
     else if (d.kind) { kindFilter = d.kind; drawer = null; render(); }
     else if (d.system !== undefined) { systemFilter = d.system; drawer = null; render(); }
     else if (d.needfilter) { needFilter = d.needfilter; render(); }
-    else if (d.clearsearch !== undefined) { projectQuery = ""; filter = "all"; kindFilter = "all"; systemFilter = "all"; render(); }
+    else if (d.clearGlobal !== undefined) { globalQuery = ""; noteHits = []; noteSearchError = ""; searchPending = false; searchToken++; clearTimeout(searchTimer); render(); const field = el.querySelector(".vg-hq-global-search"); if (field) field.focus(); }
+    else if (d.clearsearch !== undefined) { filter = "all"; kindFilter = "all"; systemFilter = "all"; render(); }
     else if (d.compact !== undefined) { compactProjects = !compactProjects; render(); }
     else if (d.setstatus) setStatus(drawer, d.setstatus, b);
     else if (d.ptask) projectTasks(d.ptask, +d.line, b);
@@ -459,7 +508,7 @@ function mountVaultHQ(root, data, opts) {
       feedAt = d.feedto ? +d.feedto : (feedAt + +d.feed + n) % n; if (track) track.scrollTo({ left: feedAt * track.clientWidth, behavior: "smooth" });
       el.querySelectorAll(".vg-hq-dots button").forEach((x, k) => x.classList.toggle("is-on", k === feedAt)); }
   });
-  el.addEventListener("input", e => { if (e.target.matches(".vg-hq-project-search")) { projectQuery = e.target.value; render(); } });
+  el.addEventListener("input", e => { if (e.target.matches(".vg-hq-global-search")) { globalQuery = e.target.value; drawer = null; searchNotes(globalQuery); render(); } });
   el.addEventListener("change", e => {
     const key = e.target.dataset.projectFilter;
     if (!key) return;
@@ -484,10 +533,10 @@ function mountVaultHQ(root, data, opts) {
   render();
   clockTimer = opts.now ? null : setInterval(() => { const c = el.querySelector(".vg-hq-clock b"); if (c) c.textContent = new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, ""); }, 30000);
   return {
-    update(data, state) { DATA = data || DATA; if (state) STATE = state; gone = new Set(); render(); },
+    update(data, state) { DATA = data || DATA; if (state) STATE = state; gone = new Set(); searchNotes(globalQuery, 80); render(); },
     setScreen, screen: () => cur,
     showRows: path => ctx().showRows(path),   // a report's rows (the sidebar's Review rows opens HQ there)
     items: () => LIST.slice(),
-    destroy() { clearInterval(clockTimer); clearTimeout(toastTimer); el.remove(); },
+    destroy() { clearInterval(clockTimer); clearTimeout(toastTimer); clearTimeout(searchTimer); searchToken++; el.remove(); },
   };
 }

@@ -80,6 +80,15 @@ function fakePlugin(files, { daily, newFolder, people = [] } = {}) {
     check("setRule changes only that value in the file", files[RULES], text.replace('"inbox": "00-Inbox"', '"inbox": "Capture"').replace('"stale_days": 180', '"stale_days": 90'));
     check("every rule follows at once", [VGRules.folders.inbox, VGRules.isStale({ id: "a/b.md", name: "b", age: 100 })], ["Capture", true]);
     check("the Create-note action writes to the new inbox", VGActions.TODAY.write && /Capture/.test(String(VGActions.TODAY.write.ask({ name: "X", refs: [] })[1])), true); }
-  console.log(fails.length ? "FAIL - " + fails.join("\n  ") : "ok - the vault's rules: file over Obsidian's settings over defaults, edited in place");
+  { const calls = [], queue = [
+      [{ view: { renderSoon() { calls.push(["soon", this]); }, render() { calls.push(["wrong", this]); } } }, { view: { render() { calls.push(["render", this]); } } }, { view: {} }, null],
+      [{ view: { render() { calls.push(["suggest", this]); } } }],
+    ];
+    const p = Object.assign(Object.create(Plugin.prototype), { app: { workspace: { getLeavesOfType: () => queue.shift() || [] } } });
+    p.refreshHQViews();
+    check("HQ refresh ignores views without render methods and calls available renderers with their owner",
+      calls.map(([kind]) => kind), ["soon", "render", "suggest"]);
+  }
+  console.log(fails.length ? "FAIL - " + fails.join("\n  ") : "ok - rules and guarded HQ refresh: sparse views do not throw while refreshing");
   process.exit(fails.length ? 1 : 0);
 })().catch(e => { console.log("FAIL - " + (e && e.stack || e)); process.exit(1); });

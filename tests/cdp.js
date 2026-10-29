@@ -1,16 +1,17 @@
 // cdp.js - the one way the browser tests drive a page, in real time over the Chrome DevTools Protocol: headless Chrome
-// on this PC (a temp profile and a debug port), or Obsidian on a phone plugged in or paired over adb (its WebView's
+// on this PC (.out/ profile and a debug port), or Obsidian on a phone plugged in or paired over adb (its WebView's
 // debug socket, forwarded to the port). Used by smoke_page.js and click_all.js.
 //   const page = await open({ html, port, mobile, phone, fresh, onConsole, onClose })   null when there's no Chrome
-//     html       the page to load (a temp file); not with phone
+//     html       the page to load (written temporarily under .out/); not with phone
 //     mobile     a 420 x 900 touch phone in Chrome's device mode
 //     phone      attach to Obsidian on the phone instead (adb: REA_ADB_PATH or adb on the PATH)
 //     fresh      drop the page's earlier console lines before listening (a page that ran a probe before replays them)
 //     onConsole  (firstArg) for each console.log in the page; onClose() if the connection drops
 //   page.send(method, params) · page.ev(expr) -> value · page.waitFor(expr, limitMs) -> value | null · page.close()
-const fs = require("fs"), os = require("os"), path = require("path"), { spawn, execFileSync } = require("child_process");
+const fs = require("fs"), path = require("path"), { spawn, execFileSync } = require("child_process");
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const CHROME = ["C:/Program Files/Google/Chrome/Application/chrome.exe", "/usr/bin/google-chrome", "/usr/bin/chromium"].find(p => fs.existsSync(p));
+const OUT = path.join(__dirname, "..", ".out");
 
 // Obsidian's page on the phone, forwarded to port. A phone that just reconnected says "unauthorized" for a moment
 // while it re-checks this PC's key, so that's waited out.
@@ -32,8 +33,10 @@ async function open(o) {
   if (o.phone) forwardPhone(port);
   else {
     if (!CHROME) return null;
-    tmp = path.join(os.tmpdir(), `vg-page-${process.pid}-${port}.html`); fs.writeFileSync(tmp, o.html);
-    prof = fs.mkdtempSync(path.join(os.tmpdir(), "vg-prof-"));
+    fs.mkdirSync(OUT, { recursive: true });
+    const runId = `${process.pid}-${port}-${Date.now()}`;
+    tmp = path.join(OUT, `vg-page-${runId}.html`); fs.writeFileSync(tmp, o.html);
+    prof = path.join(OUT, `vg-prof-${runId}`); fs.mkdirSync(prof);
     // CI runners (Ubuntu) block the user namespaces Chrome's sandbox needs
     const ci = process.env.CI ? ["--no-sandbox"] : [];
     proc = spawn(CHROME, ["--headless=new", "--disable-gpu", ...ci, "--window-size=1400,900", `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, "about:blank"], { stdio: "ignore" });

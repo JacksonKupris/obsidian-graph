@@ -318,6 +318,7 @@ class VaultHQView extends ItemView {
     const el = this.contentEl; el.empty(); el.addClass("vg-hq-host");
     const api = this.plugin.viewActions(this), open = api.openNote;
     api.openNote = notePath => open(notePath, true);   // a note opens in its own tab: HQ stays where it is
+    api.searchNotes = (query, count) => this.plugin.recall(query, count);
     this.handle = mountVaultHQ(el.createDiv({ cls: "vg-hq-root" }), d, {
       api, state, mobile: Platform.isMobile, screen: this.plugin.settings.hqScreen,
       onScreen: s => { this.plugin.settings.hqScreen = s; this.plugin.saveSettings(); },
@@ -575,7 +576,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     this.registerEvent(this.app.metadataCache.on("changed", file => {
       if (!VGRules.hqKind(file.path, (this.app.metadataCache.getFileCache(file) || {}).frontmatter, today())) return;
       this.cacheStale = true; clearTimeout(this.hqTimer);
-      this.hqTimer = setTimeout(() => [HQ_TYPE, SUGGEST_TYPE].flatMap(t => this.app.workspace.getLeavesOfType(t)).forEach(l => (l.view.renderSoon || l.view.render).call(l.view)), 800);
+      this.hqTimer = setTimeout(() => this.refreshHQViews(), 800);
     }));
     this.addCommand({ id: "open-suggestions", name: "Open suggestions sidebar", callback: () => this.openSuggestions() });
     this.app.workspace.onLayoutReady(() => { if (!this.settings.suggestShown) { this.settings.suggestShown = true; this.saveSettings(); this.openSuggestions(); } });
@@ -1679,6 +1680,12 @@ module.exports = class VaultGraphPlugin extends Plugin {
     if (file.path !== normalizePath(this.settings.sharedPath)) { await this.loadDismissed(); this.cacheStale = true; }
     this.app.workspace.getLeavesOfType(SUGGEST_TYPE).forEach(l => l.view.renderSoon && l.view.renderSoon());
     this.app.workspace.getLeavesOfType(HQ_TYPE).forEach(l => l.view.render && l.view.render());   // Later / Done marks
+  }
+  refreshHQViews() {
+    [HQ_TYPE, SUGGEST_TYPE].flatMap(type => this.app.workspace.getLeavesOfType(type)).forEach(leaf => {
+      const view = leaf && leaf.view, refresh = view && (typeof view.renderSoon === "function" ? view.renderSoon : view.render);
+      if (typeof refresh === "function") refresh.call(view);
+    });
   }
   // HQ's marks on an item, in the shared file: "later" (gone for today), "done" (a plan item, which has no checkbox),
   // or null to take one back (Undo). Marks from earlier days are dropped: Later lasts the day, and a plan item's

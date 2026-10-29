@@ -57,7 +57,7 @@ Slower checks, by hand: `node tests/click_all.js [--mobile]` (every control, abo
 
 HQ's Automations shortcut opens every scheduled job, including healthy jobs; Needs you keeps the jobs that need attention. The navigation regression uses real pointer clicks between Needs you, Projects and Automations on desktop and phone layouts. Sample-vault notes regenerate when the local calendar day changes, so cached journals cannot silently remove today's test tasks.
 
-HQ Projects uses the graph's shared fuzzy name matching and Recall engine, including partial words, close spellings, and matches inside project notes. Name matches come first, followed by ranked note-content matches with heading/snippet context; search stays within the selected project filters. Clear the query to return to newest-first order. Labeled **Kind**, **System** and **Project status** dropdowns replace filter button rows on desktop and mobile, retaining kind/status counts and the default **All kinds / All systems / In progress** selection. System options come from `project/` and `system/` tags or `system`/`project` frontmatter; **Compact list** and **Needs classification** remain available. Details show parent/related links and each task's source heading and parent task. Filters and keyboard focus survive live refreshes; header and dock navigation remain available while details are open.
+HQ has a persistent search across Home, Today, Needs you, Projects and their subviews. It searches open HQ items, every project (independent of the Projects filters), and vault notes using the shared fuzzy scorer and Recall engine; matches include source paths and context, project results open their details, and note results open the source note. The query and keyboard focus survive screen changes and live refreshes; Clear returns to the current screen without changing its project filters. Labeled **Kind**, **System** and **Project status** dropdowns remain on Projects, retaining kind/status counts and the default **All kinds / All systems / In progress** selection. System options come from `project/` and `system/` tags or `system`/`project` frontmatter; **Compact list** and **Needs classification** remain available. Details show parent/related links and each task's source heading and parent task. The automated phone-sized browser check is not a physical-phone acceptance.
 
 Today prioritizes daily work over old approvals. Repeated task wording is grouped for review, not merged: every source retains its own actions. Daily shortcuts prefer the matching year/month journal path and warn about other copies; they do not delete or merge notes or fix the daily-note creator's configuration.
 
@@ -76,5 +76,7 @@ Pending `review-draft` reports in the reports folder appear in Needs you as revi
 ```
 
 Optional: `"rules"`, the vault's rules file relative to the vault (default `_scripts/vault_graph_rules.json`).
+
+HQ filter dropdowns use theme colors, a visible chevron, 14px text and a minimum 44px touch height. Search placeholders use the theme's muted text color; forced-colors mode retains the native select arrow.
 
 Requirements for development: Node 22 or later; Python 3 with PyYAML for the analysis and its parity tests.
