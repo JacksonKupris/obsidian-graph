@@ -41,6 +41,7 @@ Topic names lead with the system they're about ("AWS SES · Bounce Handling"), t
 ## Develop
 
 How it's put together: [ARCHITECTURE.md](ARCHITECTURE.md). Where it's going: [ROADMAP.md](ROADMAP.md).
+Release prerequisites, manual steps and recovery: [RELEASING.md](RELEASING.md).
 
 ```sh
 npm test                      # build + rules/code checks + every view and lens on the sample vault

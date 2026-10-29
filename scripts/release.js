@@ -3,18 +3,20 @@
 // the GitHub release (main.js, manifest.json, styles.css) that BRAT installs. Then, when Obsidian is open on the vault,
 // BRAT is asked to install it there (added to BRAT's list the first time).
 //   node scripts/release.js [patch|minor|major|<x.y.z>] [--no-wait]        default: patch
-// Run from the import branch with everything committed; it is pushed as main.
+// Run from main with everything committed; ordinary fast-forward pushes never rewrite shared history.
 const fs = require("fs"), path = require("path"), { spawnSync } = require("child_process");
 const ROOT = path.join(__dirname, ".."), PKG = path.join(ROOT, "package.json");
 const sh = (cmd, args, opts = {}) => { const r = spawnSync(cmd, args, { cwd: ROOT, encoding: "utf8", ...opts });
-  if (r.status) { console.log(`FAIL - ${cmd} ${args.join(" ")}\n${(r.stderr || r.stdout || "").trim()}`); process.exit(1); } return (r.stdout || "").trim(); };
+  if (r.status !== 0) { console.log(`FAIL - ${cmd} ${args.join(" ")}\n${r.error ? r.error.message : (r.stderr || r.stdout || "").trim()}`); process.exit(1); } return (r.stdout || "").trim(); };
 const git = (...a) => sh("git", a);
 
-// 1. a clean import branch
-if (git("rev-parse", "--abbrev-ref", "HEAD") !== "import") { console.log("FAIL - release from the import branch"); process.exit(1); }
+// 1. a clean main branch that contains the current remote main
+if (git("rev-parse", "--abbrev-ref", "HEAD") !== "main") { console.log("FAIL - release from main"); process.exit(1); }
 if (git("status", "--porcelain")) { console.log("FAIL - commit or stash your changes first"); process.exit(1); }
 const slug = (git("remote", "get-url", "origin").match(/github\.com[:/](.+?)(\.git)?$/) || [])[1];
 if (!slug) { console.log("FAIL - origin isn't a GitHub repository"); process.exit(1); }
+git("fetch", "origin");
+git("merge-base", "--is-ancestor", "origin/main", "HEAD");
 
 // 2. the new version, in package.json and manifest.json
 const pkg = JSON.parse(fs.readFileSync(PKG, "utf8")), arg = process.argv.slice(2).find(a => !a.startsWith("--")) || "patch";
@@ -28,13 +30,12 @@ sh(process.execPath, ["build.js", "manifest"]);
 
 // 3. the fast tests on the sample vault (CI runs them again before it publishes)
 const t = spawnSync(process.execPath, [path.join(ROOT, "tests", "run.js")], { cwd: ROOT, stdio: "inherit" });
-if (t.status) { git("checkout", "--", "package.json", "manifest.json"); console.log("Not released: tests failed"); process.exit(1); }
+if (t.status !== 0) { git("checkout", "--", "package.json", "manifest.json"); console.log("Not released: tests failed"); process.exit(1); }
 
 // 4. commit, tag, push
-git("commit", "-q", "-m", `Release ${version}`, "--", "package.json", "manifest.json");
+git("commit", "-q", "-m", `Release ${version}`, "-m", "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>", "--", "package.json", "manifest.json");
 git("tag", version);
-git("push", "-q", "origin", "import:main", version);
-git("branch", "-f", "main", "import");
+git("push", "--atomic", "-q", "origin", "main", version);
 console.log(`Pushed ${version}: https://github.com/${slug}/actions`);
 if (process.argv.includes("--no-wait")) process.exit(0);
 
