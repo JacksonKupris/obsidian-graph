@@ -7,10 +7,10 @@
 const fs = require("fs"), os = require("os"), path = require("path"), Module = require("module");
 const build = require("../build");
 
-function load(rules) {
+function load(rules, overrides = {}) {
   const file = path.join(os.tmpdir(), `vg-plugin-${process.pid}-${Date.now()}.js`);
   fs.writeFileSync(file, build.buildPlugin(rules)["main.js"] + "\n;module.exports.__VG = { VGRules, VGActions, VGEngine };");
-  const Stub = class {}, stub = new Proxy({ normalizePath: p => p, Platform: {}, setIcon() {}, debounce: f => f, addIcon() {} }, { get: (t, k) => (k in t ? t[k] : Stub) });
+  const Stub = class {}, stub = new Proxy({ normalizePath: p => p, Platform: {}, setIcon() {}, debounce: f => f, addIcon() {}, ...overrides }, { get: (t, k) => (k in t ? t[k] : Stub) });
   const orig = Module._load;
   Module._load = function (req, ...a) { return req === "obsidian" ? stub : orig.call(this, req, ...a); };
   try { const Plugin = require(file); return { Plugin, ...Plugin.__VG, TFile: Stub }; }

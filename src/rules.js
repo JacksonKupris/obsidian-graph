@@ -465,6 +465,14 @@ const VGRules = (() => {
   }
   const dateIn = (rx, path) => { const m = rx && String(path).match(rx); return m ? m[1] : null; };
   const hqJournalDate = path => dateIn(HQ_JOURNAL, path);
+  const dailyNotePath = (date, kind = "journal") => {
+    if (!["journal", "standup"].includes(kind) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Invalid daily note date or kind");
+    const d = new Date(`${date}T12:00:00`);
+    if (isNaN(d) || localDay(d) !== date) throw new Error("Invalid daily note date");
+    const [year, month] = date.split("-");
+    const folder = `${R.folders.daily}/${year}/${month}-${d.toLocaleString("en-US", { month: "long" })}`;
+    return `${folder}/${kind === "standup" ? `Standups/Daily Standup ${date}` : `Journal/${date}`}.md`;
+  };
   const journalRank = (path, date) => {
     const [year, month] = String(date || "").split("-"), p = String(path).toLowerCase();
     const monthName = month && new Date(`${date}T12:00:00`).toLocaleString("en-US", { month: "long" }).toLowerCase();
@@ -475,8 +483,10 @@ const VGRules = (() => {
     const hasMonth = !!monthPart && (monthPart === month || monthPart === `${month}-${monthName}` || monthPart === monthName || monthPart === monthShort);
     return hasYear && hasMonth ? 3 : hasYear ? 2 : 1;
   };
-  const canonicalJournalPath = (paths, date) => (paths || []).map(x => typeof x === "string" ? x : x.path)
-    .filter(p => p.startsWith(R.folders.daily + "/") && hqJournalDate(p) === date).sort((a, b) => journalRank(b, date) - journalRank(a, date) || a.localeCompare(b))[0] || null;
+  const canonicalDailyPath = (paths, date, kind = "journal") => (paths || []).map(x => typeof x === "string" ? x : x.path)
+    .filter(p => p.startsWith(R.folders.daily + "/") && dateIn(kind === "standup" ? HQ_STANDUP : HQ_JOURNAL, p) === date)
+    .sort((a, b) => journalRank(b, date) - journalRank(a, date) || a.localeCompare(b))[0] || null;
+  const canonicalJournalPath = (paths, date) => canonicalDailyPath(paths, date);
   const canonicalJournal = (hq, date) => {
     const journals = (hq && hq.journals) || [], path = canonicalJournalPath(journals, date);
     return journals.find(j => j.path === path) || null;
@@ -894,7 +904,7 @@ const VGRules = (() => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
-  return { HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

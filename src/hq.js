@@ -5,7 +5,7 @@
 // the standalone test page mount the same thing. The build puts this after actions.js.
 //   mountVaultHQ(root, data, opts) -> { update(data, state), setScreen(name), screen(), destroy() }
 // opts: state { review, hidden } (the shared file: Later/Done marks, hidden items) · api (the plugin's viewActions:
-// openNote, openDaily, setTaskStatus, setTaskField, setNoteStatus, hqMark...) · ask(title, text, ok) / input(title,
+// openNote, openDaily, openStandup, setTaskStatus, setTaskField, setNoteStatus, hqMark...) · ask(title, text, ok) / input(title,
 // text, placeholder) (else HQ's own dialog) · screen / onScreen(name) (the screen to start on, remembered by the host)
 // · onDone(message) (the host logs it) · openGraph() · now (a Date: tests)
 function mountVaultHQ(root, data, opts) {
@@ -108,6 +108,40 @@ function mountVaultHQ(root, data, opts) {
   // ---- the parts every screen shares
   const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const shortDate = d => { const x = new Date(d + "T12:00:00"); return isNaN(x) ? d : `${MONTHS[x.getMonth()].slice(0, 3)} ${x.getDate()}`; };
+  function chooseDaily(date, source) {
+    const h = hq() || {}, journal = VGRules.canonicalJournal(h, date);
+    const standup = VGRules.canonicalDailyPath(h.standups, date, "standup");
+    const box = document.createElement("div"); box.className = "vg-hq-dialog";
+    box.setAttribute("role", "dialog"); box.setAttribute("aria-modal", "true"); box.setAttribute("aria-label", `Daily notes for ${date}`);
+    const button = (kind, path, create) => path || create
+      ? `<button class="vg-hq-btn" data-daynote="${kind}" data-date="${esc(date)}"${path ? ` data-path="${esc(path)}"` : ""}>${path ? "Open" : "Create"} ${kind}</button>` : "";
+    box.innerHTML = `<div class="vg-hq-dialog-card"><b>${esc(date)}</b><div class="vg-hq-row">${button("journal", journal && journal.path, api.openDaily)}${button("standup", standup, api.openStandup)}</div><div class="vg-hq-row-end"><button class="vg-hq-btn" data-cancelday>Cancel</button></div></div>`;
+    const close = () => { box.remove(); if (source && source.isConnected) source.focus(); };
+    box.querySelector("[data-cancelday]").onclick = close;
+    box.onkeydown = e => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
+    box.addEventListener("click", async e => {
+      const b = e.target.closest("[data-daynote]"); if (!b || b.disabled) return;
+      box.querySelectorAll("button").forEach(x => { x.disabled = true; });
+      try {
+        const action = b.dataset.daynote === "standup" ? api.openStandup : api.openDaily;
+        if (action) await action(date);
+        else if (api.openNote) await api.openNote(b.dataset.path);
+        close();
+      } catch (error) {
+        let message = box.querySelector('[role="alert"]');
+        if (!message) { message = document.createElement("p"); message.setAttribute("role", "alert"); box.querySelector(".vg-hq-dialog-card").appendChild(message); }
+        message.textContent = error.message || "Could not open daily note";
+        box.querySelectorAll("button").forEach(x => { x.disabled = false; });
+      }
+    });
+    el.appendChild(box); box.querySelector("button").focus();
+  }
+  async function openJournal(date, button) {
+    button.disabled = true;
+    try { await api.openDaily(date); }
+    catch (error) { toast(error.message || "Could not open journal", null, true); }
+    finally { if (button.isConnected) button.disabled = false; }
+  }
   function strip() {
     const h = hq(), t = now(), mon = new Date(t); mon.setDate(t.getDate() - ((t.getDay() + 6) % 7));
     const journals = new Set(((h && h.journals) || []).map(j => j.date)), standups = new Set(((h && h.standups) || []).map(s => s.date));
@@ -115,7 +149,8 @@ function mountVaultHQ(root, data, opts) {
       const iso = VGRules.localDay(d), on = iso === day(), marks = (journals.has(iso) ? '<i class="is-j" title="Journal"></i>' : "") + (standups.has(iso) ? '<i class="is-s" title="Standup"></i>' : "");
       const j = VGRules.canonicalJournal(h, iso);
       const duplicate = j && ((h && h.journalDuplicates) || []).find(x => x.date === iso);
-      return `<button class="vg-hq-day${on ? " is-today" : ""}" ${j ? `data-open="${esc(j.path)}"` : "disabled"} ${duplicate ? `title="Duplicate journal date; using ${esc(j.path)}"` : ""} aria-label="${DAYS[d.getDay()]} ${d.getDate()}${j ? ", open its journal" : ""}${duplicate ? ", duplicate journal paths; canonical copy selected" : ""}"><span>${DAYS[d.getDay()]}</span><b>${d.getDate()}</b><span class="vg-hq-marks">${marks}</span></button>`;
+      const canChoose = api.openDaily || api.openStandup || (api.openNote && (j || standups.has(iso)));
+      return `<button class="vg-hq-day${on ? " is-today" : ""}" ${canChoose ? `data-weekday="${iso}"` : "disabled"} ${duplicate ? `title="Duplicate journal date; using ${esc(j.path)}"` : ""} aria-label="${DAYS[d.getDay()]} ${d.getDate()}, journal and standup${duplicate ? ", duplicate journal paths; canonical copy selected" : ""}"><span>${DAYS[d.getDay()]}</span><b>${d.getDate()}</b><span class="vg-hq-marks">${marks}</span></button>`;
     }).join("");
     const needs = ofGroup("needs").length, projects = VGRules.hqProjects(DATA).filter(p => p.group === "active").length, jobs = VGRules.hqJobs(h || {}, now());
     const badJobs = jobs.filter(j => j.state === "failed" || j.state === "late").length;
@@ -252,18 +287,21 @@ function mountVaultHQ(root, data, opts) {
     const sub = p => [p.kind, /^Scope of Work\b/i.test(p.name) ? p.name.replace(/^.*[—–-]\s*/, "") : ""].filter(Boolean).join(" · ");
     const card = p => `<button class="vg-hq-proj" data-proj="${esc(p.path)}">${hills(p.name, 70)}<span class="vg-hq-projbody"><span class="vg-hq-projhead"><small>${esc(sub(p))}</small>${pill(p)}</span>
       <b>${esc(p.title)}</b><span class="vg-hq-sum">${esc(p.summary || "No summary yet.")}</span>${p.searchHit ? `<small class="vg-hq-search-hit">${esc([p.searchHit.heading, p.searchHit.why.join(" · ")].filter(Boolean).join(" · "))}${p.searchHit.snippet ? `<span>${esc(p.searchHit.snippet)}</span>` : ""}</small>` : ""}${(p.systems || []).length ? `<small class="vg-hq-project-systems">${esc(p.systems.join(" · "))}</small>` : ""}<span class="vg-hq-projfoot">${spark(p.days)}<small>${esc(p.estimate || (p.updated ? `Updated ${shortDate(p.updated)}` : ""))}</small></span></span></button>`;
-    const kindChips = kinds.length > 1 ? `<div class="vg-hq-filters" role="group" aria-label="Kind">${[["all", "All kinds", every.length], ...kinds.map(k => [k, k, every.filter(p => p.kind === k).length])]
-      .map(([k, label, n]) => `<button class="vg-hq-filter${kindFilter === k ? " is-on" : ""}" data-kind="${esc(k)}" aria-pressed="${kindFilter === k}">${esc(label)} <span>${n}</span></button>`).join("")}</div>` : "";
-    const systemChips = systems.length ? `<div class="vg-hq-filters" role="group" aria-label="System">${[["all", "All systems"], ...systems.map(s => [s, s])]
-      .map(([s, label]) => `<button class="vg-hq-filter${systemFilter === s ? " is-on" : ""}" data-system="${esc(s)}" aria-pressed="${systemFilter === s}">${esc(label)}</button>`).join("")}</div>` : "";
-    const statusChips = FILTERS.map(([k, label]) => `<button class="vg-hq-filter${filter === k ? " is-on" : ""}" data-filter="${k}" aria-pressed="${filter === k}">${label} <span>${k === "all" ? all.length : all.filter(p => p.group === k).length}</span></button>`).join("");
+    const dropdown = (key, label, selected, choices) => {
+      if (!choices.some(([value]) => value === selected)) choices.push([selected, `${selected} (0)`]);
+      return `<label class="vg-hq-selectlabel">${esc(label)}<select class="vg-hq-select" data-project-filter="${key}" aria-label="${esc(label)}">${choices.map(([value, text]) =>
+        `<option value="${esc(value)}"${value === selected ? " selected" : ""}>${esc(text)}</option>`).join("")}</select></label>`;
+    };
+    const filters = dropdown("kind", "Kind", kindFilter, [["all", `All kinds (${every.length})`], ...kinds.map(k => [k, `${k} (${every.filter(p => p.kind === k).length})`])]) +
+      dropdown("system", "System", systemFilter, [["all", "All systems"], ...systems.map(s => [s, s])]) +
+      dropdown("status", "Project status", filter, FILTERS.map(([k, label]) => [k, `${label} (${k === "all" ? all.length : all.filter(p => p.group === k).length})`]));
     const body = list.length ? `<div class="vg-hq-grid${compactProjects ? " is-compact" : ""}">${list.map(card).join("")}</div>` : every.length
       ? empty(`No projects match the current filters${query ? ` or search “${projectQuery.trim()}”` : ""}.`, [["Clear search", 'data-clearsearch'], ["All projects", 'data-filter="all"'], ["All systems", 'data-system="all"']])
       : empty(`No projects yet (notes with type: ${Object.keys(VGRules.PROJECT_TYPES).join(", ") || "scope-of-work"}).`, nextSteps().filter(s => s[1] !== 'data-go="projects"'));
     return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">${query ? "Graph search · best matches first, within your filters." : "Every project, newest first."}</p>
       <div class="vg-hq-project-tools"><label class="vg-hq-searchlabel">Search projects and their notes<input class="vg-hq-project-search" type="search" value="${esc(projectQuery)}" placeholder="Names, partial words, or something from the note…" aria-label="Search projects and their notes"></label>
       <button class="vg-hq-filter" data-compact aria-pressed="${compactProjects}">${compactProjects ? "Card view" : "Compact list"}</button></div>
-      ${kindChips}${systemChips}<div class="vg-hq-filters" role="group" aria-label="Project status">${statusChips}</div>${body}${drawerHtml(every)}`;
+      <div class="vg-hq-project-filters">${filters}</div>${body}${drawerHtml(every)}`;
   }
   function drawerHtml(all) {
     const p = drawer && all.find(x => x.path === drawer); if (!p) return "";
@@ -380,11 +418,13 @@ function mountVaultHQ(root, data, opts) {
     const label = SUB[cur] ? SUB[cur][0] : SCREENS.find(s => s[0] === cur)[1], t = now();
     const scroll = el.querySelector(".vg-hq-main") ? el.querySelector(".vg-hq-main").scrollTop : 0;
     const search = el.querySelector(".vg-hq-project-search"), restoreSearch = search && document.activeElement === search ? search.selectionStart : null;
+    const focusedFilter = document.activeElement && document.activeElement.dataset.projectFilter;
     el.innerHTML = `<header class="vg-hq-top"><span class="vg-hq-crumb"><b>Vault HQ</b> / ${esc(label)}</span><span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}</span></span></header>` +
       strip() + `<main class="vg-hq-main">${({ home, today: todayScreen, needs: needsScreen, projects: projectsScreen, automations: automationsScreen, sweep: sweepScreen, rows: rowsScreen })[cur]()}</main>` + dock();
     el.appendChild(toastEl);
     const main = el.querySelector(".vg-hq-main"); if (main) { main.scrollTop = scroll; el.style.setProperty("--hq-panel-top", `${main.offsetTop}px`); }
     if (restoreSearch !== null) { const next = el.querySelector(".vg-hq-project-search"); if (next) { next.focus(); next.setSelectionRange(restoreSearch, restoreSearch); } }
+    if (focusedFilter) { const next = el.querySelector(`[data-project-filter="${focusedFilter}"]`); if (next) next.focus(); }
     if (focusDrawerOnRender) { focusDrawerOnRender = false; const close = el.querySelector(".vg-hq-drawer .vg-hq-x"); if (close) close.focus(); }
     const track = el.querySelector(".vg-hq-feedtrack"); if (track) { track.scrollLeft = feedAt * track.clientWidth;
       track.onscroll = () => { const i = Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); if (i !== feedAt) { feedAt = i; el.querySelectorAll(".vg-hq-dots button").forEach((b, k) => b.classList.toggle("is-on", k === i)); } }; }
@@ -399,7 +439,8 @@ function mountVaultHQ(root, data, opts) {
     else if (d.row) tickRow(+d.rline, d.row, b);
     else if (d.go) setScreen(d.go);
     else if (d.open !== undefined) { if (api.openNote) api.openNote(d.open); }
-    else if (d.daily !== undefined) { if (api.openDaily) api.openDaily(day()); }
+    else if (d.weekday) chooseDaily(d.weekday, b);
+    else if (d.daily !== undefined) { if (api.openDaily) openJournal(day(), b); }
     else if (d.graph !== undefined) { if (opts.openGraph) opts.openGraph(); }
     else if (d.filter) { filter = d.filter; drawer = null; render(); }
     else if (d.kind) { kindFilter = d.kind; drawer = null; render(); }
@@ -419,6 +460,14 @@ function mountVaultHQ(root, data, opts) {
       el.querySelectorAll(".vg-hq-dots button").forEach((x, k) => x.classList.toggle("is-on", k === feedAt)); }
   });
   el.addEventListener("input", e => { if (e.target.matches(".vg-hq-project-search")) { projectQuery = e.target.value; render(); } });
+  el.addEventListener("change", e => {
+    const key = e.target.dataset.projectFilter;
+    if (!key) return;
+    if (key === "kind") kindFilter = e.target.value;
+    else if (key === "system") systemFilter = e.target.value;
+    else if (key === "status") filter = e.target.value;
+    drawer = null; render();
+  });
   el.addEventListener("keydown", e => {
     if (e.key === "Escape" && drawer) {
       e.preventDefault(); const path = drawer; drawer = null; render();

@@ -1,7 +1,7 @@
 // vault_graph_plugin.js - Obsidian plugin shell for the Vault Graph.
 // Bundled with the force-graph library and vault_graph_view.js into .obsidian/plugins/jk-vault-graph/main.js
 // by `python _scripts/vault_graph.py --build-plugin`. Edit here, never the generated main.js.
-const { Plugin, ItemView, Notice, PluginSettingTab, Setting, Platform, TFile, normalizePath, MarkdownRenderChild, parseYaml } = require("obsidian");
+const { Plugin, ItemView, Notice, PluginSettingTab, Setting, Platform, TFile, normalizePath, MarkdownRenderChild, parseYaml, moment } = require("obsidian");
 
 const VIEW_TYPE = "vault-graph";
 const LOCAL_TYPE = "vault-graph-local";
@@ -516,7 +516,7 @@ class VaultGraphSuggestView extends ItemView {
 const { today, localDay } = VGRules;   // the shared date rules (this device's calendar day)
 // Every plugin method that writes to the vault. onload wraps each so it announces the change when done (every open
 // surface redraws); viewActions hands the same methods to every graph surface. A new write action goes in this list.
-const WRITE_ACTIONS = ["linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
+const WRITE_ACTIONS = ["openDaily", "linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
   "addReference", "tickMocRow", "saveBinary", "stateSnapshots", "undo"];
 // The only methods that touch the vault for a write action. Each notes what it's about to change in the open undo
 // entry, so every action can be undone from the message that confirms it. tests/test_rules.js fails on a vault write
@@ -1109,6 +1109,89 @@ module.exports = class VaultGraphPlugin extends Plugin {
     return lines.map((l, i) => { const m = l.match(/^\s*[-*+] \[ \] (.+)$/); return m ? { line: i, text: m[1] } : null; }).filter(Boolean);
   }
 
+  // Serialize template rendering as well as creation: Templater keeps a current-functions object, and rapid
+  // clicks (or two HQ panes) must reuse the same exact path, never writeNote's free-name/overwrite modes.
+  async openDaily(date = today(), kind = "journal") {
+    const path = normalizePath(VGRules.dailyNotePath(date, kind));
+    const run = async () => {
+      const existing = () => this.fileAt(path) || this.fileAt(VGRules.canonicalDailyPath(this.app.vault.getMarkdownFiles(), date, kind) || "");
+      let file = existing();
+      if (!file) {
+        const prepared = await this.dailyTemplate(date, kind), engine = prepared.engine;
+        const folder = path.slice(0, path.lastIndexOf("/"));
+        if (!this.app.vault.getAbstractFileByPath(folder)) {
+          try { await this.ioFolder(folder); }
+          catch (error) { if (!this.app.vault.getAbstractFileByPath(folder)) throw error; }
+        }
+        file = existing();
+        if (!file) {
+          if (engine) engine.start_templater_task(path);
+          try {
+            let created = false;
+            try { file = await this.ioCreate(path, engine ? "" : this.dailyPlaceholders(prepared.text, date)); created = true; }
+            catch (error) { file = existing(); if (!file) throw error; }
+            if (created && engine) {
+              try {
+                // Templater reads target_file while generating tp.file.content, so it needs a real file.
+                const text = await this.renderDailyTemplate(prepared, file, date);
+                if (await this.app.vault.read(file) !== "") throw new Error("Daily note changed during template rendering; its content was kept.");
+                await this.ioModify(file, text);
+              } catch (error) {
+                // Only discard our untouched placeholder, never a competing writer's content.
+                if (this.fileAt(path) === file && await this.app.vault.read(file) === "") await this.ioTrash(file);
+                throw error;
+              }
+            }
+          } finally { if (engine) await engine.end_templater_task(path); }
+        }
+      }
+      await this.app.workspace.getLeaf("tab").openFile(file);
+      return file.path;
+    };
+    const pending = (this.dailyQueue || Promise.resolve()).catch(() => {}).then(run);
+    this.dailyQueue = pending;
+    return pending;
+  }
+
+  async dailyTemplate(date, kind) {
+    const pn = this.app.plugins && this.app.plugins.plugins && this.app.plugins.plugins["periodic-notes"];
+    const dn = this.app.internalPlugins && this.app.internalPlugins.plugins && this.app.internalPlugins.plugins["daily-notes"];
+    const daily = pn && pn.settings && pn.settings.daily;
+    const configured = kind === "journal" && ((daily && daily.enabled && daily.template) ||
+      (dn && dn.enabled && dn.instance && dn.instance.options && dn.instance.options.template));
+    const templatePath = configured || `${VGRules.folders.templates}/${kind === "standup" ? "Daily Standup Template" : "Daily Notes Template"}`;
+    const template = this.fileAt(templatePath.replace(/\.md$/i, "") + ".md");
+    if (!template) {
+      if (configured) throw new Error(`Template not found: ${templatePath}`);
+      const text = kind === "standup"
+        ? `---\ntype: standup\ndate: ${date}\ntags:\n  - daily/standup\n---\n\n## Daily Work Summary\n\n**Date:** ${date}\n\n## 1. Work Completed Today\n\n1. \n\n## 2. Blocks\n\n1. \n\n## 3. Work Expected To Be Done Tomorrow\n\n1. \n`
+        : `---\nDate: ${date}\ntags:\n  - daily/journal\n---\n\n# ${date}\n\n**Standup:** [[Daily Standup ${date}]]\n\n## Today's Tasks\n\n- [ ] \n`;
+      return { text };
+    }
+    const text = await this.app.vault.read(template);
+    let engine = null;
+    if (text.includes("<%")) {
+      engine = this.app.plugins && this.app.plugins.plugins && this.app.plugins.plugins["templater-obsidian"] &&
+        this.app.plugins.plugins["templater-obsidian"].templater;
+      if (!engine || !["parse_template", "start_templater_task", "end_templater_task"].every(k => typeof engine[k] === "function"))
+        throw new Error("Enable a compatible Templater to create this daily note from its template.");
+    }
+    return { text, template, engine };
+  }
+
+  async renderDailyTemplate(prepared, file, date) {
+    // The date override belongs to this render's tp object, not Templater's global clock or settings.
+    const prefix = `<%* { const hqNow = tp.date.now; tp.date.now = (format, offset, reference, referenceFormat) => hqNow(format, offset, reference === undefined ? "${date}" : reference, reference === undefined ? "YYYY-MM-DD" : referenceFormat); tp.file.cursor = () => ""; } -%>\n`;
+    const text = await prepared.engine.parse_template({ template_file: prepared.template, target_file: file, active_file: file, run_mode: 0 }, prefix + prepared.text);
+    if (typeof text !== "string" || text.includes("<%")) throw new Error(`Template did not finish: ${prepared.template.path}`);
+    return this.dailyPlaceholders(text, date);
+  }
+
+  dailyPlaceholders(text, date) {
+    return text.replace(/\{\{(date|time)(?::([^}]+))?\}\}/gi, (_, type, format) =>
+      moment(`${date}T${moment().format("HH:mm:ss")}`).format(format || (type.toLowerCase() === "date" ? "YYYY-MM-DD" : "HH:mm")));
+  }
+
   // The one set of actions every graph surface gets (main view, local pane, home cards, embeds). Each goes through a
   // plugin method in WRITE_ACTIONS, which writes and then announces the change, so every open surface redraws.
   // Each write publishes the new state to every surface, the one that made it included.
@@ -1121,16 +1204,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
         if (file instanceof TFile) this.app.workspace.getLeaf(newPane ? "tab" : false).openFile(file);
         else new Notice(`Not found (renamed since the last refresh?): ${notePath}`);
       },
-      // today's daily note through whichever daily-note plugin is on (Periodic Notes knows this vault's folders)
-      openDaily: date => {
-        const target = date || today(), files = this.app.vault.getMarkdownFiles().filter(f => VGRules.hqJournalDate(f.path) === target);
-        const selected = VGRules.canonicalJournalPath(files.map(f => f.path), target);
-        if (selected) {
-          const file = this.app.vault.getAbstractFileByPath(selected);
-          if (file instanceof TFile) { this.app.workspace.getLeaf("tab").openFile(file); return; }
-        }
-        const id = ["periodic-notes:open-daily-note", "daily-notes"].find(c => this.app.commands.commands[c]);
-        if (id) this.app.commands.executeCommandById(id); else new Notice("Turn on Daily notes (core plugin) to open today's note."); },
+      openDaily: date => this.openDaily(date),
+      openStandup: date => this.openDaily(date, "standup"),
       linkNotes: (fromPath, toPath, why) => this.linkNotes(fromPath, toPath, why),
       linkMentions: (notePath, dryRun) => this.linkMentions(notePath, dryRun),
       writeNote: (notePath, md, o) => this.writeNote(notePath, md, o),

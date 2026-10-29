@@ -113,7 +113,7 @@ async function page(html, o = {}) {
       if (!(c[0] && c[0][0] === "openNote")) fails.push(`Open on an approval called ${JSON.stringify(c[0])}`);
       // Projects: a card opens its drawer, with its decision; Escape closes it
       await screen("projects");
-      await ev(`document.querySelector('[data-filter="all"]').click()`); await sleep(100);
+      await ev(`(() => {const s=document.querySelector('[data-project-filter="status"]');s.value="all";s.dispatchEvent(new Event("change",{bubbles:true}));})()`); await sleep(100);
       if (await ev(`document.querySelectorAll(".vg-hq-proj").length`) !== 4) fails.push("All doesn't show the 4 sample projects");
       await ev(`[...document.querySelectorAll(".vg-hq-proj")].find(b => /Card Deposits/.test(b.textContent)).click()`); await sleep(150);
       if (!await ev(`!!document.querySelector(".vg-hq-drawer") && /Card Reader/.test(document.querySelector(".vg-hq-drawer").textContent)`)) fails.push("the project drawer doesn't show its decision");

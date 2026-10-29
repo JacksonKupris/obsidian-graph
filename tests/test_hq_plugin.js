@@ -82,7 +82,7 @@ const H = env.rules.hq;
   mk(wrong, "- [ ] Wrong"); mk(right, "- [ ] Canonical");
   const opened = [];
   app.workspace.getLeaf = () => ({openFile:f => opened.push(f.path)});
-  p.viewActions({}).openDaily(day);
+  await p.viewActions({}).openDaily(day);
   check("journal shortcut chooses the canonical path, not insertion order", opened, [right]);
 
   // marks: Later for today, Done on a plan item, Undo takes one back; marks from another day go
