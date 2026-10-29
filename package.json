@@ -1,6 +1,6 @@
 {
   "name": "vault-graph",
-  "version": "0.6.15",
+  "version": "0.6.16",
   "private": true,
   "description": "Obsidian plugin that maps a vault: topic clusters, bridge notes, gaps, views and lenses.",
   "scripts": {
