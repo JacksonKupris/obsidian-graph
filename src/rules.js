@@ -146,6 +146,7 @@ const VGRules = (() => {
   // recallChunks(text) / recallNoteDate(path, text) -> what to cache per note;
   // recallSearch([{ path, date, chunks }], query, { n, codeOnly, people, today }) -> [{ path, kind, lang, heading, line, score, why, date, snippet }]
   const RC = R.recall || { boost: {}, stop: "", synonyms: {}, per_note: 2, cues: { kinds: {} } };
+  const ROLLUP = RC.rollup_pattern ? new RegExp(RC.rollup_pattern) : null;
   const RC_STOP = new Set(RC.stop.split(" ")), RC_WORD = /[a-z0-9][a-z0-9_\-.]*[a-z0-9]|[a-z0-9]/g, CUES = RC.cues;
   const KIND_RX = Object.fromEntries(Object.entries(CUES.kinds).filter(([, v]) => v.text).map(([k, v]) => [k, new RegExp(v.text, "i")]));
   const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
@@ -252,7 +253,10 @@ const VGRules = (() => {
     const docs = [];
     for (const n of notes) for (const d of docsOf(n)) if (!codeOnly || d.kind === "code") docs.push(d);
     const vocab = new Map(); docs.forEach(d => d.tf.forEach((_, w) => vocab.set(w, (vocab.get(w) || 0) + 1)));
-    return lastSet = { chunks: notes.map(n => n.chunks), codeOnly: !!codeOnly, docs, vocab, avg: docs.length ? docs.reduce((s, d) => s + d.len, 0) / docs.length : 0 };
+    // which chunks hold each word: a search reads those, not all of them, so it stays fast as the vault grows
+    const index = new Map(), note = (w, i) => { let a = index.get(w); if (!a) index.set(w, a = []); if (a[a.length - 1] !== i) a.push(i); };
+    docs.forEach((d, i) => { d.tf.forEach((_, w) => note(w, i)); d.nw.forEach(w => note(w, i)); d.hw.forEach(w => note(w, i)); });
+    return lastSet = { chunks: notes.map(n => n.chunks), codeOnly: !!codeOnly, docs, vocab, index, avg: docs.length ? docs.reduce((s, d) => s + d.len, 0) / docs.length : 0 };
   }
   function recallSearch(notes, query, o = {}) {
     const B = RC.boost, q = recallWords(query), qs = new Set(q), daily = (R.folders.daily || "01-Daily") + "/", FW = CUES.fuzzy_weight;
@@ -267,7 +271,7 @@ const VGRules = (() => {
     G.links.forEach(([a, b, k]) => { const m = k === "similar" ? sim : nbr; add(m, a, b); add(m, b, a); });
     const use = G.use || {}, umax = Math.max(1e-9, ...Object.values(use).map(v => Math.log1p(v)), 0) || 1;
     const near = recallNearTarget(query, notes.map(n => n.path)), nearSet = near ? new Set([...(nbr.get(near) || []), ...(sim.get(near) || [])]) : new Set();
-    const { docs, vocab, avg } = docSet(notes, o.codeOnly);
+    const { docs, vocab, avg, index } = docSet(notes, o.codeOnly);
     if (!docs.length) return [];
     // a word the vault doesn't have: close spellings and longer words that start with it
     [...qs].forEach(t => { if (vocab.has(t) || /^\d+$/.test(t) || t.length < 4) return;
@@ -275,7 +279,8 @@ const VGRules = (() => {
         .forEach(w => { own.get(t).add(w); if (!terms.has(w)) terms.set(w, FW); }); });
     const N = docs.length, df = new Map(), hits = [];
     terms.forEach((_, t) => df.set(t, vocab.get(t) || 0));   // the vocabulary already counts the chunks each word is in
-    for (const d of docs) {
+    const wanted = new Set(); terms.forEach((_, t) => (index.get(t) || []).forEach(i => wanted.add(i)));
+    for (const i of wanted) { const d = docs[i];
       const { nw, hw, pw } = d, why = new Set(), L = d.len || 1; let score = 0;
       terms.forEach((wt, t) => {
         const f = d.tf.get(t) || 0; if (!f && !nw.has(t) && !hw.has(t)) return;
@@ -290,6 +295,8 @@ const VGRules = (() => {
       if (!score) continue;
       const matched = [...qs].filter(t => pw.has(t) || [...own.get(t)].some(w => d.tf.has(w) || nw.has(w) || hw.has(w))).length;
       score *= Math.pow(matched / Math.max(1, qs.size), 1.5);   // every query word that matches counts a lot
+      if (ROLLUP && ROLLUP.test(d.path)) score *= B.rollup;   // a rollup repeats the standups it sums up: the original answers first
+      if (qs.size && [...qs].every(t => [...own.get(t)].some(w => nw.has(w)))) score *= B.name_all;   // a note named for all of it is about it
       if (d.kind === "code") score *= B.code;
       const ls = d.body.split("\n").filter(l => l.trim());
       if (ls.length && ls.filter(l => /^\s*([-*]\s*)?\[\[/.test(l)).length / ls.length >= 0.5) score *= B.links;   // a hub points at the answer
