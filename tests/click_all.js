@@ -42,7 +42,6 @@ const controls = ctx => [...((ctx && ctx.picker ? doc().querySelector(".vg-picke
 const state = () => { const d = D(); return JSON.stringify([d.st.view, d.st.selected, d.st.focus, !!d.st.highlight, d.st.palaceFloor, root().className, root().innerHTML.length,
   d.cam.k.toFixed(3), d.cam.tx.toFixed(1), d.cam.ty.toFixed(1), [...doc().querySelectorAll(".vg-root [aria-pressed=true], .vg-root [aria-selected=true]")].length]); };
 
-// ---- contexts: views, inspector kinds, lenses, picker tabs, palace floors, missions
 async function reset() {
   doc().querySelectorAll(".vg-confirm, .vg-actmenu, .vg-tour").forEach(x => x.remove());
   // a narrow pane's side panels are a drawer over the view (desktop shows them beside it): one opened in the last

@@ -88,10 +88,8 @@ function mountVaultGraph(root, DATA, opts) {
     stop: '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
     subway: '<rect x="5" y="3" width="14" height="14" rx="3"/><path d="M5 11h14M9 21l-2-4M15 21l2-4"/><circle cx="9" cy="14" r=".8" fill="currentColor"/><circle cx="15" cy="14" r=".8" fill="currentColor"/>',
     mountain: '<path d="m2 20 7-12 4 6 3-4 6 10Z"/><path d="m7.5 10.5 1.5 1.5 1.5-1"/>',
-    city: '<path d="M3 21V10h5v11M8 21V4h7v17M15 21v-8h6v8M2 21h20M10.5 8h2M10.5 12h2M10.5 16h2"/>',
     cloud: '<path d="M7 18a4 4 0 1 1 .6-7.96A6 6 0 0 1 19 11a3.5 3.5 0 0 1-.5 7Z"/><path d="m11 20-1 2M15 20l-1 2"/>',
     anchor: '<circle cx="12" cy="5" r="2"/><path d="M12 7v14M5 12H3a9 9 0 0 0 18 0h-2M8 10h8"/>',
-    rings: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="2"/>',
     star: '<path d="m12 3 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6-4.5-4.2 6.1-.7Z"/>',
     castle: '<path d="M4 21V9h3V6h2v3h2V4h2v5h2V6h2v3h3v12Z"/><path d="M10 21v-4a2 2 0 0 1 4 0v4"/>',
     branch: '<circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7v10M18 10c0 4-6 4-11.5 7.5"/>',
@@ -101,7 +99,6 @@ function mountVaultGraph(root, DATA, opts) {
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     radar: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12 18 6"/>',
     sprout: '<path d="M12 21v-9"/><path d="M12 12C12 8 9 6 5 6c0 4 3 6 7 6Z"/><path d="M12 10c0-3 2.5-5 6-5 0 3.5-2.5 5-6 5Z"/><path d="M7 21h10"/>',
-    palace: '<path d="M3 21h18M4 10h16M12 3 3 8h18Z"/><path d="M6 10v8M10 10v8M14 10v8M18 10v8M4 18h16"/>',
     brain: '<path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 6 1V5a3 3 0 0 0-3-1Z"/><path d="M15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-6 1"/>',
     reviewed: '<path d="M20 6 9 17l-5-5"/>',
     flag: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>',
@@ -184,7 +181,6 @@ function mountVaultGraph(root, DATA, opts) {
   const seededHash = s => (layoutSeed() ? hash(s + "|" + layoutSeed()) : hash(s));
   const topicOrder = () => { const cs = [...DATA.clusters].sort((x, y) => y.size - x.size);
     return layoutSeed() ? cs.sort((a, b) => seededHash("topic" + a.id) - seededHash("topic" + b.id)) : cs; };
-  const topicRank = c => { const i = topicOrder().findIndex(x => x.id === c); return i < 0 ? 999 : i; };   // unclustered last
   // Shared by the scenes, so each asks the same question the same way:
   //   topicNotes(c)     a topic's notes (no maps, people or unwritten notes); linkedOnly: leave out unlinked ones
   //   topicBusy(c)      how active the topic is: its notes' activity added up
@@ -281,7 +277,7 @@ function mountVaultGraph(root, DATA, opts) {
         <div class="vg-menuwrap">
           <button class="vg-ibtn vg-pickbtn" aria-haspopup="dialog" aria-expanded="false" title="Views, lenses and styles (M)"><span class="vg-pickicon">${icon("hub", 16)}</span><span class="vg-pickname">2D</span><span class="vg-caret" aria-hidden="true">▾</span></button>
         </div>
-        <button class="vg-ibtn vg-anglebtn" hidden title="Camera angle: flat, tilt or iso (3)">${icon("layers")}<span class="vg-tlabel">Iso</span></button>
+        <div class="vg-seg vg-dimseg" role="group" aria-label="2D or 3D"><button class="vg-segbtn" data-dim="2d" aria-pressed="true" title="2D (3)">2D</button><button class="vg-segbtn" data-dim="3d" aria-pressed="false" title="3D (3)">3D</button></div>
         <div class="vg-menuwrap"><button class="vg-ibtn vg-toolsbtn" aria-haspopup="menu" aria-expanded="false" aria-pressed="false" title="Select, save, time-lapse">${icon("layers")}<span class="vg-tlabel">Tools</span><span class="vg-caret" aria-hidden="true">▾</span></button>
           <div class="vg-menu vg-toolsmenu" role="menu" hidden></div></div>
         <span class="vg-toolsrc" hidden>   <!-- the tools themselves: the Tools menu and the phone's picker sheet press these -->
@@ -487,9 +483,6 @@ function mountVaultGraph(root, DATA, opts) {
     if (st.multi) return st.multi;
     if (st.selected && byId[st.selected].moc && st.highlight) return st.highlight;   // a map with its missing notes lit
     if (st.selected && SCENES[st.view] && SCENES[st.view].lit && mapCache[st.view] && !special(byId[st.selected])) { const s = SCENES[st.view].lit(st.selected); if (s) return s; }
-    if (st.selected && st.view === "lineage" && mapCache.lineage && !special(byId[st.selected])) return new Set([st.selected, ...lineageOf(st.selected)]);   // ancestors and descendants
-    if (st.selected && st.view === "ripples" && mapCache.ripples) return ripplePath(st.selected);   // the clicks that reach it
-    if (st.selected && st.view === "alchemy" && mapCache.alchemy && !special(byId[st.selected])) return new Set([st.selected, ...nb[st.selected], ...alPartners(st.selected)]);   // and what it could react with
     if (st.selected && st.view === "foodweb" && mapCache.foodweb && !special(byId[st.selected])) return new Set([st.selected, ...dependents(st.selected)]);   // everything that relies on it
     if (st.selected) return new Set([st.selected, ...nb[st.selected], ...(peopleOf[st.selected] || []),
       ...links.filter(l => (l.kind === "person" || l.kind === "wanted") && (l.s.id === st.selected || l.t.id === st.selected)).map(l => l.s.id === st.selected ? l.t.id : l.s.id)]);

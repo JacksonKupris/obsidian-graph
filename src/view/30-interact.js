@@ -2,7 +2,7 @@
   let settledShown = false, lastNeural = 0, onScreen = true, lastMapAnim = 0, drawMs = 0;
   const liveEdits = [];   // notes edited while the graph is open (from live sync): {id, t}
   const tickOf = (o, now) => { const dt = Math.min(100, now - (o.last || now)); o.last = now; return reducedMotion() ? 0 : dt; };
-  const ANIM_MAPS = { ...Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.fps || 30])), radar: 60, ships: 30, weather: 30, sky: 30, garden: 30, foodweb: 30, alchemy: 30, ripples: 30, subway: 30, city: 30, clock: 30, topo: 30, realm: 30, palace: 30, rings: 20 };   // divisors of 60 Hz: an even cadence, no judder
+  const ANIM_MAPS = { ...Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.fps || 30])), radar: 60, weather: 30, foodweb: 30, subway: 30, clock: 30 };   // divisors of 60 Hz: an even cadence, no judder
   // An embed scrolled out of view (or a hidden pane) costs nothing: the loop stops and restarts when it's back
   const io = typeof IntersectionObserver === "function" ? new IntersectionObserver(es => {
     onScreen = es[es.length - 1].isIntersecting; if (onScreen) { dirty = true; kick(); }
@@ -56,7 +56,7 @@
       const fps = busy ? 0 : !document.hasFocus() ? 3 : opts.compact ? 15 : 30;
       const dt = Math.min(250, now - (lastNeural || now));
       if (!fps || dt >= 1000 / fps) {
-        if (!opts.compact && !drag && !tween && !reducedMotion() && now - lastInteract > 3500) cam.yaw += 0.0016 * dt / 16.7;   // not in small panes: it drifts a few notes out of view
+        if (st.three && !opts.compact && !drag && !tween && !reducedMotion() && now - lastInteract > 3500) cam.yaw += 0.0016 * dt / 16.7;   // not in small panes: it drifts a few notes out of view
         lastNeural = now; dirty = true;
       }
       more = true;
@@ -103,7 +103,8 @@
     }
     return best;
   };
-  const local = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  const local = e => { if (cv.classList.contains("is-tilt3d")) return [e.offsetX, e.offsetY];   // leaning back: the browser undoes the perspective for us
+    const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   // Move a node with the pointer; its neighbourhood follows through the springs. In 3D the screen delta
   // is mapped back through the camera rotation, so the node moves in the plane facing you.
   function dragNode(n, dx, dy) {
@@ -357,7 +358,7 @@
     { keys: ["+", "−"], label: "Zoom in or out", match: e => "+=-_".includes(e.key) && e.key.length === 1, run: e => zoomBy("+=".includes(e.key) ? 1.25 : 0.8) },
     { keys: ["0"], label: "Fit everything on screen", run: () => fit(neural() ? n => !special(n) : null) },
     { keys: ["M"], label: "Choose a view", run: () => openPicker() },
-    { keys: ["3"], label: "Switch 2D and 3D (in a 3D scene: flat, tilt, iso)", run: () => isoAngle() ? cycleAngle() : setView(st.view === "3d" ? "2d" : "3d") },
+    { keys: ["3"], label: "Switch 2D and 3D", run: () => setDim(dimOf() === "3d" ? "2d" : "3d") },
     { keys: ["N"], label: "Neural view", run: () => setView(neural() ? "3d" : "neural") },
     { keys: ["C"], label: "Cosmos view", run: () => setView(isCosmos() ? "2d" : "cosmos") },
     { keys: ["T"], label: "Time-lapse: the vault as it grew", run: () => toggleTime() },
@@ -555,21 +556,10 @@
     if (mapView()) {
       const item = (sw, t) => `<span class="vg-lg-item">${sw}${t}</span>`;
       $(".vg-legend").innerHTML = SCENES[st.view] ? (SCENES[st.view].legend ? SCENES[st.view].legend(item) : "") : st.view === "subway" ? item(`<i class="vg-lg-line" style="height:4px;background:${colorOf(0)}"></i>`, "line = topic") + item(`<i class="vg-lg-stn"></i>`, "note") + item(`<i class="vg-lg-stn is-x"></i>`, "connects topics")
-        : st.view === "topo" ? item(`<span class="vg-lg-grad is-topo"></span>`, "height = relied on") + item(`<i class="vg-lg-line is-gap" style="border-color:#3a2a1a"></i>`, "bridge (link across topics)") + item(`<i class="vg-lg-fog"></i>`, "fog = quiet")
-        : st.view === "garden" ? item("🌱", "seed → seedling → budding") + item("🌳", "evergreen = developed, relied on") + item("🍂", "wilting = stale") + item("🌸", "flowering = recent") + item("💧", "open tasks")
         : st.view === "weather" ? item("<b style='color:#b91c1c'>L</b>", "busier than usual") + item("<b style='color:#1d4ed8'>H</b>", "quieter") + item("⛈", "burst this week") + item("<i class='vg-lg-line' style='border-color:#dc2626'></i>", "front = come up together")
-        : st.view === "ships" ? item("⚓", "port = topic") + item("⛴", "lane = links (more ships = more)") + item("🌫", "fog = gap, uncharted")
-        : st.view === "rings" ? item("◎", "one ring per month") + item("<i class='vg-lg-bld'></i>", "wide = many new notes") + item("╱", "scar = incident or failure")
-        : st.view === "sky" ? item("✦", "bright = relied on") + item("▲", "rising (recent)") + item("<b style='color:#fca5a5'>●</b>", "fading (stale)")
-        : st.view === "realm" ? item("🏰", "castle = map (MOC)") + item("⛰", "mountain = relied on") + item("🌲", "forest = stale") + item("🐉", "unlinked notes")
         : st.view === "foodweb" ? item("↑", "producers at the bottom, logs at the top") + item("<b style='color:#f87171'>◯</b>", "endangered: relied on, stale")
-        : st.view === "lineage" ? item("↝", "grew from: linked, already existed") + item("<b style='color:#fb923c'>↝</b>", "crossed into another topic") + item("●", "bigger = more grew from it")
-        : st.view === "ripples" ? item("◎", "ring = clicks from your maps") + item("<b style='color:#f87171'>●</b>", "no link reaches it") + item("⌖", "select a note → Centre here")
-        : st.view === "alchemy" ? item("<b style='color:#fbbf24'>●</b>", "gold at the centre, raw lead outside") + Object.values(REACTIONS).map(([n, c, w]) => item(`<b style='color:${c}'>⋯</b>`, `${n}: ${w}`)).join("")
         : st.view === "clock" ? item("◔", "ring = topic") + item("<i class='vg-lg-win'></i>", "brighter = more of its mentions")
         : st.view === "radar" ? item("<b style='color:#22c55e'>●</b>", "note with open tasks") + item("<b style='color:#f87171'>●</b>", "oldest task 90+ days") + item("↻", "click a blip to tick off")
-        : st.view === "palace" && (!mapCache.palace || mapCache.palace.facade) ? item("▢", "window = note") + item("<b style='color:#fcd34d'>▢</b>", "lit = active") + item("▨", "boarded = stale") + item("<b style='color:#dc2626'>▁</b>", "red sill = open tasks") + item("<b style='color:#b91c1c'>⚡</b>", "crack = gap") + item("⌂", "click a floor to go in")
-        : st.view === "palace" ? item(`<i class="vg-lg-stn"></i>`, "room = topic") + item("🚪", "door = links (wider = more)") + item(`<i class="vg-lg-line is-gap" style="border-color:#f87171"></i>`, "bricked = gap") + item("💡", "lit = recent") + item(`<i class="vg-lg-bld is-stale"></i>`, "dusty = stale")
         : item(`<i class="vg-lg-bld"></i>`, "height = relied on") + item(`<i class="vg-lg-win"></i>`, "lit = recent activity") + item(`<i class="vg-lg-bld is-stale"></i>`, "grey = stale") + item(`<i class="vg-lg-lot"></i>`, "empty lot = not written") + item("<b style='color:#ef4444'>•</b>", "beacon = open tasks") + item("🏛", "town hall = the topic's map");
       return;
     }

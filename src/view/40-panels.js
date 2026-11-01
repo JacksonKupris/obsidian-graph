@@ -273,7 +273,6 @@
     if (id) st.multi = null;
     const box = $(".vg-inspector");
     renderHud();
-    if (st.view === "alchemy" || st.view === "ripples" || st.view === "lineage") renderToday();   // their bar is about the selected note
     if (!id || opts.compact) { if (!st.multi) { box.hidden = true; box.dataset.id = ""; root.classList.remove("has-inspector"); } return; }
     const n = byId[id];
     box.hidden = false; root.classList.add("has-inspector");
@@ -689,6 +688,6 @@
   $(".vg-png").onclick = saveImage;
   $(".vg-tourbtn").onclick = () => { closeDrawer(); startTour(); };
   $(".vg-keysbtn").onclick = () => showKeys();
-  $(".vg-anglebtn").onclick = () => cycleAngle();
+  $$("[data-dim]").forEach(b => b.onclick = () => setDim(b.dataset.dim));
 
 

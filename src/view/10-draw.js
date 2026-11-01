@@ -44,11 +44,7 @@
     if (neural()) return drawNeural(now);
     if (isCosmos()) return drawCosmos(now);
     if (st.view === "subway") return drawSubway(now);
-    if (st.view === "topo") return drawTopo(now);
-    if (st.view === "city") return drawCity(now);
-    if (st.view === "garden") return drawGarden(now);
-    if (st.view === "palace") return drawPalace(now);
-    const more = { weather: drawWeather, ships: drawShips, rings: drawRings, sky: drawSky, realm: drawRealm, foodweb: drawFoodweb, alchemy: drawAlchemy, lineage: drawLineage, ripples: drawRipples, clock: drawClock, radar: drawRadar }[st.view];
+    const more = { weather: drawWeather, foodweb: drawFoodweb, clock: drawClock, radar: drawRadar }[st.view];
     if (more) return more(now);
     if (SCENES[st.view]) return SCENES[st.view].draw(now);
     const dpr = Math.min(window.devicePixelRatio || 1, MOBILE ? 2 : 3);

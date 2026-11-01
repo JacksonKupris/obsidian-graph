@@ -43,9 +43,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     out.forEach(x => fails.push(x));
     // closing while a view is still changing: the layout catches up when the change lands, not stuck in the past
     await tab.ev(`${D}.setView("2d")`); await sleep(300);
-    const fullRings = await tab.ev(`(() => { ${D}.setView("rings"); const r = ${q(".vg-timebar input")}; ${q(".vg-maptime")}.click(); ${q(".vg-time-play")}.click(); r.value = 40; r.dispatchEvent(new Event("input")); ${q(".vg-time-close")}.click(); return ${D}.nodes.filter(n => n.born).length; })()`);
+    const fullRings = await tab.ev(`(() => { ${D}.setView("weather"); const r = ${q(".vg-timebar input")}; ${q(".vg-maptime")}.click(); ${q(".vg-time-play")}.click(); r.value = 40; r.dispatchEvent(new Event("input")); ${q(".vg-time-close")}.click(); return ${D}.nodes.filter(n => n.born).length; })()`);
     await sleep(1500); const ringsBack = await tab.ev(counts());
-    check(ringsBack > fullRings * 0.5, `closing during a view change left rings drawing ${ringsBack} of about ${fullRings}`);
+    check(ringsBack > fullRings * 0.5, `closing during a view change left weather drawing ${ringsBack} of about ${fullRings}`);
     // the game can't be time-lapsed, and going into it closes the bar
     await tab.ev(`${q(".vg-maptime")}.click(); ${D}.setView("dungeon")`); await sleep(50);
     check(await tab.ev(`!${D}.replay() && ${q(".vg-timebar")}.hidden`), "the game view left the time-lapse open"); await tab.ev(`${D}.setView("2d")`);

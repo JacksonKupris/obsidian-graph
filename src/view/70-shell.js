@@ -8,24 +8,6 @@
     const bridgeAct = g => async () => { if (opts.writeNote && await confirmBox("Draft a bridge note", `Create a draft in ${FOLDERS.inbox} connecting <b>${esc(clusterName(g.a))}</b> and <b>${esc(clusterName(g.b))}</b>?`, "Create")) writeBridge(g.a, g.b); else focusClusters([g.a, g.b]); };
     if (v === "radar") { const hold = notes.filter(n => n.tasks > 0 && (n.taskAge ?? 0) > 90), o = topBy(hold, n => n.taskAge);
       return o ? { text: `${hold.length} notes have tasks waiting 90+ days · oldest: ${o.name} (${o.taskAge} days)`, label: "Triage", run: startTriage } : null; }
-    if (v === "lineage") { const L = mapCache.lineage; if (!L) return null;
-      const best = notes.reduce((b, n) => (L.desc.get(n.id) || 0) > (b ? L.desc.get(b.id) || 0 : 0) ? n : b, null);
-      const alone = notes.filter(n => n.born && !L.parent.has(n.id) && !(L.kids.get(n.id) || []).length).length;
-      return best ? { text: `Most prolific ancestor: ${best.name} · ${plural(L.desc.get(best.id), "note")} grew from it · ${alone} notes stand alone`, label: "Show its line", run: () => reveal(best.id) } : null; }
-    if (v === "ripples") { const Rp = mapCache.ripples; if (!Rp) return null;
-      const centre = id => () => { st.rippleRoot = id; applyMapLayout(true); renderToday(); };
-      if (st.selected && byId[st.selected] && !byId[st.selected].person && !byId[st.selected].ghost && st.selected !== Rp.rootId) { const n = byId[st.selected], d = Rp.depth.get(n.id);
-        return { text: `${n.name}: ${d == null ? "no link path reaches it" : plural(d, "click") + " from " + (Rp.rootId ? byId[Rp.rootId].name : "your maps")}`, label: "Centre here", run: centre(n.id) }; }
-      if (Rp.rootId) return { text: `Centred on ${byId[Rp.rootId].name} · ${Rp.lost.length} notes out of reach from it`, label: "Back to your maps", run: centre(null) };
-      const deep = notes.filter(n => (Rp.depth.get(n.id) || 0) >= 4).length, x = Rp.lost.slice().sort(byImportance)[0], mm = x && mocOf[x.cluster];
-      if (!x) return { text: `Every note is reachable from your maps · ${deep} are 4+ clicks deep`, label: "", run: null };
-      return { text: `${Rp.lost.length} notes no link reaches · ${deep} are 4+ clicks deep · most relied-on lost note: ${x.name}`, label: mm && canAddToMap() ? `Add to ${mm.title}` : "Show it",
-        run: async () => { if (!(mm && canAddToMap())) return reveal(x.id);
-          if (!await confirmBox("Add to its map", `Add <b>${esc(x.name)}</b> to <b>${esc(mm.title)}</b> under “Also in this topic”? It becomes 2 clicks from your maps.`, "Add")) return;
-          await addToMap(mm.id, [x.id]); } }; }
-    if (v === "alchemy") { const open = mapCache.alchemy ? mapCache.alchemy.rx.filter(x => !x.done) : []; if (!open.length) return null;
-      const x = open.find(r => st.selected && (r.a.id === st.selected || r.b.id === st.selected)) || open[al.idx % open.length];
-      return { text: `⚗ ${REACTIONS[x.type][0]}: ${x.a.name} + ${x.b.name} · ${x.why} · ${open.length} waiting · ${plural(alScore.get(), "reaction")} run`, label: "React", run: () => alRun(x) }; }
     if (v === "foodweb") { const ks = keystones(), x = ks[0];
       return x ? { text: `Keystone at risk: ${x.n.name} · ${x.deps} notes depend on it, unchanged for ${x.n.age} days (${ks.length} like it)`, label: "Review", run: () => { reveal(x.n.id); } } : null; }
     if (v === "weather") { const t = mapCache.weather && topBy(mapCache.weather.tops, x => x.a);
@@ -34,21 +16,8 @@
     if (v === "clock") { const C0 = mapCache.clock; if (!C0) return null; const wd = (new Date().getDay() + 6) % 7, xs = C0.cs.filter(x => x.wd.indexOf(Math.max(...x.wd)) === wd);
       const day = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][wd];
       return xs.length ? { text: `It's ${day}: usually ${xs.slice(-3).reverse().map(x => clusterName(x.c)).join(", ")}`, label: "Show them", run: () => focusClusters(xs.map(x => x.c)) } : { text: `It's ${day}: no topic peaks today`, label: "", run: null }; }
-    if (v === "garden") { const w = notes.filter(n => staleFor(n, Q.stale_days) && !n.isolated).sort(byImportance);
-      return w.length ? { text: `${w.length} plants wilting (unchanged ${Q.stale_days}+ days) · most relied-on: ${w[0].name}`, label: "Tend it", run: () => reveal(w[0].id) } : null; }
-    if ((v === "palace" || v === "ships") && gap) return { text: `${v === "ships" ? "Uncharted crossing" : "Bricked-up doorway"}: ${clusterName(gap.a)} ↔ ${clusterName(gap.b)} · ${why(gap)}`, label: opts.writeNote ? "Draft a bridge" : "Show both", run: bridgeAct(gap) };
-    if (v === "rings" && mapCache.rings) { const t = topBy(mapCache.rings.trunks, x => x.scars.size);
-      return t && t.scars.size ? { text: `${clusterName(t.c)} carries the most scars: ${t.scars.size} months with incident or failure write-ups`, label: "Show it", run: () => focusClusters([t.c]) } : null; }
-    if (v === "sky") { const r = topBy(notes.filter(n => n.recent > 0), n => n.recent);
-      return r ? { text: `Rising star: ${r.name} · ${r.recent} daily-note mentions in the last 30 days`, label: "Show", run: () => reveal(r.id) } : null; }
-    if (v === "realm") { const iso = notes.filter(n => n.isolated).sort((a, b) => (b.mentions || 0) - (a.mentions || 0));
-      return iso.length ? { text: `${iso.length} notes adrift with the dragons (linked to nothing) · most mentioned: ${iso[0].name}`, label: "Adopt it", run: () => reveal(iso[0].id) } : null; }
-    if (v === "city" && mapCache.city) { const tall = topBy(notes.filter(n => mapCache.city.b.has(n.id)), n => importance(n));
-      return { text: `${mapCache.city.cranes.size} new buildings this week · tallest: ${tall ? tall.name : "—"}`, label: tall ? "Show tallest" : "", run: tall ? () => reveal(tall.id) : null }; }
     if (v === "subway" && mapCache.subway) { const L = topBy(mapCache.subway.lines, l => l.stops.reduce((a, id) => a + (byId[id].recent || 0), 0));
       return L ? { text: `Busiest line: ${clusterName(L.c)} · ${L.stops.reduce((a, id) => a + (byId[id].recent || 0), 0)} recent mentions along it`, label: "Show it", run: () => focusClusters([L.c]) } : null; }
-    if (v === "topo" && mapCache.topo) { const pk = topBy(mapCache.topo.peaks, x => x.h), quiet = notes.filter(n => !n.isolated && activity(n) < 0.02).length;
-      return pk ? { text: `Highest summit: ${clusterName(pk.c)} · ${quiet} notes under fog (no recent edits or mentions)`, label: "Show it", run: () => focusClusters([pk.c]) } : null; }
     if (gap && ["2d", "3d", "neural"].includes(v)) return { text: `Biggest gap: ${clusterName(gap.a)} ↔ ${clusterName(gap.b)} · ${why(gap)}`, label: "Show both", run: () => focusClusters([gap.a, gap.b]) };
     return null;
   }
@@ -241,15 +210,9 @@
     rebuild(true); persistSoon(); toast(`${p.name} — ${p.hint}`);
   }
   // Map views share one toolbar button (nine view buttons crowded it): the menu lists them, the button shows the current one
-  const MAP_INFO = { subway: ["subway", "Topics as lines; black-ringed stations connect topics"], topo: ["mountain", "Hills are notes you rely on; valleys are gaps"],
-    city: ["city", "Notes as buildings: tall = relied on, lit = recent, grey = stale; town halls are maps"], garden: ["sprout", "Notes grow from seed to evergreen; wilting = stale"],
-    palace: ["palace", "Topics as rooms, links as doors, gaps bricked up"],
-    weather: ["cloud", "Which topics are heating up (L, storms) or going quiet (H)"], ships: ["anchor", "Topics as islands, links as shipping lanes, gaps fogged in"],
-    rings: ["rings", "How each topic grew: a ring per month, scars for incidents"], sky: ["star", "Constellations of your most relied-on notes; rising stars twinkle"],
-    realm: ["castle", "A hand-drawn map: kingdoms, castles (maps), here be dragons"], foodweb: ["leaf", "Which notes feed which; stale ones others rely on are endangered"],
-    lineage: ["branch", "Where each note came from: time left to right, a lane per topic"],
-    ripples: ["ripple", "How many clicks each note is from your maps; the belt only search reaches"],
-    alchemy: ["flask", "Topics as flasks, notes from lead to gold; run the reactions waiting between them"],
+  const MAP_INFO = { subway: ["subway", "Topics as lines; black-ringed stations connect topics"],
+    weather: ["cloud", "Which topics are heating up (L, storms) or going quiet (H)"],
+    foodweb: ["leaf", "Which notes feed which; stale ones others rely on are endangered"],
     clock: ["clock", "When you work on what: weekday and month dials"], radar: ["radar", "Open tasks as blips by how long they've waited; red = 90+ days"],
     ...Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, [d.icon, d.blurb]])) };
   // ---------------------------------------------------------------- the Views picker: graphs, maps, lenses and styles in one place
@@ -293,9 +256,9 @@
   // The Scenes gallery in groups (a scene not named here lands in "More"); Recent first when there's history
   const VIEW_GROUPS = [
     ["Space", ["neural", "cosmos"]],
-    ["Maps", ["subway", "topo", "city", "garden", "palace", "weather", "ships", "rings", "sky", "realm"]],
-    ["Analysis", ["foodweb", "alchemy", "lineage", "ripples", "clock", "radar", "elements"]],
-    ["Playful", ["zombie", "sand"]],
+    ["Maps", ["subway", "weather", "cyberpunk"]],
+    ["Analysis", ["foodweb", "clock", "radar"]],
+    ["Play", ["dungeon"]],
   ];
   function viewGroups(xs) {
     const by = new Map(xs.map(i => [i.k, i])), used = new Set(), out = [];
@@ -338,7 +301,7 @@
     const f = p.querySelector('.vg-tile[aria-pressed="true"]') || p.querySelector(".vg-picker-tab[aria-selected=\"true\"]") || p.querySelector(".vg-tile"); if (f) f.focus({ preventScroll: true });
   }
   function syncMapsBtn(view) {   // the Views button shows where you are
-    syncAngleBtn();
+    syncDim();
     const g = GRAPH_INFO[view]; if (!$(".vg-pickbtn")) return;
     $(".vg-pickname").textContent = MAPS[view] || (g ? g[1] : view);
     $(".vg-pickicon").innerHTML = icon(MAPS[view] ? MAP_INFO[view][0] : g ? g[0] : "layers", 16);
@@ -362,6 +325,7 @@
 
   // ---------------------------------------------------------------- views + controls
   function setView(view) {
+    if (!GRAPH_INFO[view] && !MAPS[view]) view = "2d";   // a link or setting may name a view since retired
     if (view === st.view) return;
     const was = st.view;
     releaseKeys();   // a key held in the view being left would keep moving it
@@ -372,7 +336,7 @@
     if (was !== "neural" && was !== "cosmos") keepLayout();   // remember the force layout we're leaving
     if (was === "2d") geoCache = new Map(nodes.map(n => [n.id, [n.x, n.y]]));   // the map views keep this geography
     st.view = view;
-    syncMapsBtn(view); syncLayoutBtns();
+    syncMapsBtn(view); syncLayoutBtns(); syncDim();
     root.classList.toggle("is-neural", view === "neural");
     root.classList.toggle("is-cosmos", view === "cosmos");
     setMissionsShown(missionsPref != null ? missionsPref : view === "cosmos");   // the cosmos opens with them; elsewhere on request
@@ -385,26 +349,16 @@
       applyMapLayout(true);
       animateTo({ cx: 0, cy: 0, cz: 0, yaw: 0, pitch: 0 }, 600);
       fitted = false; setTimeout(() => { fitted = true; fit(mapFitPred(), 700); }, 1000);
-      toast(SCENES[view] ? SCENES[view].toast : { subway: "Subway — each topic is a line; black-ringed stations connect topics", topo: "Terrain — height is how much you rely on notes; valleys are gaps, fog is quiet ground",
-        city: "City — height is how relied-on a note is, lit windows are recent activity, grey towers are stale, cranes are new, red beacons have open tasks; each district's town hall is its map",
-        garden: "Garden — notes grow seed → seedling → budding → evergreen; wilting is stale, flowers are recent, drops are open tasks, weeds are orphans",
-        palace: "Memory palace — topics are rooms, doors are links (wider = more), red bricked doorways are gaps, the gold plaque is the room's map",
+      toast(SCENES[view] ? SCENES[view].toast : { subway: "Subway — each topic is a line; black-ringed stations connect topics",
         weather: "Weather — L is a topic busier than usual in your dailies, H a quiet one; storms are this week's bursts, fronts join topics that come up together",
-        ships: "Shipping lanes — topics are islands, links are lanes (more ships = more links), fog is a gap nobody has charted",
-        rings: "Tree rings — one trunk per topic, a ring per month since its first note; wide rings were busy months, dark scars incidents",
-        sky: "Sky chart — each topic a constellation through its most relied-on notes; rising stars twinkle, fading ones glow red",
-        realm: "Realm — kingdoms are topics, castles their maps, mountains the notes you rely on, forests stale ground; dragons guard unlinked notes",
         foodweb: "Food web — producers (relied on, rarely link out) at the bottom, logs and plans at the top; red rings are relied-on notes gone stale",
-        lineage: "Lineage — time runs left to right, a lane per topic; each curve joins a note to the one it grew from. Orange curves crossed topics",
-        ripples: "Click depth — rings count clicks from your maps; the red belt is notes no link reaches. Select a note to centre on it",
-        alchemy: "Alchemy — each topic is a flask, its notes in rings from raw lead (outside) to gold (centre). Sparks run between notes that could react; the bar above runs one reaction at a time",
         clock: "Heat clock — when each topic comes up in your dailies, by weekday and by month",
         radar: "Radar — notes with open tasks, nearer the centre the longer their oldest task has waited. Click a blip to tick tasks off" }[view]);
     } else if (view === "neural") {
-      st.three = true; cv.style.cursor = "grab";
       if (was === "2d") nodes.forEach(n => { n.z = n.z0 * 0.6; });
       brainLayout(true);
-      animateTo({ k: Math.min(cam.k, 1), tx: 0, ty: 0, cx: 0, cy: 0, cz: 0, pitch: -0.25 }, 1400);
+      animateTo({ k: Math.min(cam.k, 1), tx: 0, ty: 0, cx: 0, cy: 0, cz: 0, pitch: st.angles.neural === "flat" ? 0 : -0.25, yaw: 0 }, 1400);
+      layNeural();
       fitted = false; setTimeout(() => { fitted = true; fit(n => !special(n), 900); }, 1500);
       toast("Neural view — lobes are topics, the core holds your bridge notes");
     } else {
@@ -553,7 +507,7 @@
     Object.assign(layouts["2d"], (saved.layouts || {})["2d"]); Object.assign(layouts["3d"], (saved.layouts || {})["3d"]);
     layoutSeeds = saved.layoutSeeds || {}; layoutBackup = saved.layoutBackup || {};
     const v = saved.view || {};
-    const view = v.view || (v.three ? "3d" : "2d");
+    const view = v.view && (GRAPH_INFO[v.view] || MAPS[v.view]) ? v.view : v.three ? "3d" : "2d";   // a saved view since retired opens the map
     if (view !== "2d" && !MAPS[view]) { st.three = true; cv.style.cursor = "grab"; }
     if (v.angles && typeof v.angles === "object") st.angles = { ...v.angles };
     if (v.vision) { st.vision = v.vision; $$(".vg-visbtn").forEach(x => x.setAttribute("aria-pressed", x.dataset.vision === v.vision)); }
