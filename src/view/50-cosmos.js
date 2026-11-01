@@ -763,68 +763,64 @@
     $$(".vg-shipbtn").forEach(x => x.setAttribute("aria-pressed", on)); root.classList.toggle("is-ship", on);
     if (on) toast(MOBILE ? "Ship mode — tap a body or open space to warp there" : "Ship mode — WASD to fly, Q/E to zoom, click to warp"); dirty = true; kick();
   }
-  root.addEventListener("keyup", e => ship.keys.delete(e.key.toLowerCase()));
-  // time travel: show the vault as it was -- notes appear on the day they were born
-  const bornDays = nodes.filter(n => n.born && !special(n)).map(n => n.born).sort();
-  const timeMonths = (() => { if (!bornDays.length) return []; const out = []; let d = new Date(bornDays[0].slice(0, 7) + "-01T12:00"); const end = new Date();
-    while (d <= end) { out.push(d.toISOString().slice(0, 7)); d.setMonth(d.getMonth() + 1); } return out; })();
-  let timePlay = 0;
-  function setTime(idx) {
-    if (idx == null || idx >= timeMonths.length - 1) { st.timeAt = null; } else { const m = timeMonths[idx]; const end = new Date(m + "-01T12:00"); end.setMonth(end.getMonth() + 1); end.setDate(0); st.timeAt = end.toISOString().slice(0, 10); }
-    rebuild(true); if (isCosmos()) cosmosCapture();
-    const lab = $(".vg-time-label"); if (lab) lab.textContent = st.timeAt ? `${st.timeAt.slice(0, 7)} · ${active.filter(n => !special(n)).length} notes` : "Now";
-    renderToday();   // the strip describes the map as of that month
-  }
-  function toggleReplay() { if (replay) stopReplay(); else startReplay(); }
-  function startReplay() {
-    if (isCosmos()) { toast("Replay works in 2D, 3D and neural", "warn"); return; }
+  holdKeys({ up: k => ship.keys.delete(k), all: () => ship.keys.clear() });
+  // Time-lapse: the vault as it was, in every view, with one control (the toolbar's clock, or T). The notes come in the
+  // order they were born: it plays from the first, the slider goes to any point, and Close returns to now. `replay` holds
+  // the point in time; baseVisible() filters by it, which is the one thing every view reads, and st.timeAt says the date
+  // for the views that also redraw their own history from it (weather, tree rings). Undated notes (maps, people) come last.
+  function startTime() {
+    if (SCENES[st.view] && SCENES[st.view].game) { toast("Time-lapse isn't available in this view", "warn"); return; }
     const pool = nodes.filter(n => baseVisible(n));
     const dated = pool.filter(n => n.born).sort((a, b) => a.born < b.born ? -1 : a.born > b.born ? 1 : b.bc - a.bc);
-    if (dated.length < 5) { toast("Not enough creation dates to replay", "warn"); return; }
-    const order = [...dated, ...pool.filter(n => !n.born)].map(n => n.id);   // undated notes (maps, people…) arrive last
+    if (dated.length < 5) { toast("Not enough creation dates for a time-lapse", "warn"); return; }
+    const order = [...dated, ...pool.filter(n => !n.born)].map(n => n.id);
     if (st.focusDist) exitFocus();
     select(null); clearHighlight(); clearMulti();
     if (neural()) brainLayout(false);   // lay out the whole brain once; notes then light up in place
-    else if (!isCosmos()) alpha = 0;     // hold the map still: notes appear where they live
-    fit(neural() ? n => !special(n) : null, 400);
-    replay = { order, shown: new Set(), k: 0, t0: performance.now() + 450, dur: Math.max(6000, Math.min(20000, order.length * 25)), built: 0 };
-    $(".vg-replay").hidden = false; $(".vg-replaybtn").setAttribute("aria-pressed", "true"); syncToolsBtn(); $(".vg-replaybtn").innerHTML = icon("stop");
-    rebuild(false); kick();
+    else if (!isCosmos() && !mapView()) alpha = 0;   // hold the map still: notes appear where they live
+    fit(neural() ? n => !special(n) : mapView() ? mapFitPred() : null, 400);
+    replay = { order, shown: new Set(), k: 0, playing: false, t0: 0, k0: 0, dur: Math.max(6000, Math.min(20000, order.length * 25)), built: 0, laid: 0 };
+    const r = $(".vg-timebar input"); r.max = order.length; $(".vg-timebar").hidden = false; $$(".vg-timebtn").forEach(x => x.setAttribute("aria-pressed", "true")); syncToolsBtn();
+    playTime(true); dirty = true; kick();
   }
-  function stepReplay(now) {
-    const R = replay, p = Math.max(0, Math.min(1, (now - R.t0) / R.dur)), k = Math.ceil(p * R.order.length);
-    for (; R.k < k; R.k++) { R.shown.add(R.order[R.k]); popAt.set(R.order[R.k], now); }
-    if (now - R.built > 70 || p >= 1) {   // re-filter the drawn set a few times a second, not every frame
-      R.built = now; rebuild(false);
-      const last = byId[R.order[Math.max(0, R.k - 1)]], day = last && last.born;
-      $(".vg-replay-date").textContent = day ? new Date(day + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "";
-      $(".vg-replay-count").textContent = `${R.k} / ${R.order.length} notes`;
-      $(".vg-replay-bar i").style.width = (p * 100).toFixed(1) + "%";
-    }
-    if (p >= 1) setTimeout(() => { if (replay === R) stopReplay(); }, 900);
+  // Move to the point where the first k notes exist. From a play it pops the new ones in; a jump back rebuilds the set.
+  function timeTo(k, now) {
+    const R = replay; k = Math.max(0, Math.min(R.order.length, k));
+    if (k < R.k) { R.shown = new Set(R.order.slice(0, k)); R.k = k; }
+    for (; R.k < k; R.k++) { R.shown.add(R.order[R.k]); if (now) popAt.set(R.order[R.k], now); }
+    const last = byId[R.order[R.k - 1]], first = byId[R.order[0]];
+    st.timeAt = R.k >= R.order.length ? null : (last && last.born) || (R.k ? null : first.born);
   }
-  function stopReplay() {
+  function timeShow() {   // the bar and everything drawn from the state
+    const R = replay, day = st.timeAt, r = $(".vg-timebar input"); r.value = R.k;
+    $(".vg-time-label").textContent = `${day ? new Date(day + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Now"} · ${R.k} / ${R.order.length} notes`;
+    rebuild(false);
+  }
+  function playTime(on) {
+    const R = replay; R.playing = on; $(".vg-time-play").textContent = on ? "❚❚" : "▶"; $(".vg-time-play").setAttribute("aria-label", on ? "Pause" : "Play");
+    if (on) { if (R.k >= R.order.length) timeTo(0); R.k0 = R.k; R.t0 = performance.now() + (R.k ? 0 : 450); R.built = 0; timeShow(); kick(); }
+    else { popAt.clear(); timeShow(); renderToday(); }
+  }
+  function stepTime(now) {
+    const R = replay; if (!R.playing) return;
+    const span = R.order.length - R.k0, p = Math.max(0, Math.min(1, (now - R.t0) / (R.dur * span / R.order.length || 1)));
+    timeTo(R.k0 + Math.ceil(p * span), now);
+    const gap = isCosmos() ? 250 : mapView() ? 120 : 70;   // re-filter the drawn set a few times a second, not every frame
+    if (now - R.built > gap || p >= 1) { R.built = now; timeShow();
+      if (mapView() && now - R.laid > 700) { R.laid = now; applyMapLayout(false); renderToday(); } }   // views that draw their own history (the strip too)
+    if (p >= 1) playTime(false);
+  }
+  function stopTime() {
     if (!replay) return;
-    replay = null; popAt.clear();
-    $(".vg-replay").hidden = true; $(".vg-replaybtn").setAttribute("aria-pressed", "false"); syncToolsBtn(); $(".vg-replaybtn").innerHTML = icon("play");
-    rebuild(false); dirty = true; kick();
+    replay = null; st.timeAt = null; popAt.clear();
+    $(".vg-timebar").hidden = true; $$(".vg-timebtn").forEach(x => x.setAttribute("aria-pressed", "false")); syncToolsBtn();
+    rebuild(false); renderToday(); dirty = true; kick();
   }
-  $(".vg-replaybtn").onclick = () => toggleReplay();
-  $(".vg-replay-stop").onclick = () => stopReplay();
-  function toggleTimebar(on) {
-    const bar = $(".vg-timebar"); bar.hidden = !on; $$(".vg-timebtn").forEach(x => x.setAttribute("aria-pressed", on)); syncToolsBtn();
-    if (!on) { clearInterval(timePlay); timePlay = 0; setTime(null); return; }
-    const r = bar.querySelector("input"); r.max = Math.max(0, timeMonths.length - 1); r.value = r.max; setTime(null);
-  }
-  $(".vg-timebar input").oninput = e => setTime(+e.target.value);
-  $(".vg-time-play").onclick = () => {
-    const r = $(".vg-timebar input");
-    if (timePlay) { clearInterval(timePlay); timePlay = 0; $(".vg-time-play").textContent = "▶"; return; }
-    if (+r.value >= +r.max) r.value = 0;
-    $(".vg-time-play").textContent = "❚❚";
-    timePlay = setInterval(() => { r.value = +r.value + 1; setTime(+r.value); if (+r.value >= +r.max) { clearInterval(timePlay); timePlay = 0; $(".vg-time-play").textContent = "▶"; } }, 700);
-  };
-  $$(".vg-timebtn").forEach(b => b.onclick = () => toggleTimebar($(".vg-timebar").hidden));
+  const toggleTime = () => { if (replay) stopTime(); else startTime(); };
+  $(".vg-timebar input").oninput = e => { if (!replay) return; if (replay.playing) { replay.playing = false; $(".vg-time-play").textContent = "▶"; } popAt.clear(); timeTo(+e.target.value); timeShow(); };
+  $(".vg-time-play").onclick = () => { if (replay) playTime(!replay.playing); };
+  $(".vg-time-close").onclick = () => stopTime();
+  $$(".vg-timebtn").forEach(b => b.onclick = () => toggleTime());
   $$(".vg-shipbtn").forEach(b => b.onclick = () => setShip(!st.ship));
   $$(".vg-pausebtn").forEach(b => b.onclick = () => setPaused(!st.paused));
   $(".vg-pausepill").onclick = () => setPaused(false);

@@ -75,8 +75,7 @@ async function tidy(ctx) {
   if (!ctx.select) { const x = [...doc().querySelectorAll(".vg-ins-close")].find(visible); if (x) { x.click(); await sleep(120); } }
   if (!ctx.picker && !doc().querySelector(".vg-picker").hidden) { doc().querySelector(".vg-picker-scrim").click(); await sleep(60); }
   if (!ctx.lens && !doc().querySelector(".vg-lens").hidden) { doc().querySelector(".vg-lens-close").click(); await sleep(60); }
-  if (!doc().querySelector(".vg-timebar").hidden) { doc().querySelector(".vg-maptime").click(); await sleep(60); }
-  const rs = doc().querySelector(".vg-replay:not([hidden]) .vg-replay-stop"); if (rs) { rs.click(); await sleep(60); }
+  if (!doc().querySelector(".vg-timebar").hidden) { doc().querySelector(".vg-time-close").click(); await sleep(60); }
   const pal = doc().querySelector(".vg-palette:not([hidden])"); if (pal) { root().dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await sleep(60); }
 }
 // the side panels are a drawer over the view in a narrow pane (beside it otherwise): the toggle opens and closes it

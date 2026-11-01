@@ -14,7 +14,7 @@ function run(options = {}) {
       if (args[0] === "remote") return { status: 0, stdout: "https://github.com/owner/repo.git" };
       if (args[0] === "merge-base" && options.behind) return { status: 1, stderr: "remote main is not an ancestor" };
     }
-    if (args.some(arg => String(arg).endsWith("tests/run.js")) && options.failedTests)
+    if (args.some(arg => String(arg).replace(/\\/g, "/").endsWith("tests/run.js")) && options.failedTests)
       return { status: null, error: new Error("could not start tests") };
     return { status: 0, stdout: "" };
   };

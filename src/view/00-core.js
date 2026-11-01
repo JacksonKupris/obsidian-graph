@@ -272,8 +272,7 @@ function mountVaultGraph(root, DATA, opts) {
         <button class="vg-dockbtn vg-warpbtn" title="Time warp: how fast orbits run"><span class="vg-warpval">1×</span>Warp</button>
       </div>
       <button class="vg-pausepill" hidden>❚❚ PAUSED · RESUME</button>
-      <div class="vg-replay" hidden><b class="vg-replay-date"></b><span class="vg-replay-count"></span><span class="vg-replay-bar"><i></i></span><button class="vg-replay-stop">${icon("stop", 12)} Stop</button></div>
-      <div class="vg-timebar" hidden><button class="vg-time-play" aria-label="Play">▶</button><input type="range" min="0" value="0" step="1" aria-label="Date"><b class="vg-time-label">Now</b></div>
+      <div class="vg-timebar" hidden><button class="vg-time-play" aria-label="Play">▶</button><input type="range" min="0" value="0" step="1" aria-label="Date"><b class="vg-time-label">Now</b><button class="vg-ibtn vg-time-close" aria-label="Close time-lapse" title="Back to now">✕</button></div>
       <div class="vg-missions"></div>
       <div class="vg-toolbar" role="toolbar" aria-label="Graph controls">
         <button class="vg-ibtn vg-toggle" aria-label="Toggle panels" title="Toggle panels">${icon("menu")}</button>
@@ -283,13 +282,12 @@ function mountVaultGraph(root, DATA, opts) {
           <button class="vg-ibtn vg-pickbtn" aria-haspopup="dialog" aria-expanded="false" title="Views, lenses and styles (M)"><span class="vg-pickicon">${icon("hub", 16)}</span><span class="vg-pickname">2D</span><span class="vg-caret" aria-hidden="true">▾</span></button>
         </div>
         <button class="vg-ibtn vg-anglebtn" hidden title="Camera angle: flat, tilt or iso (3)">${icon("layers")}<span class="vg-tlabel">Iso</span></button>
-        <div class="vg-menuwrap"><button class="vg-ibtn vg-toolsbtn" aria-haspopup="menu" aria-expanded="false" aria-pressed="false" title="Select, replay, save, time-lapse">${icon("layers")}<span class="vg-tlabel">Tools</span><span class="vg-caret" aria-hidden="true">▾</span></button>
+        <div class="vg-menuwrap"><button class="vg-ibtn vg-toolsbtn" aria-haspopup="menu" aria-expanded="false" aria-pressed="false" title="Select, save, time-lapse">${icon("layers")}<span class="vg-tlabel">Tools</span><span class="vg-caret" aria-hidden="true">▾</span></button>
           <div class="vg-menu vg-toolsmenu" role="menu" hidden></div></div>
         <span class="vg-toolsrc" hidden>   <!-- the tools themselves: the Tools menu and the phone's picker sheet press these -->
           <button class="vg-ibtn vg-lassobtn" aria-pressed="false" title="Lasso: drag a box to select notes (or Alt-drag)">${icon("lasso")}<span class="vg-tlabel">Select</span></button>
-          <button class="vg-ibtn vg-replaybtn" aria-pressed="false" title="Replay: watch the vault grow, note by note (R)">${icon("play")}<span class="vg-tlabel">Replay</span></button>
           <button class="vg-ibtn vg-savebtn" title="Save this view (it appears under Saved, and as a constellation in Cosmos)">${icon("star")}<span class="vg-tlabel">Save view</span></button>
-          <button class="vg-ibtn vg-timebtn vg-maptime" aria-pressed="false" title="Time-lapse: the vault as it was, month by month (T)">${icon("clock")}<span class="vg-tlabel">Time-lapse</span></button>
+          <button class="vg-ibtn vg-timebtn vg-maptime" aria-pressed="false" title="Time-lapse: the vault as it was, note by note (T)">${icon("clock")}<span class="vg-tlabel">Time-lapse</span></button>
         </span>
         <button class="vg-ibtn vg-gamebtn" aria-pressed="false" title="Today (G)" aria-label="Today">${icon("flag")}<span class="vg-tlabel">Today</span></button>
         <span class="vg-spacer"></span>
@@ -400,7 +398,7 @@ function mountVaultGraph(root, DATA, opts) {
   const isCosmos = () => st.view === "cosmos";
 
   const baseVisible = n => !st.hidden.has(n.id) && !st.hiddenClusters.has(n.cluster) && (st.isolated || !n.isolated || isCosmos())
-    && !(st.leaves && leafOf[n.id]) && (!n.person || st.layers.people) && (!n.ghost || st.layers.wanted || isCosmos()) && (!n.moc || st.layers.mocs) && (!st.timeAt || !n.born || n.born <= st.timeAt) && (!replay || replay.shown.has(n.id));
+    && !(st.leaves && leafOf[n.id]) && (!n.person || st.layers.people) && (!n.ghost || st.layers.wanted || isCosmos()) && (!n.moc || st.layers.mocs) && (!replay || replay.shown.has(n.id));
   const visible = n => baseVisible(n) && (!st.focusDist || st.focusDist.has(n.id));
   const kindVisible = k => k === "link" || ((k === "gap" || k === "similar") && st.gaps) || (k === "person" && st.layers.people) || (k === "wanted" && st.layers.wanted) || (k === "moc" && st.layers.mocs);
   let active = [], visLinks = [], visSet = new Set();
@@ -440,15 +438,15 @@ function mountVaultGraph(root, DATA, opts) {
     labelled = active.filter(n => !special(n) && metric(n) > 0).sort((a, b) => metric(b) - metric(a)).slice(0, UI.size.labelTop).map(n => n.id);
     if (st.selected && !ids.has(st.selected)) select(null);
     if (reheat && !neural() && !mapView()) alpha = Math.max(alpha, 0.5);
-    if (neural() && !replay) brainLayout(false);
-    if (mapView() && !morph && !replay) applyMapLayout(false);
+    if (neural() && !(replay && replay.playing)) brainLayout(false);
+    if (mapView() && !(replay && replay.playing)) { if (morph) layoutDue = true; else applyMapLayout(false); }   // mid-transition: when it lands
     if (isCosmos()) cosmosCapture();
     renderLegend(); renderStatus(); renderHud();
     dirty = true; kick();
   }
   // Replay: notes appear in the order they were first written, like Obsidian's own graph animation.
   // Each one pops in (overshoots a little, then settles) as it arrives.
-  let replay = null;
+  let replay = null, layoutDue = false;
   const popAt = new Map();
   const popScale = n => {
     const t = popAt.get(n.id); if (t == null) return 1;

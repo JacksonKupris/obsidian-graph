@@ -769,16 +769,8 @@
 .vg-pausepill { display: none; }
 .is-cosmos .vg-pausepill:not([hidden]) { display: inline-flex; position: absolute; z-index: 4; left: 50%; transform: translateX(-50%); top: var(--vg-under-bar);
   padding: 5px 12px; border-radius: 99px; font: 700 11px var(--vg-mono); letter-spacing: .1em; color: #1a1205; background: #fbbf24; box-shadow: 0 4px 16px rgba(0, 0, 0, .4); }
-/* replay: the vault growing note by note */
-.vg-replay { position: absolute; z-index: 4; left: 50%; transform: translateX(-50%); top: var(--vg-under-bar); display: flex; gap: 10px; align-items: center;
   padding: 6px 8px 6px 14px; border-radius: 99px; background: color-mix(in srgb, var(--vg-panel) 88%, transparent); border: 1px solid var(--vg-line);
   box-shadow: var(--vg-shadow-sm); font-size: var(--vg-fs-sm); backdrop-filter: blur(6px); }
-.vg-replay-date { font-variant-numeric: tabular-nums; min-width: 92px; }
-.vg-replay-count { color: var(--vg-muted); font-size: var(--vg-fs-xs); font-variant-numeric: tabular-nums; min-width: 96px; }
-.vg-replay-bar { width: 120px; height: 4px; border-radius: 99px; background: var(--vg-hover); overflow: hidden; }
-.vg-replay-bar i { display: block; height: 100%; width: 0; background: var(--vg-accent); }
-.vg-root .vg-replay-stop { display: inline-flex; gap: 4px; align-items: center; padding: 3px 10px; border-radius: 99px; background: var(--vg-hover); font-size: var(--vg-fs-xs); }
-.vg-root .vg-replay-stop:hover { background: var(--vg-raised); }
 .vg-physline { font: 500 10.5px/1.5 var(--vg-mono); padding: 6px 8px; margin: 8px 0; border-radius: var(--vg-r-sm); background: var(--vg-hover); }
 .vg-warpval { font-size: 13px !important; font-weight: 700; }
 
@@ -1006,3 +998,10 @@
 .vg-toolbar > .vg-menuwrap { min-width: 0; flex: 0 1 auto; }
 .vg-root .vg-pickbtn { max-width: 100%; overflow: hidden; }
 .vg-root .vg-pickname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Dungeon: the game takes the whole pane while it is being played; the graph's controls come back on pause */
+.vg-root[data-map="dungeon"] .vg-cv { cursor: crosshair; }
+.vg-root.is-playing .vg-side, .vg-root.is-playing .vg-toolbar, .vg-root.is-playing .vg-today, .vg-root.is-playing .vg-missions, .vg-root.is-playing .vg-legend, .vg-root.is-playing .vg-status, .vg-root.is-playing .vg-hud, .vg-root.is-playing .vg-cycle, .vg-root.is-playing .vg-inspector { display: none !important; }
+.vg-root.is-playing .vg-cv { cursor: none; }
+body:has(.vg-root.is-playing) .status-bar { display: none; }
+.vg-root.is-playing .vg-app { grid-template-columns: minmax(0, 1fr) !important; }

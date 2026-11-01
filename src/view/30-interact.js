@@ -18,10 +18,10 @@
         const a = morph.from.get(n.id), b = morph.to.get(n.id);
         n.x = a[0] + (b[0] - a[0]) * e; n.y = a[1] + (b[1] - a[1]) * e; n.z = a[2] + (b[2] - a[2]) * e;
       }
-      if (u >= 1) { morph = null; if (!neural()) alpha = Math.max(alpha, 0.04); }
+      if (u >= 1) { morph = null; if (!neural()) alpha = Math.max(alpha, 0.04); if (layoutDue) { layoutDue = false; if (mapView()) applyMapLayout(false); } }
       more = true; dirty = true;
     }
-    if (replay) { stepReplay(now); more = true; dirty = true; }
+    if (replay && replay.playing) { stepTime(now); more = true; dirty = true; }
     if (isCosmos() && !morph) alpha = Math.max(alpha, 0.1);   // orbits keep moving
     if (alpha > 0.005 && !neural() && !mapView() && !(isCosmos() && st.paused)) {
       tick(); more = true; dirty = true;
@@ -43,7 +43,7 @@
     if (isCosmos()) { dirty = true; more = true; if (st.ship) shipStep(); }
     // Animated maps (radar sweep, ships, wind, twinkling, swaying plants, pulses) redrew only on input, so they
     // jumped. Like neural: a steady budget while visible, full rate while moving, 3 fps when Obsidian isn't focused.
-    const animFps = mapView() && !reducedMotion() ? ANIM_MAPS[st.view] || 0 : 0;
+    const animFps = mapView() && (!reducedMotion() || (SCENES[st.view] && SCENES[st.view].game)) ? ANIM_MAPS[st.view] || 0 : 0;
     if (animFps) {
       const busy = morph || tween || drag, fps = busy ? 0 : !document.hasFocus() ? 3 : opts.compact ? Math.min(15, animFps) : animFps;
       if (!fps || now - lastMapAnim >= 1000 / fps - 2) { lastMapAnim = now; dirty = true; }
@@ -120,7 +120,11 @@
   }
   let drag = null, pinch = null, lastTap = null, pressTimer = 0;
   const pointers = new Map();
+  // A scene that owns the canvas outright (a game: several fingers, a captured mouse) gets the raw events first. Before
+  // setPointerCapture, which throws while the mouse is locked to the canvas.
+  const scenePointer = (phase, e) => { const d = SCENES[st.view]; return !!(d && d.pointer && d.pointer(phase, e, ...local(e))); };
   cv.addEventListener("pointerdown", e => {
+    if (scenePointer("down", e)) { root.focus({ preventScroll: true }); closeMenu(); closeDrawer(); lastInteract = performance.now(); return; }
     cv.setPointerCapture(e.pointerId); root.focus({ preventScroll: true }); closeMenu();
     lastInteract = performance.now();
     closeDrawer();   // tapping the graph closes the drawer
@@ -145,6 +149,7 @@
     }
   });
   cv.addEventListener("pointermove", e => {
+    if (scenePointer("move", e)) return;
     const [x, y] = local(e);
     if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x, y });
     if (pressing && SCENES[st.view] && SCENES[st.view].press) { SCENES[st.view].press("move", x, y); dirty = true; kick(); return; }
@@ -206,8 +211,9 @@
     return false;
   };
   cv.addEventListener("pointerleave", e => { tip.classList.remove("is-on"); if (st.hover) { st.hover = null; dirty = true; kick(); } });
-  cv.addEventListener("pointercancel", e => { endPointer(e); drag = null; clearTimeout(pressTimer); root.classList.remove("is-dragging"); });
+  cv.addEventListener("pointercancel", e => { if (scenePointer("cancel", e)) return; endPointer(e); drag = null; clearTimeout(pressTimer); root.classList.remove("is-dragging"); });
   cv.addEventListener("pointerup", e => {
+    if (scenePointer("up", e)) return;
     clearTimeout(pressTimer);
     if (pressing) { pressing = false; if (SCENES[st.view] && SCENES[st.view].press) SCENES[st.view].press("up", ...local(e)); endPointer(e); drag = null; return; }
     if (endPointer(e)) return;
@@ -241,11 +247,13 @@
     select(n.id);
   });
   cv.addEventListener("dblclick", e => {
+    if (SCENES[st.view] && SCENES[st.view].pointer) return;
     const [x, y] = local(e), n = hit(x, y);
     if (n && !special(n) && st.focus !== n.id) enterFocus(n.id);
     else if (!n) fit(st.focusDist ? m => st.focusDist.has(m.id) : lastFit, 400);   // empty space: recenter
   });   // touch already focused on double-tap
   cv.addEventListener("wheel", e => {
+    if (SCENES[st.view] && SCENES[st.view].wheel && !opts.embed) { e.preventDefault(); SCENES[st.view].wheel(e); return; }
     if (opts.embed && !e.ctrlKey && !e.metaKey) return;   // let the note scroll
     e.preventDefault(); tween = null; lastInteract = performance.now();
     const [mx, my] = local(e), k = Math.min(12, Math.max(0.03, cam.k * Math.exp(-e.deltaY * 0.0015))), r = k / cam.k;
@@ -293,11 +301,23 @@
   }
 
   // ---------------------------------------------------------------- keyboard
-  root.addEventListener("keyup", e => { const d = SCENES[st.view]; if (d && d.key) d.key(e.key.toLowerCase(), false); });
+  // Keys held to move (the Dungeon's walk, the Cosmos ship) are let go wherever the key comes up: the keyup can land
+  // outside the graph (the inspector or another window has focus), which left the walker walking. Losing the window,
+  // hiding the tab or changing view lets go of all of them. Each owner says how: holdKeys({ up(key), all() }).
+  const held = [], win = root.ownerDocument.defaultView || window;
+  function holdKeys(o) { held.push(o); }
+  function releaseKeys() { held.forEach(o => o.all()); }
+  const keyUp = e => { const k = e.key.toLowerCase(); held.forEach(o => o.up(k)); };
+  const onHidden = () => { if (root.ownerDocument.hidden) releaseKeys(); };
+  win.addEventListener("keyup", keyUp, true); win.addEventListener("blur", releaseKeys);
+  root.ownerDocument.addEventListener("visibilitychange", onHidden);   // all three removed in destroy()
+  holdKeys({ up: k => { const d = SCENES[st.view]; if (d && d.key) d.key(k, false); },
+    all: () => Object.values(SCENES).forEach(d => d.release && d.release()) });
   root.addEventListener("keydown", e => {
     const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName);
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
     if (e.key === "Escape") {
+      if (SCENES[st.view] && SCENES[st.view].escape && SCENES[st.view].escape()) { e.stopPropagation(); return; }
       if (tourIdx >= 0) endTour();
       else if (closeTools()) { $(".vg-toolsbtn").focus(); }
       else if (!$(".vg-palette").hidden) { closePalette(); }
@@ -324,7 +344,7 @@
   // Every keyboard shortcut, once: the handler above runs them and the shortcuts sheet (?) lists them, so the two can't
   // disagree. keys[0] is the key matched unless match() says otherwise; an entry without run() is only listed.
   const KEYS = [
-    { keys: ["W A S D", "Space"], label: "Walk and attack (Dungeon)", prevent: true, match: e => !!(SCENES[st.view] && SCENES[st.view].keys && SCENES[st.view].keys.test(e.key.toLowerCase())),
+    { keys: ["W A S D", "Space", "1-6"], label: "Move, shoot, change gun (Dungeon)", prevent: true, match: e => !e.ctrlKey && !e.metaKey && !!(SCENES[st.view] && SCENES[st.view].keys && SCENES[st.view].keys.test(e.key.toLowerCase())),
       run: e => { SCENES[st.view].key(e.key.toLowerCase(), true); kick(); } },
     { keys: ["W A S D", "Q E"], label: "Fly the ship (Cosmos, ship on)", prevent: true, match: e => st.ship && isCosmos() && /^(w|a|s|d|q|e|arrowup|arrowdown|arrowleft|arrowright)$/.test(e.key.toLowerCase()),
       run: e => { ship.keys.add(e.key.toLowerCase()); kick(); } },
@@ -340,8 +360,7 @@
     { keys: ["3"], label: "Switch 2D and 3D (in a 3D scene: flat, tilt, iso)", run: () => isoAngle() ? cycleAngle() : setView(st.view === "3d" ? "2d" : "3d") },
     { keys: ["N"], label: "Neural view", run: () => setView(neural() ? "3d" : "neural") },
     { keys: ["C"], label: "Cosmos view", run: () => setView(isCosmos() ? "2d" : "cosmos") },
-    { keys: ["R"], label: "Replay how the vault grew", run: () => toggleReplay() },
-    { keys: ["T"], label: "Time slider", run: () => toggleTimebar($(".vg-timebar").hidden) },
+    { keys: ["T"], label: "Time-lapse: the vault as it grew", run: () => toggleTime() },
     { keys: ["G"], label: "Today", when: () => !opts.compact, run: () => setMissionsShown(!root.classList.contains("show-missions"), true) },
     { keys: ["Space"], label: "Pause or play (Cosmos)", prevent: true, match: e => e.key === " ", when: () => isCosmos(), run: () => setPaused(!st.paused) },
     { keys: ["?"], label: "This list", match: e => e.key === "?", run: () => showKeys() },

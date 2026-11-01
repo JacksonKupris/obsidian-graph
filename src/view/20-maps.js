@@ -5,6 +5,8 @@
   // A scene registers everything about itself in one call, in its own file (_scripts/vault_graph_scenes/*.js, put here by
   // the build): scene(key, { name, icon, blurb, toast, layout(geo) -> { pos: Map(id -> [x, y]), ... }, draw(now), fps,
   // iso ("iso" | "tilt": drawn with isoKit, framed to match), press(phase, x, y) -> true (takes a drag off the notes, e.g. painting),
+  // pointer(phase, event, x, y) -> true, wheel(event), escape() -> true, game: true (a game owns the canvas: raw pointers, keeps
+  // running under reduced motion, no time-lapse),
   // fit(n) -> bool (what "fit" frames), lit(id) -> Set|null (what selecting a note lights), legend(item) -> html,
   // today() -> { text, label, run } | null }. The tables below (names, picker tiles, layouts, drawing, animation,
   // legend, today strip, toast) read it, so a new scene touches no other code.
@@ -768,7 +770,7 @@
     ctx.globalAlpha = 1;
     // town halls: each district's map stands in its plaza (click it like any note); no map = an empty plaza with a sign
     C.districts.forEach(d => { if (d.c < 0) return; const [x, y] = pt(d.bx + d.w / 2, d.by + d.h - 0.55, 0), s = Math.max(4, 9 * k);
-      if (!d.hall) return;   // its "no map yet" sign goes with the names below
+      if (!d.hall || !mapShown(byId[d.hall])) return;   // its "no map yet" sign goes with the names below
       ctx.globalAlpha = !litSet || litSet.has(d.hall) ? 1 : 0.3;
       ctx.fillStyle = "#e5e7eb"; ctx.fillRect(x - s, y - s * 1.1, s * 2, s * 1.1);
       ctx.fillStyle = "#cbd5e1"; ctx.beginPath(); ctx.arc(x, y - s * 1.1, s * 0.75, Math.PI, 0); ctx.fill();
