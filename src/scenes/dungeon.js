@@ -527,7 +527,7 @@
   const dim = a => { ctx.fillStyle = `rgba(12,10,9,${a})`; ctx.fillRect(0, 0, W, H); };
   function buttonRow(y, h, defs) { const gap = 12, w = Math.min(240, (W - 32 - gap * (defs.length - 1)) / defs.length), tw = w * defs.length + gap * (defs.length - 1); defs.forEach(([label, run, primary], i) => button((W - tw) / 2 + i * (w + gap), y, w, h, label, run, primary)); }
   function drawTitle(font) {
-    dim(0.62); const ls = levelList(), small = H < 620 || W < 620, big = Math.min(small ? 54 : 96, W / 7); let y = small ? big + 10 : H * 0.2;
+    dim(0.62); const ls = levelList(), small = H < 620 || W < 620, big = Math.min(small ? 54 : 96, W / 7); let y = small ? big + 62 : H * 0.2;   // on a phone, clear of the toolbar
     text("DUNGEON", W / 2, y, big, "#ef4444", "center"); y += small ? 22 : 34;
     if (!ls.length) { text("No notes yet.", W / 2, y, 16, "#e7e5e4", "center", font); return; }
     const total = ls.reduce((s, l) => s + l.notes.length, 0); text(`${plural(total, "note")} · ${plural(ls.length, "level")}${G.best ? ` · best ${G.best}` : ""}`, W / 2, y, small ? 13 : 16, "#e7e5e4", "center", font); y += small ? 14 : 26;
