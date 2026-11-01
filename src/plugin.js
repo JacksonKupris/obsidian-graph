@@ -1,6 +1,6 @@
-// vault_graph_plugin.js - Obsidian plugin shell for the Vault Graph.
-// Bundled with the force-graph library and vault_graph_view.js into .obsidian/plugins/jk-vault-graph/main.js
-// by `python _scripts/vault_graph.py --build-plugin`. Edit here, never the generated main.js.
+// plugin.js - Obsidian plugin shell for the Vault Graph.
+// Bundled with the rules, engine and view into main.js by `npm run build` (build.js); releases ship it (RELEASING.md).
+// Edit here, never a generated main.js.
 const { Plugin, ItemView, Notice, PluginSettingTab, Setting, Platform, TFile, normalizePath, MarkdownRenderChild, parseYaml, moment } = require("obsidian");
 
 const VIEW_TYPE = "vault-graph";
@@ -698,6 +698,18 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // The outermost action opens an undo entry; actions it calls (addToMap -> appendSection) add to it. Two actions
   // running at the same moment share one entry, so undoing it undoes both.
   pythonCmd() { return this.settings.python || (process.platform === "win32" ? "python" : "python3"); }   // the setting, else the platform's
+  // Run one of the vault's Python scripts: the one way the plugin starts Python, so every failure reads the same.
+  // Resolves stdout; rejects with an Error whose message says what went wrong in words (no Python, timed out, its error).
+  runPython(script, args = []) {
+    const { execFile } = require("child_process"), python = this.pythonCmd();
+    return new Promise((resolve, reject) => execFile(python, [script, ...args], { cwd: this.app.vault.adapter.getBasePath(), timeout: 300000 }, (err, stdout, stderr) => {
+      if (!err) return resolve(stdout || "");
+      const why = err.code === "ENOENT" ? `"${python}" wasn't found. Install Python 3, or set its command in Settings > Vault Graph > Python command`
+        : err.killed ? "it ran for 5 minutes without finishing"
+        : (String(stderr || "").trim().split(/\r?\n/).pop() || err.message);
+      reject(new Error(why.slice(0, 300)));
+    }));
+  }
 
   wrapWriteActions() {
     this.undoLog = []; this.undoSeq = 0;
@@ -892,14 +904,11 @@ module.exports = class VaultGraphPlugin extends Plugin {
     }
     this.refreshing = true;
     this.updateStatus();
-    const { execFile } = require("child_process");
-    const python = this.pythonCmd();
     if (!quiet) new Notice("Vault Graph: analysing the vault…");
-    execFile(python, [this.settings.script], { cwd: this.app.vault.adapter.getBasePath(), timeout: 300000 },
-      (err, stdout, stderr) => {
+    this.runPython(this.settings.script).then(stdout => [null, stdout], err => [err, ""]).then(([err, stdout]) => {
         this.refreshing = false;
         if (this.queued) { this.queued = false; this.scheduleAutoRefresh(); }   // edits made while it ran
-        if (err) { new Notice(`Vault Graph refresh failed: ${(stderr || err.message).slice(0, 300)}`, 10000); this.updateStatus(); return; }
+        if (err) { new Notice(`Vault Graph refresh failed: ${err.message}`, 10000); this.updateStatus(); return; }
         const kept = (stdout || "").match(/^Kept \S+ from (\S+):/m);   // vault_graph.newer_analysis: another PC's is newer
         if (!quiet) new Notice(kept ? `Vault Graph: kept the analysis from ${kept[1]}, built from newer notes` : "Vault Graph refreshed");
         this.base = null; this.cache = null;
@@ -1041,8 +1050,10 @@ module.exports = class VaultGraphPlugin extends Plugin {
       const name = path.split("/").pop().replace(/\.md$/, "");
       const existing = file instanceof TFile ? file : this.app.metadataCache.getFirstLinkpathDest(name, "");
       if (existing instanceof TFile) {
-        const text = await this.app.vault.read(existing), cut = md.indexOf(MARKER), at = text.indexOf(MARKER);
-        if (at >= 0 && cut >= 0) await this.ioModify(existing, text.slice(0, at) + md.slice(cut));
+        // the part from the marker down is regenerated inside one read-and-write (vault.process), so text typed into
+        // the note meanwhile isn't lost; a note without the marker isn't Vault Graph's and is left alone
+        const cut = md.indexOf(MARKER), ours = cut >= 0 && (await this.app.vault.cachedRead(existing)).includes(MARKER);
+        if (ours) await this.ioProcess(existing, text => { const at = text.indexOf(MARKER); return at >= 0 ? text.slice(0, at) + md.slice(cut) : text; });
         else new Notice(`${existing.basename} already exists — opened it instead of making a copy`);
         if (o.open) await this.app.workspace.getLeaf("tab").openFile(existing);
         return existing.path;
@@ -1604,7 +1615,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
   async setRule(keys, value) {
     const p = normalizePath(this.settings.rulesPath);
     let text = null; try { text = await this.app.vault.adapter.read(p); } catch (e) { /* first rule: a new file */ }
-    const obj = text ? JSON.parse(text) : {};
+    let obj = {};   // a file that isn't valid JSON (mid-edit) is left as it is; the caller reports why nothing was saved
+    if (text) try { obj = JSON.parse(text); } catch (e) { throw new Error(`${p} isn't valid JSON (${e.message}); fix the file first`); }
     let o = obj; keys.slice(0, -1).forEach(k => { o = o[k] = o[k] && typeof o[k] === "object" ? o[k] : {}; }); o[keys[keys.length - 1]] = value;
     let out = null;
     if (text) {
@@ -1782,13 +1794,12 @@ module.exports = class VaultGraphPlugin extends Plugin {
     });
   }
   applyMocReport() {
-    return this.mocReportFile().then(file => new Promise((resolve, reject) => {
-      if (!file) return reject(new Error("no report"));
-      const { execFile } = require("child_process");
-      const python = this.pythonCmd();
-      execFile(python, [this.settings.script.replace("vault_graph.py", "moc_align.py"), "--apply", file.path], { cwd: this.app.vault.adapter.getBasePath(), timeout: 300000 },
-        (err, stdout, stderr) => { if (err) { new Notice(`MOC apply failed: ${(stderr || err.message).slice(0, 300)}`, 10000); reject(err); } else { new Notice("MOC alignment applied:\n" + stdout.slice(0, 400), 8000); resolve(stdout); } });
-    }));
+    return this.mocReportFile().then(file => {
+      if (!file) throw new Error("no report");
+      return this.runPython(this.settings.script.replace("vault_graph.py", "moc_align.py"), ["--apply", file.path]).then(
+        stdout => { new Notice("MOC alignment applied:\n" + stdout.slice(0, 400), 8000); return stdout; },
+        err => { new Notice(`MOC apply failed: ${err.message}`, 10000); throw err; });
+    });
   }
 
   async saveBinary(notePath, buf) {

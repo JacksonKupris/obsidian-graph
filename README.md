@@ -48,7 +48,14 @@ npm test                      # build + rules/code checks + every view and lens 
 npm run test:vault            # the same on a real vault (local.json's "vault", or --vault <dir>)
 npm run build                 # dist/: main.js, styles.css, manifest.json, rules.js, engine.js (sample rules)
 npm run deploy                # test on the vault, install the analysis and its check files there (--plugin: this build too, until the next release)
-npm run release [-- minor]    # bump, test, tag and push; CI publishes the release, then BRAT installs it in a running Obsidian
+npm run release [-- minor]    # bump, test, tag and push from main; CI publishes the release, then it's installed in local.json's vault
+npm run sync                  # this computer and GitHub the same, on any branch (before work, after each commit)
+npm run install-release       # install the latest release (or -- 0.6.15, -- --vault <dir>) into a vault
+```
+
+Setting up a computer, branches and pull requests, `npm run sync`: [CONTRIBUTING.md](CONTRIBUTING.md). Releasing, failed runs and working offline: [RELEASING.md](RELEASING.md).
+
+```sh
 npm run page -- --data <graph.json> [--rules <file>]   # the standalone graph page, in .out/
 npm run sample -- --analyse   # regenerate fixtures/ with analysis/ (uses the vault's _System/vault_lib.py)
 ```

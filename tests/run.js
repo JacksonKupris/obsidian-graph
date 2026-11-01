@@ -14,7 +14,7 @@ const steps = [["main.js", ["--check", path.join(dir, "main.js")]], ["rules.js",
   ["test_release.js", [path.join(__dirname, "test_release.js")]],
   ["test_fixture_dates.js", [path.join(__dirname, "test_fixture_dates.js"), ...env.args]],
   ["test_rules.js", [path.join(__dirname, "test_rules.js"), ...env.args]], ["test_cdp.js", [path.join(__dirname, "test_cdp.js")]], ["test_plugin_rules.js", [path.join(__dirname, "test_plugin_rules.js")]], ["test_engine.js", [path.join(__dirname, "test_engine.js")]], ["test_engine_data.js", [path.join(__dirname, "test_engine_data.js")]],
-  ["test_cosmos_capture.js", [path.join(__dirname, "test_cosmos_capture.js")]],
+  ["test_cosmos_capture.js", [path.join(__dirname, "test_cosmos_capture.js")]], ["test_sync.js", [path.join(__dirname, "test_sync.js")]],
   ["test_pick.js", [path.join(__dirname, "test_pick.js"), ...env.args]], ["test_today.js", [path.join(__dirname, "test_today.js"), ...env.args]],
   ["test_hq_plugin.js", [path.join(__dirname, "test_hq_plugin.js"), ...env.args]], ["test_hq.js", [path.join(__dirname, "test_hq.js"), ...env.args]],
   ["test_hq_daily.js", [path.join(__dirname, "test_hq_daily.js"), ...env.args]],
@@ -22,7 +22,7 @@ const steps = [["main.js", ["--check", path.join(dir, "main.js")]], ["rules.js",
   ["test_hq_improvements.js", [path.join(__dirname, "test_hq_improvements.js"), ...env.args]],
   ["test_hq_usability.js", [path.join(__dirname, "test_hq_usability.js"), ...env.args]],
   ["smoke_page.js", [path.join(__dirname, "smoke_page.js"), ...env.args]]];
-let failed = 0;
+let failed = 0, skipped = 0;
 // the repo's manifest.json (what BRAT reads) is the one the build makes: same id, same version as package.json
 { const want = build.buildPlugin(build.loadRules())["manifest.json"];
   let got = ""; try { got = fs.readFileSync(path.join(build.ROOT, "manifest.json"), "utf8"); } catch (e) { /* missing */ }
@@ -36,7 +36,9 @@ for (const [name, args] of steps) {
   const out = [...((r.stdout || "").trim() || (r.stderr || "").trim() || "ok").split(/\r?\n/), ...why];
   console.log(`  ${bad ? "FAIL" : "test"}  ${name}: ${bad ? out.slice(-12).join("\n") : out[out.length - 1]}`);
   failed += bad ? 1 : 0;
+  skipped += /skipped: no Chrome/.test(r.stdout || "") ? 1 : 0;
 }
+if (skipped) console.log(`  note  ${skipped} browser tests skipped: no Chrome found (set CHROME_PATH to its program). GitHub runs them before it publishes.`);
 fs.rmSync(dir, { recursive: true, force: true });
 console.log(failed ? `${failed} failed (${env.VAULT ? env.VAULT : "sample vault"})` : `ok - ${env.VAULT ? env.VAULT : "sample vault"}`);
 process.exit(failed ? 1 : 0);

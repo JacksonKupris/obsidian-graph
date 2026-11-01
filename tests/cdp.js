@@ -10,8 +10,15 @@
 //   page.send(method, params) · page.ev(expr) -> value · page.waitFor(expr, limitMs) -> value | null · page.close()
 const fs = require("fs"), path = require("path"), { spawn, execFileSync } = require("child_process");
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const CHROME = ["C:/Program Files/Google/Chrome/Application/chrome.exe", "/usr/bin/google-chrome", "/usr/bin/chromium"].find(p => fs.existsSync(p));
-const OUT = path.join(__dirname, "..", ".out");
+// Chrome (or Chromium, or Edge, which speaks the same protocol) wherever this computer has it; CHROME_PATH overrides
+const CHROME = [process.env.CHROME_PATH,
+  "C:/Program Files/Google/Chrome/Application/chrome.exe", "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+  process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Google/Chrome/Application/chrome.exe"),
+  "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/Applications/Chromium.app/Contents/MacOS/Chromium",
+  "/usr/bin/google-chrome", "/usr/bin/google-chrome-stable", "/usr/bin/chromium", "/usr/bin/chromium-browser", "/snap/bin/chromium"]
+  .find(p => p && fs.existsSync(p));
+const OUT = path.join(__dirname, "..", ".out");   // inside the repo: a snap Chromium can't read the system temp folder
 
 // Obsidian's page on the phone, forwarded to port. A phone that just reconnected says "unauthorized" for a moment
 // while it re-checks this PC's key, so that's waited out.
@@ -32,18 +39,30 @@ async function open(o) {
   let proc = null, tmp = null, prof = null;
   if (o.phone) forwardPhone(port);
   else {
-    if (!CHROME) return null;
+    // here a test without Chrome skips (CI runs it before publishing); on CI that would publish it untested
+    if (!CHROME) { if (process.env.CI) throw new Error("no Chrome on this CI runner, so the browser tests can't run"); return null; }
     fs.mkdirSync(OUT, { recursive: true });
     const runId = `${process.pid}-${port}-${Date.now()}`;
     tmp = path.join(OUT, `vg-page-${runId}.html`); fs.writeFileSync(tmp, o.html);
     prof = path.join(OUT, `vg-prof-${runId}`); fs.mkdirSync(prof);
-    // CI runners (Ubuntu) block the user namespaces Chrome's sandbox needs
-    const ci = process.env.CI ? ["--no-sandbox"] : [];
-    proc = spawn(CHROME, ["--headless=new", "--disable-gpu", ...ci, "--window-size=1400,900", `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, "about:blank"], { stdio: "ignore" });
   }
+  // CI runners (Ubuntu) block the user namespaces Chrome's sandbox needs
+  const ci = process.env.CI ? ["--no-sandbox"] : [];
+  const launch = () => spawn(CHROME, ["--headless=new", "--disable-gpu", ...ci, "--window-size=1400,900", `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, "about:blank"], { stdio: "ignore" });
+  const findPage = async () => { try { return (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find(t => t.type === "page"); } catch (e) { return null; } };
+  // a cold Chrome on a CI runner sometimes never opens its port (failed the 0.6.11 release), so one that exited or
+  // hasn't answered in 20 s is started again, three tries in all
+  // the old one has to have exited before the next starts: it holds the profile folder until then
+  const stop = async () => { if (!proc || proc.exitCode !== null || proc.signalCode) return;
+    const exited = new Promise(r => proc.once("exit", r)); try { proc.kill(); } catch (e) {} await Promise.race([exited, sleep(5000)]); };
   let target;
-  for (let i = 0; i < 80 && !target; i++) { try { target = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find(t => t.type === "page"); } catch (e) {} if (!target) await sleep(250); }
-  if (!target) throw new Error(o.phone ? "the phone's Obsidian page isn't reachable" : "Chrome didn't start");
+  for (let tries = 0; tries < (o.phone ? 1 : 3) && !target; tries++) {
+    let dead = false;   // exited, or never started (a spawn error comes as an event, not an exit code)
+    if (!o.phone) { await stop(); proc = launch(); proc.once("error", () => { dead = true; }); proc.once("exit", () => { dead = true; }); }
+    for (let i = 0; i < 80 && !target; i++) { target = await findPage(); if (!target) { if (dead) break; await sleep(250); } }
+  }
+  if (!target) { await stop(); try { if (tmp) fs.unlinkSync(tmp); } catch (e) {}
+    throw new Error(o.phone ? "the phone's Obsidian page isn't reachable" : "Chrome didn't start (3 tries)"); }
   const ws = new WebSocket(target.webSocketDebuggerUrl); let id = 0, closing = false, gone = ""; const pending = new Map();
   ws.onmessage = msg => { const d = JSON.parse(msg.data);
     if (d.id && pending.has(d.id)) { pending.get(d.id)[0](d); pending.delete(d.id); }

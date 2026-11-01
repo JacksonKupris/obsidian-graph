@@ -1,0 +1,20 @@
+# The tests, once: on every pull request (its checks show on the PR before merging), every push to main, and called by
+# release.yml before it publishes. Failing test lines also go out as annotations, which show on the run page.
+name: Test
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Test
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee test.log || { grep -E "FAIL|Error" test.log | head -20 | sed 's/^/::error::/'; exit 1; }
