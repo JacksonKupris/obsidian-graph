@@ -324,6 +324,8 @@
   root.addEventListener("click", e => { if (!e.target.closest(".vg-menuwrap")) { closeMenu(); closeTools(); } });
 
   // ---------------------------------------------------------------- views + controls
+  // a view explains itself the first time on this device; after that its legend is enough
+  function introduce(view, text) { let seen = {}; try { seen = JSON.parse(localStorage.getItem("vg-intros") || "{}"); } catch (e) { /* first time, then */ } if (seen[view] || !text) return; seen[view] = 1; try { localStorage.setItem("vg-intros", JSON.stringify(seen)); } catch (e) { /* it shows again next time */ } toast(text); }
   function setView(view) {
     if (!GRAPH_INFO[view] && !MAPS[view]) view = "2d";   // a link or setting may name a view since retired
     if (view === st.view) return;
@@ -349,7 +351,7 @@
       applyMapLayout(true);
       animateTo({ cx: 0, cy: 0, cz: 0, yaw: 0, pitch: 0 }, 600);
       fitted = false; setTimeout(() => { fitted = true; fit(mapFitPred(), 700); }, 1000);
-      toast(SCENES[view] ? SCENES[view].toast : { subway: "Subway — each topic is a line; black-ringed stations connect topics",
+      introduce(view, SCENES[view] ? SCENES[view].toast : { subway: "Subway — each topic is a line; black-ringed stations connect topics",
         weather: "Weather — L is a topic busier than usual in your dailies, H a quiet one; storms are this week's bursts, fronts join topics that come up together",
         foodweb: "Food web — producers (relied on, rarely link out) at the bottom, logs and plans at the top; red rings are relied-on notes gone stale",
         clock: "Heat clock — when each topic comes up in your dailies, by weekday and by month",
