@@ -15,7 +15,7 @@ function run(options = {}) {
       if (args[0] === "push" && options.pushFails) return { status: 1, stderr: "rejected" };
     }
     if (args.some(arg => String(arg).replace(/\\/g, "/").endsWith("tests/run.js")) && options.failedTests)
-      return { status: 1 };
+      return { status: null, error: new Error("could not start tests") };
     return { status: 0, stdout: "" };
   };
   const context = {

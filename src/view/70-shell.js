@@ -262,7 +262,7 @@
   const PICK_TABS = [["views", "Map"], ["scenes", "Scenes"], ["lenses", "Lenses"], ["style", "Display"], ["health", "Health"]];
   const CORE_VIEWS = new Set(["2d", "3d"]);
   const PANEL_TABS = new Set(["style", "health"]);
-  const PICK_TOOLS = [["vg-lassobtn", "lasso", "Lasso"], ["vg-replaybtn", "play", "Replay"], ["vg-savebtn", "star", "Save view"], ["vg-timebtn", "clock", "Time-lapse"],
+  const PICK_TOOLS = [["vg-lassobtn", "lasso", "Lasso"], ["vg-savebtn", "star", "Save view"], ["vg-timebtn", "clock", "Time-lapse"],
     ["randomize", "sparkles", "Randomize layout"], ["resetlayout", "refresh", "Reset layout"]];
   // the tools, wherever they're offered (the Tools menu, the phone's picker sheet): which apply now, and one way to run one
   const tools = () => PICK_TOOLS.filter(([c]) => (c !== "randomize" || !isCosmos()) && (c !== "resetlayout" || canReset()));
@@ -364,6 +364,8 @@
   function setView(view) {
     if (view === st.view) return;
     const was = st.view;
+    releaseKeys();   // a key held in the view being left would keep moving it
+    if (SCENES[view] && SCENES[view].game) stopTime();
     st.recent = [view, ...(st.recent || []).filter(v => v !== view)].slice(0, 4);   // the picker's Recent row
     cam.turn = 0;   // only 2D turns (fit decides); every other view draws upright
     if (was !== "neural" && was !== "cosmos") keepLayout();   // remember the force layout we're leaving
@@ -650,9 +652,10 @@
     hasView: v => !!(GRAPH_INFO[v] || MAPS[v]),   // a scene from a note exists once its block is in the state
     async snapshot() { const blob = await new Promise(res => cv.toBlob(res, "image/png")); return blob.arrayBuffer(); },   // the canvas as PNG (State of the vault)
     _debug: { drawNow() { if (!W) return null; const t0 = performance.now(); draw(performance.now()); dirty = false; return performance.now() - t0; },   // tests: a frame now, its ms
-      views: () => [...Object.keys(GRAPH_INFO), ...Object.keys(MAPS)], lenses: () => Object.keys(LENSES), openLens, st, cam, active: () => active, P, alpha: () => alpha, layouts, setView, drawMs: () => drawMs, maps: () => mapCache, cos: () => cos, nodes, nb, replay: () => replay, visible, rules: VGRules },
-    destroy() { persistNow(); destroyed = true; clearTimeout(persistTimer); clearInterval(timePlay); timePlay = 0;
+      views: () => [...Object.keys(GRAPH_INFO), ...Object.keys(MAPS)], lenses: () => Object.keys(LENSES), openLens, st, cam, active: () => active, P, alpha: () => alpha, layouts, setView, scenes: () => SCENES, drawMs: () => drawMs, maps: () => mapCache, cos: () => cos, nodes, nb, replay: () => replay, visible, rules: VGRules },
+    destroy() { persistNow(); destroyed = true; clearTimeout(persistTimer); 
       if (RM && RM.removeEventListener) RM.removeEventListener("change", onReduced);
-      cancelAnimationFrame(raf); ro.disconnect(); if (io) io.disconnect(); root.innerHTML = ""; root.classList.remove("vg-root", "has-inspector", "vg-side-hidden", "vg-side-open", "is-neural", "is-compact", "is-mobile"); },
+      win.removeEventListener("keyup", keyUp, true); win.removeEventListener("blur", releaseKeys); root.ownerDocument.removeEventListener("visibilitychange", onHidden);
+      cancelAnimationFrame(raf); ro.disconnect(); if (io) io.disconnect(); root.innerHTML = ""; root.classList.remove("vg-root", "has-inspector", "vg-side-hidden", "vg-side-open", "is-neural", "is-compact", "is-mobile", "is-playing"); },
   };
 }

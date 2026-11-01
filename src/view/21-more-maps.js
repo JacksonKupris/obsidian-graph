@@ -714,7 +714,7 @@
     const { dpr, R, litSet, k } = mapFrame(), A = mapCache.radar;
     if (!A) { ctx.fillStyle = "#020a05"; ctx.fillRect(0, 0, W, H); return; }
     const o = scr(0, 0, R), RM = A.RMAX * k, green = "34,197,94", mono = css("--vg-mono") || "monospace";
-    const key = [W, H, dpr, k.toFixed(4), cam.tx.toFixed(1), cam.ty.toFixed(1), A.count, litSet ? [...litSet].length + (st.hover || "") + (st.selected || "") : "", nodes.reduce((a, n) => a + (n.tasks || 0), 0)].join("|");
+    const key = [W, H, dpr, k.toFixed(4), cam.tx.toFixed(1), cam.ty.toFixed(1), A.count, replay ? replay.k : "", litSet ? [...litSet].length + (st.hover || "") + (st.selected || "") : "", nodes.reduce((a, n) => a + (n.tasks || 0), 0)].join("|");
     if (!radarStatic || radarStatic.key !== key || radarStatic.map !== A) {
       const cv2 = radarStatic && radarStatic.canvas.width === Math.round(W * dpr) && radarStatic.canvas.height === Math.round(H * dpr) ? radarStatic.canvas : Object.assign(document.createElement("canvas"), { width: Math.round(W * dpr), height: Math.round(H * dpr) });
       const main = ctx; ctx = cv2.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

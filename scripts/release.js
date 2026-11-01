@@ -46,7 +46,7 @@ if (flag("--resume")) {
   // 3. the fast tests on the sample vault (CI runs them again before it publishes)
   console.log(`Testing ${version}...`);
   const t = spawnSync(process.execPath, [path.join(ROOT, "tests", "run.js")], { cwd: ROOT, stdio: "inherit" });
-  if (t.status) { restore(); fail(`tests failed; nothing was committed or pushed, and the version is back to ${was}`); }
+  if (t.status !== 0) { restore(); fail(`tests failed; nothing was committed or pushed, and the version is back to ${was}`); }
 
   // 4. commit, tag, push. A push that fails (offline, rejected) leaves the commit and tag here, to push later.
   git("commit", "-q", "-m", `Release ${version}`, "--", "package.json", "manifest.json");
