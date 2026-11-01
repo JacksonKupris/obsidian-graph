@@ -75,6 +75,33 @@ const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.a
     check(await tab.ev(`${G}.L.kills`) >= Math.max(1, killsBefore), "a dead enemy didn't count"); check(await tab.ev(`${G}.me.score`) > 0, "a kill scored nothing");
     check(await tab.ev(`!!${G}.feed.length && ${G}.feed[0].text.includes(${G}.__t.name.slice(0, 20))`), "the kill feed doesn't name the note");
 
+    // secrets: every closet is shut until its crack is pushed, then its items can be reached; each opens once and scores
+    const sec = await tab.ev(`(() => { const out = { levels: 0, secrets: 0, bad: [], kinds: new Set() }; for (let i = 0; i < ${A}.levelList().length; i++) { ${A}.startLevel(i); const L = ${G}.L; out.levels++; out.secrets += L.secrets.length; L.rooms.forEach(r => out.kinds.add(r.shape));
+        const flood = () => { const seen = new Int8Array(L.gw * L.gh), q = [L.start.cy * L.gw + L.start.cx]; seen[q[0]] = 1; while (q.length) { const c = q.pop(); for (const o of [c - 1, c + 1, c - L.gw, c + L.gw]) if (!seen[o] && (L.g[o] === 0 || L.g[o] === 9)) { seen[o] = 1; q.push(o); } } return seen; };
+        const at = (s, o) => s[(o.y | 0) * L.gw + (o.x | 0)]; let s0 = flood(); L.items.filter(it => it.secret).forEach(it => { if (at(s0, it)) out.bad.push(i + ": a secret item is reachable with the crack shut"); }); L.items.filter(it => !it.secret).forEach(it => { if (!at(s0, it)) out.bad.push(i + ": an item can't be reached"); });
+        const score0 = ${G}.me.score; L.secrets.forEach(q => { ${A}.openSecret(L, q.c); ${A}.openSecret(L, q.c); }); if (${G}.me.score !== score0 + 500 * L.secrets.length) out.bad.push(i + ": a secret scored wrong"); const s1 = flood(); L.items.filter(it => it.secret).forEach(it => { if (!at(s1, it)) out.bad.push(i + ": a secret item can't be reached once open"); }); } out.kinds = [...out.kinds]; return out; })()`);
+    console.log(`  dungeon: ${sec.secrets} secret rooms in ${sec.levels} levels; room shapes ${sec.kinds.join(", ")}`);
+    check(sec.secrets > 0, "no level has a secret room"); check(!sec.bad.length, sec.bad.slice(0, 4).join("; ")); check(sec.kinds.length >= 3, "the levels all look alike: " + sec.kinds.join(","));
+
+    // difficulty changes what enemies take and deal
+    const diff = await tab.ev(`(() => { const hpAt = d => { ${G}.diff = d; ${A}.startLevel(0); return ${G}.L.boss.max; }, easy = hpAt(0), hard = hpAt(3); ${G}.diff = 3; ${A}.startLevel(0); const h0 = ${G}.me.hp; ${A}.hurtMe(10, 0, 0, "x"); const big = h0 - ${G}.me.hp; ${G}.diff = 0; ${A}.startLevel(0); const h1 = ${G}.me.hp; ${A}.hurtMe(10, 0, 0, "x"); const small = h1 - ${G}.me.hp; ${G}.diff = 1; return { easy, hard, big, small }; })()`);
+    check(diff.hard > diff.easy * 1.5, "difficulty doesn't change enemy health"); check(diff.big > diff.small, "difficulty doesn't change damage");
+
+    // a run has one life: dying ends it, Enter starts again from level 1
+    await tab.ev(`${G}.mode = "run"; ${A}.startLevel(2)`); await frames(1); await tab.ev(`${A}.hurtMe(9999, 0, 0, "Some Note")`); await frames(2);
+    check(await tab.ev(`${G}.ui.some(b => b.w > 60)`) && await tab.ev(`${G}.state`) === "dead", "a run's death has no buttons");
+    await key("keydown", "Enter", root); await key("keyup", "Enter", root); await frames(2); check(await tab.ev(`${G}.level`) === 0 && await tab.ev(`${G}.me.score`) === 0, "a new run doesn't start at level 1 with nothing");
+    await tab.ev(`${A}.toTitle()`);
+
+    // the daily hunt: only stale notes, the same ones all day; clearing it names them; it doesn't move the campaign
+    const hunt = await tab.ev(`(() => { const def = ${A}.huntDef(); if (!def) return null; const reached = ${G}.reached; ${A}.startHunt(def); const L = ${G}.L, again = ${A}.huntDef(); ${A}.killEnemy(L, L.boss); const m = ${G}.me; m.x = L.exit.x; m.y = L.exit.y; L.enemies.forEach(e => { e.awake = false; e.look = 999; }); return { n: L.total, want: def.notes.length, same: again.notes.map(n => n.id).join() === def.notes.map(n => n.id).join(), reached, stale: L.enemies.filter(e => e !== L.boss).every(e => e.stale) }; })()`);
+    if (hunt) { await frames(3); check(hunt.n === hunt.want && hunt.same && hunt.stale, "the hunt isn't today's stale notes: " + JSON.stringify(hunt)); check(await tab.ev(`${G}.state`) === "tally" && await tab.ev(`${G}.tally.hunt`), "clearing the hunt didn't end it"); check(await tab.ev(`${G}.reached`) === hunt.reached, "the hunt moved the campaign"); }
+    await tab.ev(`${G}.mode = "level"; ${A}.startLevel(0)`); await frames(1);
+
+    // nothing draws a sprite for the first time mid-fight: a level's sprites are made when it loads
+    const made = await tab.ev(`(() => { const L = ${G}.L, n0 = L.sprites.size; L.enemies.forEach(e => { e.flash = 0.05; ${A}.killEnemy(L, e); }); ${D}.drawNow(); return [n0, L.sprites.size]; })()`);
+    check(made[0] === made[1], `sprites made after loading: ${made[0]} then ${made[1]}`); await tab.ev(`${A}.startLevel(0)`); await frames(1);
+
     // the guns: each one owned fires without an error
     await tab.ev(`${G}.me.guns = ["fist", "pistol", "shotgun", "chaingun", "rocket", "plasma"]; Object.assign(${G}.me.ammo, { bullets: 99, shells: 9, rockets: 9, cells: 99 }); ${G}.me.hp = 100`);
     for (let i = 1; i <= 6; i++) { await key("keydown", String(i), root); await key("keyup", String(i), root); await frames(7); check(await tab.ev(`${G}.me.gun`) === ["fist", "pistol", "shotgun", "chaingun", "rocket", "plasma"][i - 1], `key ${i} didn't change gun`); await key("keydown", " ", root); await frames(3); await shot("gun" + i); await frames(2); await key("keyup", " ", root); }

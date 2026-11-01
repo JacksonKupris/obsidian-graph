@@ -835,6 +835,8 @@ const VGRules = (() => {
     const cb = obj(base.cosmos), cm = obj(mine.cosmos), cd = obj(disk.cosmos);
     if (mine.cosmos || disk.cosmos) {
       const c = out.cosmos = { ...cd, ...cm };
+      if (cm.dungeon || cd.dungeon) { const m = obj(cm.dungeon), d = obj(cd.dungeon); c.dungeon = { reached: Math.max(m.reached || 0, d.reached || 0), best: Math.max(m.best || 0, d.best || 0), bestRun: Math.max(m.bestRun || 0, d.bestRun || 0), hunt: [m.hunt || "", d.hunt || ""].sort().pop() }; }
+      if (cm.viewOpens || cd.viewOpens) { const b = obj(cb.viewOpens), m = obj(cm.viewOpens), d = obj(cd.viewOpens), v = {}; new Set([...Object.keys(m), ...Object.keys(d)]).forEach(k => { v[k] = (d[k] || 0) + Math.max(0, (m[k] || 0) - (b[k] || 0)); }); c.viewOpens = v; }   // adds both devices' gains, like XP
       c.ach = mergeMap(cb.ach, cm.ach, cd.ach);
       c.hidden = mergeList(cb.hidden, cm.hidden, cd.hidden, str).slice(-500);
       c.kept = mergeList(cb.kept, cm.kept, cd.kept, str);
