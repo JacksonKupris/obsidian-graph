@@ -241,8 +241,8 @@ const banned = [
   [/opts\.stampReviewed\(/,"reviewed stamp (use VGActions.run(\"current\", ...): one confirm, Undo and announcement)"],
   [/(?<!isRecord\(n\) && n\.)\bage\s*(<=|>)\s*(Q\.)?stale_days/, "stale rule (use VGRules.isStale: records are never stale)"],
 ];
-for (const f of ["view.js", "plugin.js", "hq.js"]) {
-  const src = srcOf(f);
+for (const f of ["view.js", "plugin.js", "hq"]) {
+  const src = f === "hq" ? fs.readdirSync(path.join(S, "hq")).map(x => fs.readFileSync(path.join(S, "hq", x), "utf8")).join("") : srcOf(f);
   for (const [re, what] of banned) if (re.test(src)) fails.push(`${f} has its own ${what}`);
 }
 // adding to a map goes through addToMap (which also updates the open view), gated on canAddToMap()

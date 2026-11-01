@@ -571,7 +571,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
     this.registerView(HQ_TYPE, leaf => new VaultHQView(leaf, this));
     this.addCommand({ id: "open-hq", name: "Open Vault HQ", callback: () => this.openHQ() });
     this.addRibbonIcon("layout-dashboard", "Open Vault HQ", () => this.openHQ());
-    this.app.workspace.onLayoutReady(() => { if (this.settings.hqAtStart !== false) this.openHQ().catch(e => console.error("Vault Graph: HQ didn't open", e)); });   // HQ is the home screen
+    this.app.workspace.onLayoutReady(() => { if (this.settings.hqAtStart !== false) this.openHQ().catch(e => console.error("Vault Graph: HQ didn't open", e));   // HQ is the home screen
+      setTimeout(() => this.recall("warm", 1).catch(() => {}), 8000); });   // read the notes and build search's index once things are quiet, so the first real search is instant
     // a note HQ reads changed (a task ticked in the journal, a draft's status set by hand): HQ and the sidebar redraw.
     // The live signature can't see these (no file or link count changes).
     this.registerEvent(this.app.metadataCache.on("changed", file => {
@@ -1239,6 +1240,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       capture: (text, kind) => this.capture(text, kind),
       hqFocus: keys => this.hqFocus(keys),
       planLine: text => this.planLine(text),
+      searchMeaning: (q, n) => this.searchMeaning(q, n),
       stampReviewed: notePath => this.stampReviewed(notePath),
       dismissPair: async (a, b, kind) => { await this.dismiss(a, b, kind); new Notice("Won't suggest that pair again"); },
       linkText: (id, fromPath) => this.linkText(id, fromPath),
@@ -1724,6 +1726,16 @@ module.exports = class VaultGraphPlugin extends Plugin {
     await this.ioProcess(file, t => VGRules.addTaskLine(t, text));
     return file.path;
   }
+  // Notes close in meaning, through Smart Connections' index when that plugin is there (nothing, otherwise): it finds what no
+  // word in common would, a couple of seconds after keyword search has already answered.
+  async searchMeaning(query, n = 5) {
+    const env = window.smart_env, sources = env && env.smart_sources; if (!sources || !sources.lookup) return [];
+    const out = await sources.lookup({ hypotheticals: [query], filter: { limit: n * 3 } }), seen = new Set(), hits = [];
+    for (const r of out || []) { const key = String((r.item && r.item.key) || r.key || ""), path = key.split("#")[0]; if (!path.endsWith(".md") || seen.has(path) || !this.fileAt(path)) continue;
+      if (path.startsWith(VGRules.folders.reports + "/") || (VGRules.RULES.recall.rollup_pattern && new RegExp(VGRules.RULES.recall.rollup_pattern).test(path))) continue;
+      seen.add(path); hits.push({ path, heading: (key.split("#").pop() || "").replace(/^\{\d+\}$/, ""), score: r.score || 0 }); if (hits.length >= n) break; }
+    return hits;
+  }
   // Today's focus, in the shared file so every device sees it; yesterday's falls away by itself
   async hqFocus(keys) {
     await this.updateShared(sh => { sh.review = sh.review || {}; sh.review.focus = { day: today(), keys }; return sh; });
@@ -1779,7 +1791,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
     return VGRules.hqGather(files, { today: day });
   }
   async openHQ() {
-    let leaf = this.app.workspace.getLeavesOfType(HQ_TYPE)[0];
+    const open = this.app.workspace.getLeavesOfType(HQ_TYPE); open.slice(1).forEach(l => l.detach());   // one HQ, however many tabs a restart left
+    let leaf = open[0];
     if (!leaf) { leaf = this.app.workspace.getLeaf("tab"); await leaf.setViewState({ type: HQ_TYPE, active: true }); }
     this.app.workspace.revealLeaf(leaf);
     return leaf;
