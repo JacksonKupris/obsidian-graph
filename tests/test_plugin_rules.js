@@ -89,6 +89,26 @@ function fakePlugin(files, { daily, newFolder, people = [] } = {}) {
     check("HQ refresh ignores views without render methods and calls available renderers with their owner",
       calls.map(([kind]) => kind), ["soon", "render", "suggest"]);
   }
-  console.log(fails.length ? "FAIL - " + fails.join("\n  ") : "ok - rules and guarded HQ refresh: sparse views do not throw while refreshing");
+  // a rules file that isn't valid JSON (mid-edit) is left as it is, and setRule fails with why (the settings tab shows
+  // "Couldn't save ...: <why>", never a saved message)
+  { const broken = '{ "folders": { "inbox": "00-Inbox", }', files = { [RULES]: broken }, p = fakePlugin(files);
+    let threw = null; try { await p.setRule(["stale_days"], 90); } catch (e) { threw = e.message; }
+    check("setRule on a broken rules file says why", /isn't valid JSON.*fix the file first/.test(threw || ""), true);
+    check("setRule on a broken rules file leaves it as written", files[RULES], broken); }
+  // writeNote over a same-name note: Vault Graph's own (the marker) is regenerated below the marker inside one
+  // read-and-write, from the note's text at that moment; anyone else's is never touched
+  { const M = "%% vault-graph:generated", texts = { "Maps/Topic Hub.md": `My intro\n\n${M}\nold list\n`, "Notes/Topic.md": "Someone's own note\n" };
+    const files = Object.keys(texts).map(p => Object.assign(new TFile(), { path: p, basename: p.split("/").pop().replace(/\.md$/, ""), extension: "md" }));
+    const byName = n => files.find(f => f.basename === n) || null;
+    const app = { vault: { getAbstractFileByPath: p => files.find(f => f.path === p) || (p.includes(".") ? null : { path: p }), cachedRead: async f => texts[f.path], read: async f => texts[f.path], modify: async (f, t) => { texts[f.path] = t; },
+        // process: the note as it is when the write happens, here with a line typed after the plugin first looked
+        process: async (f, fn) => { texts[f.path] = fn(texts[f.path].replace("My intro", "My intro, edited")); return texts[f.path]; } },
+      metadataCache: { getFirstLinkpathDest: byName }, workspace: { getLeaf: () => ({ openFile: async () => {} }) } };
+    const p = Object.assign(Object.create(Plugin.prototype), { app, settings: {} });
+    await p.writeNote("Inbox/Topic Hub.md", `# Topic Hub\n\n${M}\nnew list\n`, { mode: "create" });
+    check("regenerating keeps the text above the marker, including an edit made meanwhile", texts["Maps/Topic Hub.md"], `My intro, edited\n\n${M}\nnew list\n`);
+    await p.writeNote("Inbox/Topic.md", `# Topic\n\n${M}\nlist\n`, { mode: "create" });
+    check("a same-name note without the marker is left alone", texts["Notes/Topic.md"], "Someone's own note\n"); }
+  console.log(fails.length ? "FAIL - " + fails.join("\n  ") : "ok - the vault's rules: file over Obsidian's settings over defaults, edited in place; guarded HQ refresh");
   process.exit(fails.length ? 1 : 0);
 })().catch(e => { console.log("FAIL - " + (e && e.stack || e)); process.exit(1); });

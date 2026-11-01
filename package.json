@@ -10,7 +10,9 @@
     "test:vault": "node tests/run.js --vault",
     "deploy": "node scripts/deploy.js",
     "release": "node scripts/release.js",
-    "sample": "node fixtures/make_sample.js"
+    "sample": "node fixtures/make_sample.js",
+    "install-release": "node scripts/install_release.js",
+    "sync": "node scripts/sync.js"
   },
   "engines": {
     "node": ">=22"

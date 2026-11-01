@@ -1,5 +1,5 @@
-# A version tag (0.5.0) makes a GitHub release with the files Obsidian and BRAT install.
-# The tag must match package.json's version, which manifest.json carries (node build.js manifest).
+# A version tag (0.5.0) makes a GitHub release with the files Obsidian and BRAT install, once the tests (test.yml) pass.
+# The tag must match package.json's version, which manifest.json carries (node build.js manifest). RELEASING.md.
 name: Release
 on:
   push:
@@ -7,20 +7,18 @@ on:
 permissions:
   contents: write
 jobs:
+  test:
+    uses: ./.github/workflows/test.yml
   release:
+    needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Tag matches the version
         run: test "$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
-      - name: Test
-        # failing lines also go out as annotations, which show on the run page
-        run: |
-          set -o pipefail
-          npm test 2>&1 | tee test.log || { grep -E "FAIL|Error" test.log | head -20 | sed 's/^/::error::/'; exit 1; }
       - name: Build
         run: node build.js --out dist
       - name: Release
