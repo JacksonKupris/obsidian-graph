@@ -377,7 +377,8 @@
     const fwd = (has("w", "arrowup") ? 1 : 0) - (has("s", "arrowdown") ? 1 : 0) + (T.stick ? T.stick.go : 0), side = (has("d") ? 1 : 0) - (has("a") ? 1 : 0) + (T.stick ? T.stick.side : 0);
     me.a += ((has("arrowright", "e") ? 1 : 0) - (has("arrowleft", "q") ? 1 : 0)) * 2.6 * dt;
     const c = Math.cos(me.a), s = Math.sin(me.a), len = Math.max(1, Math.hypot(fwd, side)), speed = 5.2, wx = (c * fwd - s * side) / len * speed, wy = (s * fwd + c * side) / len * speed, grip = Math.min(1, dt * 10);
-    me.vx += (wx - me.vx) * grip; me.vy += (wy - me.vy) * grip; slide(L, me, me.vx * dt, me.vy * dt, 0.24);
+    me.vx += (wx - me.vx) * grip; me.vy += (wy - me.vy) * grip; if (!fwd && !side && Math.hypot(me.vx, me.vy) < 0.08) me.vx = me.vy = 0;   // momentum ends, it does not fade for ever
+    slide(L, me, me.vx * dt, me.vy * dt, 0.24);
     me.bob += Math.hypot(me.vx, me.vy) * dt * 2.1;
     stepDoors(L, dt);
     const cell = (me.y | 0) * L.gw + (me.x | 0); if (cell !== L.flowCell && now - L.flowAt > 150) { L.flowCell = cell; L.flowAt = now; fillFlow(L, me.x | 0, me.y | 0); }
