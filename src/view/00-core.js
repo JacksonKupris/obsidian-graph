@@ -617,8 +617,9 @@ function mountVaultGraph(root, DATA, opts) {
         [n.bx, n.by, n.bz] = shell([Math.cos(a) * Math.cos(b), Math.sin(b), Math.sin(a) * Math.cos(b)], s);
       }
     });
-    if (animate) morphTo(n => n.bx == null ? null : [n.bx, n.by, n.bz], 1400);   // hidden notes stay where they are
-    else active.forEach(n => { if (!morph) { n.x = n.bx; n.y = n.by; n.z = n.bz; } });
+    const depth = st.angles && st.angles.neural === "flat" ? 0 : 1;   // the 2D switch: the same lobes, with no depth
+    if (animate) morphTo(n => n.bx == null ? null : [n.bx, n.by, n.bz * depth], 1400);   // hidden notes stay where they are
+    else active.forEach(n => { if (!morph) { n.x = n.bx; n.y = n.by; n.z = n.bz * depth; } });
   }
   function morphTo(target, ms) {   // smooth position transition between layouts
     const from = new Map(nodes.map(n => [n.id, [n.x, n.y, n.z]]));
@@ -694,8 +695,10 @@ function mountVaultGraph(root, DATA, opts) {
       animateTo({ k, tx: -(Mi[3] * cx - Mi[1] * cy) / det, ty: -(-Mi[2] * cx + Mi[0] * cy) / det }, ms == null ? 500 : ms);
       return;
     }
-    const k = Math.min(opts.compact ? 1.8 : 4, Math.max(0.05, Math.min((W - 2 * pad) / Math.max(x1 - x0, 1), (H - padTop - pad) / Math.max(y1 - y0, 1))));
-    animateTo({ k, tx: -((x0 + x1) / 2 - W / 2) * k, ty: -((y0 + y1) / 2 - H / 2) * k + (padTop - pad) / 2, ...(pivot || {}) }, ms == null ? 500 : ms);
+    // what sits over the canvas is off limits too: the Cosmos dock along the bottom, the Today panel down the side
+    const padB = isCosmos() && !opts.compact ? 96 : pad, padR = root.classList.contains("show-missions") && W >= 760 ? 330 : pad;
+    const k = Math.min(opts.compact ? 1.8 : 4, Math.max(0.05, Math.min((W - pad - padR) / Math.max(x1 - x0, 1), (H - padTop - padB) / Math.max(y1 - y0, 1))));
+    animateTo({ k, tx: -((x0 + x1) / 2 - W / 2) * k - (padR - pad) / 2, ty: -((y0 + y1) / 2 - H / 2) * k + (padTop - padB) / 2, ...(pivot || {}) }, ms == null ? 500 : ms);
   }
   // the part of the canvas no panel covers, as its centre: the inspector (a bottom sheet in a narrow pane, a side panel
   // in a wide one) and a lens sitting beside the view

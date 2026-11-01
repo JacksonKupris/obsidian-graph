@@ -995,6 +995,9 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 
 /* 2D or 3D: the one switch; views with no 3D of their own lean back in perspective */
 .vg-root .vg-dimseg[hidden] { display: none; }
-.vg-cv.is-tilt3d { transform: perspective(1500px) rotateX(36deg) scale(1.2); transform-origin: 50% 58%; }
+.vg-cv.is-tilt3d { transform: perspective(1800px) rotateX(30deg) scale(.9); transform-origin: 50% 50%;
+  /* the plane fades into the dark instead of ending in a hard edge */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent), linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent); -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent), linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent); mask-composite: intersect; }
 @media (prefers-reduced-motion: no-preference) { .vg-cv { transition: transform .35s ease; } }
 .vg-canvas { overflow: hidden; }

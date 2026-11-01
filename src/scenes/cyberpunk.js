@@ -16,7 +16,7 @@
   }
   const litLevel = n => { const a = activity(n); return staleFor(n, Q.stale_days) ? 0 : a > 0.3 ? 2 : 1; };
   scene("cyberpunk", {
-    name: "Cyberpunk", icon: "cyberpunk", fps: 30,
+    name: "Cyberpunk", icon: "cyberpunk", fps: 30, own3d: true,
     blurb: "A rain-soaked neon city: topics are districts, notes are towers, stale ones go dark",
     toast: "Cyberpunk — a district per topic. Height is how relied-on a note is, lit windows how active, dark towers are stale, pink beacons are open tasks, the spire is the topic's map, stalls are notes with no topic",
     layout(geo) {
@@ -50,14 +50,17 @@
       ctx.fillStyle = sun; ctx.beginPath(); ctx.arc(sx, sy, sr, 0, 2 * Math.PI); ctx.fill(); ctx.fillStyle = "#1a0533"; for (let i = 0; i < 7; i++) { const y = sy + sr * (0.08 + i * 0.13), h = 2 + i * 1.6; ctx.fillRect(sx - sr, y, sr * 2, h); }
       if (!D) return;
       const shown = n => n && mapShown(n), F = facades(), onScreen = (x, w) => x + w > -20 && x < W + 20;
+      // 3D: each street further back is smaller and nearer the horizon. 2D: the same city, flat on.
+      const deep = st.angles.cyberpunk === "tilt3d", vy = H * 0.16, depthOf = row => deep ? 0.42 + 0.58 * Math.pow((row + 1) / Math.max(1, D.rows), 1.25) : 1;
+      const at = (x, y, row) => { const q = scr(x, y, R), sc = depthOf(row); return { x: W / 2 + (q.x - W / 2) * sc, y: vy + (q.y - vy) * sc }; };
       ctx.imageSmoothingEnabled = false;
       let row = -1; const finishRow = r => { if (r < 0) return;
         ctx.fillStyle = "rgba(38,10,60,.2)"; ctx.fillRect(0, 0, W, H);   // the haze: everything further away has passed under this once more
         // the street: wet asphalt, with the district's neon smeared into it
-        D.districts.forEach(d => { if (d.row !== r) return; const p = scr(d.x0 - 30, d.base, R), wpx = CP.DW * k, hpx = CP.STREET * k; if (!onScreen(p.x, wpx)) return; const wet = ctx.createLinearGradient(0, p.y, 0, p.y + hpx); wet.addColorStop(0, hexMix(d.neon, "#0b0716", 0.72)); wet.addColorStop(1, "#07040f"); ctx.fillStyle = wet; ctx.fillRect(p.x, p.y, wpx, hpx);
-          topicLabel(d.c, clip(shortName(d.c), 30), p.x + wpx / 2, p.y + hpx * 0.55, wpx * 0.9, d.neon, "#07040f"); }); };
+        D.districts.forEach(d => { if (d.row !== r) return; const p = at(d.x0 - 30, d.base, d.row), wpx = CP.DW * k * depthOf(d.row), hpx = CP.STREET * k * depthOf(d.row); if (!onScreen(p.x, wpx)) return; const wet = ctx.createLinearGradient(0, p.y, 0, p.y + hpx); wet.addColorStop(0, hexMix(d.neon, "#0b0716", 0.72)); wet.addColorStop(1, "#07040f"); ctx.fillStyle = wet; ctx.fillRect(p.x, p.y, wpx, hpx);
+          topicLabel(d.c, clip(shortName(d.c), 30), p.x + wpx / 2, p.y + hpx * 0.55, wpx * 0.9, hexMix(d.neon, "#ffffff", 0.5), "#07040f"); }); };
       for (const b of D.blds) { if (b.row !== row) { finishRow(row); row = b.row; } const n = b.n; if (!shown(n)) continue;
-        const p = scr(b.x, b.base, R), wpx = b.w * k, hpx = b.h * k, top = p.y - hpx; if (!onScreen(p.x, wpx)) { P.set(n.id, { x: p.x + wpx / 2, y: p.y - hpx / 2, r: 0.1, s: 1, depth: 0, a: 0 }); continue; }
+        const kk = k * depthOf(b.row), p = at(b.x, b.base, b.row), wpx = b.w * kk, hpx = b.h * kk, top = p.y - hpx; if (!onScreen(p.x, wpx)) { P.set(n.id, { x: p.x + wpx / 2, y: p.y - hpx / 2, r: 0.1, s: 1, depth: 0, a: 0 }); continue; }
         const on = !litSet || litSet.has(n.id), level = b.kind === "spire" ? 2 : litLevel(n), dark = level === 0, flick = reduced ? 1 : dark ? (Math.sin(t * 13 + b.off) > 0.72 || Math.sin(t * 2.1 + b.off) > 0.92 ? 0.25 : 0.85) : 1;
         ctx.globalAlpha = on ? b.dim : 0.2;
         ctx.fillStyle = dark ? "#0d0d16" : hexMix(b.neon, "#0a0a18", 0.88); ctx.fillRect(p.x, top, wpx, hpx);
@@ -65,24 +68,24 @@
         else {
           if (wpx > 2.5 && hpx > 6) { const sw = Math.min(b.w, 96), sh = Math.min(b.h, 500), hm = Math.floor(hpx / (b.h / sh)); ctx.drawImage(F[b.hue][level], b.off % (96 - sw + 1), 0, sw, sh, p.x, p.y - hm, wpx, hm); }
           // the roof's neon line, doubled for the glow
-          ctx.strokeStyle = b.neon; ctx.globalAlpha *= 0.4 * flick; ctx.lineWidth = Math.max(1, 3.5 * k); ctx.beginPath(); ctx.moveTo(p.x, top); ctx.lineTo(p.x + wpx, top); ctx.stroke();
-          ctx.globalAlpha = (on ? b.dim : 0.2) * flick; ctx.lineWidth = Math.max(0.6, 1.2 * k); ctx.stroke();
+          ctx.strokeStyle = b.neon; ctx.globalAlpha *= 0.4 * flick; ctx.lineWidth = Math.max(1, 3.5 * kk); ctx.beginPath(); ctx.moveTo(p.x, top); ctx.lineTo(p.x + wpx, top); ctx.stroke();
+          ctx.globalAlpha = (on ? b.dim : 0.2) * flick; ctx.lineWidth = Math.max(0.6, 1.2 * kk); ctx.stroke();
           ctx.globalAlpha = on ? b.dim : 0.2;
-          if (b.kind === "spire") { const tip = top - 90 * k; ctx.strokeStyle = b.neon; ctx.lineWidth = Math.max(1, 2 * k); ctx.beginPath(); ctx.moveTo(p.x + wpx / 2, top); ctx.lineTo(p.x + wpx / 2, tip); ctx.stroke(); ctx.fillStyle = "#ef4444"; if (reduced || Math.sin(t * 3) > 0) { ctx.beginPath(); ctx.arc(p.x + wpx / 2, tip, Math.max(1.5, 4 * k), 0, 2 * Math.PI); ctx.fill(); } }
+          if (b.kind === "spire") { const tip = top - 90 * kk; ctx.strokeStyle = b.neon; ctx.lineWidth = Math.max(1, 2 * kk); ctx.beginPath(); ctx.moveTo(p.x + wpx / 2, top); ctx.lineTo(p.x + wpx / 2, tip); ctx.stroke(); ctx.fillStyle = "#ef4444"; if (reduced || Math.sin(t * 3) > 0) { ctx.beginPath(); ctx.arc(p.x + wpx / 2, tip, Math.max(1.5, 4 * kk), 0, 2 * Math.PI); ctx.fill(); } }
           // the vertical sign down one side, with the note's name once it can be read
-          const signW = Math.max(2, Math.min(16, b.w * 0.26)) * k, sx_ = p.x + (b.off % 2 ? -signW * 0.4 : wpx - signW * 0.6), signH = Math.min(hpx * 0.72, 260 * k);
+          const signW = Math.max(2, Math.min(16, b.w * 0.26)) * kk, sx_ = p.x + (b.off % 2 ? -signW * 0.4 : wpx - signW * 0.6), signH = Math.min(hpx * 0.72, 260 * kk);
           if (hpx > 26) { ctx.globalAlpha = (on ? 0.9 : 0.2) * flick * (dark ? 0.6 : 1); ctx.fillStyle = hexMix(b.neon, "#000000", 0.2); ctx.fillRect(sx_, top + hpx * 0.08, signW, signH); ctx.fillStyle = "#050510"; ctx.fillRect(sx_ + 1, top + hpx * 0.08 + 1, Math.max(0, signW - 2), Math.max(0, signH - 2));
             if (signW > 9) { ctx.save(); const px = Math.min(13, signW * 0.7); ctx.translate(sx_ + signW / 2, top + hpx * 0.08 + 4); ctx.rotate(Math.PI / 2); ctx.font = `700 ${px}px ${font}`; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillStyle = dark ? hexMix(b.neon, "#94a3b8", 0.6) : hexMix(b.neon, "#ffffff", 0.45); ctx.fillText(clip(n.name, Math.floor(signH / (px * 0.56))), 0, 0); ctx.restore(); } }
           ctx.globalAlpha = on ? 1 : 0.2;
           // a pink beacon for open tasks
-          if (n.tasks > 0 && (reduced || Math.sin(t * 4 + b.off) > -0.3)) { const r = Math.max(1.6, 4 * k), bx = p.x + wpx / 2; ctx.fillStyle = "rgba(244,63,94,.28)"; ctx.beginPath(); ctx.arc(bx, top - r, r * 3, 0, 2 * Math.PI); ctx.fill(); ctx.fillStyle = "#fb7185"; ctx.beginPath(); ctx.arc(bx, top - r, r, 0, 2 * Math.PI); ctx.fill(); }
+          if (n.tasks > 0 && (reduced || Math.sin(t * 4 + b.off) > -0.3)) { const r = Math.max(1.6, 4 * kk), bx = p.x + wpx / 2; ctx.fillStyle = "rgba(244,63,94,.28)"; ctx.beginPath(); ctx.arc(bx, top - r, r * 3, 0, 2 * Math.PI); ctx.fill(); ctx.fillStyle = "#fb7185"; ctx.beginPath(); ctx.arc(bx, top - r, r, 0, 2 * Math.PI); ctx.fill(); }
         }
         if (st.selected === n.id) { ctx.globalAlpha = 1; ctx.strokeStyle = UI.colour.selected; ctx.lineWidth = 2; ctx.strokeRect(p.x - 1, top - 1, wpx + 2, hpx + 2); }
-        P.set(n.id, { x: p.x + wpx / 2, y: p.y - hpx / 2, r: Math.max(wpx * 0.6, hpx * 0.38), s: k, depth: -b.layer, a: on ? 1 : 0.3 });
+        P.set(n.id, { x: p.x + wpx / 2, y: p.y - hpx / 2, r: Math.max(wpx * 0.6, hpx * 0.38), s: kk, depth: -b.layer, a: on ? 1 : 0.3 });
       }
       finishRow(row); ctx.globalAlpha = 1;
       // traffic: each district's air lane, as busy as the district
-      CP.cars.forEach(c => { const u = ((c.u + c.v * t) % 1 + 1) % 1, p = scr(c.d.x0 + u * c.d.span, c.d.base - c.lane, R), dir = Math.sign(c.v), len = Math.max(3, 18 * k); if (!onScreen(p.x, 1)) return; ctx.strokeStyle = dir > 0 ? "#f87171" : "#e0f2fe"; ctx.globalAlpha = 0.85; ctx.lineWidth = Math.max(0.8, 1.8 * k); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - dir * len, p.y); ctx.stroke(); });
+      CP.cars.forEach(c => { const u = ((c.u + c.v * t) % 1 + 1) % 1, p = at(c.d.x0 + u * c.d.span, c.d.base - c.lane, c.d.row), dir = Math.sign(c.v), len = Math.max(3, 18 * k * depthOf(c.d.row)); if (!onScreen(p.x, 1)) return; ctx.strokeStyle = dir > 0 ? "#f87171" : "#e0f2fe"; ctx.globalAlpha = 0.85; ctx.lineWidth = Math.max(0.8, 1.8 * k); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - dir * len, p.y); ctx.stroke(); });
       ctx.globalAlpha = 1;
       // the selected tower's links, as neon arcs
       if (st.selected && P.has(st.selected) && nb[st.selected]) { const a = P.get(st.selected); ctx.lineWidth = 1.5; ctx.strokeStyle = "#22d3ee"; ctx.shadowColor = "#22d3ee"; ctx.shadowBlur = 8; ctx.beginPath(); nb[st.selected].forEach(id => { const q = P.get(id); if (!q || q.r < 1) return; ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo((a.x + q.x) / 2, Math.min(a.y, q.y) - 80 * k - 20, q.x, q.y); }); ctx.stroke(); ctx.shadowBlur = 0; }

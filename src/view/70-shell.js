@@ -554,7 +554,7 @@
   renderClusters(""); renderSaved(); renderTodayList(); renderToday();
   rebuild(true);
   if (mapView()) alpha = 0;   // rebuild() above laid it out
-  else if (neural()) { brainLayout(false); active.forEach(n => { n.x = n.bx; n.y = n.by; n.z = n.bz; }); alpha = 0; }
+  else if (neural()) { brainLayout(false); if (st.angles.neural === "flat") st.three = false; alpha = 0; }
   else if (isCosmos()) { if (!cos.bodies.length) seedCosmos(); cosmosCapture(); alpha = 0.6; }
   else if (restored) alpha = 0.05;   // known layout: settle gently instead of re-exploding
   else for (let i = 0; i < 120 && alpha > 0.005; i++) tick();   // pre-settle so the first frame isn't a hairball
