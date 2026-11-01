@@ -266,6 +266,7 @@
     "plan_heading": "Work Expected",
     "completed_heading": "Work Completed",
     "carry_days": 30,
+    "reaction_weight": 0.6,
     "completion_field": "✅",
     "delegate_field": "delegate",
     "delegate_to": "claude",

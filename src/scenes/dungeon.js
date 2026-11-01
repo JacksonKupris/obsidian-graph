@@ -6,7 +6,7 @@
   // raycaster into a small framebuffer, scaled up), the HUD and menus, input, and the scene's registration.
   ICON.dungeon = '<path d="M4 21V9l8-6 8 6v12"/><path d="M9 21v-6a3 3 0 0 1 6 0v6"/>';
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
-  const TS = 64, DOOR = 9, BOSS_FLOOR = 2, EXIT_FLOOR = 3, SECTOR = 15, FONT = 'Impact, Haettenschweiler, "Arial Narrow Bold", "Roboto Condensed", sans-serif';
+  const TS = 64, DOOR = 9, SECRET = 8, BOSS_FLOOR = 2, EXIT_FLOOR = 3, SECTOR = 15, FONT = 'Impact, Haettenschweiler, "Arial Narrow Bold", "Roboto Condensed", sans-serif';
 
   // ---------------------------------------------------------------- rules of the game
   // r: body radius in cells; h: height against a wall's 1; z: how far it floats; pain: chance a hit staggers it
@@ -33,11 +33,19 @@
     health: { s: 0.3, take: heal(15, "hp") }, medkit: { s: 0.4, take: heal(40, "hp") }, armor: { s: 0.45, take: heal(50, "armor") },
     bullets: { s: 0.28, ammo: ["bullets", 20] }, shells: { s: 0.28, ammo: ["shells", 6] }, rockets: { s: 0.34, ammo: ["rockets", 3] }, cells: { s: 0.3, ammo: ["cells", 40] },
   };
-  const G = { state: "title", sel: 0, level: 0, last: 0, keys: new Set(), firing: false, muted: false, best: 0, reached: 0, levels: null, L: null, me: null, snap: null,
+  // hp and dmg scale the enemies, ammo what's lying around
+  const DIFFS = [{ name: "Easy", hp: 0.75, dmg: 0.6, ammo: 1.4 }, { name: "Normal", hp: 1, dmg: 1, ammo: 1 }, { name: "Hard", hp: 1.3, dmg: 1.4, ammo: 0.85 }, { name: "Nightmare", hp: 1.7, dmg: 2, ammo: 0.7 }];
+  const HUNT_SIZE = 24, HUNT_LEVEL = 4, SECRET_SCORE = 500, RUN_HEAL = 25;
+  const G = { state: "title", mode: "level", diff: 1, bestRun: 0, huntDone: "", spikes: [], lastEvent: "", huntDef: null, sel: 0, level: 0, last: 0, keys: new Set(), firing: false, muted: false, best: 0, reached: 0, levels: null, L: null, me: null, snap: null,
     ui: [], primary: null, mx: -1, my: -1, feed: [], msg: null, combo: 0, comboT: 0, locked: false, touch: {}, showTouch: false, bigMap: false, tally: null, killer: "", pausedAt: 0, musicAt: 0, musicStep: 0, intro: 0 };
   const STORE = "vg-dungeon:" + (DATA.vault || "");   // this device's progress; a blocked store plays without it
-  try { const s = JSON.parse(localStorage.getItem(STORE) || "{}"); G.reached = s.reached || 0; G.best = s.best || 0; G.muted = !!s.muted; G.sel = s.reached || 0; } catch (e) { /* no saved progress */ }
-  const save = () => { try { localStorage.setItem(STORE, JSON.stringify({ reached: G.reached, best: G.best, muted: G.muted })); } catch (e) { /* nothing to keep it in */ } };
+  try { const s = JSON.parse(localStorage.getItem(STORE) || "{}"); G.best = s.best || 0; G.reached = s.reached || 0; G.muted = !!s.muted; G.diff = s.diff == null ? 1 : s.diff; G.sel = G.reached; } catch (e) { /* no saved settings */ }
+  // Progress follows you: it's in the shared game state with XP (every device; VGRules.mergeShared keeps the higher of each).
+  // Sound and difficulty stay with the device.
+  let loaded = false;
+  const loadProgress = () => { const d = cos.dungeon || {}; G.reached = Math.max(G.reached, d.reached || 0); G.best = Math.max(G.best, d.best || 0); G.bestRun = Math.max(G.bestRun, d.bestRun || 0); if (d.hunt) G.huntDone = d.hunt; if (!loaded) { loaded = true; G.sel = G.reached; } };
+  const save = () => { try { localStorage.setItem(STORE, JSON.stringify({ reached: G.reached, best: G.best, muted: G.muted, diff: G.diff })); } catch (e) { /* nothing to keep it in */ }
+    cos.dungeon = { reached: G.reached, best: G.best, bestRun: G.bestRun, hunt: G.huntDone }; persistSoon(); };
 
   // what a note is decides what it is here: the same note is the same enemy on every run
   const percentile = (vals, f) => { const a = vals.slice().sort((x, y) => x - y); return a.length ? a[Math.min(a.length - 1, Math.floor(a.length * f))] : 0; };
@@ -51,6 +59,11 @@
     [...groups].forEach(([c, ns]) => { if (ns.length < 3 && c !== -1 && groups.size > 1) { groups.delete(c); ns.forEach(n => add(-1, n)); } });
     return (G.levels = [...groups].map(([c, notes]) => ({ c, name: clusterName(c), notes })).sort((a, b) => a.notes.length - b.notes.length || (a.name < b.name ? -1 : 1)));
   }
+  // The daily hunt: today's most relied-on stale notes, the same ones all day. Null when nothing's stale enough to hunt.
+  function huntDef() {
+    const day = VGRules.today(), notes = nodes.filter(n => !n.ghost && !special(n) && staleFor(n, Q.stale_days)).sort(byImportance).slice(0, HUNT_SIZE);
+    return notes.length >= 3 ? { c: -2, name: `Daily hunt · ${day}`, notes, day } : null;
+  }
   const gunLevel = (g, count) => g.level < 0 ? -1 : Math.min(g.level, Math.round(g.level / 8 * (count - 1)));
   const freshMe = i => { const count = levelList().length, guns = GUNS.filter(g => gunLevel(g, count) < i).map(g => g.key), has = k => guns.includes(k);
     return { x: 1.5, y: 1.5, a: 0, vx: 0, vy: 0, hp: 100, armor: 0, ammo: { bullets: 50, shells: has("shotgun") ? 16 : 0, rockets: has("rocket") ? 6 : 0, cells: has("plasma") ? 60 : 0 }, guns, gun: has("shotgun") ? "shotgun" : "pistol",
@@ -58,16 +71,23 @@
 
   // ---------------------------------------------------------------- level generation
   const seeded = seed => () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  function buildLevel(i) {
-    const def = levelList()[i], rand = seeded(hash("dungeon:" + def.name + ":" + i)), int = (a, b) => a + Math.floor(rand() * (b - a + 1));
+  function buildLevel(i, custom) {
+    const def = custom || levelList()[i], D = DIFFS[G.diff], rand = seeded(hash("dungeon:" + def.name + ":" + i)), int = (a, b) => a + Math.floor(rand() * (b - a + 1));
     const notes = def.notes.slice().sort(byImportance), count = Math.max(4, Math.min(20, Math.round(notes.length / 5) + 3)), { cols, rows } = gridDims(count);
     const gw = cols * SECTOR + 3, gh = rows * SECTOR + 3, g = new Uint8Array(gw * gh), F = new Uint8Array(gw * gh), inRoom = new Uint8Array(gw * gh), carved = new Uint8Array(gw * gh);
     for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) g[y * gw + x] = 1 + (Math.floor(x / SECTOR) + Math.floor(y / SECTOR) * 2 + (i % 3)) % 3;   // walls change by sector
-    const rooms = [];
+    const rooms = [], style = ["halls", "caves", "columns", "mixed"][hash("style:" + def.name) % 4];
+    // a room's shape: what's open inside its rectangle (the middle always is, corridors meet there); floor cut off by a shape is filled in below
+    const shapes_ = { rect: () => true, round: (dx, dy) => dx * dx + dy * dy <= 1.02, cross: (dx, dy) => Math.abs(dx) < 0.45 || Math.abs(dy) < 0.45, columns: (dx, dy, x, y, r) => !((x - r.x0) % 3 === 1 && (y - r.y0) % 3 === 1) || (Math.abs(x - r.cx) < 2 && Math.abs(y - r.cy) < 2) };
+    const shapeOf = r => { if (r.w < 8 || r.h < 8) return "rect"; if (style === "halls") return rand() < 0.75 ? "rect" : "cross"; if (style === "columns") return "columns"; if (style === "caves") return rand() < 0.8 ? "cave" : "round"; return ["rect", "cross", "round", "columns", "cave"][int(0, 4)]; };
+    const cave = r => { let a = Array.from({ length: r.w * r.h }, () => rand() > 0.42);   // a few rounds of cellular automaton
+      for (let t = 0; t < 3; t++) a = a.map((v, c) => { const x = c % r.w, y = Math.floor(c / r.w); let n = 0; for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) { const q = x + ox, w = y + oy; if (q < 0 || w < 0 || q >= r.w || w >= r.h || a[w * r.w + q]) n++; } return n >= 5; });
+      return (dx, dy, x, y) => (Math.abs(x - r.cx) < 2 && Math.abs(y - r.cy) < 2) || a[(y - r.y0) * r.w + (x - r.x0)]; };
     for (let k = 0; k < count; k++) {
       const sx = k % cols, sy = Math.floor(k / cols), w = int(6, SECTOR - 4), h = int(6, SECTOR - 4), x0 = sx * SECTOR + 2 + int(0, SECTOR - w - 3), y0 = sy * SECTOR + 2 + int(0, SECTOR - h - 3);
       rooms.push({ k, sx, sy, x0, y0, w, h, cx: x0 + (w >> 1), cy: y0 + (h >> 1), floor: rand() < 0.5 ? 0 : 1 });
-      for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) { g[y * gw + x] = 0; inRoom[y * gw + x] = 1; F[y * gw + x] = rooms[k].floor; }
+      const r = rooms[k], name = k ? shapeOf(r) : "rect", open = name === "cave" ? cave(r) : shapes_[name]; r.shape = name;
+      for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) { F[y * gw + x] = r.floor; if (open((x + 0.5 - (x0 + w / 2)) / (w / 2), (y + 0.5 - (y0 + h / 2)) / (h / 2), x, y, r)) { g[y * gw + x] = 0; inRoom[y * gw + x] = 1; } }
     }
     // corridors: a random spanning tree over neighbouring sectors, plus some loops so a fight can be run around
     const at = (sx, sy) => sx >= 0 && sy >= 0 && sx < cols ? rooms[sy * cols + sx] : null;
@@ -82,6 +102,7 @@
     // the boss waits in the room farthest from the start
     const L = { i, def, gw, gh, g, F, rooms, doors: new Map(), enemies: [], items: [], shots: [], bits: [], flow: new Int32Array(gw * gh), flowCell: -1, flowAt: 0, open: false, kills: 0, total: 0, itemsGot: 0, itemsTotal: 0, time: 0, seen: new Uint8Array(gw * gh), mini: null, sprites: new Map(), tex: null, boss: null, exit: null, start: rooms[0], base: colorOf(def.c) };
     fillFlow(L, rooms[0].cx, rooms[0].cy);
+    for (let c = 0; c < gw * gh; c++) if (!g[c] && L.flow[c] < 0) g[c] = 1;   // floor a shape cut off is wall
     const bossRoom = rooms.filter(r => r !== rooms[0]).sort((a, b) => L.flow[b.cy * gw + b.cx] - L.flow[a.cy * gw + a.cx])[0];
     L.exit = { x: bossRoom.cx + 0.5, y: bossRoom.cy + 0.5 };
     for (let y = bossRoom.y0; y < bossRoom.y0 + bossRoom.h; y++) for (let x = bossRoom.x0; x < bossRoom.x0 + bossRoom.w; x++) F[y * gw + x] = BOSS_FLOOR;
@@ -96,26 +117,40 @@
     // pillars for cover in the big rooms, clear of the walls and the middle
     rooms.forEach(r => { if (r.w < 9 || r.h < 9 || r === bossRoom) return; const n = int(0, 3);
       for (let k = 0; k < n; k++) { const x = r.x0 + int(2, r.w - 3), y = r.y0 + int(2, r.h - 3); if (Math.abs(x - r.cx) > 1 || Math.abs(y - r.cy) > 1) g[y * gw + x] = 1 + (i + 1) % 3; } });
+    // secret rooms: a closet behind a cracked wall, opened by walking into it or shooting it, with something worth finding
+    L.secrets = []; const clear = (x0, y0, x1, y1) => { if (x0 < 1 || y0 < 1 || x1 >= gw - 1 || y1 >= gh - 1) return false; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (!g[y * gw + x] || g[y * gw + x] === DOOR) return false; return true; };
+    const hides = rooms.filter(r => r !== rooms[0] && r !== bossRoom).sort(() => rand() - 0.5), wantSecrets = Math.min(hides.length, 1 + Math.floor(count / 6));
+    for (const r of hides) { if (L.secrets.length >= wantSecrets) break;
+      for (let t = 0; t < 12; t++) { const dir = int(0, 3), along = dir < 2 ? r.x0 + int(1, r.w - 2) : r.y0 + int(1, r.h - 2), dw = dir === 0 ? r.y0 - 1 : dir === 1 ? r.y0 + r.h : dir === 2 ? r.x0 - 1 : r.x0 + r.w, sgn = dir === 0 || dir === 2 ? -1 : 1;
+        const front = dir < 2 ? g[(dw - sgn) * gw + along] : g[along * gw + dw - sgn]; if (front) continue;   // something open in front of the crack
+        // the closet is 3 x 3 behind the crack; all round it stays rock, so the crack is the only way in
+        const [x0, y0, x1, y1] = dir < 2 ? [along - 2, Math.min(dw, dw + sgn * 4), along + 2, Math.max(dw, dw + sgn * 4)] : [Math.min(dw, dw + sgn * 4), along - 2, Math.max(dw, dw + sgn * 4), along + 2];
+        if (!clear(x0, y0, x1, y1)) continue;
+        for (let depth = 1; depth <= 3; depth++) for (let off = -1; off <= 1; off++) { const q = dir < 2 ? (dw + sgn * depth) * gw + along + off : (along + off) * gw + dw + sgn * depth; g[q] = 0; F[q] = 1; }
+        const c = dir < 2 ? dw * gw + along : along * gw + dw; g[c] = SECRET;
+        const cx = dir < 2 ? along + 0.5 : dw + sgn * 2 + 0.5, cy = dir < 2 ? dw + sgn * 2 + 0.5 : along + 0.5, sec = { c, found: false, x: cx, y: cy }; L.secrets.push(sec);
+        [["medkit", 0, 0], ["armor", 0.8, 0], [rand() < 0.5 ? "shells" : "bullets", -0.8, 0]].forEach(([type, ox, oy]) => { L.items.push({ type, x: cx + (dir < 2 ? ox : 0), y: cy + (dir < 2 ? 0 : ox), placed: true, secret: true }); L.itemsTotal++; });
+        break; } }
     const openSpot = (r, margin = 1) => { for (let t = 0; t < 30; t++) { const x = r.x0 + margin + rand() * Math.max(0, r.w - margin * 2), y = r.y0 + margin + rand() * Math.max(0, r.h - margin * 2); if (!g[Math.floor(y) * gw + Math.floor(x)]) return [x, y]; } return [r.cx + 0.5, r.cy + 0.5]; };
     // every note becomes an enemy: the map (or else the most relied-on note) is the boss, the rest spread by room size
     const all = nodes.filter(n => !n.ghost), stats = { long: percentile(all.map(n => n.words || 0), 0.9), tiny: percentile(all.map(n => n.words || 0), 0.2), linked: percentile(all.map(linksOf), 0.75) };
     const bossNote = notes.find(n => n.moc) || notes[0], hard = 1 + 0.07 * i, spots = rooms.filter(r => r !== rooms[0] && r !== bossRoom), hpIn = new Map(rooms.map(r => [r, 0]));
     const area = spots.reduce((s, r) => s + r.w * r.h, 0), weighted = spots.flatMap(r => Array(Math.max(1, Math.round(r.w * r.h / area * 60))).fill(r));
     notes.forEach(n => { const isBoss = n === bossNote, kind = isBoss ? "boss" : kindOf(n, stats), K = KINDS[kind], stale = !isBoss && !special(n) && staleFor(n, Q.stale_days);
-      const room = isBoss || !weighted.length ? bossRoom : weighted[int(0, weighted.length - 1)], [x, y] = isBoss ? [bossRoom.cx + 0.5, bossRoom.y0 + 1.5] : openSpot(room);
+      const room = isBoss || !weighted.length ? bossRoom : weighted[int(0, weighted.length - 1)], [x, y] = openSpot(room);
       const size = 1 + 0.18 * Math.log10(Math.max(1, (n.words || 1) / Math.max(1, stats.tiny)));   // a longer note takes more shooting
-      const hp = K.hp * size * hard * (stale ? 1.25 : 1) * (isBoss ? 1 + notes.length / 60 : 1);
+      const hp = K.hp * size * hard * D.hp * (stale ? 1.25 : 1) * (isBoss ? 1 + notes.length / 60 : 1);
       const e = { id: n.id, name: n.name, kind, K, x, y, hp, max: hp, stale, age: n.age || 0, drop: (n.tasks || 0) > 0, room, st: "idle", t: 0, cd: rand() * K.every, awake: false, look: rand() * 0.4, flash: 0, walk: rand() * 3, dead: 0, sight: false, melee: false, vis: false };
       L.enemies.push(e); hpIn.set(room, hpIn.get(room) + hp); if (isBoss) L.boss = e; });
     L.total = L.enemies.length;
     // enough to kill it all with something left over: items follow the hit points in the room
     const levels = levelList().length, avail = GUNS.filter(gun => gun.ammo && gun.ammo !== "bullets" && gunLevel(gun, levels) <= i).map(gun => gun.ammo);
     const place = (r, type) => { const [x, y] = openSpot(r); L.items.push({ type, x, y, placed: true }); L.itemsTotal++; };
-    rooms.forEach(r => { const n = 1 + Math.floor(hpIn.get(r) / 140);
+    rooms.forEach(r => { const n = 1 + Math.floor(hpIn.get(r) / (140 * D.hp) * D.ammo);
       for (let j = 0; j < n; j++) { const roll = rand(); place(r, roll < 0.2 ? "health" : roll < 0.27 ? "medkit" : roll < 0.33 ? "armor" : roll < 0.6 || !avail.length ? "bullets" : avail[int(0, avail.length - 1)]); } });
     place(rooms[0], "bullets"); place(rooms[0], "health"); place(bossRoom, "medkit"); place(bossRoom, "armor");
     const newGun = GUNS.find(gun => gunLevel(gun, levels) === i);
-    if (newGun) { const [x, y] = openSpot(spots[Math.floor(spots.length / 2)] || rooms[0]); L.items.push({ type: "gun", gun: newGun.key, x, y, placed: true }); L.itemsTotal++; }
+    if (newGun && !custom) { const [x, y] = openSpot(spots[Math.floor(spots.length / 2)] || rooms[0]); L.items.push({ type: "gun", gun: newGun.key, x, y, placed: true }); L.itemsTotal++; }
     return L;
   }
   // Steps from every open cell to (cx, cy): enemies walk it downhill. Doors count as open, an enemy opens them on arrival.
@@ -138,6 +173,7 @@
       else if (kind === "tile") { v = x % 32 < 1 || y % 32 < 1 ? 0.3 : 0.66 + n + (((x >> 5) + (y >> 5)) % 2 ? 0.07 : -0.05); }
       else if (kind === "ceil") { const cx = Math.abs((x % 32) - 16), cy = Math.abs((y % 32) - 16); v = 0.42 + n * 0.5; if (x % 32 < 1 || y % 32 < 1) v = 0.2; if (cx < 6 && cy < 3 && (x >> 5) === (y >> 5)) v = 2.2; }
       else if (kind === "door") { v = 0.68 + n * 0.5; if (x < 3 || x > 60) v = 0.28; if (y % 16 < 2) v = 0.35; if (Math.abs(x - 32) < 1) v = 0.25; if (y > 26 && y < 38 && Math.abs(x - 32) < 10) v = (x + y) % 8 < 4 ? 1.4 : 0.22; }
+      else if (kind === "crack") { const row = y >> 3, sx = x + (row % 2) * 8, bx = sx % 16; v = y % 8 === 0 || bx === 0 ? 0.32 + n * 0.5 : 0.72 + n; const j = 32 + Math.sin(y * 0.55) * 7 + Math.sin(y * 0.2) * 5; if (Math.abs(x - j) < 1.3 && y > 8 && y < 58) v = 0.08; else if (Math.abs(x - j) < 2.6 && y > 8 && y < 58) v += 0.2; }
       else if (kind === "exit") { v = 0.5 + 0.6 * Math.abs(Math.sin(Math.hypot(x - 32, y - 32) * 0.4)) + n; if (x < 2 || y < 2 || x > 61 || y > 61) v = 1.5; }
       v = Math.max(0.05, v); px[y * TS + x] = abgr(r * v | 0, g * v | 0, b * v | 0); }
     return px;
@@ -145,7 +181,7 @@
   function levelTextures(L) {
     if (L.tex) return L.tex;
     const s = hash(L.def.name), col = L.base;
-    return (L.tex = { wall: [null, texture("brick", hexMix(col, "#6b5a4a", 0.45), s), texture("panel", hexMix(col, "#5f6673", 0.72), s + 1), texture("stone", hexMix(col, "#57534e", 0.55), s + 2)],
+    return (L.tex = { wall: [null, texture("brick", hexMix(col, "#6b5a4a", 0.45), s), texture("panel", hexMix(col, "#5f6673", 0.72), s + 1), texture("stone", hexMix(col, "#57534e", 0.55), s + 2)], crack: texture("crack", hexMix(col, "#6b5a4a", 0.45), s + 9),
       floor: [texture("tile", hexMix(col, "#57504a", 0.82), s + 3), texture("stone", hexMix(col, "#44403c", 0.85), s + 4), texture("tile", "#5c2a24", s + 5)], ceil: texture("ceil", "#3a3a3e", s + 6),
       door: texture("door", "#8a8d91", s + 7), exitOn: texture("exit", "#22c55e", s + 8), exitOff: texture("exit", "#7f1d1d", s + 8) });
   }
@@ -206,7 +242,7 @@
   }
   function enemySprite(L, kind, stale, f) {
     const key = kind + (stale ? "!" : "") + f; let s = L.sprites.get(key); if (s) return s;
-    const cv_ = offscreen(64, 64), c = cv_.getContext("2d"), base = stale ? hexMix(L.base, "#c7cbb4", 0.62) : hexMix(L.base, kind === "boss" ? "#7f1d1d" : "#6b4a2f", 0.3);
+    const cv_ = offscreen(64, 64), c = cv_.getContext("2d", { willReadFrequently: true }), base = stale ? hexMix(L.base, "#c7cbb4", 0.62) : hexMix(L.base, kind === "boss" ? "#7f1d1d" : "#6b4a2f", 0.3);
     if (f >= 4) { const src = enemySprite(L, kind, stale, 3), sq = [0.7, 0.42, 0.2][f - 4]; c.imageSmoothingEnabled = false; shapes(c).el(32, 60, 10 + (f - 3) * 7, 2 + (f - 3), hexMix(L.base, "#3b0a0a", 0.7)); c.drawImage(src.cv, 0, 64 - 62 * sq, 64, 62 * sq); }
     else paintEnemy(c, kind, base, f);
     s = bake(cv_, true); L.sprites.set(key, s); return s;
@@ -214,7 +250,7 @@
   const ITEM_SPRITES = new Map();
   function itemSprite(key) {
     let s = ITEM_SPRITES.get(key); if (s) return s;
-    const cv_ = offscreen(32, 32), c = cv_.getContext("2d"), { el, poly, rc } = shapes(c);
+    const cv_ = offscreen(32, 32), c = cv_.getContext("2d", { willReadFrequently: true }), { el, poly, rc } = shapes(c);
     if (key === "health" || key === "medkit") { rc(5, 8, 22, 22, "#e7e5e4"); rc(13, 11, 6, 16, "#dc2626"); rc(8, 16, 16, 6, "#dc2626"); if (key === "medkit") rc(11, 4, 10, 5, "#57534e"); }
     else if (key === "armor") { poly("#16a34a", 8, 4, 13, 4, 16, 8, 19, 4, 24, 4, 28, 12, 25, 16, 25, 30, 7, 30, 7, 16, 4, 12); rc(11, 14, 10, 12, "#22c55e"); }
     else if (key === "bullets") { rc(8, 14, 16, 16, "#57534e"); rc(9, 8, 3, 8, "#eab308"); rc(14, 6, 3, 10, "#eab308"); rc(19, 8, 3, 8, "#eab308"); rc(8, 20, 16, 2, "#a8a29e"); }
@@ -228,6 +264,13 @@
     else if (key === "plasma") { el(16, 16, 11, 11, "#2563eb"); el(16, 16, 7, 7, "#38bdf8"); el(16, 16, 3, 3, "#fff"); }
     else if (key === "beamOn" || key === "beamOff") { const col = key === "beamOn" ? "#4ade80" : "#ef4444"; for (let y = 0; y < 32; y += 2) rc(10 + (y % 6), y, 12 - (y % 6) * 2, 1, col); }
     s = bake(cv_, key.startsWith("gun:") || ITEMS[key] != null); ITEM_SPRITES.set(key, s); return s;
+  }
+
+  // Everything a level can draw, made while it loads: a sprite made for the first time mid-fight (a death frame, at the first kill) stalls that frame.
+  function preload(L) {
+    levelTextures(L);
+    new Set(L.enemies.map(e => e.kind + (e.stale ? "!" : ""))).forEach(k => { for (let f = 0; f < 7; f++) enemySprite(L, k.replace("!", ""), k.endsWith("!"), f); });
+    Object.keys(ITEMS).forEach(itemSprite); GUNS.forEach(g => itemSprite("gun:" + g.key)); ["fireball", "bossball", "rocket", "plasma", "beamOn", "beamOff"].forEach(itemSprite);
   }
 
   // ---------------------------------------------------------------- sound: everything synthesised, nothing to load
@@ -290,13 +333,16 @@
   const addBits = (L, x, y, n, col, speed = 2, z = 0.45) => { if (L.bits.length > 260) return; for (let i = 0; i < n; i++) { const a = Math.random() * 6.28, v = speed * (0.3 + Math.random() * 0.8);
     L.bits.push({ x, y, z, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vz: 0.6 + Math.random() * 1.6, t: 0.35 + Math.random() * 0.45, col, s: 0.02 + Math.random() * 0.035 }); } };
   const inkOf = L => abgr(...rgbOf(hexMix(L.base, "#b91c1c", 0.55)));
+  function openSecret(L, c) {
+    const sec = L.secrets.find(q => q.c === c); if (!sec || sec.found) return; sec.found = true; L.g[c] = 0; L.flowCell = -1; G.me.score += SECRET_SCORE; G.msg = { text: `Secret found  +${SECRET_SCORE}`, t: 2.5 }; G.lastEvent = "secret"; sfx("door"); sfx("gun");
+  }
   function hurtEnemy(L, e, dmg) {
     if (e.dead) return; e.hp -= dmg; e.flash = 0.09; wake(L, e); addBits(L, e.x, e.y, 3, inkOf(L)); sfx("hit", 50);
     if (e.hp <= 0) return killEnemy(L, e);
     if (Math.random() < e.K.pain) { e.st = "pain"; e.t = 0.16; sfx("pain", 180); }
   }
   function killEnemy(L, e) {
-    const me = G.me; e.dead = 0.001; e.st = "dead"; L.kills++; G.combo = G.comboT > 0 ? G.combo + 1 : 1; G.comboT = 2.5; me.grin = 0.8;
+    const me = G.me; G.lastEvent = "kill"; e.dead = 0.001; e.st = "dead"; L.kills++; G.combo = G.comboT > 0 ? G.combo + 1 : 1; G.comboT = 2.5; me.grin = 0.8;
     const points = Math.round(e.K.score * (e.stale ? 1.5 : 1) * Math.min(5, G.combo)); me.score += points;
     G.feed.unshift({ text: `${clip(e.name, 40)}  +${points}${G.combo > 1 ? `  ×${Math.min(5, G.combo)}` : ""}`, t: 4 }); G.feed.length = Math.min(G.feed.length, 5);
     addBits(L, e.x, e.y, e === L.boss ? 70 : 14, inkOf(L), e === L.boss ? 5 : 2.6);
@@ -305,9 +351,9 @@
   }
   function wake(L, e) { if (e.awake || e.dead) return; e.awake = true; e.st = "chase"; L.enemies.forEach(o => { if (!o.awake && !o.dead && o.room === e.room && Math.hypot(o.x - e.x, o.y - e.y) < 7) { o.awake = true; o.st = "chase"; } }); }
   function hurtMe(dmg, fromX, fromY, name) {
-    const me = G.me; if (me.hp <= 0) return; const toArmor = Math.min(me.armor, Math.floor(dmg / 3)); me.armor -= toArmor; me.hp = Math.max(0, Math.round(me.hp - (dmg - toArmor)));
+    const me = G.me; if (me.hp <= 0) return; dmg = Math.round(dmg * (name === "your own rocket" ? 1 : DIFFS[G.diff].dmg)); const toArmor = Math.min(me.armor, Math.floor(dmg / 3)); me.armor -= toArmor; me.hp = Math.max(0, Math.round(me.hp - (dmg - toArmor)));
     me.hurt = Math.min(1, me.hurt + 0.35 + dmg / 60); me.shake = Math.max(me.shake, 0.3 + dmg / 60); me.hurtDir = Math.atan2(fromY - me.y, fromX - me.x); sfx("hurt", 150);
-    if (me.hp <= 0) { G.killer = name; G.state = "dead"; setPlaying(false); G.best = Math.max(G.best, me.score); save(); sfx("bossdie"); }
+    if (me.hp <= 0) { G.killer = name; G.state = "dead"; setPlaying(false); G.best = Math.max(G.best, me.score); if (G.mode === "run") G.bestRun = Math.max(G.bestRun, me.score); save(); sfx("bossdie"); }
   }
   function shootAt(L, e, dmg, speed, spread) {
     const me = G.me, n = e.K.fan || 1, a0 = Math.atan2(me.y - e.y, me.x - e.x) + (Math.random() - 0.5) * spread;
@@ -350,7 +396,7 @@
     if (gun.ammo) me.ammo[gun.ammo]--;
     me.cool = gun.rate; me.kick = 1; me.flash = gun.ammo ? 1 : 0; sfx(gun.sfx); me.shake = Math.max(me.shake, (gun.kick || 0) * 0.22);
     if (gun.ammo) L.enemies.forEach(e => { if (!e.awake && !e.dead && Math.hypot(e.x - me.x, e.y - me.y) < 9) wake(L, e); });   // noise
-    const c = Math.cos(me.a), s = Math.sin(me.a);
+    const c = Math.cos(me.a), s = Math.sin(me.a); if (gun.ammo && cast(L, me.x, me.y, c, s).v === SECRET && RAY.d < 12) openSecret(L, RAY.cell);
     if (gun.proj) { L.shots.push({ x: me.x + c * 0.3, y: me.y + s * 0.3, vx: c * gun.proj.speed, vy: s * gun.proj.speed, dmg: gun.dmg, splash: gun.proj.splash, sprite: gun.proj.sprite, mine: true, life: 4, name: "" }); return; }
     for (let i = 0; i < gun.pellets; i++) { const hit = shotHits(L, me.a + (Math.random() - 0.5) * 2 * gun.spread, gun.range); if (hit.e) hurtEnemy(L, hit.e, gun.dmg * (0.8 + Math.random() * 0.4)); else if (gun.ammo) addBits(L, hit.x - c * 0.04, hit.y - s * 0.04, 2, abgr(214, 211, 209), 0.8, 0.5); }
   }
@@ -363,7 +409,7 @@
     L.items = L.items.filter(it => { if (Math.hypot(it.x - me.x, it.y - me.y) > 0.62) return true; let said = null;
       if (it.type === "gun") { const g = GUNS.find(x => x.key === it.gun); if (!me.guns.includes(g.key)) me.guns.push(g.key); if (g.ammo) me.ammo[g.ammo] = Math.min(AMMO_MAX[g.ammo], me.ammo[g.ammo] + GUN_AMMO[g.ammo]); me.gun = g.key; me.swap = 0.3; said = g.name; sfx("gun"); }
       else { const def = ITEMS[it.type]; if (def.ammo) { const [k, n] = def.ammo; if (me.ammo[k] >= AMMO_MAX[k]) return true; me.ammo[k] = Math.min(AMMO_MAX[k], me.ammo[k] + n); said = `+${n} ${k}`; } else { said = def.take(me); if (!said) return true; } sfx("pickup"); }
-      if (it.placed) L.itemsGot++; G.msg = { text: said, t: 1.4 }; return false; });
+      if (it.placed) L.itemsGot++; G.msg = { text: said, t: 1.4 }; G.lastEvent = "pickup"; return false; });
   }
   function stepDoors(L, dt) {
     const me = G.me;
@@ -380,6 +426,7 @@
     me.vx += (wx - me.vx) * grip; me.vy += (wy - me.vy) * grip; if (!fwd && !side && Math.hypot(me.vx, me.vy) < 0.08) me.vx = me.vy = 0;   // momentum ends, it does not fade for ever
     slide(L, me, me.vx * dt, me.vy * dt, 0.24);
     me.bob += Math.hypot(me.vx, me.vy) * dt * 2.1;
+    if (fwd > 0.3 && cast(L, me.x, me.y, c, s).v === SECRET && RAY.d < 0.75) openSecret(L, RAY.cell);   // push on a crack and it gives
     stepDoors(L, dt);
     const cell = (me.y | 0) * L.gw + (me.x | 0); if (cell !== L.flowCell && now - L.flowAt > 150) { L.flowCell = cell; L.flowAt = now; fillFlow(L, me.x | 0, me.y | 0); }
     L.enemies.forEach(e => stepEnemy(L, e, dt));
@@ -419,7 +466,7 @@
     // walls and doors, one column at a time
     for (let x = 0; x < rw; x++) { const cam = 2 * (x + shakeX) / rw - 1, hit = cast(L, me.x, me.y, dirX + plX * cam, dirY + plY * cam), d = Math.max(0.05, hit.d), h = f / d; Z[x] = d;
       if (hit.cell >= 0 && !L.seen[hit.cell]) { L.seen[hit.cell] = 1; if (L.mini) { const m = L.mini.getContext("2d"); m.fillStyle = hit.v === DOOR ? "#fde047" : hexMix(L.base, "#ffffff", 0.2); m.fillRect(hit.cell % gw, Math.floor(hit.cell / gw), 1, 1); } }
-      const t = hit.v === DOOR ? tex.door : tex.wall[hit.v] || tex.wall[1], u = Math.min(TS - 1, hit.u * TS | 0), s = Math.min(300, ((bandOf(d) * (hit.side ? 0.78 : 1)) | 0) + boost), y0 = Math.max(0, Math.ceil(cy - h / 2)), y1 = Math.min(rh, Math.ceil(cy + h / 2)), step_ = TS / h; let tv = (y0 - (cy - h / 2)) * step_, o = y0 * rw + x;
+      const t = hit.v === DOOR ? tex.door : hit.v === SECRET ? tex.crack : tex.wall[hit.v] || tex.wall[1], u = Math.min(TS - 1, hit.u * TS | 0), s = Math.min(300, ((bandOf(d) * (hit.side ? 0.78 : 1)) | 0) + boost), y0 = Math.max(0, Math.ceil(cy - h / 2)), y1 = Math.min(rh, Math.ceil(cy + h / 2)), step_ = TS / h; let tv = (y0 - (cy - h / 2)) * step_, o = y0 * rw + x;
       for (let y = y0; y < y1; y++, o += rw, tv += step_) fb[o] = lit(t[(tv & 63) * TS + u], s); }
     // everything standing in the room, far to near, hidden column by column behind the walls
     const inv = 1 / (plX * dirY - dirX * plY), list = [], push = (owner, x, y, spr, h, zz, bright, white) => { const dx = x - me.x, dy = y - me.y, tX = inv * (dirY * dx - dirX * dy), tY = inv * (-plY * dx + plX * dy); if (tY < 0.18 || tY > 40) return; list.push([tY, rw / 2 * (1 + tX / tY), spr, h, zz, bright, white, owner]); };
@@ -531,11 +578,13 @@
     dim(0.62); const ls = levelList(), small = H < 620 || W < 620, big = Math.min(small ? 54 : 96, W / 7); let y = small ? big + 62 : H * 0.2;   // on a phone, clear of the toolbar
     text("DUNGEON", W / 2, y, big, "#ef4444", "center"); y += small ? 22 : 34;
     if (!ls.length) { text("No notes yet.", W / 2, y, 16, "#e7e5e4", "center", font); return; }
-    const total = ls.reduce((s, l) => s + l.notes.length, 0); text(`${plural(total, "note")} · ${plural(ls.length, "level")}${G.best ? ` · best ${G.best}` : ""}`, W / 2, y, small ? 13 : 16, "#e7e5e4", "center", font); y += small ? 14 : 26;
+    const total = ls.reduce((s, l) => s + l.notes.length, 0); text(`${plural(total, "note")} · ${plural(ls.length, "level")}${G.best ? ` · best ${G.best}` : ""}${G.bestRun ? ` · best run ${G.bestRun}` : ""}`, W / 2, y, small ? 13 : 16, "#e7e5e4", "center", font); y += small ? 14 : 26;
     const def = ls[G.sel], rowW = Math.min(520, W - 32), rx = (W - rowW) / 2, rowH = small ? 44 : 54;
     button(rx, y, 44, rowH, "<", () => pickLevel(-1)); button(rx + rowW - 44, y, 44, rowH, ">", () => pickLevel(1));
     text(`Level ${G.sel + 1} of ${ls.length}`, W / 2, y + rowH * 0.42, small ? 11 : 13, "#a8a29e", "center", font); text(clip(def.name, Math.floor(rowW / 12)), W / 2, y + rowH * 0.8, small ? 15 : 18, "#fff", "center", font); y += rowH + 10;
-    buttonRow(y, small ? 42 : 52, [["START", () => startLevel(G.sel), true]]); y += (small ? 42 : 52) + (small ? 16 : 28);
+    const hunt = huntDef(), bh = small ? 42 : 52, huntLabel = !hunt ? "NO HUNT TODAY" : G.huntDone === hunt.day ? "HUNT AGAIN" : "DAILY HUNT";
+    buttonRow(y, bh, [["START", () => { G.mode = "level"; startLevel(G.sel); }, true], ["VAULT RUN", () => { G.mode = "run"; startLevel(0); }], [huntLabel, () => { if (hunt) startHunt(hunt); }]]); y += bh + 8;
+    buttonRow(y, small ? 30 : 34, [[`Difficulty: ${DIFFS[G.diff].name}`, () => { G.diff = (G.diff + 1) % DIFFS.length; save(); G.L = null; G.me = null; }]]); y += (small ? 30 : 34) + (small ? 12 : 20);
     // who's who: the actual sprites, and what kind of note each one is
     const kinds = Object.keys(KINDS), perRow = W < 620 ? 3 : 6, cw = Math.min(150, (W - 24) / perRow), sp = Math.min(small ? 46 : 72, cw * 0.7), startX = (W - cw * perRow) / 2; ctx.imageSmoothingEnabled = false;
     kinds.forEach((k, i) => { const col = i % perRow, row = Math.floor(i / perRow), cx = startX + col * cw + cw / 2, cy = y + row * (sp + 38); ctx.drawImage(enemySprite(G.L, k, false, 0).cv, cx - sp / 2, cy, sp, sp); text(KINDS[k].name, cx, cy + sp + 13, 12, "#fff", "center", font); text(KINDS[k].is, cx, cy + sp + 27, 10, "#a8a29e", "center", font); });
@@ -545,28 +594,31 @@
   function drawCard(title, col, sub, font) { dim(0.72); const big = Math.min(72, W / 9); text(title, W / 2, H * 0.3, big, col, "center"); if (sub) text(sub, W / 2, H * 0.3 + 34, 15, "#e7e5e4", "center", font); return H * 0.3 + 58; }
   function drawTally(font) {
     const t = G.tally, won = t.last; let y = drawCard(won ? "VAULT CLEARED" : "LEVEL CLEARED", won ? "#fde047" : "#4ade80", `${t.name} · ${Math.floor(t.time / 60)}:${String(Math.floor(t.time % 60)).padStart(2, "0")}`, font);
-    [["Kills", `${t.kills} / ${t.total}`], ["Items", `${t.items} / ${t.itemsTotal}`], ["Score", String(t.score)]].forEach(([a, b]) => { text(a, W / 2 - 12, y, 16, "#a8a29e", "right", font); text(b, W / 2 + 12, y, 16, "#fff", "left", font); y += 24; }); y += 8;
-    if (t.top.length && opts.openNote) { text("Toughest kills", W / 2, y, 12, "#a8a29e", "center", font); y += 8; const w = Math.min(420, W - 32); t.top.forEach(e => { button((W - w) / 2, y, w, 30, clip(e.name, Math.floor(w / 10)), () => opts.openNote(e.id, true)); y += 34; }); y += 8; }
-    buttonRow(y, 46, won ? [["TITLE", toTitle, true]] : [["NEXT LEVEL", () => startLevel(t.i + 1, true), true], ["TITLE", toTitle]]);
+    [["Kills", `${t.kills} / ${t.total}`], ["Items", `${t.items} / ${t.itemsTotal}`], ["Secrets", `${t.secrets} / ${t.secretsTotal}`], ["Score", String(t.score)]].forEach(([a, b]) => { text(a, W / 2 - 12, y, 16, "#a8a29e", "right", font); text(b, W / 2 + 12, y, 16, "#fff", "left", font); y += 24; }); y += 8;
+    if (t.top.length && opts.openNote) { text(t.hunt ? "Stale notes you hunted" : "Toughest kills", W / 2, y, 12, "#a8a29e", "center", font); y += 8; const w = Math.min(420, W - 32); t.top.forEach(e => { button((W - w) / 2, y, w, 30, clip(e.name, Math.floor(w / 10)), () => opts.openNote(e.id, true)); y += 34; }); y += 8; }
+    buttonRow(y, 46, won || t.hunt ? [["TITLE", toTitle, true]] : [["NEXT LEVEL", () => startLevel(t.i + 1, true), true], ["TITLE", toTitle]]);
   }
 
   // ---------------------------------------------------------------- moving between screens
   function setPlaying(on) { root.classList.toggle("is-playing", on); if (!on) { G.firing = false; G.keys.clear(); G.touch = {}; try { if (root.ownerDocument.pointerLockElement === cv) root.ownerDocument.exitPointerLock(); } catch (e) { /* no lock to leave */ } } }
   const lockMouse = () => { if (G.showTouch || MOBILE || !cv.requestPointerLock) return; try { const p = cv.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* holding the button still turns */ } };
-  function showLevel(i) { G.level = i; G.L = buildLevel(i); const r = G.L.start; G.me = G.me || freshMe(i); G.me.x = r.cx + 0.5; G.me.y = r.cy + 0.5; G.me.a = Math.atan2(G.L.exit.y - G.me.y, G.L.exit.x - G.me.x); return G.L; }
-  function startLevel(i, carry) {
-    const ls = levelList(); if (!ls.length) return; i = clamp(i, 0, ls.length - 1); G.sel = i;
+  function showLevel(i, custom) { G.level = i; G.L = buildLevel(i, custom); const r = G.L.start; G.me = G.me || freshMe(i); G.me.x = r.cx + 0.5; G.me.y = r.cy + 0.5; G.me.a = Math.atan2(G.L.exit.y - G.me.y, G.L.exit.x - G.me.x); return G.L; }
+  function startHunt(def) { G.mode = "hunt"; G.huntDef = def; startLevel(Math.min(HUNT_LEVEL, levelList().length - 1), false, def); }
+  function startLevel(i, carry, custom) {
+    const ls = levelList(); if (!ls.length) return; i = clamp(i, 0, ls.length - 1); if (!custom) G.sel = i;
     if (!carry) G.me = freshMe(i);
-    showLevel(i); Object.assign(G.me, { vx: 0, vy: 0, kick: 0, flash: 0, hurt: 0, shake: 0, cool: 0 });
+    else if (G.mode === "run") G.me.hp = Math.min(100, G.me.hp + RUN_HEAL);
+    showLevel(i, custom); preload(G.L); Object.assign(G.me, { vx: 0, vy: 0, kick: 0, flash: 0, hurt: 0, shake: 0, cool: 0 });
     G.snap = { hp: G.me.hp, armor: G.me.armor, ammo: { ...G.me.ammo }, guns: G.me.guns.slice(), gun: G.me.gun, score: G.me.score };
     G.feed = []; G.msg = null; G.combo = 0; G.comboT = 0; G.intro = 3; G.bigMap = false; G.tally = null; G.state = "play"; setPlaying(true); audio(); lockMouse(); dirty = true; kick();
   }
-  function retry() { const snap = G.snap, i = G.level; G.me = Object.assign(freshMe(i), snap, { ammo: { ...snap.ammo }, guns: snap.guns.slice() }); startLevel(i, true); }
-  function toTitle() { setPlaying(false); G.state = "title"; G.me = null; G.tally = null; G.L = null; dirty = true; kick(); }
+  function retry() { const snap = G.snap, i = G.level; G.me = Object.assign(freshMe(i), snap, { ammo: { ...snap.ammo }, guns: snap.guns.slice() }); startLevel(i, true, G.mode === "hunt" ? G.huntDef : null); }
+  function toTitle() { setPlaying(false); G.mode = "level"; G.state = "title"; G.me = null; G.tally = null; G.L = null; dirty = true; kick(); }
   function finishLevel() {
     const L = G.L, me = G.me, ls = levelList(), last = L.i >= ls.length - 1, top = L.enemies.filter(e => e.dead).sort((a, b) => b.max - a.max).slice(0, 3);
-    G.tally = { i: L.i, name: L.def.name, last, kills: L.kills, total: L.total, items: L.itemsGot, itemsTotal: L.itemsTotal, time: L.time, score: me.score, top: top.map(e => ({ id: e.id, name: e.name })) };
-    G.reached = Math.max(G.reached, Math.min(ls.length - 1, L.i + 1)); G.best = Math.max(G.best, me.score); save(); G.state = "tally"; setPlaying(false); sfx("exit");
+    G.tally = { i: L.i, name: L.def.name, last, kills: L.kills, total: L.total, items: L.itemsGot, itemsTotal: L.itemsTotal, time: L.time, score: me.score, secrets: L.secrets.filter(q => q.found).length, secretsTotal: L.secrets.length, hunt: G.mode === "hunt", top: (G.mode === "hunt" ? L.enemies.filter(e => e.dead).slice(0, 6) : top).map(e => ({ id: e.id, name: e.name })) };
+    if (G.mode === "hunt") { G.tally.last = false; G.huntDone = G.huntDef.day; } else G.reached = Math.max(G.reached, Math.min(ls.length - 1, L.i + 1));
+    G.best = Math.max(G.best, me.score); if (G.mode === "run") G.bestRun = Math.max(G.bestRun, me.score); save(); G.state = "tally"; setPlaying(false); sfx("exit");
   }
   function pause() { if (G.state !== "play") return; G.state = "paused"; G.pausedAt = performance.now(); setPlaying(false); dirty = true; kick(); }
   function resume() { if (G.state !== "paused") return; G.state = "play"; setPlaying(true); lockMouse(); dirty = true; kick(); }
@@ -633,14 +685,14 @@
     escape() { if (G.state === "play") { pause(); return true; } if (G.state === "paused") { if (performance.now() - G.pausedAt > 400) resume(); return true; } return false; },
     release() { G.keys.clear(); G.touch = {}; G.firing = false; pause(); },
     state: G,   // for tests/test_dungeon.js
-    api: { startLevel, hurtMe, killEnemy, retry, toTitle, levelList, shotHits, solidAt },
+    api: { startLevel, startHunt, huntDef, openSecret, hurtMe, killEnemy, retry, toTitle, levelList, shotHits, solidAt, DIFFS },
     draw(now) {
       const { font } = mapFrame(), hud = G.state === "title" ? 0 : hudHeight(), viewH = H - hud; G.ui = []; G.primary = null;
-      const dt = Math.min(0.05, (now - (G.last || now)) / 1000); G.last = now;
+      const gap = now - (G.last || now), dt = Math.min(0.05, gap / 1000), t0 = performance.now(); G.last = now;
       const locked = root.ownerDocument.pointerLockElement === cv; if (G.locked && !locked && G.state === "play") pause(); G.locked = locked;
       const ls = levelList(); if (G.sel >= ls.length) G.sel = Math.max(0, ls.length - 1);
       if (!ls.length) { ctx.fillStyle = "#0c0a09"; ctx.fillRect(0, 0, W, H); drawTitle(font); return; }
-      if (!G.L) showLevel(G.sel);
+      if (!G.L) { loadProgress(); showLevel(G.sel); }
       if (G.state === "play") step(dt, now); else if (G.state === "title" && !reducedMotion()) G.me.a += dt * 0.12;
       buffers(viewH);
       const labels = render3D(now);
@@ -649,9 +701,12 @@
       if (G.state !== "title") { drawPlayOverlay(labels, viewH, font); drawHud(viewH); }
       if (G.state === "title") drawTitle(font);
       else if (G.state === "paused") { const y = drawCard("PAUSED", "#e7e5e4", `Level ${G.level + 1} · ${G.L.def.name}`, font); buttonRow(y, 46, [["RESUME", resume, true], ["RESTART", retry], ["TITLE", toTitle]]); }
-      else if (G.state === "dead") { const y = drawCard("YOU DIED", "#ef4444", `Killed by ${clip(G.killer, 46)}`, font); text(`Score ${G.me.score}`, W / 2, y, 15, "#e7e5e4", "center", font); buttonRow(y + 16, 46, [["TRY AGAIN", retry, true], ["TITLE", toTitle]]); }
+      else if (G.state === "dead") { const run = G.mode === "run", y = drawCard(run ? "RUN OVER" : "YOU DIED", "#ef4444", `Killed by ${clip(G.killer, 46)}`, font); text(run ? `Reached level ${G.level + 1} of ${ls.length} · score ${G.me.score}${G.me.score >= G.bestRun ? " · best run" : ""}` : `Score ${G.me.score}`, W / 2, y, 15, "#e7e5e4", "center", font); buttonRow(y + 16, 46, [run ? ["NEW RUN", () => { G.me = null; startLevel(0); }, true] : ["TRY AGAIN", retry, true], ["TITLE", toTitle]]); }
       else if (G.state === "tally") drawTally(font);
-      setSceneStat(G.state === "title" ? `${plural(ls.reduce((s, l) => s + l.notes.length, 0), "note")} to kill` : `Level ${G.level + 1} · ${G.L.def.name} · ${G.L.kills}/${G.L.total} killed`);
+      if (G.state !== "play") setSceneStat(G.state === "title" ? `${plural(ls.reduce((s, l) => s + l.notes.length, 0), "note")} to kill` : `Level ${G.level + 1} · ${G.L.def.name} · ${G.L.kills}/${G.L.total} killed`);   // the status line is hidden in play: no page changes mid-fight
+      // A frame that came late, with what had just happened: the next hitch can be read back rather than guessed at
+      if (G.state === "play" && gap > 40) { G.spikes.push({ gap: Math.round(gap), work: +(performance.now() - t0).toFixed(1), after: G.lastEvent }); if (G.spikes.length > 60) G.spikes.shift(); }
+      G.lastEvent = "";
     },
     legend: item => item("<b style='color:#ef4444'>✛</b>", "every note is an enemy") + item("▮", "every topic is a level"),
   });

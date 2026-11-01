@@ -367,6 +367,7 @@
     releaseKeys();   // a key held in the view being left would keep moving it
     if (SCENES[view] && SCENES[view].game) stopTime();
     st.recent = [view, ...(st.recent || []).filter(v => v !== view)].slice(0, 4);   // the picker's Recent row
+    if (!opts.compact) { cos.viewOpens = cos.viewOpens || {}; cos.viewOpens[view] = (cos.viewOpens[view] || 0) + 1; persistSoon(); }   // which views get used (tells which to retire)
     cam.turn = 0;   // only 2D turns (fit decides); every other view draws upright
     if (was !== "neural" && was !== "cosmos") keepLayout();   // remember the force layout we're leaving
     if (was === "2d") geoCache = new Map(nodes.map(n => [n.id, [n.x, n.y]]));   // the map views keep this geography

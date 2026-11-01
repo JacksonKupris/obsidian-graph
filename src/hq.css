@@ -198,3 +198,6 @@
 /* the carried-over sweep: a day per section, its buttons beside the day */
 .vg-hq .vg-hq-sweep h3 { align-items: center; gap: 8px; flex-wrap: wrap; } .vg-hq .vg-hq-sweep h3 .vg-hq-acts { max-width: none; }
 .vg-hq .vg-hq-old { font-style: normal; font-weight: 600; color: var(--hq-warn); margin-left: 6px; }
+.vg-hq .vg-hq-react { display: inline-flex; gap: 2px; }
+.vg-hq .vg-hq-react .vg-hq-btn { padding-left: 6px; padding-right: 6px; min-width: 28px; justify-content: center; }
+.vg-hq .vg-hq-hiddenkinds .vg-hq-btn { margin-right: 10px; }

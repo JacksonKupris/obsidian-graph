@@ -1234,6 +1234,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       setNoteStatus: (notePath, status, reason) => this.setNoteStatus(notePath, status, reason),
       setProjectStatus: (notePath, status, closeTasks) => this.setProjectStatus(notePath, status, closeTasks),
       hqMark: (key, mark) => this.hqMark(key, mark),
+      hqReact: (kind, how) => this.hqReact(kind, how),
       stampReviewed: notePath => this.stampReviewed(notePath),
       dismissPair: async (a, b, kind) => { await this.dismiss(a, b, kind); new Notice("Won't suggest that pair again"); },
       linkText: (id, fromPath) => this.linkText(id, fromPath),
@@ -1448,7 +1449,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       return { id: r, name: f instanceof TFile ? f.basename : r.split("/").pop().replace(/\.md$/i, ""), cluster: at.has(r) ? at.get(r) : -1, bc: Math.round((E.bc[r] || 0) * 1e5) / 1e5,
         folder: r.includes("/") ? r.slice(0, r.lastIndexOf("/")) : "", mentions: 0, recent: 0, opens: 0, opens90: 0, inlinks: 0, outlinks: 0,
         broken: Object.keys(unresolved[r] || {}).length, tasks: 0, words: words(r), age: 0, refs: false, isolated: !E.graph[r], tags: E.tags[r] || [],
-        born: day(st.ctime), edited: day(st.mtime) }; });
+        born: VGRules.bornDate(f instanceof TFile ? f.basename : r, f instanceof TFile && this.app.metadataCache.getFileCache ? ((this.app.metadataCache.getFileCache(f) || {}).frontmatter || {}).created : null, day(st.ctime)), edited: day(st.mtime) }; });
     const links = [];
     for (const [r, nb] of Object.entries(E.graph)) for (const [t, w] of Object.entries(nb)) if (VGEngine.pyCmp(r, t) < 0) links.push({ source: r, target: t, w, kind: "link" });
     const wanted = VGEngine.wantedNotes(unresolved, E.notes);
@@ -1702,6 +1703,17 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // HQ's marks on an item, in the shared file: "later" (gone for today), "done" (a plan item, which has no checkbox),
   // or null to take one back (Undo). Marks from earlier days are dropped: Later lasts the day, and a plan item's
   // standup is older than the carry-over window by then.
+  // More / Less like this on an item's kind: how is more, less, undo-more, undo-less, hide or show. Through the shared file, so every device learns it.
+  async hqReact(kind, how) {
+    await this.updateShared(sh => {
+      const r = sh.review = sh.review || {};
+      if (how === "hide" || how === "show") { r.hiddenKinds = (r.hiddenKinds || []).filter(k => k !== kind); if (how === "hide") r.hiddenKinds.push(kind); return sh; }
+      const all = r.reactions = { ...(r.reactions || {}) }, one = all[kind] = { more: 0, less: 0, ...(all[kind] || {}) }, field = how.replace("undo-", "");
+      one[field] = Math.max(0, one[field] + (how.startsWith("undo-") ? -1 : 1));
+      return sh;
+    });
+    STATE_VIEWS().concat(SUGGEST_TYPE).flatMap(t => this.app.workspace.getLeavesOfType(t)).forEach(l => (l.view.renderSoon || l.view.render || (() => {})).call(l.view));
+  }
   async hqMark(key, mark) {
     const day = today(), keep = (VGRules.HQ.carry_days || 30) * 864e5;
     await this.updateShared(sh => {

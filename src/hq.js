@@ -168,8 +168,19 @@ function mountVaultHQ(root, data, opts) {
   function row(it) {
     return `<div class="vg-hq-item" data-key="${esc(it.key)}"><span class="vg-hq-kind">${icon(KIND_ICON[it.kind] || "graph", 16)}</span>` +
       `<div class="vg-hq-txt"><b>${esc(it.title)}</b>${it.why ? `<small>${esc(it.why)}${it.delegated ? ` · delegated to ${esc(it.delegated)}` : ""}</small>` : ""}</div>` +
-      `<div class="vg-hq-acts">${buttons(it)}</div></div>`;
+      `<div class="vg-hq-acts">${buttons(it)}${reactButtons(it)}</div></div>`;
   }
+  // More / Less like this: on every item when the host can keep them
+  const reactButtons = it => api.hqReact ? `<span class="vg-hq-react" role="group" aria-label="More or less like this"><button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-react="more" data-kind="${esc(it.kind)}" aria-label="More like this" title="More ${esc(VGRules.kindWords(it.kind))}">▲</button><button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-react="less" data-kind="${esc(it.kind)}" aria-label="Less like this" title="Fewer ${esc(VGRules.kindWords(it.kind))}">▼</button></span>` : "";
+  async function react(how, kind) {
+    const words = VGRules.kindWords(kind), was = (((STATE.review || {}).reactions || {})[kind] || {}).less || 0;
+    await api.hqReact(kind, how);
+    toast(how === "more" ? `More ${words}` : `Fewer ${words}`, () => api.hqReact(kind, `undo-${how}`));
+    if (how === "less" && was + 1 >= 3 && VGRules.canHideKind(kind) && await ctx().ask(`Hide ${words}?`, `You've asked for fewer of these ${was + 1} times. Hide them all? Home has a Show button to bring them back.`, "Hide")) {
+      await api.hqReact(kind, "hide"); toast(`Hidden: ${words}`, () => api.hqReact(kind, "show")); }
+  }
+  // kinds hidden with Less like this, each with its way back
+  const hiddenKindsLine = () => { const kinds = ((STATE.review || {}).hiddenKinds || []); return kinds.length && api.hqReact ? `<p class="vg-hq-lede vg-hq-hiddenkinds">Hidden: ${kinds.map(k => `${esc(VGRules.kindWords(k))} <button class="vg-hq-btn vg-hq-btn-sm" data-showkind="${esc(k)}">Show</button>`).join(" ")}</p>` : ""; };
   const duplicateKey = it => VGRules.plainTask(it.text || it.title).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
   function taskRows(items) {
     const groups = new Map();
@@ -231,7 +242,7 @@ function mountVaultHQ(root, data, opts) {
       <button class="vg-hq-tile" data-go="needs"><span class="vg-hq-eyebrow">Needs you</span><span class="vg-hq-big">${needs.length}</span><small>${esc(needsBy || "Nothing waiting on you")}</small></button>
       <button class="vg-hq-tile" data-go="projects"><span class="vg-hq-eyebrow">Projects</span><span class="vg-hq-big">${count("active")}</span><small>in progress · ${count("planned")} planned · ${count("waiting")} waiting</small></button></div>`;
     const upkeep = ofGroup("upkeep").slice(0, 3);
-    return `<h1 class="vg-hq-h1">${greeting()}</h1>${journalWarning()}${feed}${tiles}` +
+    return `<h1 class="vg-hq-h1">${greeting()}</h1>${journalWarning()}${hiddenKindsLine()}${feed}${tiles}` +
       (upkeep.length ? section("Vault upkeep", upkeep, opts.openGraph ? '<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-graph>Open the graph</button></div>' : "") : "");
   }
   const greeting = () => { const h = now().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
@@ -456,6 +467,9 @@ function mountVaultHQ(root, data, opts) {
   const el = document.createElement("div");
   el.className = "vg-hq" + (opts.mobile ? " is-mobile" : "");
   root.appendChild(el);
+  // results alone, so the box keeps its text, cursor and any unfinished composition while results change under it
+  const SEARCH_PAUSE = 90;
+  function renderResults() { const main = el.querySelector(".vg-hq-main"); if (!main || !globalQuery.trim()) return render(); compute(); main.innerHTML = searchScreen(); }
   function render() {
     compute();
     const label = SUB[cur] ? SUB[cur][0] : SCREENS.find(s => s[0] === cur)[1], t = now();
@@ -482,6 +496,8 @@ function mountVaultHQ(root, data, opts) {
     const b = e.target.closest("button, [data-closedrawer]"); if (!b || !el.contains(b) || b.disabled) return;
     const d = b.dataset;
     if (d.act) act(d.act, d.key, b);
+    else if (d.react) react(d.react, d.kind);
+    else if (d.showkind) api.hqReact(d.showkind, "show");
     else if (d.one) { const it = BY_KEY.get(d.key); if (it) sweep(d.one, [it], b); }
     else if (d.batch) { const its = ofKind("carried").filter(it => it.date === d.day && !kept.has(it.key)); sweep(d.batch, its, b, d.day); }
     else if (d.row) tickRow(+d.rline, d.row, b);
@@ -508,7 +524,9 @@ function mountVaultHQ(root, data, opts) {
       feedAt = d.feedto ? +d.feedto : (feedAt + +d.feed + n) % n; if (track) track.scrollTo({ left: feedAt * track.clientWidth, behavior: "smooth" });
       el.querySelectorAll(".vg-hq-dots button").forEach((x, k) => x.classList.toggle("is-on", k === feedAt)); }
   });
-  el.addEventListener("input", e => { if (e.target.matches(".vg-hq-global-search")) { globalQuery = e.target.value; drawer = null; searchNotes(globalQuery); render(); } });
+  let typeTimer = null;
+  el.addEventListener("input", e => { if (e.target.matches(".vg-hq-global-search")) { const had = !!globalQuery; globalQuery = e.target.value; drawer = null; searchNotes(globalQuery); clearTimeout(typeTimer);
+    if (!had !== !globalQuery) render(); else typeTimer = setTimeout(renderResults, SEARCH_PAUSE); } });
   el.addEventListener("change", e => {
     const key = e.target.dataset.projectFilter;
     if (!key) return;
@@ -537,6 +555,6 @@ function mountVaultHQ(root, data, opts) {
     setScreen, screen: () => cur,
     showRows: path => ctx().showRows(path),   // a report's rows (the sidebar's Review rows opens HQ there)
     items: () => LIST.slice(),
-    destroy() { clearInterval(clockTimer); clearTimeout(toastTimer); clearTimeout(searchTimer); searchToken++; el.remove(); },
+    destroy() { clearInterval(clockTimer); clearTimeout(toastTimer); clearTimeout(searchTimer); clearTimeout(typeTimer); searchToken++; el.remove(); },
   };
 }

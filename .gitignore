@@ -3,3 +3,5 @@ dist/
 .out/
 local.json
 fixtures/sample-vault/
+__pycache__/
+*.pyc

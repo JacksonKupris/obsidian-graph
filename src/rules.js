@@ -696,6 +696,24 @@ const VGRules = (() => {
   // pinned), chart (a topic of 6+ notes with no map), adopt (a note nothing links to a topic).
   const TODAY_XP = { link: 10, map: 6, write: 12, hub: 4, chart: 25, adopt: 8, rename: 4, task: 5, plan: 5, carried: 5, approval: 3, review: 6, job: 3, backlog: 6, report: 4 };
   const fnv = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; };
+  // More / Less like this: each reaction moves that kind of item up or down the list, by a small and capped amount, so one
+  // kind can't bury everything. Upkeep suggestions can also be hidden outright; your own work can't.
+  const REACTION_CAP = 3;
+  // When a note came into being, the plugin's side of analysis/vault_graph.py's born_date: the earliest of its frontmatter
+  // date, a date or month in its name, and its file's creation date
+  const MONTH_NUM = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+  function nameDate(name) {
+    let m = /(20\d\d-\d\d-\d\d)/.exec(name); if (m) return m[1];
+    m = /(?<![\d-])(20\d\d)-(0[1-9]|1[0-2])(?![\d-])/.exec(name); if (m) return `${m[1]}-${m[2]}-01`;
+    m = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? +(20\d\d)\b/i.exec(name);
+    return m ? `${m[2]}-${String(MONTH_NUM[m[1].toLowerCase()]).padStart(2, "0")}-01` : null;
+  }
+  const bornDate = (name, created, fileDay) => [created && /^\d{4}-\d{2}-\d{2}/.test(String(created)) ? String(created).slice(0, 10) : null, nameDate(name), fileDay].filter(d => d && d >= "2015-01-01").sort()[0] || fileDay;
+  const reactionNudge = (review, kind) => { const r = ((review && review.reactions) || {})[kind]; if (!r) return 0;
+    return Math.max(-REACTION_CAP, Math.min(REACTION_CAP, (r.more || 0) - (r.less || 0))) * ((R.hq && R.hq.reaction_weight) || 0); };
+  const canHideKind = kind => todayGroup(kind) === "upkeep";
+  const KIND_WORDS = { link: "link suggestions", map: "add-to-map suggestions", write: "notes to write", hub: "note reviews", chart: "maps to make", adopt: "unlinked notes", rename: "map renames", task: "today's tasks", plan: "standup plan items", carried: "carried-over tasks", approval: "approvals", review: "drafts to review", job: "automation alerts", backlog: "backlog items", report: "reports" };
+  const kindWords = kind => KIND_WORDS[kind] || `${kind} items`;
   function todayList(data, o = {}) {
     const nodes = data.nodes || [], byId = new Map(nodes.map(n => [n.id, n])), mocs = (data.mocs || []).filter(m => !m.nav);
     const mapIds = new Set((data.mocs || []).map(m => m.id)), plain = n => !!n && !n.person && !n.ghost && !mapIds.has(n.id);
@@ -705,7 +723,8 @@ const VGRules = (() => {
     const review = o.review || {}, day = o.today || localDay(new Date()), skipDays = o.skipDays || 14;
     const skipped = k => !!(review.skipped && review.skipped[k]) && (Date.parse(day) - Date.parse(review.skipped[k])) / 864e5 < skipDays;
     const hidden = new Set(o.hidden || []), out = [], seen = new Set(), groups = o.groups ? new Set(o.groups) : null;
-    const add = it => { if (seen.has(it.key) || hidden.has(it.key) || skipped(it.key) || (groups && !groups.has(todayGroup(it.kind)))) return; seen.add(it.key); out.push({ xp: TODAY_XP[it.kind] || 5, group: todayGroup(it.kind), ...it }); };
+    const hiddenKinds = new Set(review.hiddenKinds || []);
+    const add = it => { if (seen.has(it.key) || hidden.has(it.key) || skipped(it.key) || (hiddenKinds.has(it.kind) && canHideKind(it.kind)) || (groups && !groups.has(todayGroup(it.kind)))) return; seen.add(it.key); out.push({ xp: TODAY_XP[it.kind] || 5, group: todayGroup(it.kind), ...it }); };
     hqItems(data, { ...o, today: day }, add);
     (data.links || []).forEach(l => {
       if (!isSuggestion(l) || !byId.get(l.source) || !byId.get(l.target)) return;
@@ -737,6 +756,7 @@ const VGRules = (() => {
       add({ key: `adopt|${n.id}`, kind: "adopt", id: n.id, name: n.name, ids: [n.id], title: `Link ${n.name} to its topic`, why: "Nothing links it to a topic note yet", score: 1.2 }));
     // best first; ties in a different order each day (seeded by the date), the same order all day
     const seed = fnv(day);
+    out.forEach(it => { const n = reactionNudge(review, it.kind); if (n) it.score = (it.score || 0) + n; });
     return out.sort((a, b) => b.score - a.score || (fnv(a.key) ^ seed) - (fnv(b.key) ^ seed));
   }
   // Today's picks: the first three items, kept for the day so they can be ticked off (the XP layer counts them)
@@ -832,9 +852,14 @@ const VGRules = (() => {
     out.review = { ...rd, ...rm };
     ["skipped", "done", "ft", "hq"].forEach(k => { out.review[k] = mergeMap(rb[k], rm[k], rd[k]); });   // hq: HQ's Later and Done marks (not in the ledgers, so Undo can take one back)
     out.review.pinned = mergeList(rb.pinned, rm.pinned, rd.pinned, str);
+    out.review.hiddenKinds = mergeList(rb.hiddenKinds, rm.hiddenKinds, rd.hiddenKinds, str);
+    if (rm.reactions || rd.reactions) { const b = obj(rb.reactions), m = obj(rm.reactions), d = obj(rd.reactions), add = (k, f) => Math.max(0, (obj(d[k])[f] || 0) + (obj(m[k])[f] || 0) - (obj(b[k])[f] || 0));   // adds both devices' gains, like XP
+      out.review.reactions = Object.fromEntries([...new Set([...Object.keys(m), ...Object.keys(d)])].map(k => [k, { more: add(k, "more"), less: add(k, "less") }])); }
     const cb = obj(base.cosmos), cm = obj(mine.cosmos), cd = obj(disk.cosmos);
     if (mine.cosmos || disk.cosmos) {
       const c = out.cosmos = { ...cd, ...cm };
+      if (cm.dungeon || cd.dungeon) { const m = obj(cm.dungeon), d = obj(cd.dungeon); c.dungeon = { reached: Math.max(m.reached || 0, d.reached || 0), best: Math.max(m.best || 0, d.best || 0), bestRun: Math.max(m.bestRun || 0, d.bestRun || 0), hunt: [m.hunt || "", d.hunt || ""].sort().pop() }; }
+      if (cm.viewOpens || cd.viewOpens) { const b = obj(cb.viewOpens), m = obj(cm.viewOpens), d = obj(cd.viewOpens), v = {}; new Set([...Object.keys(m), ...Object.keys(d)]).forEach(k => { v[k] = (d[k] || 0) + Math.max(0, (m[k] || 0) - (b[k] || 0)); }); c.viewOpens = v; }   // adds both devices' gains, like XP
       c.ach = mergeMap(cb.ach, cm.ach, cd.ach);
       c.hidden = mergeList(cb.hidden, cm.hidden, cd.hidden, str).slice(-500);
       c.kept = mergeList(cb.kept, cm.kept, cd.kept, str);
@@ -904,7 +929,7 @@ const VGRules = (() => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
-  return { HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

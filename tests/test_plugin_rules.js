@@ -109,6 +109,10 @@ function fakePlugin(files, { daily, newFolder, people = [] } = {}) {
     check("regenerating keeps the text above the marker, including an edit made meanwhile", texts["Maps/Topic Hub.md"], `My intro, edited\n\n${M}\nnew list\n`);
     await p.writeNote("Inbox/Topic.md", `# Topic\n\n${M}\nlist\n`, { mode: "create" });
     check("a same-name note without the marker is left alone", texts["Notes/Topic.md"], "Someone's own note\n"); }
+  // Dungeon progress keeps the higher of each device's; view opens add both devices' gains
+  { const m = VGRules.mergeShared({ cosmos: { viewOpens: { city: 5 } } }, { cosmos: { dungeon: { reached: 3, best: 900, bestRun: 0, hunt: "2026-11-01" }, viewOpens: { city: 7, sand: 1 } } }, { cosmos: { dungeon: { reached: 5, best: 100, bestRun: 40, hunt: "2026-10-30" }, viewOpens: { city: 6 } } }).cosmos;
+    check("shared Dungeon progress keeps the higher", m.dungeon, { reached: 5, best: 900, bestRun: 40, hunt: "2026-11-01" });
+    check("view opens add both devices' gains", m.viewOpens, { city: 8, sand: 1 }); }
   console.log(fails.length ? "FAIL - " + fails.join("\n  ") : "ok - the vault's rules: file over Obsidian's settings over defaults, edited in place; guarded HQ refresh");
   process.exit(fails.length ? 1 : 0);
 })().catch(e => { console.log("FAIL - " + (e && e.stack || e)); process.exit(1); });
