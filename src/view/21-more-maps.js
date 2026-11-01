@@ -62,7 +62,7 @@
     const off = document.createElement("canvas"); off.width = gw; off.height = gh;
     const oc = off.getContext("2d"), img = oc.createImageData(gw, gh);
     for (let k = 0; k < E.length; k++) { const v = Math.max(-1, Math.min(1, E[k] / Math.max(0.3, Math.max(-lo, hi))));
-      const c = v < 0 ? [231, 76, 60].map((x, i) => [234, 236, 240][i] + (x - [234, 236, 240][i]) * -v * 0.7) : [59, 130, 246].map((x, i) => [234, 236, 240][i] + (x - [234, 236, 240][i]) * v * 0.6);
+      const NIGHT = [11, 18, 32], c = v < 0 ? [226, 62, 72].map((x, i) => NIGHT[i] + (x - NIGHT[i]) * Math.pow(-v, 1.25) * 0.85) : [46, 118, 232].map((x, i) => NIGHT[i] + (x - NIGHT[i]) * Math.pow(v, 1.25) * 0.75);   // storms glow out of the dark
       img.data.set([c[0], c[1], c[2], 255], k * 4); }
     oc.putImageData(img, 0, 0);
     const byC = Object.fromEntries(tops.map(t => [t.c, t]));
@@ -71,9 +71,9 @@
   }
   function drawWeather(now) {
     const { dpr, R, litSet, font, k } = mapFrame(), Wd = mapCache.weather;
-    ctx.fillStyle = "#e9ecf1"; ctx.fillRect(0, 0, W, H); if (!Wd) return;
+    ctx.fillStyle = "#0b1220"; ctx.fillRect(0, 0, W, H); if (!Wd) return;
     worldTransform(dpr, R); ctx.imageSmoothingEnabled = true; ctx.drawImage(Wd.img, Wd.x0, Wd.y0, Wd.w, Wd.h);
-    Wd.iso.forEach(c => { ctx.strokeStyle = c.lv < 0 ? "rgba(153,27,27,.45)" : "rgba(30,64,175,.4)"; ctx.lineWidth = (Math.abs(c.lv) % 0.48 < 0.01 ? 1.6 : 0.8) / k; strokeSegs(c.seg); });
+    Wd.iso.forEach(c => { ctx.strokeStyle = c.lv < 0 ? "rgba(254,178,178,.28)" : "rgba(147,197,253,.24)"; ctx.lineWidth = (Math.abs(c.lv) % 0.48 < 0.01 ? 1.6 : 0.8) / k; strokeSegs(c.seg); });
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // wind: particles carried from high pressure to low, turned a little (as the Coriolis force does)
     const wind = (x, y) => { const i = Math.round((x - Wd.x0) / Wd.CELL), j = Math.round((y - Wd.y0) / Wd.CELL);
@@ -82,7 +82,7 @@
       return [(-gx * 0.85 - gy * 0.5) * 9, (-gy * 0.85 + gx * 0.5) * 9]; };
     const wx = Wd.wx || (Wd.wx = { parts: [] }), wdt = tickOf(wx, now);
     while (wx.parts.length < (MOBILE ? 140 : 280)) wx.parts.push({ x: Wd.x0 + Math.random() * Wd.w, y: Wd.y0 + Math.random() * Wd.h, life: Math.random() * 4000 });
-    ctx.strokeStyle = "rgba(51,65,85,.4)"; ctx.lineWidth = 1.2; ctx.beginPath();
+    ctx.strokeStyle = "rgba(186,230,253,.3)"; ctx.lineWidth = 1.2; ctx.beginPath();
     wx.parts.forEach(q => { const v = wind(q.x, q.y); q.life -= wdt;
       if (!v || q.life <= 0 || Math.hypot(v[0], v[1]) < 0.01) { q.x = Wd.x0 + Math.random() * Wd.w; q.y = Wd.y0 + Math.random() * Wd.h; q.life = 2500 + Math.random() * 3500; return; }
       const m = Math.hypot(v[0], v[1]), sp = 0.4 + 1.2 * Math.min(1, m * 4), ux = v[0] / m, uy = v[1] / m; q.x += ux * sp * wdt * 0.06; q.y += uy * sp * wdt * 0.06;
@@ -101,29 +101,29 @@
         else { ctx.moveTo(x - nx * 5, y - ny * 5); ctx.lineTo(x + nx * 5, y + ny * 5); ctx.lineTo(x + dx / L * 7 * sgn, y + dy / L * 7 * sgn); }
         ctx.closePath(); ctx.fill(); }
     });
-    dots(n => !special(n) && !n.ghost, () => "rgba(30,41,59,.45)", () => Math.max(1.4, 1.8 * Math.sqrt(k)), R);
+    dots(n => !special(n) && !n.ghost, () => "rgba(226,232,240,.55)", () => Math.max(1.4, 1.8 * Math.sqrt(k)), R);
     // clouds drift round busy topics; a storm's clouds are darker and spin faster
     Wd.tops.forEach(t => { if (t.a < 0.35 && !t.storm) return;
       const p = scr(t.x, t.y, R), puffs = t.storm ? 6 : 3, spin = (reducedMotion() ? 0 : now) / (t.storm ? 2600 : 9000);
       for (let i = 0; i < puffs; i++) { const a = spin + i / puffs * 2 * Math.PI, rr = (t.storm ? 46 : 60) * Math.sqrt(k), x = p.x + Math.cos(a) * rr, y = p.y + Math.sin(a) * rr * 0.6, cr = (t.storm ? 30 : 26) * Math.sqrt(k);
-        const g = ctx.createRadialGradient(x, y, 0, x, y, cr); g.addColorStop(0, t.storm ? "rgba(71,85,105,.5)" : "rgba(255,255,255,.75)"); g.addColorStop(1, "rgba(255,255,255,0)");
+        const g = ctx.createRadialGradient(x, y, 0, x, y, cr); g.addColorStop(0, t.storm ? "rgba(203,213,225,.42)" : "rgba(255,255,255,.2)"); g.addColorStop(1, "rgba(255,255,255,0)");
         ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, cr, cr * 0.65, 0, 0, 2 * Math.PI); ctx.fill(); } });
     // pressure centres: L for busy, H for quiet; storms get rain and lightning
     Wd.tops.slice().sort((a, b) => Math.abs(b.a) - Math.abs(a.a)).forEach(t => {
       const p = scr(t.x, t.y, R), lit = !litSet || nodes.some(n => n.cluster === t.c && litSet.has(n.id));
       ctx.globalAlpha = lit ? 1 : 0.3;
-      if (t.storm && !reducedMotion()) { ctx.strokeStyle = "rgba(37,99,235,.6)"; ctx.lineWidth = 1;
+      if (t.storm && !reducedMotion()) { ctx.strokeStyle = "rgba(125,211,252,.6)"; ctx.lineWidth = 1;
         for (let i = 0; i < 26; i++) { const h = hash(t.c + "r" + i), x = p.x + ((h % 160) - 80) * Math.sqrt(k), y0 = p.y - 60 + (((h >>> 8) % 120) + now / 6) % 120 * Math.sqrt(k);
           ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x - 3, y0 + 9); ctx.stroke(); }
         if ((now / 1200 + t.c) % 4 < 0.12) { ctx.fillStyle = "rgba(250,204,21,.9)"; ctx.font = `700 26px ${font}`; ctx.textAlign = "center"; ctx.fillText("⚡", p.x + 24, p.y - 24); } }
       if (Math.abs(t.a) >= 0.35) { const L = t.a > 0; ctx.font = `800 ${Math.round(18 + 8 * Math.abs(t.a))}px ${font}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillStyle = L ? "#b91c1c" : "#1d4ed8"; ctx.fillText(L ? "L" : "H", p.x, p.y); }
+        ctx.shadowColor = L ? "#ef4444" : "#3b82f6"; ctx.shadowBlur = 14; ctx.fillStyle = L ? "#fecaca" : "#bfdbfe"; ctx.fillText(L ? "L" : "H", p.x, p.y); ctx.shadowBlur = 0; }
       const name = clip(clusterName(t.c), 26), sub = t.storm ? `⛈ storm · ${t.ratio.toFixed(1)}× usual` : t.a >= 0.35 ? `heating up · ${t.ratio.toFixed(1)}× usual` : t.a <= -0.35 ? "quiet" : "steady";
       const f = `700 11px ${font}`; ctx.font = `500 9.5px ${font}`; const ws = ctx.measureText(sub).width; ctx.font = f; const w = Math.max(ctx.measureText(name).width, ws);   // the box covers both lines
-      if (freeSpot(p.x - w / 2, p.y + 14, w, 26)) { haloText(name, p.x, p.y + 20, "#0f172a", "rgba(255,255,255,.85)", f, "center"); haloText(sub, p.x, p.y + 33, "#475569", "rgba(255,255,255,.85)", `500 9.5px ${font}`, "center"); }
+      if (freeSpot(p.x - w / 2, p.y + 14, w, 26)) { haloText(name, p.x, p.y + 20, "#f1f5f9", "rgba(8,12,24,.88)", f, "center"); haloText(sub, p.x, p.y + 33, "#a3b5cc", "rgba(8,12,24,.88)", `500 9.5px ${font}`, "center"); }
       ctx.globalAlpha = 1;
     });
-    selRing(R, "#0f172a");
+    selRing(R, "#f8fafc");
   }
 
   // Food web: which notes feed which. Notes others rely on but that link out little are producers (context, reference);
@@ -135,8 +135,8 @@
     ns.forEach(n => levels[lvl.get(n.id)].push(n));
     const order = topicOrder().map(c => c.id), ci = c => { const i = order.indexOf(c); return i < 0 ? 99 : i; };
     levels.forEach((ms, L) => { ms.sort((a, b) => ci(a.cluster) - ci(b.cluster) || importance(b) - importance(a));
-      const rows = Math.max(1, Math.ceil(ms.length * 12 / 1800)), cols = Math.max(1, Math.ceil(ms.length / rows)), width = Math.min(1800, Math.max(600, cols * 14));
-      ms.forEach((n, i) => { const row = i % rows, j = Math.floor(i / rows); pos.set(n.id, [-width / 2 + (j + 0.5) * width / cols, 420 - L * 210 + row * 24 - (rows - 1) * 12]); }); });
+      const rows = Math.max(1, Math.min(5, Math.ceil(ms.length * 24 / 1800))), cols = Math.max(1, Math.ceil(ms.length / rows)), width = Math.min(1800, Math.max(600, cols * 26));
+      ms.forEach((n, i) => { const row = i % rows, j = Math.floor(i / rows); pos.set(n.id, [-width / 2 + (j + 0.5 + (row % 2) * 0.5) * width / cols, 420 - L * 210 + row * 30 - (rows - 1) * 15]); }); });   // staggered, so topics read as bands of colour
     const endangered = new Set(ns.filter(n => n.inlinks >= 4 && staleFor(n, Q.stale_days)).map(n => n.id));
     return { pos, levels: levels.map(l => l.length), endangered };
   }
@@ -183,7 +183,7 @@
     for (const l of visLinks) { if (l.kind !== "link" || special(l.s) || special(l.t) || l.s.isolated || l.t.isolated) continue;
       const [lo, hi] = l.s.y > l.t.y ? [l.s, l.t] : [l.t, l.s], a = scr(lo.x, lo.y, R), b = scr(hi.x, hi.y, R), on = !litSet || (litSet.has(l.s.id) && litSet.has(l.t.id));
       ctx.strokeStyle = on && litSet ? "rgba(253,224,71,.7)" : "rgba(187,247,208,.07)"; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.bezierCurveTo(a.x, (a.y + b.y) / 2, b.x, (a.y + b.y) / 2, b.x, b.y); ctx.stroke(); }
-    dots(n => !special(n) && !n.ghost && !n.isolated, n => F.endangered.has(n.id) ? "#f87171" : colorOf(n.cluster), n => Math.max(1.8, (1.8 + 4 * importance(n)) * Math.sqrt(k)), R);
+    dots(n => !special(n) && !n.ghost && !n.isolated, n => F.endangered.has(n.id) ? "#f87171" : colorOf(n.cluster), n => Math.max(2.4, (2.8 + 13 * importance(n)) * Math.sqrt(k)), R);
     stepFoodweb(now, k, R);
     if (st.selected && P.has(st.selected) && !special(byId[st.selected])) {   // what depends on this note
       const q = P.get(st.selected), d = dependents(st.selected).size, t = d ? `${d} note${d > 1 ? "s" : ""} depend on this` : "nothing above depends on this";

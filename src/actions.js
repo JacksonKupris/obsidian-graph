@@ -169,6 +169,7 @@ const VGActions = (() => {
     plan: { label: "Done", when: c => !!c.api.hqMark, undo: (it, c) => c.api.hqMark(it.key, null),
       run: async (it, c) => { await c.api.hqMark(it.key, "done"); const logged = c.api.logWork ? await c.api.logWork(it.text) : false;
         return `Done: ${short(it.title)}${logged ? ", added to today's standup" : ""}`; } },
+    inbox: { label: "Open", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },
     approval: { label: "Open", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },
     report: { label: "Open source report", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },
     job: { label: "Open", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },   // the automations note
@@ -200,6 +201,8 @@ const VGActions = (() => {
       run: async (it, c) => { await c.api.setNoteStatus(it.path, "reviewed"); return `Reviewed: ${short(it.title)}`; } },
     { key: "rows", label: "Review rows", title: "Tick or skip each row here", when: (it, c) => it.kind === "report" && !!c.showRows,
       run: (it, c) => { c.showRows(it.path); return null; } },
+    { key: "file", label: "File", title: "Move it to its folder", when: (it, c) => it.kind === "inbox" && !!c.api.moveNote && !!c.chooseFolder,
+      run: async (it, c) => { const to = await c.chooseFolder(it); if (!to) return null; await c.api.moveNote(it.path, to); return `Filed in ${to}`; } },
     { key: "later", label: "Later", title: "Not today: it comes back tomorrow", when: (it, c) => !!VGRules.TODAY_GROUP[it.kind] && !!c.api.hqMark,
       run: async (it, c) => { await c.api.hqMark(it.key, "later"); return `Later: ${short(it.title)}`; },
       undo: (it, c) => c.api.hqMark(it.key, null) },

@@ -414,8 +414,8 @@ const VGRules = (() => {
   // today's standup with one more line under its "work completed" heading: numbered after the last top-level item
   // (or a bullet when the section has none), before the section's end (the next heading as big, or a --- line).
   // The text unchanged when the line is already there; null when the note has no such heading.
-  function addWorkLine(text, line) {
-    const rx = H.completed_heading ? new RegExp(H.completed_heading, "i") : null; if (!rx) return null;
+  function addWorkLine(text, line, heading = H.completed_heading) {
+    const rx = heading ? new RegExp(heading, "i") : null; if (!rx) return null;
     const nl = String(text).includes("\r\n") ? "\r\n" : "\n", lines = String(text).split(/\r?\n/);
     const at = lines.findIndex(l => { const h = l.match(/^#{1,6}\s+(.*)/); return h && rx.test(h[1]); });
     if (at < 0) return null;
@@ -511,6 +511,7 @@ const VGRules = (() => {
     if (reportPrefix(path) || automationReport(path)) return "report";
     if (type && type === H.decision_type) return "decision";
     if (H.run_log && path.startsWith(H.run_log + " ")) return "runlog";
+    if (path.startsWith(R.folders.inbox + "/") && !(H.review_folder && path.startsWith(H.review_folder + "/"))) return "inbox";
     return null;
   }
   // [{ line, text, mark, section }] for each top-level task in a note (subtasks travel with their parent); nested:
@@ -571,7 +572,7 @@ const VGRules = (() => {
   // hqGather(files, { today }) -> data.hq. files: [{ path, text, fm? }] (fm: Obsidian's frontmatter; read from the
   // text when missing), plus each device's run records as { path, json } from the automation_status folder.
   function hqGather(files, o = {}) {
-    const day = o.today || today(), hq = { date: day, journals: [], standups: [], projects: [], backlog: [], reports: [], reviews: [], decisions: [], runs: {}, runlog: [] };
+    const day = o.today || today(), hq = { date: day, journals: [], standups: [], projects: [], backlog: [], reports: [], reviews: [], decisions: [], runs: {}, runlog: [], inbox: [] };
     const newestReport = {};
     for (const f of files || []) {
       if (f.json) { Object.entries(f.json || {}).forEach(([name, run]) => { if (run && (!hq.runs[name] || String(run.last_run) > String(hq.runs[name].last_run))) hq.runs[name] = run; }); continue; }
@@ -589,6 +590,7 @@ const VGRules = (() => {
         tags, systems, tasks, chunks: recallChunks(f.text), parents: references(fm.parent || fm["Parent task"]), related: references(fm.related),
         updated: String(fm.updated || fm.modified || fm.created || "") });
       }
+      else if (kind === "inbox") hq.inbox.push({ path: f.path, name, title: titleOf(f.text, f.path) });
       else if (kind === "backlog") tasksIn(f.text).filter(t => t.mark === " ").forEach(t => hq.backlog.push({ path: f.path, ...t }));
       else if (kind === "report") { const prefix = reportPrefix(f.path) || automationReport(f.path).report, date = (name.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || "";
         const rows = reportRows(f.text).filter(r => r.mark === " ");
@@ -654,7 +656,7 @@ const VGRules = (() => {
       .map(r => ({ ...r.p, searchHit: r.hit }));
   }
   // Which part of HQ shows an item: today (work), needs (only you can decide it) or upkeep (the vault itself)
-  const TODAY_GROUP = { task: "today", plan: "today", carried: "today", approval: "needs", review: "needs", job: "needs", backlog: "needs", report: "needs" };
+  const TODAY_GROUP = { task: "today", plan: "today", carried: "today", approval: "needs", review: "needs", job: "needs", backlog: "needs", report: "needs", inbox: "needs" };
   const todayGroup = kind => TODAY_GROUP[kind] || "upkeep";
   // the HQ items of todayList (see below), from data.hq
   function hqItems(data, o, add) {
@@ -678,6 +680,7 @@ const VGRules = (() => {
     [...new Set(hq.journals.map(j => j.date).filter(d => d < day))].map(d => canonicalJournal(hq, d)).filter(Boolean).forEach(j => { const age = daysBetween(j.date, day);
       j.tasks.filter(t => t.mark === " ").forEach(t => put({ key: `carried|${j.path}|${t.text}`, kind: "carried", path: j.path, line: t.line, text: t.text, date: j.date, age, ...fieldsOf(t.text), ids: [j.path],
         title: label(t.text), why: `From ${j.date} · ${age} day${age === 1 ? "" : "s"} ago`, score: Math.max(1, 9 - age * 0.25) })); });
+    (hq.inbox || []).forEach(n => put({ key: `inbox|${n.path}`, kind: "inbox", path: n.path, ids: [n.path], title: n.title || n.name, why: "In the inbox", score: 3 }));
     hq.backlog.forEach(b => put({ key: `backlog|${b.path}|${b.text}`, kind: "backlog", path: b.path, line: b.line, text: b.text, ids: [b.path], title: label(b.text), why: stemCase(b.path), score: 3 }));
     hq.reports.filter(r => r.open > 0 && !r.job).forEach(r => put({ key: `report|${r.path}`, kind: "report", path: r.path, ids: [r.path], title: `${r.name}: ${r.open} row${r.open === 1 ? "" : "s"} to tick`, why: "Tick the rows to apply", score: 2.8 }));
   }
@@ -696,6 +699,37 @@ const VGRules = (() => {
   // pinned), chart (a topic of 6+ notes with no map), adopt (a note nothing links to a topic).
   const TODAY_XP = { link: 10, map: 6, write: 12, hub: 4, chart: 25, adopt: 8, rename: 4, task: 5, plan: 5, carried: 5, approval: 3, review: 6, job: 3, backlog: 6, report: 4 };
   const fnv = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; };
+  // A new task under the journal's task heading, after the tasks already there (or at the end of a note without the heading)
+  function addTaskLine(text, task) {
+    const heading = (R.hq && R.hq.journal_tasks_heading) || "Today's Tasks", nl = text.includes("\r\n") ? "\r\n" : "\n", lines = text.split(/\r?\n/), line = `- [ ] ${task.trim()}`;
+    const at = lines.findIndex(l => /^#{1,6}\s/.test(l) && l.replace(/^#+\s*/, "").trim().toLowerCase().includes(heading.toLowerCase()));
+    if (at < 0) return text.replace(/\s*$/, "") + nl + nl + line + nl;
+    let i = at + 1; for (let j = at + 1; j < lines.length; j++) { if (/^#{1,6}\s/.test(lines[j]) || /^```/.test(lines[j])) break; if (/^\s*[-*] \[.\]/.test(lines[j])) i = j + 1; }
+    lines.splice(i, 0, line); return lines.join(nl);
+  }
+  // Who each open item is about, for HQ's People screen: a link to the person always counts; their name in plain words
+  // counts unless it's also an ordinary word (hq.people_ambiguous: "Show", "Will").
+  // The day's loop. Focus: up to three items you picked for today (review.focus, for that day only). Done today: journal tasks
+  // stamped today, and plan items marked done today.
+  const FOCUS_MAX = 3;
+  const focusKeys = (review, day) => { const f = (review || {}).focus; return f && f.day === day ? (f.keys || []) : []; };
+  function hqFocusItems(list, review, day) { const by = new Map(list.map(it => [it.key, it])); return focusKeys(review, day).map(k => by.get(k)).filter(Boolean); }
+  function doneToday(data, review, day) {
+    const hq = data.hq || {}, out = [], seen = new Set(), add = (text, path) => { const t = plainTask(text).replace(/\s*✅.*$/, "").trim(); if (t && !seen.has(t.toLowerCase())) { seen.add(t.toLowerCase()); out.push({ text: t, path }); } };
+    (hq.journals || []).forEach(j => (j.tasks || []).forEach(t => { if (t.mark && t.mark.toLowerCase() === "x" && String(t.text).includes(`✅ ${day}`)) add(t.text, j.path); }));
+    Object.entries((review || {}).hq || {}).forEach(([k, v]) => { if (v === `done:${day}` && k.startsWith("plan|")) add(k.split("|").slice(3).join("|"), k.split("|")[1]); });
+    return out;
+  }
+  const PEOPLE_KINDS = new Set(["task", "plan", "carried", "approval", "review"]);   // your work; a suggestion or a backlog line that names someone isn't
+  function hqPeople(data, list) {
+    const ambiguous = new Set(((R.hq && R.hq.people_ambiguous) || []).map(s => s.toLowerCase()));
+    const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return (data.nodes || []).filter(n => n.person).map(n => { const plain = !ambiguous.has(n.name.toLowerCase()) && n.name.length > 2 ? new RegExp(`\\b${esc(n.name)}\\b`) : null, link = `[[${n.name}`;
+      const items = list.filter(it => { if (!PEOPLE_KINDS.has(it.kind)) return false; const t = `${it.text || ""} ${it.title || ""}`; return t.includes(link) || (plain && plain.test(t)); });
+      const decisions = ((data.hq && data.hq.decisions) || []).filter(d => (d.by || "").includes(n.name)).slice(0, 3);
+      return { id: n.id, name: n.name, items, decisions, mentions: n.mentions || 0, recent: n.recent || 0 }; })
+      .sort((a, b) => b.items.length - a.items.length || b.recent - a.recent || a.name.localeCompare(b.name));
+  }
   // More / Less like this: each reaction moves that kind of item up or down the list, by a small and capped amount, so one
   // kind can't bury everything. Upkeep suggestions can also be hidden outright; your own work can't.
   const REACTION_CAP = 3;
@@ -712,7 +746,7 @@ const VGRules = (() => {
   const reactionNudge = (review, kind) => { const r = ((review && review.reactions) || {})[kind]; if (!r) return 0;
     return Math.max(-REACTION_CAP, Math.min(REACTION_CAP, (r.more || 0) - (r.less || 0))) * ((R.hq && R.hq.reaction_weight) || 0); };
   const canHideKind = kind => todayGroup(kind) === "upkeep";
-  const KIND_WORDS = { link: "link suggestions", map: "add-to-map suggestions", write: "notes to write", hub: "note reviews", chart: "maps to make", adopt: "unlinked notes", rename: "map renames", task: "today's tasks", plan: "standup plan items", carried: "carried-over tasks", approval: "approvals", review: "drafts to review", job: "automation alerts", backlog: "backlog items", report: "reports" };
+  const KIND_WORDS = { link: "link suggestions", map: "add-to-map suggestions", write: "notes to write", hub: "note reviews", chart: "maps to make", adopt: "unlinked notes", rename: "map renames", task: "today's tasks", plan: "standup plan items", carried: "carried-over tasks", approval: "approvals", review: "drafts to review", inbox: "inbox notes", job: "automation alerts", backlog: "backlog items", report: "reports" };
   const kindWords = kind => KIND_WORDS[kind] || `${kind} items`;
   function todayList(data, o = {}) {
     const nodes = data.nodes || [], byId = new Map(nodes.map(n => [n.id, n])), mocs = (data.mocs || []).filter(m => !m.nav);
@@ -929,7 +963,7 @@ const VGRules = (() => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
-  return { reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

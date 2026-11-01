@@ -517,7 +517,7 @@ class VaultGraphSuggestView extends ItemView {
 const { today, localDay } = VGRules;   // the shared date rules (this device's calendar day)
 // Every plugin method that writes to the vault. onload wraps each so it announces the change when done (every open
 // surface redraws); viewActions hands the same methods to every graph surface. A new write action goes in this list.
-const WRITE_ACTIONS = ["openDaily", "linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
+const WRITE_ACTIONS = ["planLine", "capture", "openDaily", "linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
   "addReference", "tickMocRow", "saveBinary", "stateSnapshots", "undo"];
 // The only methods that touch the vault for a write action. Each notes what it's about to change in the open undo
 // entry, so every action can be undone from the message that confirms it. tests/test_rules.js fails on a vault write
@@ -571,6 +571,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     this.registerView(HQ_TYPE, leaf => new VaultHQView(leaf, this));
     this.addCommand({ id: "open-hq", name: "Open Vault HQ", callback: () => this.openHQ() });
     this.addRibbonIcon("layout-dashboard", "Open Vault HQ", () => this.openHQ());
+    this.app.workspace.onLayoutReady(() => { if (this.settings.hqAtStart !== false) this.openHQ().catch(e => console.error("Vault Graph: HQ didn't open", e)); });   // HQ is the home screen
     // a note HQ reads changed (a task ticked in the journal, a draft's status set by hand): HQ and the sidebar redraw.
     // The live signature can't see these (no file or link count changes).
     this.registerEvent(this.app.metadataCache.on("changed", file => {
@@ -1235,6 +1236,9 @@ module.exports = class VaultGraphPlugin extends Plugin {
       setProjectStatus: (notePath, status, closeTasks) => this.setProjectStatus(notePath, status, closeTasks),
       hqMark: (key, mark) => this.hqMark(key, mark),
       hqReact: (kind, how) => this.hqReact(kind, how),
+      capture: (text, kind) => this.capture(text, kind),
+      hqFocus: keys => this.hqFocus(keys),
+      planLine: text => this.planLine(text),
       stampReviewed: notePath => this.stampReviewed(notePath),
       dismissPair: async (a, b, kind) => { await this.dismiss(a, b, kind); new Notice("Won't suggest that pair again"); },
       linkText: (id, fromPath) => this.linkText(id, fromPath),
@@ -1703,6 +1707,33 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // HQ's marks on an item, in the shared file: "later" (gone for today), "done" (a plan item, which has no checkbox),
   // or null to take one back (Undo). Marks from earlier days are dropped: Later lasts the day, and a plan item's
   // standup is older than the carry-over window by then.
+  // HQ's capture box: a task goes under today's journal's task heading (the journal is made if it isn't there yet); a note
+  // goes in the capture folder, named from its first words.
+  async capture(text, kind) {
+    text = String(text || "").trim(); if (!text) return null;
+    if (kind === "note") {
+      const folder = (VGRules.HQ && VGRules.HQ.capture_folder) || VGRules.folders.inbox, title = text.split(/\r?\n/)[0].replace(/[\\/:*?"<>|#^\[\]]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60).trim() || "Capture";
+      let path = normalizePath(`${folder}/${title}.md`); for (let i = 2; this.app.vault.getAbstractFileByPath(path); i++) path = normalizePath(`${folder}/${title} ${i}.md`);
+      if (!this.app.vault.getAbstractFileByPath(folder)) await this.ioFolder(folder);
+      await this.ioCreate(path, `---\ncreated: ${today()}\n---\n\n${text}\n`);
+      return path;
+    }
+    const day = today(); let file = this.fileAt(VGRules.canonicalDailyPath(this.app.vault.getMarkdownFiles(), day, "journal") || "");
+    if (!file) { await this.openDaily(day); file = this.fileAt(VGRules.canonicalDailyPath(this.app.vault.getMarkdownFiles(), day, "journal") || ""); await this.openHQ(); }
+    if (!file) throw new Error("today's journal couldn't be made");
+    await this.ioProcess(file, t => VGRules.addTaskLine(t, text));
+    return file.path;
+  }
+  // Today's focus, in the shared file so every device sees it; yesterday's falls away by itself
+  async hqFocus(keys) {
+    await this.updateShared(sh => { sh.review = sh.review || {}; sh.review.focus = { day: today(), keys }; return sh; });
+    STATE_VIEWS().concat(SUGGEST_TYPE).flatMap(t => this.app.workspace.getLeavesOfType(t)).forEach(l => (l.view.renderSoon || l.view.render || (() => {})).call(l.view));
+  }
+  // A line in today's standup under what's expected tomorrow
+  async planLine(text) {
+    const day = today(), file = this.app.vault.getMarkdownFiles().find(f => VGRules.hqKind(f.path, null, day) === "standup" && f.path.includes(day)); if (!file) return false;
+    let wrote = false; await this.ioProcess(file, t => { const out = VGRules.addWorkLine(t, text, VGRules.HQ.plan_heading); wrote = out != null && out !== t; return out == null ? t : out; }); return wrote;
+  }
   // More / Less like this on an item's kind: how is more, less, undo-more, undo-less, hide or show. Through the shared file, so every device learns it.
   async hqReact(kind, how) {
     await this.updateShared(sh => {
