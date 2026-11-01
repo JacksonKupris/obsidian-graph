@@ -1001,7 +1001,7 @@
 
 /* Dungeon: the game takes the whole pane while it is being played; the graph's controls come back on pause */
 .vg-root[data-map="dungeon"] .vg-cv { cursor: crosshair; }
-.vg-root.is-playing .vg-side, .vg-root.is-playing .vg-toolbar, .vg-root.is-playing .vg-today, .vg-root.is-playing .vg-missions, .vg-root.is-playing .vg-legend, .vg-root.is-playing .vg-status, .vg-root.is-playing .vg-hud, .vg-root.is-playing .vg-cycle, .vg-root.is-playing .vg-inspector { display: none !important; }
+.vg-root.is-playing .vg-toast, .vg-root.is-playing .vg-side, .vg-root.is-playing .vg-toolbar, .vg-root.is-playing .vg-today, .vg-root.is-playing .vg-missions, .vg-root.is-playing .vg-legend, .vg-root.is-playing .vg-status, .vg-root.is-playing .vg-hud, .vg-root.is-playing .vg-cycle, .vg-root.is-playing .vg-inspector { display: none !important; }
 .vg-root.is-playing .vg-cv { cursor: none; }
 body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-root.is-playing .vg-app { grid-template-columns: minmax(0, 1fr) !important; }

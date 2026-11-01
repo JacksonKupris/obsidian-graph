@@ -391,9 +391,43 @@ def snapshot_and_changes(data: dict) -> dict:
 BORN_KEYS = ("created", "date created", "date_created")
 
 
+MONTH_NAMES = {m: i + 1 for i, m in enumerate("jan feb mar apr may jun jul aug sep oct nov dec".split())}
+
+
+def name_month(stem: str) -> str | None:
+    """The first of the month a note's name gives: "Release Notes 2025-01", "Backup April 2025"."""
+    m = re.search(r"(?<![\d-])(20\d\d)-(0[1-9]|1[0-2])(?![\d-])", stem)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}-01"
+    m = re.search(r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? +(20\d\d)\b", stem, re.I)
+    return f"{m.group(2)}-{MONTH_NAMES[m.group(1).lower()]:02d}-01" if m else None
+
+
+_known_born = None
+
+
+def known_born(r: str) -> list:
+    """What the last analysis said, so the date a PC with better file dates found survives a run on one without them,
+    and a note moved since keeps it (found by name, when only one note had that name)."""
+    global _known_born
+    if _known_born is None:
+        _known_born = ({}, {})
+        try:
+            nodes = json.loads((OUT / "vault-graph.json").read_text(encoding="utf-8")).get("nodes", [])
+        except (OSError, ValueError):
+            nodes = []
+        names = Counter(Path(n["id"]).name for n in nodes)
+        for n in nodes:
+            if n.get("born"):
+                _known_born[0][n["id"]] = n["born"]
+                if names[Path(n["id"]).name] == 1:
+                    _known_born[1][Path(n["id"]).name] = n["born"]
+    return [d for d in (_known_born[0].get(r), _known_born[1].get(Path(r).name)) if d]
+
+
 def born_date(r: str, text: str, mention_days) -> str:
-    """When a note came into being, as best we can tell: the earliest of its `created:` frontmatter,
-    a date in its file name, its first mention in a daily note, and its file date."""
+    """When a note came into being, as best we can tell: the earliest of its `created:` frontmatter, a date in its
+    file name, its first mention in a daily note, its file dates, and what an earlier analysis on any PC said."""
     cands = []
     fm = vg._frontmatter(text) if hasattr(vg, "_frontmatter") else {}
     for k in BORN_KEYS:
@@ -404,13 +438,17 @@ def born_date(r: str, text: str, mention_days) -> str:
     m = vg.vl.DATE_RE.search(Path(r).name)
     if m:
         cands.append(m.group(1))
+    elif name_month(Path(r).stem):
+        cands.append(name_month(Path(r).stem))
     if mention_days:
         cands.append(min(mention_days))
     try:
-        stt = (vg.vl.VAULT / r).stat()   # st_ctime is the creation time on Windows
-        cands += [date.fromtimestamp(stt.st_mtime).isoformat(), date.fromtimestamp(stt.st_ctime).isoformat()]
+        stt = (vg.vl.VAULT / r).stat()
+        made = getattr(stt, "st_birthtime", stt.st_ctime if sys.platform == "win32" else None)   # Linux has no creation time: st_ctime there is the last change
+        cands += [date.fromtimestamp(t).isoformat() for t in (stt.st_mtime, made) if t is not None]
     except OSError:
         pass
+    cands += known_born(r)
     return min(c for c in cands if c >= "2015-01-01") if any(c >= "2015-01-01" for c in cands) else date.today().isoformat()
 
 
