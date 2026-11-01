@@ -7,12 +7,12 @@ const VIEW_TYPE = "vault-graph";
 const LOCAL_TYPE = "vault-graph-local";
 const HOME_TYPE = "vault-graph-home";   // for home-screen hosts such as Hearth's "Plugin view" card
 // home cards that always show one map: Hearth cards pick a view type, not a state, so each gets its own type
-const FIXED_HOME = { radar: "Radar", clock: "Heat clock", foodweb: "Food web", weather: "Weather", city: "City" };
+const FIXED_HOME = { radar: "Radar", clock: "Heat clock", foodweb: "Food web", weather: "Weather" };
 const fixedType = v => `vault-graph-${v}`;
 const HQ_TYPE = "vault-graph-hq";   // Vault HQ: the vault's home screen (src/hq.js)
 // every view that draws the one live state: each redraws when it changes (publish) and when the rules change
 const STATE_VIEWS = () => [VIEW_TYPE, LOCAL_TYPE, HOME_TYPE, ...Object.keys(FIXED_HOME).map(fixedType), HQ_TYPE];
-const HOME_FAVOURITES = ["foodweb", "clock", "weather", "sky"];   // what ‹ › cycles in the home card: the maps that read well small
+const HOME_FAVOURITES = ["foodweb", "clock", "weather", "radar"];   // what ‹ › cycles in the home card: the maps that read well small
 const MARKER = "%% vault-graph:generated";   // regenerated notes keep everything above this line
 const DEFAULTS = {
   dataPath: VGRules.files.data,               // written by the analysis (files in vault_graph_rules.json)

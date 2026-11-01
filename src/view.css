@@ -250,10 +250,10 @@
   .vg-legend { max-width: calc(100% - 20px); bottom: 42px; } .vg-status { max-width: calc(100% - 20px); }
   .has-inspector .vg-legend, .has-inspector .vg-status { display: none; }
   /* the banner spans the pane here: the overlays pinned under the toolbar (status pill, floor bar) go under it instead of behind it */
-  .vg-root:has(.vg-today:not([hidden])) :is(.vg-status, .vg-floorbar) { top: var(--vg-under-today); }
+  .vg-root:has(.vg-today:not([hidden])) .vg-status { top: var(--vg-under-today); }
 }
 /* an open inspector narrows the canvas: the today banner then reaches the status pill and floor bar, so they go under it */
-.vg-root.has-inspector:has(.vg-today:not([hidden])) :is(.vg-status, .vg-floorbar) { top: var(--vg-under-today); }
+.vg-root.has-inspector:has(.vg-today:not([hidden])) .vg-status { top: var(--vg-under-today); }
 @keyframes vg-sheet-in { from { opacity: 0; transform: translateY(20px); } }
 @container vg (max-width: 460px) { .vg-legend { display: none; } }
 
@@ -807,14 +807,13 @@
 /* map views: subway, terrain, city */
 .vg-lg-stn { display: inline-block; width: 9px; height: 9px; border-radius: 99px; background: #fff; border: 2px solid #2563eb; }
 .vg-lg-stn.is-x { border-color: #111; width: 11px; height: 11px; }
-.vg-lg-grad.is-topo { background: linear-gradient(90deg, #285c48, #b0a868, #9e744e, #f0eee8); }
 .vg-lg-fog { display: inline-block; width: 14px; height: 8px; border-radius: 3px; background: linear-gradient(90deg, #9e744e, #d6d6d6); }
 .vg-lg-bld { display: inline-block; width: 7px; height: 13px; background: #2563eb; border-radius: 1px; }
 .vg-lg-bld.is-stale { background: #5e626d; }
 .vg-lg-win { display: inline-block; width: 5px; height: 6px; background: #ffd977; box-shadow: 0 0 4px #ffd977; }
 .vg-lg-lot { display: inline-block; width: 12px; height: 8px; border: 1px dashed #9aa3b5; }
 /* the city is always a night scene: keep the floating labels readable over it */
-.vg-root[data-map="city"] .vg-legend, .vg-root[data-map="topo"] .vg-legend { background: color-mix(in srgb, var(--vg-panel) 88%, transparent); }
+.vg-root[data-map="subway"] .vg-legend { background: color-mix(in srgb, var(--vg-panel) 88%, transparent); }
 
 /* phones and narrow panes: seven view buttons don't fit, so the row scrolls sideways (icons only) */
 .vg-viewseg { min-width: 0; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
@@ -967,26 +966,14 @@
 .vg-root .vg-ms-qacts { display: flex; gap: 6px; padding: 0 4px 4px 22px; }
 .vg-root .vg-ms-show.vg-more { min-width: 0; padding: 1px 8px; }
 
-/* palace floors: Front, then the floors top-down, over the palace only */
-.vg-root .vg-floorbar { display: none; top: var(--vg-under-bar); }
-.vg-root.is-map[data-map="palace"] .vg-floorbar { display: flex; position: absolute; z-index: 3; left: 10px; gap: 2px; padding: 3px; border-radius: 10px;
   background: color-mix(in srgb, var(--vg-raised) 88%, transparent); border: 1px solid var(--vg-border); backdrop-filter: blur(8px); flex-direction: column; }
-.vg-root .vg-floorbar .vg-segbtn { min-width: 44px; }
-.is-compact .vg-floorbar { display: none !important; }
-/* Falling sand: the element palette, brush size, pause and clear, under the sand */
-.vg-root .vg-sandbar { display: none; }
-.vg-root.is-map[data-map="sand"] .vg-sandbar { display: flex; flex-wrap: wrap; gap: 4px; position: absolute; z-index: 3; left: 50%; transform: translateX(-50%); bottom: calc(52px + var(--vg-bottom, 0px));
   max-width: calc(100% - 20px); padding: 5px; border-radius: 12px; background: color-mix(in srgb, var(--vg-raised) 90%, transparent); border: 1px solid var(--vg-border); backdrop-filter: blur(8px); }
 .vg-root .vg-sandel { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 7px; font-size: var(--vg-fs-xs); background: transparent; box-shadow: none; border: 1px solid transparent; color: var(--vg-fg); }
 .vg-root .vg-sandel[aria-pressed="true"] { border-color: var(--vg-accent); background: color-mix(in srgb, var(--vg-accent) 18%, transparent); }
 .vg-root .vg-sandel i { width: 10px; height: 10px; border-radius: 2px; border: 1px solid rgba(255,255,255,.25); }
 .vg-root .vg-sandsize { display: inline-flex; align-items: center; gap: 5px; font-size: var(--vg-fs-xs); color: var(--vg-muted); padding: 0 6px; }
 .vg-root .vg-sandsize input { width: 70px; }
-.is-compact .vg-sandbar { display: none !important; }
-/* the time-lapse bar and the sand palette share the bottom: the palette moves up while the bar is open */
-.vg-root.is-map[data-map="sand"]:has(.vg-timebar:not([hidden])) .vg-sandbar { bottom: calc(100px + var(--vg-bottom, 0px)); }
 /* a narrow pane's inspector is a bottom sheet: the palette moves up under the toolbar so both stay usable */
-@container vg (max-width: 760px) { .vg-root.is-map[data-map="sand"].has-inspector .vg-sandbar { top: var(--vg-under-bar); bottom: auto; } }
 /* a lens drawer and the missions panel share the right side: the panel steps aside while a lens is open */
 .vg-root.has-lens .vg-missions { display: none !important; }
 /* Panels that are flex columns with a height cap (the picker, the lens drawer): their header, tab and tool rows keep
@@ -1005,3 +992,9 @@
 .vg-root.is-playing .vg-cv { cursor: none; }
 body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-root.is-playing .vg-app { grid-template-columns: minmax(0, 1fr) !important; }
+
+/* 2D or 3D: the one switch; views with no 3D of their own lean back in perspective */
+.vg-root .vg-dimseg[hidden] { display: none; }
+.vg-cv.is-tilt3d { transform: perspective(1500px) rotateX(36deg) scale(1.2); transform-origin: 50% 58%; }
+@media (prefers-reduced-motion: no-preference) { .vg-cv { transition: transform .35s ease; } }
+.vg-canvas { overflow: hidden; }

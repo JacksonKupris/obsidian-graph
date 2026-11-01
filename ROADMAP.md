@@ -21,6 +21,8 @@ It never damages a note or says it did something it didn't. The scenes (city, pa
 - **Settings, not a compiled-in rules file.** Folder names, thresholds and systems come from a settings tab with sensible detection (Daily Notes' folder, the inbox, people by tag); the vault's rules file becomes an optional override.
 - **Smaller pieces.** `src/view.js` is split into modules (state and rendering, panels, lenses, map views, scenes) with the same one-bundle build, so each part can be read, tested and reviewed on its own.
 
+**2026-11-01:** the picture views went from 25 to 11 built-in (2D, 3D, Neural, Cosmos, Subway, Weather, Food web, Heat clock, Radar, Cyberpunk, Dungeon) so the rest can go deep, at Jackson's request. Git holds the rest (`git log -- src/scenes/sand.js`). Written-in-note scenes stay.
+
 ## Order
 
 1. **Trust** (done 2026-10-25: all 30 findings and the reviews' smaller notes fixed, each with a test that fails without the fix): fix the self-review's data-integrity and crash findings, then its shared-rule findings (one stale rule, one "reviewed" path, one add-to-map path), then the test harness (no hangs, a killed test is a failure).

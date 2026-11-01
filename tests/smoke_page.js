@@ -16,9 +16,6 @@ setTimeout(async () => {
     // Chrome in this mode runs a single animation frame, so each view is drawn here directly: a drawing error fails the
     // test. (Its clock stands still during a task, so frame times are measured by click_all.js, which runs in real time.)
     for (const v of D.views()) { try { D.setView(v); await sleep(400); if (D.drawNow() == null) __errs.push(v + ": nothing drawn (no canvas size)"); else __ms.push(v); } catch (e) { __errs.push(v + " (drawing): " + e.message); } }
-    // modes inside a view: every palace floor (drawn through the iso kit), then back out front
-    try { D.setView("palace"); await sleep(200); D.drawNow(); for (const b of [...document.querySelectorAll(".vg-floorbar button")].reverse()) { b.click(); await sleep(250); D.drawNow(); } }
-    catch (e) { __errs.push("palace floors: " + e.message); }
     for (const k of D.lenses()) { try { D.openLens(k); await sleep(60); } catch (e) { __errs.push("lens " + k + ": " + e.message); } }
     // the search palette: a query that names nothing lists nothing (a kind's rank bonus once turned every miss into a match),
     // and a real note name finds that note
@@ -31,16 +28,8 @@ setTimeout(async () => {
       if (!rows().length || !rows()[0].textContent.includes(name)) __errs.push("palette: searching \\"" + name + "\\" didn't list it first");
       pq().dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); }
     catch (e) { __errs.push("palette: " + e.message); }
-    // keys: 3 turns a 3D scene's angle (flat, tilt, iso) and ? lists every shortcut
+    // keys: ? lists every shortcut
     try { const key = k => document.querySelector(".vg-root").dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true }));
-      D.setView("zombie"); await sleep(200);
-      const label = () => (document.querySelector(".vg-anglebtn:not([hidden]) .vg-tlabel") || {}).textContent;
-      const a0 = label(); key("3"); await sleep(100); const a1 = label();
-      if (!a0 || a0 === a1) __errs.push("angle: 3 in Zombie went " + a0 + " -> " + a1);
-      key("3"); key("3"); await sleep(50);
-      if (label() !== a0) __errs.push("angle: three presses didn't come back to " + a0);
-      D.setView("2d"); await sleep(100);
-      if (document.querySelector(".vg-anglebtn").offsetParent) __errs.push("angle: the button shows on the 2D graph");
       key("?"); await sleep(100);
       const rows = document.querySelectorAll(".vg-confirm .vg-keys tr").length;
       if (rows < 15) __errs.push("shortcuts: the sheet lists " + rows + " keys");

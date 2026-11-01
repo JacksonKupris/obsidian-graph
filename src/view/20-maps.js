@@ -17,8 +17,7 @@
   // errors still draws from the words it got right, and its note shows the errors
   (DATA.scenes || []).forEach(b => { const { spec } = VGRules.sceneSpec(b.raw), key = VGRules.sceneKey(b.path, b.i);
     if (!SCENES[key]) scene(key, specScene(key, spec, b.path)); });
-  const MAPS = { subway: "Subway", topo: "Terrain", city: "City", garden: "Garden", palace: "Palace", weather: "Weather", ships: "Shipping lanes", rings: "Tree rings",
-    sky: "Sky chart", realm: "Realm", foodweb: "Food web", alchemy: "Alchemy", lineage: "Lineage", ripples: "Click depth", clock: "Heat clock", radar: "Radar",
+  const MAPS = { subway: "Subway", weather: "Weather", foodweb: "Food web", clock: "Heat clock", radar: "Radar",
     ...Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.name])) };
   const mapView = () => !!MAPS[st.view];
   let geoCache = null, mapCache = {}, impMax = null;
@@ -95,113 +94,21 @@
   const legs = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], d = Math.min(Math.abs(dx), Math.abs(dy));
     return [[a[0] + Math.sign(dx) * d, a[1] + Math.sign(dy) * d], b]; };   // diagonal first, then straight
 
-  // Terrain: an elevation field where each note raises the ground by how much the vault relies on it. Topics
-  // become hills, gaps between them valleys and sea. Quiet ground (no recent edits or mentions) sits under fog.
-  function topoLayout(geo) {
-    const ns = nodes.filter(n => !special(n) && !n.ghost);
-    const [x0, y0, x1, y1] = bounds(ns.map(n => geo.get(n.id)), 160);
-    const CELL = Math.max(8, Math.sqrt((x1 - x0) * (y1 - y0) / 36000)), gw = Math.ceil((x1 - x0) / CELL) + 1, gh = Math.ceil((y1 - y0) / CELL) + 1;
-    const E = new Float32Array(gw * gh), A = new Float32Array(gw * gh), SIG = 58, rad = Math.ceil(3 * SIG / CELL);
-    ns.forEach(n => {
-      const [x, y] = geo.get(n.id), cx = (x - x0) / CELL, cy = (y - y0) / CELL, w = 0.2 + importance(n), act = activity(n);
-      for (let j = Math.max(0, Math.floor(cy - rad)); j <= Math.min(gh - 1, Math.ceil(cy + rad)); j++)
-        for (let i = Math.max(0, Math.floor(cx - rad)); i <= Math.min(gw - 1, Math.ceil(cx + rad)); i++) {
-          const d2 = ((i - cx) ** 2 + (j - cy) ** 2) * CELL * CELL, g = Math.exp(-d2 / (2 * SIG * SIG));
-          E[j * gw + i] += w * g; A[j * gw + i] += act * g;
-        }
-    });
-    let mx = 1e-9; for (let i = 0; i < E.length; i++) mx = Math.max(mx, E[i]);
-    for (let i = 0; i < E.length; i++) { E[i] = Math.pow(E[i] / mx, 0.7); A[i] = Math.min(1, A[i] / (0.35 + E[i] * mx * 0.25)); }
-    const SEA = 0.07, off = document.createElement("canvas"); off.width = gw; off.height = gh;
-    const oc = off.getContext("2d"), img = oc.createImageData(gw, gh);
-    const STOPS = [[0, [40, 92, 72]], [0.25, [96, 140, 82]], [0.45, [176, 168, 104]], [0.65, [158, 116, 78]], [0.82, [128, 100, 86]], [1, [240, 238, 232]]];
-    const tint = e => { for (let k = 1; k < STOPS.length; k++) if (e <= STOPS[k][0]) { const [a, ca] = STOPS[k - 1], [b, cb] = STOPS[k], u = (e - a) / (b - a); return ca.map((v, i) => v + (cb[i] - v) * u); } return STOPS[STOPS.length - 1][1]; };
-    for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
-      const k = j * gw + i, e = E[k];
-      let c;
-      if (e < SEA) { const d = e / SEA; c = [22 + 40 * d, 48 + 60 * d, 84 + 70 * d]; }   // sea: deeper further from land
-      else {
-        c = tint((e - SEA) / (1 - SEA));
-        const nw = E[Math.max(0, j - 1) * gw + Math.max(0, i - 1)], se = E[Math.min(gh - 1, j + 1) * gw + Math.min(gw - 1, i + 1)];
-        const shadeF = Math.max(0.55, Math.min(1.35, 1 + (nw - se) * 9));   // light from the north-west
-        const fog = (1 - A[k]) * 0.42;                                       // quiet ground: fog
-        c = c.map(v => (v * shadeF) * (1 - fog) + 214 * fog);
-      }
-      img.data.set([c[0], c[1], c[2], 255], k * 4);
-    }
-    oc.putImageData(img, 0, 0);
-    // contour lines (marching squares), in world coordinates
-    const contours = [];
-    for (let lv = SEA, li = 0; lv < 1; lv += 0.055, li++) {
-      const seg = [];
-      for (let j = 0; j < gh - 1; j++) for (let i = 0; i < gw - 1; i++) {
-        const a = E[j * gw + i], b = E[j * gw + i + 1], c = E[(j + 1) * gw + i + 1], d = E[(j + 1) * gw + i];
-        const idx = (a > lv ? 8 : 0) | (b > lv ? 4 : 0) | (c > lv ? 2 : 0) | (d > lv ? 1 : 0);
-        if (idx === 0 || idx === 15) continue;
-        const T = [i + (lv - a) / (b - a), j], Rr = [i + 1, j + (lv - b) / (c - b)], B = [i + (lv - d) / (c - d), j + 1], Lf = [i, j + (lv - a) / (d - a)];
-        const pairs = { 1: [Lf, B], 2: [B, Rr], 3: [Lf, Rr], 4: [T, Rr], 5: [Lf, T, B, Rr], 6: [T, B], 7: [Lf, T], 8: [Lf, T], 9: [T, B], 10: [T, Rr, Lf, B], 11: [T, Rr], 12: [Lf, Rr], 13: [B, Rr], 14: [Lf, B] }[idx];
-        for (const p of pairs) seg.push(x0 + p[0] * CELL, y0 + p[1] * CELL);
-      }
-      contours.push({ major: li % 4 === 0, seg });
-    }
-    // each topic's summit: its highest note
-    const peaks = [];
-    DATA.clusters.forEach(c => {
-      let best = null, bh = -1;
-      ns.filter(n => n.cluster === c.id).forEach(n => { const [x, y] = geo.get(n.id), h = E[Math.round((y - y0) / CELL) * gw + Math.round((x - x0) / CELL)] || 0; if (h > bh) { bh = h; best = [x, y]; } });
-      if (best && c.size >= 4) peaks.push({ c: c.id, x: best[0], y: best[1], h: bh });
-    });
-    return { pos: geo, img: off, x0, y0, w: gw * CELL, h: gh * CELL, contours, peaks, E, gw, CELL, SEA };
-  }
-
   // City: each topic is a district and each note a building. Height = how much the vault relies on it,
   // footprint = how long it is, lit windows = recent edits and mentions, grey and dark = stale, a crane = new.
   // Notes you link to but haven't written are empty lots in the Planned district.
   const U = 22;   // one lot, in world units
   const iso = (gx, gy) => [(gx - gy) * U * 0.866, (gx + gy) * U * 0.5];
-  function cityLayout(geo) {
-    const groups = {};
-    nodes.forEach(n => { if (n.person || n.moc) return; const c = n.ghost ? -2 : n.cluster; (groups[c] = groups[c] || []).push(n); });
-    const placed = [], b = new Map(), districts = [];
-    Object.entries(groups).sort((a, b) => b[1].length - a[1].length).forEach(([c, ms]) => {
-      c = +c; ms.sort(byImportance);
-      const { cols, rows } = gridDims(ms.length), w = cols + 1, h = rows + 2;   // the front row is the plaza
-      const cen = ms.reduce((s, n) => { const p = geo.get(n.id); return [s[0] + p[0], s[1] + p[1]]; }, [0, 0]).map(v => v / ms.length);
-      const tx = Math.round(cen[0] / 40 - w / 2), ty = Math.round(cen[1] / 40 - h / 2);
-      const hits = (x, y) => placed.some(r => x < r[0] + r[2] + 1 && x + w + 1 > r[0] && y < r[1] + r[3] + 1 && y + h + 1 > r[1]);
-      let bx = tx, by = ty;
-      outer: for (let r = 0; r < 60; r++) for (let dx = -r; dx <= r; dx++) for (let dy = -r; dy <= r; dy++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r || hits(tx + dx, ty + dy)) continue;
-        bx = tx + dx; by = ty + dy; break outer;
-      }
-      placed.push([bx, by, w, h]); districts.push({ c, bx, by, w, h, act: ms.reduce((t, n) => t + activity(n), 0) / ms.length,
-        dark: ms.filter(n => !n.ghost && staleFor(n, Q.stale_days)).length, hall: c >= 0 && mocOf[c] && byId[mocOf[c].id] ? mocOf[c].id : null });
-      // tallest at the back so they don't hide the rest: fill lots from the back corner forward
-      const lots = []; for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) lots.push([q, r]);
-      lots.sort((p1, p2) => (p1[0] + p1[1]) - (p2[0] + p2[1]) || p1[0] - p2[0]);
-      ms.forEach((n, i) => { const [q, r] = lots[i];
-        b.set(n.id, { gx: bx + q + 0.75, gy: by + r + 0.75, h: n.ghost ? 0 : 4 + 165 * Math.pow(importance(n), 1.6), f: 0.34 + 0.26 * Math.sqrt(Math.min(1, (n.words || 0) / 2000)) }); });
-    });
-    const week = Date.now() - 7 * 864e5;
-    const cranes = new Set(nodes.filter(n => n.born && !n.ghost && b.has(n.id) && new Date(n.born + "T12:00") >= week).sort((x, y) => y.born.localeCompare(x.born)).slice(0, 15).map(n => n.id));
-    const pos = new Map(geo); b.forEach((v, id) => pos.set(id, iso(v.gx, v.gy)));
-    // the outline the camera frames: each building's top with room for its crane and name, and the streets round each district
-    const bounds = [...[...b.values()].map(v => { const [x, y] = iso(v.gx, v.gy); return [x, y - v.h - 30]; }),
-      ...districts.flatMap(d => [[-0.55, -0.55], [d.w + 0.55, -0.55], [d.w + 0.55, d.h + 0.55], [-0.55, d.h + 0.55]].map(([x, y]) => iso(d.bx + x, d.by + y)))];
-    return { b, districts, pos, cranes, bounds };
-  }
-
   function applyMapLayout(animate) {
     impMax = null;
     const geo = geography(), v = st.view;
-    const M = mapCache[v] = SCENES[v] ? SCENES[v].layout(geo) : v === "subway" ? subwayLayout(geo) : v === "topo" ? topoLayout(geo) : v === "garden" ? gardenLayout(geo) : v === "palace" ? palaceLayout(geo)
-      : ({ weather: weatherLayout, ships: shipsLayout, rings: ringsLayout, sky: skyLayout, realm: realmLayout, foodweb: foodwebLayout, alchemy: alchemyLayout, lineage: lineageLayout, ripples: ripplesLayout, clock: clockLayout, radar: radarLayout }[v] || cityLayout)(geo);
+    const M = mapCache[v] = SCENES[v] ? SCENES[v].layout(geo) : v === "subway" ? subwayLayout(geo)
+      : { weather: weatherLayout, foodweb: foodwebLayout, clock: clockLayout, radar: radarLayout }[v](geo);
     if (animate) morphTo(n => { const p = M.pos.get(n.id); return p ? [p[0], p[1], 0] : null; }, 950);
     else nodes.forEach(n => { const p = M.pos.get(n.id); if (p) { n.x = p[0]; n.y = p[1]; n.z = 0; } });
   }
-  const mapFitPred = () => SCENES[st.view] ? (SCENES[st.view].fit || (n => !special(n) && !n.ghost)) : st.view === "palace" ? (n => !special(n) && !n.ghost && (!mapCache.palace || !mapCache.palace.onFloor || mapCache.palace.onFloor.has(n.id))) : st.view === "subway" ? (n => mapCache.subway && mapCache.subway.stations.has(n.id))
-    : st.view === "city" ? (n => mapCache.city && mapCache.city.b.has(n.id) && !n.ghost) : st.view === "palace" ? (n => !special(n)) : st.view === "radar" ? (n => !special(n) && n.tasks > 0)
-    : st.view === "realm" ? (n => !special(n) && !n.ghost) : (n => !special(n) && !n.ghost);
+  const mapFitPred = () => SCENES[st.view] ? (SCENES[st.view].fit || (n => !special(n) && !n.ghost)) : st.view === "subway" ? (n => mapCache.subway && mapCache.subway.stations.has(n.id))
+    : st.view === "radar" ? (n => !special(n) && n.tasks > 0) : (n => !special(n) && !n.ghost);
 
   function mapFrame() {
     const dpr = Math.min(window.devicePixelRatio || 1, MOBILE ? 2 : 3);
@@ -226,21 +133,36 @@
   // rows and columns stay square to you (tables, boards). Each is a 2x2 matrix from flat screen offsets to the angled ones.
   const ISO_VIEWS = { iso: [0.62, -0.62, 0.36, 0.36], tilt: [0.92, 0, 0, 0.58], flat: [1, 0, 0, 1] };   // flat: top-down, blocks show as squares
   // the angle the current view draws at, by name, or null for a view that doesn't draw through the kit: a scene sets
-  // iso: "iso" | "tilt" (true = "iso"), the palace's floors are "iso"; the person's choice for the view (st.angles,
+  // iso: "iso" | "tilt" (true = "iso"); the person's choice for the view (st.angles,
   // the angle button or 3) wins over both
-  const isoAngle = () => { const d = SCENES[st.view], own = d && d.iso ? (d.iso === true ? "iso" : d.iso)
-      : st.view === "palace" && mapCache.palace && !mapCache.palace.facade ? "iso" : null;
+  const isoAngle = () => { const d = SCENES[st.view], own = d && d.iso ? (d.iso === true ? "iso" : d.iso) : null;
     return own && (st.angles[st.view] || own); };
   const isoScene = () => { const a = isoAngle(); return a && ISO_VIEWS[a]; };
-  const ANGLES = [["flat", "Flat"], ["tilt", "Tilt"], ["iso", "Iso"]];
-  function cycleAngle() {
-    const a = isoAngle(); if (!a) return;
-    const i = ANGLES.findIndex(([k]) => k === a), [next, name] = ANGLES[(i + 1) % ANGLES.length];
-    st.angles[st.view] = next; syncAngleBtn(); persistSoon(); fit(null); dirty = true; kick(); toast(`${name} view`, "ok");
+  // 2D or 3D: one control in every view, the same place and the same key (3). The graph swaps its two layouts, a scene
+  // drawn through the kit changes angle, Neural turns or lies flat, and every other view leans back in real perspective.
+  // A game has no switch: it's already first-person.
+  const isGame = () => !!(SCENES[st.view] && SCENES[st.view].game);
+  const leansBack = () => !isGame() && !isoAngle() && !neural() && st.view !== "2d" && st.view !== "3d" && st.angles[st.view] === "tilt3d";
+  function dimOf() {
+    const v = st.view, angle = isoAngle();
+    if (v === "2d" || v === "3d") return v;
+    if (angle) return angle === "flat" ? "2d" : "3d";
+    if (neural()) return st.three ? "3d" : "2d";
+    return leansBack() ? "3d" : "2d";
   }
-  function syncAngleBtn() {
-    const b = $(".vg-anglebtn"); if (!b) return; const a = isoAngle();
-    b.hidden = !a; if (a) b.querySelector(".vg-tlabel").textContent = ANGLES.find(([k]) => k === a)[1];
+  function setDim(d) {
+    const v = st.view; if (isGame() || d === dimOf()) return;
+    if (v === "2d" || v === "3d") return setView(d);
+    if (isoAngle()) { const own = SCENES[v].iso; st.angles[v] = d === "2d" ? "flat" : own === true ? "iso" : own; fit(null); }
+    else if (neural()) { st.angles.neural = d === "2d" ? "flat" : "3d"; layNeural(); }
+    else st.angles[v] = d === "3d" ? "tilt3d" : "flat";
+    syncDim(); persistSoon(); dirty = true; kick();
+  }
+  function layNeural() { st.three = st.angles.neural !== "flat"; if (!st.three) { cam.spin = null; animateTo({ yaw: 0, pitch: 0 }, 500); } cv.style.cursor = st.three ? "grab" : "default"; }
+  function syncDim() {
+    const d = dimOf(), seg = $(".vg-dimseg"); if (seg) seg.hidden = isGame();
+    $$("[data-dim]").forEach(b => b.setAttribute("aria-pressed", b.dataset.dim === d));
+    cv.classList.toggle("is-tilt3d", leansBack());
   }
   // shadeOf(colour, t): colour darkened by t (0..1); a colour that isn't #rrggbb shades a neutral blue-grey
   const shadeOf = (c, t) => hexMix(/^#[0-9a-f]{6}$/i.test(c) ? c : "#a5b4cf", "#000000", t);
@@ -630,580 +552,8 @@
     ctx.globalAlpha = 1;
   }
 
-  function drawTopo(now) {
-    const { dpr, R, litSet, font, k } = mapFrame(), T = mapCache.topo;
-    ctx.fillStyle = "#16304f"; ctx.fillRect(0, 0, W, H);
-    if (!T) return;
-    const o = scr(0, 0, R);   // world origin on screen: world (x, y) -> (o.x + x*k, o.y + y*k)
-    ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * o.x, dpr * o.y);
-    ctx.imageSmoothingEnabled = true; ctx.drawImage(T.img, T.x0, T.y0, T.w, T.h);
-    ctx.strokeStyle = "rgba(52,36,22,0.32)";
-    T.contours.forEach(c => { ctx.lineWidth = (c.major ? 1.1 : 0.5) / k; ctx.beginPath();
-      for (let i = 0; i < c.seg.length; i += 4) { ctx.moveTo(c.seg[i], c.seg[i + 1]); ctx.lineTo(c.seg[i + 2], c.seg[i + 3]); } ctx.stroke(); });
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // rivers: from each summit, steepest descent over the elevation field down to the sea, flowing
-    if (!T.rivers) { const gh = T.E.length / T.gw; T.rivers = T.peaks.filter(pk => pk.h > 0.12).map(pk => {
-      let i = Math.round((pk.x - T.x0) / T.CELL), j = Math.round((pk.y - T.y0) / T.CELL); const pts = [];
-      for (let step = 0; step < 500; step++) { pts.push([T.x0 + i * T.CELL, T.y0 + j * T.CELL]); const e = T.E[j * T.gw + i]; if (e < T.SEA) break;
-        let bi = i, bj = j, be = e; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const ii = i + a, jj = j + b; if (ii < 0 || jj < 0 || ii >= T.gw || jj >= gh) continue; const v = T.E[jj * T.gw + ii]; if (v < be) { be = v; bi = ii; bj = jj; } }
-        if (bi === i && bj === j) break; i = bi; j = bj; }
-      return pts; }).filter(p => p.length > 4); }
-    ctx.lineCap = "round"; ctx.lineJoin = "round";
-    T.rivers.forEach(pts => { ctx.beginPath(); pts.forEach(([x, y], q) => { const s0 = scr(x, y, R); q ? ctx.lineTo(s0.x, s0.y) : ctx.moveTo(s0.x, s0.y); });
-      ctx.strokeStyle = "rgba(37,99,235,.55)"; ctx.lineWidth = Math.max(1.4, 2.6 * Math.sqrt(k)); ctx.setLineDash([]); ctx.stroke();
-      ctx.strokeStyle = "rgba(191,219,254,.75)"; ctx.lineWidth = Math.max(0.8, 1.2 * Math.sqrt(k)); ctx.setLineDash([3, 9]); ctx.lineDashOffset = reducedMotion() ? 0 : -now / 45; ctx.stroke(); });
-    ctx.setLineDash([]); ctx.lineDashOffset = 0;
-    // links across topics are bridges over the valleys; suggested links are dotted ferry routes
-    ctx.lineWidth = 1;
-    for (const l of visLinks) {
-      if (special(l.s) || special(l.t)) continue;
-      const cross = l.kind === "link" && l.s.cluster !== l.t.cluster, sug = VGRules.isSuggestion(l);
-      if (!cross && !sug) continue;
-      const a = scr(l.s.x, l.s.y, R), b = scr(l.t.x, l.t.y, R), on = !litSet || (litSet.has(l.s.id) && litSet.has(l.t.id));
-      ctx.globalAlpha = on ? (litSet ? 0.9 : 0.45) : 0.06; ctx.strokeStyle = sug ? "#bfe3ff" : "#3a2a1a"; ctx.setLineDash(sug ? [2, 4] : [5, 3]);
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-    }
-    ctx.setLineDash([]);
-    // notes: small markers; summits labelled with the topic and a made-up height
-    const marks = active.filter(n => !special(n) && !n.ghost).sort((a, b) => importance(a) - importance(b));
-    marks.forEach(n => {
-      const p = scr(n.x, n.y, R), on = !litSet || litSet.has(n.id), r = Math.max(1.8, (1.6 + 3 * importance(n)) * Math.sqrt(k));
-      ctx.globalAlpha = on ? 0.95 : 0.25; ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 2 * Math.PI); ctx.fillStyle = litSet && on ? "#fff" : "#2a1e14"; ctx.fill();
-      if (st.selected === n.id) { ctx.beginPath(); ctx.arc(p.x, p.y, r + 5, 0, 2 * Math.PI); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke(); }
-      P.set(n.id, { x: p.x, y: p.y, s: p.s, depth: -importance(n), r: Math.max(r, 4), a: on ? 1 : 0.3 });
-    });
-    ctx.globalAlpha = 1;
-    if (!T.fogs) T.fogs = nodes.filter(n => !special(n) && !n.ghost && activity(n) < 0.02 && T.pos.get(n.id)).sort((a, b) => hash(a.id) - hash(b.id)).slice(0, 9).map(n => T.pos.get(n.id));
-    T.fogs.forEach(([x, y], i) => { const dx = reducedMotion() ? 0 : Math.sin(now / 9000 + i) * 60, q = scr(x + dx, y + Math.cos(now / 11000 + i * 2) * 25, R), rr = 110 * k;   // fog banks drift over quiet ground
-      const g = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, rr); g.addColorStop(0, "rgba(241,245,249,.32)"); g.addColorStop(1, "rgba(241,245,249,0)"); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(q.x, q.y, rr, rr * 0.55, 0, 0, 2 * Math.PI); ctx.fill(); });
-    T.peaks.slice().sort((a, b) => b.h - a.h).forEach(pk => {
-      const p = scr(pk.x, pk.y, R), name = `▲ ${clip(clusterName(pk.c), 30)}`, f = `italic 600 ${pk.h > 0.6 ? 13.5 : 11.5}px Georgia, serif`;
-      ctx.font = f; const w = ctx.measureText(name).width;
-      if (!freeSpot(p.x - w / 2, p.y - 26, w, 28)) return;
-      haloText(name, p.x, p.y - 18, "#1d140c", "rgba(255,250,240,.55)", f, "center", 2);
-      haloText(`${Math.round(pk.h * 2400).toLocaleString()} m`, p.x, p.y - 5, "#4b3a2a", "rgba(255,250,240,.5)", `500 9.5px ${font}`, "center", 2);
-    });
-    if (k > 1.4) marks.slice().reverse().forEach(n => {   // zoomed in: note names where there's room
-      const p = P.get(n.id), text = clip(n.name, 26), f = `500 10.5px ${font}`; ctx.font = f; const w = ctx.measureText(text).width;
-      if (freeSpot(p.x + p.r + 2, p.y - 6, w, 12)) haloText(text, p.x + p.r + 2, p.y, "#1d140c", "rgba(255,250,240,.8)", f);
-    });
-  }
-
   const hexMix = (a, b, t) => { const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), A = p(a), B = p(b);
     return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join(""); };
-  function drawCity(now) {
-    const { dpr, R, litSet, font, k } = mapFrame(), C = mapCache.city;
-    // the sky follows your clock: night, dawn and dusk glow, a muted day (dark enough that lit windows still read)
-    const { night, dusk } = daylight();
-    const SKY = night ? ["#070b1d", "#1b1638", "#33204a"] : dusk ? ["#1e1b4b", "#7c2d5e", "#f59e0b"] : ["#1e3a5f", "#3b6a9a", "#7fa7cf"];
-    backdrop(SKY[0], [0.65, SKY[1]], [1, SKY[2]]);
-    if (night || dusk) for (let i = 0; i < (MOBILE ? 60 : 140); i++) { const h = hash("star" + i); ctx.globalAlpha = 0.25 + (h % 60) / 100; ctx.fillStyle = "#fff"; ctx.fillRect((h % 997) / 997 * W, ((h >>> 10) % 991) / 991 * H * 0.6, 1.3, 1.3); }
-    ctx.globalAlpha = 1;
-    if (!C) return;
-    const pt = (gx, gy, z) => { const [x, y] = iso(gx, gy), p = scr(x, y, R); return [p.x, p.y - z * k]; };
-    // streets: an asphalt ring round every district with a dashed centre line
-    const poly = ps => { ctx.beginPath(); ps.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); };
-    const ring = (d, o) => [[d.bx - o, d.by - o], [d.bx + d.w + o, d.by - o], [d.bx + d.w + o, d.by + d.h + o], [d.bx - o, d.by + d.h + o]].map(([x, y]) => pt(x, y, 0));
-    C.districts.forEach(d => { poly(ring(d, 0.55)); ctx.fillStyle = night ? "#141826" : "#262b38"; ctx.fill(); });
-    ctx.setLineDash([4 * k, 5 * k]); ctx.strokeStyle = "rgba(250,204,21,.28)"; ctx.lineWidth = Math.max(0.6, 0.8 * k);
-    C.districts.forEach(d => { poly(ring(d, 0.27)); ctx.stroke(); }); ctx.setLineDash([]);
-    // district ground plates and their names
-    C.districts.forEach(d => {
-      const cs = [[d.bx, d.by], [d.bx + d.w, d.by], [d.bx + d.w, d.by + d.h], [d.bx, d.by + d.h]].map(([x, y]) => pt(x, y, 0));
-      const col = d.c === -2 ? "#5b5f6b" : d.c < 0 ? "#4b5160" : colorOf(d.c);
-      ctx.beginPath(); cs.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath();
-      ctx.fillStyle = hexMix(col, "#0d1022", 0.72); ctx.fill(); ctx.strokeStyle = hexMix(col, "#0d1022", 0.4); ctx.lineWidth = 1; ctx.stroke();
-    });
-    // traffic: cars circle each district's streets, more where the topic is busy; headlights ahead, tail lights behind
-    C.districts.forEach(d => {
-      const o = 0.27, W0 = d.w + 2 * o, H0 = d.h + 2 * o, per = 2 * (W0 + H0), cars = Math.min(MOBILE ? 3 : 7, 1 + Math.round(6 * d.act));
-      const at = s => { s = ((s % per) + per) % per; const x0 = d.bx - o, y0 = d.by - o;
-        return s < W0 ? [x0 + s, y0] : s < W0 + H0 ? [x0 + W0, y0 + s - W0] : s < 2 * W0 + H0 ? [x0 + W0 - (s - W0 - H0), y0 + H0] : [x0, y0 + H0 - (s - 2 * W0 - H0)]; };
-      for (let j = 0; j < cars; j++) { const s = (reducedMotion() ? 0 : now / 900) + j * per / cars + (hash(String(d.c)) % 50) / 10, hd = pt(...at(s + 0.12), 0), tl = pt(...at(s - 0.12), 0);
-        ctx.fillStyle = "rgba(254,240,138,.95)"; ctx.beginPath(); ctx.arc(hd[0], hd[1], Math.max(1, 1.3 * Math.sqrt(k)), 0, 2 * Math.PI); ctx.fill();
-        ctx.fillStyle = "rgba(248,113,113,.9)"; ctx.beginPath(); ctx.arc(tl[0], tl[1], Math.max(0.9, 1.1 * Math.sqrt(k)), 0, 2 * Math.PI); ctx.fill(); }
-    });
-    // buildings, back to front (planned lots always show)
-    const lot = [...C.b.entries()].filter(([id]) => byId[id].ghost ? !replay : mapShown(byId[id])).sort((a, b) => (a[1].gx + a[1].gy) - (b[1].gx + b[1].gy));
-    // shadows first, so buildings stand on the ground rather than on a neighbour's shadow
-    ctx.fillStyle = night ? "rgba(0,0,0,.18)" : "rgba(0,0,0,.28)";
-    lot.forEach(([id, B]) => { const n = byId[id]; if (n.ghost) return; const base = scr(n.x, n.y, R), hf = B.f / 2, sx = B.h * k * 0.42, sy = B.h * k * 0.14;
-      const c = (dx, dy) => [base.x + (dx - dy) * U * 0.866 * k, base.y + (dx + dy) * U * 0.5 * k], bk = c(-hf, -hf), rt = c(hf, -hf), fr = c(hf, hf), lf = c(-hf, hf);
-      poly([bk, rt, [rt[0] + sx, rt[1] + sy], [fr[0] + sx, fr[1] + sy], [lf[0] + sx, lf[1] + sy], lf]); ctx.fill(); });
-    const sel = st.selected && C.b.get(st.selected);
-    lot.forEach(([id, B]) => {
-      const n = byId[id], on = !litSet || litSet.has(id), half = B.f / 2;
-      // the note's position (it morphs in) is the lot's centre; corners are offsets from it
-      const base = scr(n.x, n.y, R), off = (dx, dy, z) => [base.x + (dx - dy) * U * 0.866 * k, base.y + (dx + dy) * U * 0.5 * k - z * k];
-      const bk = off(-half, -half, 0), rt = off(half, -half, 0), fr = off(half, half, 0), lf = off(-half, half, 0);
-      ctx.globalAlpha = on ? 1 : 0.22;
-      if (n.ghost) {   // planned: an empty lot
-        ctx.setLineDash([3, 3]); ctx.strokeStyle = "#9aa3b5"; ctx.lineWidth = 1; ctx.beginPath(); [bk, rt, fr, lf].forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
-        P.set(id, { x: fr[0], y: (bk[1] + fr[1]) / 2, s: base.s, depth: -(B.gx + B.gy), r: Math.max(5, (fr[1] - bk[1]) / 2), a: on ? 1 : 0.3 });
-        return;
-      }
-      const stale = staleFor(n, Q.stale_days), base0 = n.cluster >= 0 ? colorOf(n.cluster) : "#8b93a6";
-      const col = stale ? hexMix(base0, "#5e626d", 0.72) : base0, h = B.h;
-      const up = ([x, y]) => [x, y - h * k], xy = ([x, y]) => ({ x, y });
-      // the tower: its roof pushed down to the street, through the shared prism (lit from the upper left like every solid)
-      prism([up(bk), up(rt), up(fr), up(lf)].map(xy), { x: 0, y: h * k }, hexMix(col, "#ffffff", stale ? 0.05 : 0.18));
-      // windows: lit by recent activity (a stable pattern per note), dark otherwise
-      const act = activity(n), floors = Math.max(1, Math.floor(h / 9)), px = 1.6 * Math.sqrt(k);
-      if (px >= 1) for (let fl = 0; fl < floors; fl++) for (let side = 0; side < 2; side++) for (let w = 0; w < 2; w++) {
-        const t = (w + 0.5) / 2, z = (fl + 0.55) * (h / floors), [a1, a2] = side ? [fr, rt] : [lf, fr];
-        const x = a1[0] + (a2[0] - a1[0]) * t, y = a1[1] + (a2[1] - a1[1]) * t - z * k;
-        const flick = !reducedMotion() && hash(id + fl + side + w + Math.floor(now / 2600)) % 29 === 0;   // now and then a light goes on or off
-        const litW = ((hash(id + fl + "|" + side + w) % 100) < act * 100) !== flick;
-        ctx.fillStyle = litW ? "#ffd977" : "rgba(10,12,24,.55)"; ctx.fillRect(x - px / 2, y - px, px, px * 1.3);
-      }
-      // a crane on the newest notes (last week, at most 15)
-      if (C.cranes && C.cranes.has(id)) {
-        const [tx, ty] = up(fr), m = Math.max(10, 18 * Math.sqrt(k));
-        ctx.strokeStyle = "#facc15"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx, ty - m); ctx.lineTo(tx + m * 0.9, ty - m); ctx.moveTo(tx + m * 0.6, ty - m); ctx.lineTo(tx + m * 0.6, ty - m * 0.55); ctx.stroke();
-      }
-      if (n.tasks > 0) { const cx = (up(bk)[0] + up(fr)[0]) / 2, cy = (up(bk)[1] + up(fr)[1]) / 2, blink = reducedMotion() || Math.sin(now / 380 + hash(id) % 7) > 0.2;   // open tasks: a beacon
-        ctx.fillStyle = blink ? "#ef4444" : "rgba(239,68,68,.25)"; ctx.beginPath(); ctx.arc(cx, cy - 2, Math.max(1.2, 1.8 * Math.sqrt(k)), 0, 2 * Math.PI); ctx.fill(); }
-      if (id === st.selected) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.beginPath(); [up(bk), up(rt), up(fr), up(lf)].forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.stroke(); }
-      P.set(id, { x: (lf[0] + rt[0]) / 2, y: fr[1] - (h * k) / 2 - (fr[1] - bk[1]) / 4, s: base.s, depth: -(B.gx + B.gy), r: Math.max(6, Math.max(rt[0] - lf[0], h * k) / 2), a: on ? 1 : 0.3,
-        box: body([lf[0], up(bk)[1], rt[0] - lf[0], fr[1] - up(bk)[1]]) });   // the tower's screen box, so names keep off it
-    });
-    ctx.globalAlpha = 1;
-    // town halls: each district's map stands in its plaza (click it like any note); no map = an empty plaza with a sign
-    C.districts.forEach(d => { if (d.c < 0) return; const [x, y] = pt(d.bx + d.w / 2, d.by + d.h - 0.55, 0), s = Math.max(4, 9 * k);
-      if (!d.hall || !mapShown(byId[d.hall])) return;   // its "no map yet" sign goes with the names below
-      ctx.globalAlpha = !litSet || litSet.has(d.hall) ? 1 : 0.3;
-      ctx.fillStyle = "#e5e7eb"; ctx.fillRect(x - s, y - s * 1.1, s * 2, s * 1.1);
-      ctx.fillStyle = "#cbd5e1"; ctx.beginPath(); ctx.arc(x, y - s * 1.1, s * 0.75, Math.PI, 0); ctx.fill();
-      ctx.fillStyle = "rgba(30,41,59,.75)"; for (let i = -1; i <= 1; i++) ctx.fillRect(x + i * s * 0.6 - s * 0.12, y - s * 0.8, s * 0.24, s * 0.8);
-      ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y - s * 1.85); ctx.lineTo(x, y - s * 2.8); ctx.stroke();
-      ctx.fillStyle = colorOf(d.c); ctx.beginPath(); ctx.moveTo(x, y - s * 2.8); ctx.lineTo(x + s * 0.9, y - s * 2.5); ctx.lineTo(x, y - s * 2.2); ctx.fill();
-      ctx.globalAlpha = 1; P.set(d.hall, { x, y: y - s, s: 1, depth: -(d.bx + d.by + d.w + d.h), r: s * 1.4, a: 1 });
-      if (d.hall === st.selected) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(x - s - 2, y - s * 2.9, s * 2 + 4, s * 2.9 + 2); } });
-    // selected building: light trails to its linked buildings
-    if (sel) {
-      const top = id => { const n = byId[id], B = C.b.get(id), p = scr(n.x, n.y, R); return [p.x, p.y - (B ? B.h : 0) * k]; };
-      const [sx, sy] = top(st.selected);
-      ctx.strokeStyle = "rgba(255,217,119,.75)"; ctx.lineWidth = 1.4;
-      [...nb[st.selected]].filter(id => C.b.has(id) && visible(byId[id])).forEach(id => { const [x, y] = top(id); ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo((sx + x) / 2, Math.min(sy, y) - 40, x, y); ctx.stroke(); });
-    }
-    // district names on the ground (and a plaza with no town hall says so), then the tallest buildings' names
-    C.districts.forEach(d => {
-      const [x, y] = pt(d.bx + d.w / 2, d.by + d.h + 0.4, 0), name = d.c === -2 ? "PLANNED (NOT WRITTEN YET)" : d.c < 0 ? "OUTSKIRTS" : clip(shortName(d.c), k > 0.8 ? 26 : 18).toUpperCase() + (d.dark && k > 0.8 ? ` · ${d.dark} DARK` : "");   // zoomed out: short names only
-      const f = `700 10.5px ${font}`; ctx.font = f; const w = ctx.measureText(name).width;
-      if (freeSpot(x - w / 2, y - 7, w, 14)) haloText(name, x, y, "#c7cbe0", "#0b0e20", f, "center");
-      if (d.c < 0 || d.hall || k <= 0.45) return;
-      const [sx, sy] = pt(d.bx + d.w / 2, d.by + d.h - 0.55, 0), sf = `700 ${Math.round(Math.max(8, Math.min(11, 9 * k)))}px ${font}`; ctx.font = sf; const sw = ctx.measureText("no map yet").width;
-      if (freeSpot(sx - sw / 2, sy - 7, sw, 14)) haloText("no map yet", sx, sy, "#fbbf24", "#0b0e20", sf, "center");
-    });
-    noteLabels(lot.filter(([id]) => !byId[id].ghost).sort((a, b) => b[1].h - a[1].h).map(([id]) => id), "#f2f3fa", "#0b0e20", MOBILE ? 12 : 28);
-  }
-
-  // Garden: a digital garden, where notes grow from seed to evergreen. Each topic is a bed; a note's stage comes from
-  // how developed it is (length, notes relying on it, references, age). Stale notes wilt, notes with open tasks need
-  // water, recently active ones flower, orphans (nothing links to them) have weeds. Unlinked notes wait in the
-  // nursery; notes you link to but haven't written are seed packets.
-  const GC = 30;   // one plant's plot, in world units
   // unlinked notes have a place of their own here (the nursery, the storeroom), so they show without "Show unlinked"
   const mapShown = n => visible(n) || (n.isolated && !replay && !st.focusDist && !st.hidden.has(n.id) && !st.hiddenClusters.has(n.cluster));
-  const maturity = n => n.ghost ? 0 : 0.35 * Math.min(1, (n.words || 0) / 1500) + 0.35 * Math.min(1, Math.log1p(n.inlinks || 0) / Math.log(12))
-    + 0.15 * (n.refs ? 1 : 0) + 0.15 * Math.min(1, n.born ? (Date.now() - new Date(n.born + "T12:00")) / 864e5 / 180 : 0);
-  const STAGES = ["seed packet", "seed", "seedling", "budding", "evergreen"];
-  const stageOf = n => { if (n.ghost) return 0; const m = maturity(n); return m < 0.2 ? 1 : m < 0.42 ? 2 : m < 0.65 ? 3 : 4; };
-  // beds keep the familiar 2D arrangement: rows by where each topic sits top to bottom, left to right within a row
-  function packBeds(groups, geo, size) {
-    const cen = ms => ms.reduce((s, n) => { const p = geo.get(n.id) || [0, 0]; return [s[0] + p[0] / ms.length, s[1] + p[1] / ms.length]; }, [0, 0]);
-    const items = Object.entries(groups).map(([c, ms]) => ({ c: +c, ms, cen: cen(ms), ...size(ms) }));
-    const total = items.reduce((s, it) => s + it.w * it.h, 0), ROW_W = Math.max(900, Math.sqrt(total) * 1.5);
-    const main = items.filter(it => it.c > -2).sort((a, b) => a.cen[1] - b.cen[1]), extra = items.filter(it => it.c <= -2);
-    const rows = []; let row = [], rw = 0;
-    main.forEach(it => { if (row.length && rw + it.w > ROW_W) { rows.push(row); row = []; rw = 0; } row.push(it); rw += it.w + 40; });
-    if (row.length) rows.push(row);
-    if (extra.length) rows.push(extra);
-    let y = 0;
-    rows.forEach(r => { r.sort((a, b) => (a.c <= -2) - (b.c <= -2) || a.cen[0] - b.cen[0]); const wsum = r.reduce((s, it) => s + it.w, 0) + 40 * (r.length - 1);
-      let x = -wsum / 2; const h = Math.max(...r.map(it => it.h)); r.forEach(it => { it.x = x; it.y = y; x += it.w + 40; }); y += h + 56; });
-    items.forEach(it => { it.y -= y / 2; });
-    return items;
-  }
-  function gardenLayout(geo) {
-    const groups = {};
-    nodes.forEach(n => { if (n.person || n.moc) return; const c = n.ghost ? -2 : n.isolated ? -3 : n.cluster; (groups[c] = groups[c] || []).push(n); });
-    const beds = packBeds(groups, geo, ms => { const { cols } = gridDims(ms.length, 1.7); return { cols, w: cols * GC + 24, h: Math.ceil(ms.length / cols) * GC + 44 }; });
-    const pos = new Map(geo), plant = new Map();
-    beds.forEach(b => {
-      b.ms.sort((x, y) => maturity(y) - maturity(x));   // evergreens at the back of the bed
-      b.ms.forEach((n, i) => { const x = b.x + 12 + (i % b.cols + 0.5) * GC, y = b.y + 34 + (Math.floor(i / b.cols) + 0.5) * GC;
-        pos.set(n.id, [x, y]); plant.set(n.id, stageOf(n)); });
-      b.stats = { ever: b.ms.filter(n => plant.get(n.id) === 4).length, wilt: b.ms.filter(n => !n.ghost && staleFor(n, Q.stale_days)).length };
-    });
-    // the beds' corners, so the camera frames whole beds (names and edges), not just the plants in them
-    return { beds, pos, plant, bounds: beds.flatMap(b => [[b.x, b.y - 8], [b.x + b.w, b.y + b.h]]) };
-  }
-  function drawGarden(now) {
-    const { R, litSet, font, k } = mapFrame(), G = mapCache.garden;
-    backdrop("#16261a", "#22351f");
-    if (!G) return;
-    const u = Math.max(0.35, k);   // plant scale on screen
-    G.beds.forEach(b => {
-      const p = scr(b.x, b.y, R), w = (b.cols * GC + 24) * k, h = (Math.ceil(b.ms.length / b.cols) * GC + 44) * k;
-      ctx.fillStyle = b.c === -3 ? "#5a4636" : b.c === -2 ? "#3a3f36" : "#4a3325"; ctx.strokeStyle = b.c >= 0 ? hexMix(colorOf(b.c), "#4a3325", 0.45) : "#6d5644"; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.roundRect ? ctx.roundRect(p.x, p.y, w, h, 8 * k) : ctx.rect(p.x, p.y, w, h); ctx.fill(); ctx.stroke();
-      const name = b.c === -3 ? "NURSERY · NOT LINKED YET" : b.c === -2 ? "SEED PACKETS · NOT WRITTEN YET" : b.c < 0 ? "UNSORTED · NO TOPIC YET" : clip(shortName(b.c), 28).toUpperCase();
-      const f = `700 ${Math.max(9, Math.min(12, 11 * Math.sqrt(k)))}px ${font}`; ctx.font = f;
-      if (w > 60 && freeSpot(p.x + 8, p.y + 4, Math.min(w - 16, ctx.measureText(name).width), 14)) {
-        haloText(name, p.x + 8, p.y + 12 * Math.min(1.2, Math.max(0.8, k)), b.c >= 0 ? hexMix(colorOf(b.c), "#ffffff", 0.45) : "#d6c7b4", "#2b1d14", f);
-        if (b.c >= 0 && k > 0.55) haloText(`${b.stats.ever} evergreen · ${b.stats.wilt} wilting`, p.x + 8, p.y + 25 * Math.min(1.2, Math.max(0.8, k)), "#c9b8a0", "#2b1d14", `500 9.5px ${font}`);
-      }
-    });
-    const leaf = (x, y, rx, ry, a, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, a, 0, 2 * Math.PI); ctx.fill(); };
-    for (const b of G.beds) for (const n of b.ms) {
-      if (!(n.ghost ? !replay : mapShown(n))) continue;   // seed packets always show, like City's planned lots
-      const p = scr(n.x, n.y, R), on = !litSet || litSet.has(n.id), stg = G.plant.get(n.id), wilt = !n.ghost && staleFor(n, Q.stale_days);
-      const green = wilt ? "#9a8a45" : "#4caf50", dark = wilt ? "#7a6a32" : "#2e7d32", sway = reducedMotion() ? 0 : Math.sin(now / 1300 + hash(n.id) % 7) * 0.08;
-      const bx = p.x, by = p.y + 9 * u;   // ground level
-      ctx.globalAlpha = on ? 1 : 0.22;
-      if (stg === 0) { ctx.fillStyle = "#cbbf9f"; ctx.fillRect(bx - 5 * u, by - 13 * u, 10 * u, 13 * u); ctx.fillStyle = colorOf(-1); ctx.fillRect(bx - 3 * u, by - 10 * u, 6 * u, 4 * u); }
-      else if (stg === 1) { leaf(bx, by - 2 * u, 3.2 * u, 2.2 * u, 0, "#8d6e4f"); leaf(bx, by - 5 * u, 1 * u, 2 * u, sway, green); }
-      else {
-        const hgt = (stg === 2 ? 9 : stg === 3 ? 15 : 12) * u, tip = [bx + (wilt ? 4 * u : sway * 10 * u), by - hgt];
-        ctx.strokeStyle = stg === 4 ? "#6d4c2f" : dark; ctx.lineWidth = (stg === 4 ? 3 : 1.4) * u;
-        ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx, by - hgt * 0.6, tip[0], tip[1]); ctx.stroke();
-        if (stg === 2) { leaf(tip[0] - 3 * u, tip[1] + 1 * u, 3.4 * u, 1.6 * u, -0.5 + (wilt ? 0.9 : 0), green); leaf(tip[0] + 3 * u, tip[1] + 1 * u, 3.4 * u, 1.6 * u, 0.5 + (wilt ? 0.9 : 0), green); }
-        else if (stg === 3) { [0.35, 0.65].forEach(t => { const y = by - hgt * t; leaf(bx - 3.5 * u, y, 4 * u, 1.8 * u, -0.4, green); leaf(bx + 3.5 * u, y, 4 * u, 1.8 * u, 0.4, green); });
-          ctx.fillStyle = wilt ? "#8a7a55" : colorOf(n.cluster); ctx.beginPath(); ctx.arc(tip[0], tip[1], 2.6 * u, 0, 2 * Math.PI); ctx.fill(); }
-        else { const r = (9 + 4 * importance(n)) * u, cy = tip[1] - r * 0.55;
-          leaf(tip[0], cy, r, r * 0.85, 0, dark); leaf(tip[0] - r * 0.25, cy - r * 0.25, r * 0.55, r * 0.45, 0, wilt ? "#a8984f" : "#43a047"); }
-        if (!wilt && activity(n) > 0.3) {   // in flower: recently edited or talked about
-          const fx = tip[0], fy = stg === 4 ? tip[1] - (9 + 4 * importance(n)) * u * 0.9 : tip[1] - 2 * u;
-          ctx.fillStyle = hexMix(colorOf(n.cluster), "#ffffff", 0.35);
-          for (let i = 0; i < 5; i++) { const a = i * 1.2566 + now / 4000; ctx.beginPath(); ctx.arc(fx + Math.cos(a) * 2.6 * u, fy + Math.sin(a) * 2.6 * u, 1.5 * u, 0, 2 * Math.PI); ctx.fill(); }
-          ctx.fillStyle = "#fde047"; ctx.beginPath(); ctx.arc(fx, fy, 1.2 * u, 0, 2 * Math.PI); ctx.fill();
-        }
-      }
-      if (n.tasks > 0 && !n.ghost && u > 0.5) { ctx.fillStyle = "#60a5fa"; ctx.beginPath(); ctx.moveTo(bx + 8 * u, by - 12 * u); ctx.quadraticCurveTo(bx + 11 * u, by - 7 * u, bx + 8 * u, by - 6 * u); ctx.quadraticCurveTo(bx + 5 * u, by - 7 * u, bx + 8 * u, by - 12 * u); ctx.fill(); }
-      if (!n.ghost && !n.isolated && n.inlinks === 0 && u > 0.45) { ctx.strokeStyle = "#7c9a2a"; ctx.lineWidth = 1; ctx.beginPath();
-        for (let i = -1; i <= 1; i++) { ctx.moveTo(bx - 7 * u + i * 2 * u, by); ctx.lineTo(bx - 8 * u + i * 3 * u, by - 5 * u); } ctx.stroke(); }
-      if (st.selected === n.id) { ctx.strokeStyle = UI.colour.selected; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(bx, by - 8 * u, 14 * u, 0, 2 * Math.PI); ctx.stroke(); }
-      P.set(n.id, { x: bx, y: by - 8 * u, s: p.s, depth: -maturity(n), r: Math.max(7, 12 * u), a: on ? 1 : 0.3 });
-    }
-    ctx.globalAlpha = 1;
-    // bees fly between flowering notes along their links (pollination); wilting plants drop leaves
-    const gz = G.life || (G.life = { bees: [], leaves: [] }), gdt = tickOf(gz, now);
-    const flowers = G.beds.flatMap(b => b.ms).filter(n => P.has(n.id) && !n.ghost && !staleFor(n, Q.stale_days) && activity(n) > 0.3);
-    const pool = flowers.length ? flowers : G.beds.flatMap(b => b.ms).filter(n => P.has(n.id) && G.plant.get(n.id) >= 3);
-    while (pool.length && gz.bees.length < Math.min(12, Math.max(3, pool.length))) { const a = pool[Math.floor(Math.random() * pool.length)]; gz.bees.push({ from: a.id, to: a.id, t: 1, dur: 1 }); }
-    gz.bees.forEach(bee => { bee.t += gdt / bee.dur;
-      if (bee.t >= 1) { bee.from = bee.to; const near = [...(nb[bee.from] || [])].filter(id => P.has(id)), fl = near.filter(id => flowers.some(f => f.id === id));
-        bee.to = (fl.length ? fl : near.length ? near : pool.map(n => n.id))[Math.floor(Math.random() * (fl.length || near.length || pool.length))] || bee.from;
-        bee.t = 0; bee.dur = 900 + Math.random() * 1600; }
-      const A = P.get(bee.from), B = P.get(bee.to); if (!A || !B) { bee.t = 1; return; }
-      const e = bee.t < 0.15 ? 0 : (bee.t - 0.15) / 0.85, x = A.x + (B.x - A.x) * e + Math.sin(now / 90 + bee.dur) * 2, y = A.y + (B.y - A.y) * e - Math.sin(e * Math.PI) * 24 - 8 * u;   // hovers, then hops over
-      ctx.fillStyle = "rgba(255,255,255,.75)"; const wing = 2.2 + Math.abs(Math.sin(now / 25)) * 1.5; ctx.beginPath(); ctx.ellipse(x - 1, y - 2, wing, 1.2, -0.5, 0, 2 * Math.PI); ctx.ellipse(x + 1, y - 2, wing, 1.2, 0.5, 0, 2 * Math.PI); ctx.fill();
-      ctx.fillStyle = "#facc15"; ctx.beginPath(); ctx.ellipse(x, y, 2.6, 1.8, 0, 0, 2 * Math.PI); ctx.fill(); ctx.fillStyle = "#1c1917"; ctx.fillRect(x - 0.6, y - 1.7, 1.2, 3.4); });
-    G.beds.flatMap(b => b.ms).forEach(n => { if (n.ghost || !staleFor(n, Q.stale_days) || !P.has(n.id) || gz.leaves.length > 60 || !chance(0.6, gdt)) return;
-      const q = P.get(n.id); gz.leaves.push({ x: q.x, y: q.y - 6 * u, t: 0, sway: Math.random() * 6 }); });
-    gz.leaves = gz.leaves.filter(l => (l.t += gdt) < 3200);
-    gz.leaves.forEach(l => { const f = l.t / 3200, x = l.x + Math.sin(l.t / 400 + l.sway) * 6, y = l.y + f * 34 * u;
-      ctx.globalAlpha = 1 - f; ctx.fillStyle = "#b08442"; ctx.beginPath(); ctx.ellipse(x, y, 2.4 * u, 1.2 * u, Math.sin(l.t / 300) , 0, 2 * Math.PI); ctx.fill(); });
-    ctx.globalAlpha = 1;
-    // names: evergreens first, then anything with room once zoomed in
-    const named = G.beds.flatMap(b => b.ms).filter(n => P.has(n.id) && (G.plant.get(n.id) === 4 || k > 1.3)).sort((a, b) => maturity(b) - maturity(a)).slice(0, k > 1.3 ? 120 : MOBILE ? 14 : 30);
-    named.forEach(n => { const p = P.get(n.id), text = clip(n.name, 24), f = `600 10px ${font}`; ctx.font = f; const w = ctx.measureText(text).width;
-      if (freeSpot(p.x - w / 2, p.y + p.r * 0.4, w, 13)) haloText(text, p.x, p.y + p.r * 0.4 + 7, "#f1f5e9", "#1b2a18", f, "center"); });
-  }
-
-  // Palace: the method of loci. Each topic is a room in one building, sized by its notes. Topics that link are laid
-  // side by side where they can be, with a door in the shared wall (wider = more links); linked rooms that don't
-  // touch are joined by a passage, and topics that should connect but don't have a bricked-up doorway. Each note is
-  // an object in its room -- bigger is more relied on, a lit lamp is recent activity, dust is stale -- and the
-  // topic's map (MOC) is the plaque inside the door.
-  function palaceLayout(geo) {
-    const groups = {};
-    nodes.forEach(n => { if (n.person || n.ghost || n.moc) return; const c = n.isolated ? -3 : n.cluster; (groups[c] = groups[c] || []).push(n); });
-    // order rooms as a chain of strongest links, so split neighbours tend to share a wall
-    const left = Object.keys(groups).map(Number).sort((a, b) => layoutSeed() ? topicRank(a) - topicRank(b) : groups[b].length - groups[a].length), order = left.length ? [left.shift()] : [];   // a vault with no topic notes has no rooms
-    while (left.length) { const last = order[order.length - 1]; let bi = 0, bw = -1; left.forEach((c, i) => { const w = topicPair(last, c).links; if (w > bw) { bw = w; bi = i; } }); order.push(left.splice(bi, 1)[0]); }
-    // Floors: the rooms in that order, a few topics per floor; the storeroom (unlinked notes) is the basement.
-    // No floor chosen: the palace from the front. A floor: its plan, rooms and doors as before.
-    const upper = order.filter(c => c !== -3), nf = Math.max(1, Math.round(Math.sqrt(upper.length / 1.5))), per = Math.ceil(upper.length / nf);
-    const levels = groups[-3] ? [[-3]] : [];
-    for (let i = 0; i < upper.length; i += per) levels.push(upper.slice(i, i + per));
-    const hasBase = !!groups[-3];
-    if (st.palaceFloor == null || st.palaceFloor >= levels.length) { st.palaceFloor = null; return palaceFacade(geo, groups, levels, hasBase); }
-    const floorRooms = levels[st.palaceFloor];
-    order.splice(0, order.length, ...floorRooms);
-    // the storeroom packs tighter: it's for finding, not browsing
-    const area = c => groups[c].length * (c === -3 ? 900 : 2400) + 9000, total = order.reduce((s, c) => s + area(c), 0);
-    const BW = Math.sqrt(total * 1.6), BH = total / BW, rooms = [];
-    (function split(list, x, y, w, h) {   // ordered binary split: keeps neighbours in the list next to each other
-      if (list.length === 1) { rooms.push({ c: list[0], x, y, w, h }); return; }
-      const sum = list.reduce((s, c) => s + area(c), 0); let acc = 0, i = 0;
-      while (i < list.length - 1 && acc + area(list[i]) / 2 < sum / 2) acc += area(list[i++]);
-      i = Math.max(1, i); const a = list.slice(0, i), f = a.reduce((s, c) => s + area(c), 0) / sum;
-      if (w >= h) { split(a, x, y, w * f, h); split(list.slice(i), x + w * f, y, w * (1 - f), h); }
-      else { split(a, x, y, w, h * f); split(list.slice(i), x, y + h * f, w, h * (1 - f)); }
-    })(order, -BW / 2, -BH / 2, BW, BH);
-    const pos = new Map(geo), obj = new Map(), byC = {};
-    rooms.forEach(r => {
-      byC[r.c] = r;
-      const ms = groups[r.c].slice().sort(byImportance), pad = 22, top = 30;
-      const iw = Math.max(10, r.w - 2 * pad), ih = Math.max(10, r.h - pad - top), cols = Math.max(1, Math.round(Math.sqrt(ms.length * iw / ih))), rows = Math.ceil(ms.length / cols);
-      const cells = []; for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) cells.push([r.x + pad + (i + 0.5) * iw / cols, r.y + top + (j + 0.5) * ih / rows]);
-      const cx = r.x + r.w / 2, cy = r.y + top + ih / 2;
-      cells.sort((p, q) => Math.hypot(p[0] - cx, p[1] - cy) - Math.hypot(q[0] - cx, q[1] - cy));   // the most relied-on in the middle
-      ms.forEach((n, i) => { pos.set(n.id, cells[i]); obj.set(n.id, Math.min(iw / cols, ih / rows)); });
-      const m = mocOf[r.c]; if (m && byId[m.id]) pos.set(m.id, [r.x + 16, r.y + 16]);
-    });
-    // doors on shared walls; passages between linked rooms that don't touch; bricked-up doorways for gaps
-    const doors = [], passages = [], EPS = 1;
-    const wallBetween = (A, B) => {
-      const ov = (a0, a1, b0, b1) => [Math.max(a0, b0), Math.min(a1, b1)];
-      if (Math.abs(A.x + A.w - B.x) < EPS || Math.abs(B.x + B.w - A.x) < EPS) { const [s, e] = ov(A.y, A.y + A.h, B.y, B.y + B.h); if (e - s > 30) return { v: true, at: Math.abs(A.x + A.w - B.x) < EPS ? B.x : A.x, s, e }; }
-      if (Math.abs(A.y + A.h - B.y) < EPS || Math.abs(B.y + B.h - A.y) < EPS) { const [s, e] = ov(A.x, A.x + A.w, B.x, B.x + B.w); if (e - s > 30) return { v: false, at: Math.abs(A.y + A.h - B.y) < EPS ? B.y : A.y, s, e }; }
-      return null;
-    };
-    for (let i = 0; i < rooms.length; i++) for (let j = i + 1; j < rooms.length; j++) {
-      const A = rooms[i], B = rooms[j], { links: l, gap: g0 } = topicPair(A.c, B.c), gap = !l && g0;
-      if (!l && !gap) continue;
-      const wall = wallBetween(A, B);
-      if (wall) { const mid = (wall.s + wall.e) / 2, half = Math.min((wall.e - wall.s) * 0.35, gap ? 14 : 8 + 4 * Math.sqrt(l)) ;
-        doors.push({ ...wall, mid, half, gap, a: A.c, b: B.c, l }); }
-      else if (l >= 2 || gap) passages.push({ a: A, b: B, l, gap });
-    }
-    passages.sort((p, q) => q.l - p.l);
-    const onFloor = new Set(floorRooms.flatMap(c => groups[c].map(n => n.id)));
-    floorRooms.forEach(c => { const m = mocOf[c]; if (m && byId[m.id]) onFloor.add(m.id); });
-    const bounds = rooms.flatMap(r => [[r.x - 30, r.y - 30], [r.x + r.w + 30, r.y + r.h + 30], [r.x - 30, r.y + r.h + 30], [r.x + r.w + 30, r.y - 30]]);
-    return { rooms, byC, pos, obj, doors, passages: passages.slice(0, 14), BW, BH, onFloor, floor: st.palaceFloor, levels, hasBase, bounds };
-  }
-  // The palace from the front: a floor per band of topics, a bay per topic, a window per note (lit = active, dark and
-  // boarded = stale, a red sill = open tasks), the map's plaque over each bay, the storeroom below ground. Click a floor
-  // (or zoom into one) to walk its rooms.
-  function palaceFacade(geo, groups, levels, hasBase) {
-    const pos = new Map(geo), bays = [], win = new Map(), FW = 1500, FH = 240, BASE_H = 150;
-    levels.forEach((cs, li) => {
-      const base = hasBase && li === 0, fi = hasBase ? li - 1 : li, y0 = base ? 24 : -(fi + 1) * FH, h = base ? BASE_H : FH;
-      const weight = c => Math.sqrt(groups[c].length) + 1.5, total = cs.reduce((s, c) => s + weight(c), 0);
-      let x = -FW / 2;
-      cs.forEach(c => {
-        const w = FW * weight(c) / total, bay = { c, x, y: y0, w, h, floor: li, base }; bays.push(bay);
-        const ms = groups[c].slice().sort(byImportance), top = 40, pad = 16, iw = Math.max(10, w - 2 * pad), ih = Math.max(10, h - top - 26);
-        const cols = Math.max(1, Math.round(Math.sqrt(ms.length * iw / ih * 1.3))), rows = Math.max(1, Math.ceil(ms.length / cols)), cw = iw / cols, ch = ih / rows;
-        ms.forEach((n, i) => { pos.set(n.id, [x + pad + (i % cols + 0.5) * cw, y0 + top + (Math.floor(i / cols) + 0.5) * ch]); win.set(n.id, [Math.min(cw * 0.62, ch * 0.5), Math.min(ch * 0.72, cw * 0.95)]); });
-        const m = mocOf[c]; if (m && byId[m.id]) pos.set(m.id, [x + w / 2, y0 + 15]);
-        x += w;
-      });
-    });
-    const cracks = [];
-    bays.forEach((a, i) => { const b = bays[i + 1]; if (b && b.floor === a.floor) { const pr = topicPair(a.c, b.c); if (pr.gap && !pr.links) cracks.push(b); } });
-    const top = -(levels.length - (hasBase ? 1 : 0)) * FH;
-    return { facade: true, bays, pos, win, cracks, FW, FH, levels, hasBase, top, bounds: [[-FW / 2 - 40, top - 390], [FW / 2 + 190, (hasBase ? BASE_H + 40 : 40)]] };
-  }
-  function drawPalace(now) {
-    const { R, litSet, font, k } = mapFrame(), M = mapCache.palace;
-    floorBar(M);
-    if (M && M.facade) return drawPalaceFacade(now, M, R, litSet, font, k);
-    if (M && cam.userMoved && k < 0.3) { enterFloor(null); return; }   // zoomed right out of a floor: back outside
-    // A floor in 3D: the plan seen from above at an angle, walls raised, each note a block on the floor (taller =
-    // more relied on, glowing = active, grey and dusty = stale, a red cap = open tasks), the map's plaque on a stand.
-    const bg = "#0b1830", ink = "rgba(226,236,255,.92)";
-    backdrop("#0a1426", "#13284a");
-    if (!M) return;
-    const iso = isoKit(R, k), poly = iso.poly, corners = r => iso.rect(r.x, r.y, r.w, r.h);
-    const WH = Math.max(6, 30 * k), up = q => iso.lift(q, WH);
-    const roomOn = r => !litSet || (M.rooms && [...litSet].some(id => byId[id] && (byId[id].isolated ? -3 : byId[id].cluster) === r.c));
-    // the slab the floor sits on, with its edge showing
-    const minX = Math.min(...M.rooms.map(r => r.x)), minY = Math.min(...M.rooms.map(r => r.y)), maxX = Math.max(...M.rooms.map(r => r.x + r.w)), maxY = Math.max(...M.rooms.map(r => r.y + r.h));
-    iso.slab(minX - 30, minY - 30, maxX - minX + 60, maxY - minY + 60, Math.max(4, 18 * k), "#17233a", "#1e2a3f", "#26344d", "rgba(148,180,230,.25)");
-    // passages: linked topics that don't share a wall, as glowing runners on the slab
-    ctx.lineCap = "round";
-    M.passages.forEach(p => { const a = iso.p(p.a.x + p.a.w / 2, p.a.y + p.a.h / 2), b = iso.p(p.b.x + p.b.w / 2, p.b.y + p.b.h / 2);
-      ctx.strokeStyle = p.gap ? "rgba(248,113,113,.5)" : "rgba(186,210,255,.25)"; ctx.lineWidth = p.gap ? 1.2 : Math.min(6, 1 + Math.sqrt(p.l)); ctx.setLineDash(p.gap ? [4, 5] : [1, 6]);
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo((a.x + b.x) / 2, (a.y + b.y) / 2 - 40 * k, b.x, b.y); ctx.stroke(); });
-    ctx.setLineDash([]);
-    // floors (tiles in the topic colour), then the back walls (the far two sides of each room)
-    M.rooms.forEach(r => { const c = corners(r), on = roomOn(r);
-      ctx.globalAlpha = on ? 1 : 0.35;
-      poly(c, r.c >= 0 ? hexMix(colorOf(r.c), bg, 0.8) : "rgba(255,255,255,.04)", "rgba(226,236,255,.18)");
-      if (k > 0.9) { ctx.strokeStyle = "rgba(255,255,255,.05)"; ctx.lineWidth = 1; ctx.beginPath();   // floor tiles
-        for (let x = r.x + 40; x < r.x + r.w; x += 40) { const a = iso.p(x, r.y), b = iso.p(x, r.y + r.h); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
-        for (let y = r.y + 40; y < r.y + r.h; y += 40) { const a = iso.p(r.x, y), b = iso.p(r.x + r.w, y); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); } ctx.stroke(); }
-      iso.wall(c[0], c[1], WH, "rgba(200,214,240,.22)", "rgba(226,236,255,.35)");   // back walls: the far two sides
-      iso.wall(c[3], c[0], WH, "rgba(170,186,220,.18)", "rgba(226,236,255,.35)");
-    });
-    ctx.globalAlpha = 1;
-    // doorways: a dark opening in the wall; a gap is bricked up in red
-    const doorPts = d => d.v ? [iso.p(d.at, d.mid - d.half), iso.p(d.at, d.mid + d.half)] : [iso.p(d.mid - d.half, d.at), iso.p(d.mid + d.half, d.at)];
-    M.doors.forEach(d => { const [p0, p1] = doorPts(d);
-      if (d.gap) { poly([p0, p1, up(p1), up(p0)], "rgba(127,29,29,.55)", "rgba(248,113,113,.9)"); ctx.setLineDash([3, 3]); ctx.strokeStyle = "rgba(248,113,113,.8)"; ctx.beginPath();
-        for (let i = 1; i < 4; i++) { const y = WH * i / 4; ctx.moveTo(p0.x, p0.y - y); ctx.lineTo(p1.x, p1.y - y); } ctx.stroke(); ctx.setLineDash([]); return; }
-      poly([p0, p1, { x: p1.x, y: p1.y - WH * 0.8 }, { x: p0.x, y: p0.y - WH * 0.8 }], "rgba(10,16,30,.85)", "rgba(253,224,71,.35)"); });
-    // blocks: drawn back to front so nearer ones overlap farther ones
-    const blocks = [];
-    for (const r of M.rooms) for (const n of nodes) {
-      if ((n.isolated ? -3 : n.cluster) !== r.c || n.person || n.ghost || n.moc || !mapShown(n) || !M.obj.has(n.id)) continue;
-      blocks.push([n, r, iso.p(n.x, n.y)]);
-    }
-    iso.depthSort(blocks, b => b[2]);
-    for (const [n, r, p] of blocks) {
-      const on = roomOn(r), lit0 = !litSet || litSet.has(n.id), cell = M.obj.get(n.id) * k, s = Math.max(3, cell * (0.22 + 0.3 * importance(n)));
-      const stale = staleFor(n, Q.stale_days), act = activity(n), hgt = Math.max(3, s * (0.5 + 2.2 * importance(n)));
-      ctx.globalAlpha = lit0 && on ? 1 : 0.2;
-      const base = stale ? "#7d8799" : r.c >= 0 ? colorOf(r.c) : "#a5b4cf";
-      if (act > 0.3 && s > 3) { const fl = reducedMotion() ? 1 : 0.7 + 0.3 * Math.sin(now / 110 + hash(n.id) % 17) * Math.sin(now / 47 + hash(n.id) % 5);
-        const g = ctx.createRadialGradient(p.x, p.y - hgt, 0, p.x, p.y - hgt, s * 2.6); g.addColorStop(0, `rgba(253,224,71,${(0.45 * fl).toFixed(3)})`); g.addColorStop(1, "rgba(253,224,71,0)");
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y - hgt, s * 2.6, 0, 2 * Math.PI); ctx.fill(); }
-      const { T, Rp, B, Lp, hw, hh } = iso.block(p, s, hgt, base, "rgba(226,236,255,.5)");
-      if (stale && s > 5) { ctx.fillStyle = "rgba(15,23,42,.5)"; for (let i = 0; i < 4; i++) { const h = hash(n.id + i); ctx.fillRect(p.x - hw * 0.5 + (h % 100) / 100 * hw, p.y - hgt - hh * 0.4 + ((h >>> 8) % 100) / 100 * hh * 0.8, 1.2, 1.2); } }
-      if (n.tasks > 0 && s > 4) { ctx.fillStyle = UI.colour.tasks; ctx.beginPath(); ctx.arc(T.x, T.y + hh * 0.5, Math.max(1.6, s * 0.18), 0, 2 * Math.PI); ctx.fill(); }
-      if (st.selected === n.id) poly([{ x: T.x, y: T.y - 4 }, { x: Rp.x + 4, y: Rp.y }, { x: B.x, y: B.y + hgt + 4 }, { x: Lp.x - 4, y: Lp.y }], null, UI.colour.selected, 2);
-      P.set(n.id, { ...iso.hit(p, hw, hgt), s: p.s, depth: -importance(n), a: lit0 ? 1 : 0.3 });
-    }
-    // plaques: the room's map on a stand
-    M.rooms.forEach(r => { const m = mocOf[r.c]; if (!m || !byId[m.id] || !visible(byId[m.id])) return;
-      const n = byId[m.id], p = iso.p(n.x, n.y), s = Math.max(6, 11 * Math.sqrt(k)), on = roomOn(r);
-      ctx.globalAlpha = on ? 1 : 0.35; ctx.strokeStyle = "#78350f"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y - s * 1.6); ctx.stroke();
-      ctx.fillStyle = "#fbbf24"; ctx.fillRect(p.x - s / 2, p.y - s * 2.3, s, s * 0.8); ctx.strokeRect(p.x - s / 2, p.y - s * 2.3, s, s * 0.8);
-      P.set(n.id, { x: p.x, y: p.y - s * 1.9, s: p.s, depth: -2, r: s, a: on ? 1 : 0.3 }); });
-    ctx.globalAlpha = 1;
-    // front walls, low and see-through, so the room stays readable
-    M.rooms.forEach(r => { const c = corners(r), low = p => ({ x: p.x, y: p.y - WH * 0.35 });
-      poly([c[1], c[2], low(c[2]), low(c[1])], "rgba(226,236,255,.10)", "rgba(226,236,255,.45)");
-      poly([c[2], c[3], low(c[3]), low(c[2])], "rgba(226,236,255,.08)", "rgba(226,236,255,.45)"); });
-    // a visitor tours the floor: room to room through the doors, preferring rooms not seen for a while
-    const hasDoor = r => M.doors.some(d => !d.gap && (d.a === r.c || d.b === r.c));   // the storeroom (unlinked notes) has none
-    const vz = M.visitor || (M.visitor = { room: M.rooms.filter(hasDoor).sort((a, b) => b.w * b.h - a.w * a.h)[0], seen: new Map(), path: [], t: 0, steps: [] }), vdt = tickOf(vz, now);
-    const ctr = r => [r.x + r.w / 2, r.y + r.h / 2];
-    if (!vz.path.length && vz.room) {
-      if (!hasDoor(vz.room)) { const rs0 = M.rooms.filter(hasDoor); vz.room = rs0[Math.floor(Math.random() * rs0.length)]; }
-      const exits = vz.room ? M.doors.filter(d => !d.gap && (d.a === vz.room.c || d.b === vz.room.c)) : [];
-      if (exits.length) { const d0 = exits.sort((x, y) => (vz.seen.get(x.a === vz.room.c ? x.b : x.a) || 0) - (vz.seen.get(y.a === vz.room.c ? y.b : y.a) || 0) || Math.random() - 0.5)[0];
-        const next = M.byC[d0.a === vz.room.c ? d0.b : d0.a], dp = d0.v ? [d0.at, d0.mid] : [d0.mid, d0.at];
-        vz.path = [ctr(vz.room), dp, ctr(next)]; vz.door = d0; vz.next = next; vz.t = 0; vz.seen.set(next.c, now); }
-    }
-    if (vz.path.length) {
-      const legLen = [Math.hypot(vz.path[1][0] - vz.path[0][0], vz.path[1][1] - vz.path[0][1]), Math.hypot(vz.path[2][0] - vz.path[1][0], vz.path[2][1] - vz.path[1][1])], total = legLen[0] + legLen[1] || 1;
-      vz.t += vdt * 0.05 / total;
-      const dist = Math.min(1, vz.t) * total, leg = dist < legLen[0] ? 0 : 1, f = leg ? (dist - legLen[0]) / (legLen[1] || 1) : dist / (legLen[0] || 1);
-      const wx0 = vz.path[leg][0] + (vz.path[leg + 1][0] - vz.path[leg][0]) * f, wy0 = vz.path[leg][1] + (vz.path[leg + 1][1] - vz.path[leg][1]) * f, vp = iso.p(wx0, wy0);
-      if (vdt && (!vz.steps.length || Math.hypot(vz.steps[vz.steps.length - 1][0] - wx0, vz.steps[vz.steps.length - 1][1] - wy0) > 14)) { vz.steps.push([wx0, wy0]); if (vz.steps.length > 16) vz.steps.shift(); }
-      vz.steps.forEach(([x, y], i) => { const q = iso.p(x, y); ctx.fillStyle = `rgba(226,236,255,${0.08 + 0.3 * i / vz.steps.length})`; ctx.beginPath(); ctx.ellipse(q.x, q.y, 1.8, 1, 0, 0, 2 * Math.PI); ctx.fill(); });
-      walker(vp, Math.max(2.5, 5 * Math.sqrt(k)), "#fef3c7", { lantern: true, phase: now / 160, head: "#fef3c7" });   // a visitor with a lantern
-      if (vz.t >= 1) { vz.room = vz.next; vz.path = []; }
-    }
-    // the selected note's links: threads through the floor
-    if (st.selected && P.has(st.selected)) { const a = P.get(st.selected); ctx.strokeStyle = "rgba(253,224,71,.7)"; ctx.lineWidth = 1.2; ctx.setLineDash([2, 3]);
-      nb[st.selected].forEach(id => { const b = P.get(id); if (b) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); } }); ctx.setLineDash([]); }
-    // room names on their back wall, then the most relied-on blocks' names
-    M.rooms.slice().sort((a, b) => b.w * b.h - a.w * a.h).forEach(r => { const c = corners(r), w = Math.hypot(c[1].x - c[0].x, c[1].y - c[0].y);
-      const name = r.c === -3 ? "STOREROOM · UNLINKED" : r.c < 0 ? "HALL · NO TOPIC YET" : clip(shortName(r.c), 30).toUpperCase(), f = `700 10.5px ${font}`;
-      const text = w > 50 ? fitW(name, f, w - 20) : ""; if (!text) return;
-      const x = (c[0].x + c[1].x) / 2, y = (c[0].y + c[1].y) / 2 - WH - 8, tw = ctx.measureText(text).width;
-      if (freeSpot(x - tw / 2, y - 7, tw, 14)) haloText(text, x, y, ink, bg, f, "center"); });
-    noteLabels([...P.keys()].filter(id => !byId[id].moc).sort((a, b) => importance(byId[b]) - importance(byId[a])), "#dbe7ff", bg, k > 1.4 ? 140 : MOBILE ? 12 : 26);
-  }
-  // ---- the palace from the front
-  function drawPalaceFacade(now, M, R, litSet, font, k) {
-    const { night, dusk } = daylight();
-    backdrop(...(night ? ["#070b1d", "#1b2440"] : dusk ? ["#2b2d5c", "#f4a76a"] : ["#6aa7e0", "#d9ecfb"]));
-    if (night) for (let i = 0; i < 90; i++) { const h = hash("star" + i); ctx.fillStyle = `rgba(255,255,255,${0.25 + (h % 50) / 100})`; ctx.fillRect(h % Math.max(1, W), (h >>> 10) % Math.max(1, Math.round(H * 0.6)), 1.2, 1.2); }
-    const g0 = scr(0, 0, R), L = scr(-M.FW / 2 - 40, M.top - 10, R), Rr = scr(M.FW / 2 + 40, 0, R);
-    // ground and street
-    ctx.fillStyle = night ? "#15161c" : "#5b6b4a"; ctx.fillRect(0, g0.y, W, H - g0.y);
-    ctx.fillStyle = night ? "#22242c" : "#8a8f86"; ctx.fillRect(0, g0.y, W, Math.max(2, 8 * k));
-    const stone = night ? "#4a443c" : dusk ? "#c9a983" : "#e4d8c0", stoneDark = night ? "#3a352f" : dusk ? "#a98a68" : "#cbbd9f", line = night ? "rgba(0,0,0,.45)" : "rgba(80,60,40,.45)";
-    // depth: the building and its roof are solids pushed back up and to the right (oblique), through the shared prism
-    const d = { x: Math.max(8, 150 * k * 0.55), y: -Math.max(5, 150 * k * 0.32) }, roof = night ? "#3b352e" : dusk ? "#866850" : "#b9ab90";   // a step darker than the pediment at every hour
-    ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse((L.x + Rr.x) / 2 + d.x * 0.6, g0.y + 6, (Rr.x - L.x) * 0.62, Math.max(6, 22 * k), 0, 0, 2 * Math.PI); ctx.fill();   // shadow
-    // the body: its front is the facade (the bays go on it below), its right side the side wall
-    prism([{ x: L.x, y: L.y }, { x: Rr.x, y: L.y }, { x: Rr.x, y: g0.y }, { x: L.x, y: g0.y }], d, stone, { faces: { right: stoneDark, up: roof }, edge: line, sides: true });
-    for (let f = 0; f <= M.levels.length - (M.hasBase ? 1 : 0); f++) { const y = scr(0, -f * M.FH, R).y; ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Rr.x, y); ctx.lineTo(Rr.x + d.x, y + d.y); ctx.stroke();   // ledges round the corner
-      for (let w = 1; w <= 3 && f < M.levels.length - (M.hasBase ? 1 : 0); w++) { const t = w / 4, wy = y - M.FH * k * 0.62, wh = M.FH * k * 0.34;   // side windows
-        ctx.fillStyle = night ? "#2c3e5c" : "#8fb0c6"; ctx.beginPath(); ctx.moveTo(Rr.x + d.x * t - 4 * k, wy + d.y * t); ctx.lineTo(Rr.x + d.x * t + 6 * k, wy + d.y * (t + 0.05)); ctx.lineTo(Rr.x + d.x * t + 6 * k, wy + wh + d.y * (t + 0.05)); ctx.lineTo(Rr.x + d.x * t - 4 * k, wy + wh + d.y * t); ctx.fill(); } }
-    // the roof: a pediment pushed back the depth of the building, sitting on the walls, its eaves just over them
-    const midX = scr(0, 0, R).x, roofY = L.y, span = (Rr.x - L.x) / 2, eave = 10 * k, fascia = Math.max(2, 7 * k);
-    const xl = L.x - eave, xr = Rr.x + eave, apex = { x: midX, y: roofY - fascia - Math.min(140, span * 0.22) };
-    ctx.fillStyle = "rgba(0,0,0,.14)"; ctx.beginPath(); ctx.moveTo(Rr.x, roofY); ctx.lineTo(Rr.x + d.x, roofY + d.y); ctx.lineTo(Rr.x + d.x, roofY + d.y + fascia * 1.6); ctx.lineTo(Rr.x, roofY + fascia * 1.6); ctx.fill();   // the eave's shadow on the side wall
-    prism([{ x: xl, y: roofY }, { x: xl, y: roofY - fascia }, apex, { x: xr, y: roofY - fascia }, { x: xr, y: roofY }], d, roof, { front: stoneDark, edge: line, sides: true, lw: 1.2 });
-    ctx.fillStyle = "rgba(0,0,0,.12)"; ctx.fillRect(L.x, roofY, Rr.x - L.x, Math.max(2, 4 * k));   // and under the cornice
-    // the dome: a drum standing on the middle of the ridge, the dome on the drum, lit from the left like the rest
-    const domeR = Math.min(120, span * 0.16), ridge = { x: apex.x + d.x / 2, y: apex.y + d.y / 2 + domeR * 0.12 }, drumH = domeR * 0.35, base = domeR * 0.22;
-    const drum = ctx.createLinearGradient(ridge.x - domeR, 0, ridge.x + domeR, 0); drum.addColorStop(0, stone); drum.addColorStop(1, stoneDark);
-    ctx.fillStyle = drum; ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ridge.x - domeR, ridge.y - drumH); ctx.lineTo(ridge.x - domeR, ridge.y);
-    ctx.ellipse(ridge.x, ridge.y, domeR, base, 0, Math.PI, 0, true); ctx.lineTo(ridge.x + domeR, ridge.y - drumH); ctx.closePath(); ctx.fill(); ctx.stroke();
-    const domeY = ridge.y - drumH, dg = ctx.createRadialGradient(ridge.x - domeR * 0.35, domeY - domeR * 0.55, domeR * 0.1, ridge.x, domeY, domeR * 1.1);
-    dg.addColorStop(0, night ? "#9fb0cf" : dusk ? "#f6dccb" : "#e3f1f9"); dg.addColorStop(1, night ? "#3b4763" : dusk ? "#7c6a8c" : "#6f97b0"); ctx.fillStyle = dg;   // the dome reflects the sky
-    ctx.beginPath(); ctx.arc(ridge.x, domeY, domeR, Math.PI, 0); ctx.ellipse(ridge.x, domeY, domeR, base, 0, 0, Math.PI); ctx.closePath(); ctx.fill(); ctx.stroke();
-    // flags: the topics busiest this month fly from the roof: one on the dome, the others standing on the pediment
-    const busy = M.bays.filter(b => !b.base).map(b => [b, topicBusy(b.c)]).sort((a, b) => b[1] - a[1]).slice(0, 3);
-    const onPediment = x => apex.y + Math.min(1, Math.abs(x - midX) / (xr - midX)) * (roofY - fascia - apex.y);
-    busy.forEach(([b], i) => { const fx = i === 1 ? ridge.x : midX + (i - 1) * span * 0.55, fy = i === 1 ? domeY - domeR : onPediment(fx), wave = reducedMotion() ? 0 : Math.sin(now / 300 + i) * 4;
-      ctx.strokeStyle = "#3f3a33"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy - 46); ctx.stroke();
-      ctx.fillStyle = colorOf(b.c); ctx.beginPath(); ctx.moveTo(fx, fy - 46); ctx.quadraticCurveTo(fx + 16, fy - 44 + wave, fx + 30, fy - 40); ctx.lineTo(fx, fy - 32); ctx.fill(); });
-    // floors: a cornice, bays between pilasters, the topic's name on its cornice; a click on the wall goes inside
-    const floorNames = M.levels.map((cs, li) => M.hasBase && li === 0 ? "Basement" : `Floor ${M.hasBase ? li : li + 1}`);
-    M.bays.forEach(b => {
-      const a = scr(b.x, b.y, R), w = b.w * k, h = b.h * k, on = !litSet || [...litSet].some(id => byId[id] && byId[id].cluster === b.c && !special(byId[id]));
-      ctx.globalAlpha = on ? 1 : 0.45;
-      ctx.fillStyle = b.base ? (night ? "#2b2822" : "#b8ab92") : hexMix(colorOf(b.c), stone, 0.86); ctx.fillRect(a.x, a.y, w, h);
-      ctx.strokeStyle = line; ctx.lineWidth = Math.max(1, 1.6 * Math.sqrt(k)); ctx.strokeRect(a.x, a.y, w, h);
-      ctx.fillStyle = stoneDark; ctx.fillRect(a.x, a.y, w, Math.max(3, 9 * k));   // cornice
-      const name = b.c === -3 ? "STOREROOM · UNLINKED" : b.c < 0 ? "HALL · NO TOPIC YET" : clip(shortName(b.c), 40).toUpperCase();
-      if (w > 40) topicLabel(b.c, name, a.x + w / 2, a.y + 10 * k + 9, w - 16, night ? "#f5ead6" : "#2a2016", night ? "#2a2016" : "rgba(255,248,235,.7)", Math.max(8, Math.min(12, 10 * Math.sqrt(k))));
-      spot(a.x, a.y, w, h, () => enterFloor(b.floor), `${floorNames[b.floor]}: walk in`);
-      ctx.globalAlpha = 1;
-    });
-    // pillars between bays and a ledge under each floor, lit from the left
-    M.bays.forEach(b => { const a = scr(b.x, b.y, R), w = Math.max(3, 9 * k), h = b.h * k;
-      const g = ctx.createLinearGradient(a.x - w / 2, 0, a.x + w / 2, 0); g.addColorStop(0, night ? "#6b6255" : "#f3ead8"); g.addColorStop(1, stoneDark);
-      ctx.fillStyle = g; ctx.fillRect(a.x - w / 2, a.y, w, h);
-      ctx.fillStyle = "rgba(0,0,0,.18)"; ctx.fillRect(a.x, a.y + h - Math.max(2, 5 * k), b.w * k, Math.max(2, 5 * k)); });
-    // cracks in the wall between topics that should connect and don't
-    M.cracks.forEach(b => { const a = scr(b.x, b.y, R); ctx.strokeStyle = "rgba(185,28,28,.85)"; ctx.lineWidth = 1.6; ctx.beginPath();
-      for (let i = 0; i <= 8; i++) { const yy = a.y + (i / 8) * b.h * k, xx = a.x + (i % 2 ? 4 : -4) * Math.sqrt(k); i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke(); });
-    // windows
-    for (const b of M.bays) for (const n of nodes) {
-      if ((n.isolated ? -3 : n.cluster) !== b.c || special(n) || n.ghost || !mapShown(n) || !M.win.has(n.id)) continue;
-      const p = scr(n.x, n.y, R), [ww, wh] = M.win.get(n.id).map(v => Math.max(2.5, v * k)), lit0 = !litSet || litSet.has(n.id);
-      const act = activity(n), x0 = p.x - ww / 2, y0 = p.y - wh / 2;
-      ctx.globalAlpha = lit0 ? 1 : 0.25;
-      // someone's home (active): lit; nobody's been in a while (stale): boarded; a red sill: open tasks
-      windowSprite(x0, y0, ww, wh, { state: act > 0.3 ? "lit" : staleFor(n, Q.stale_days) ? "boarded" : "plain", busy: act, seed: hash(n.id), now, night,
-        frame: line, tasks: n.tasks > 0, selected: st.selected === n.id, k });
-      P.set(n.id, { x: p.x, y: p.y, s: p.s, depth: -importance(n), r: Math.max(5, Math.max(ww, wh) / 2 + 1), a: lit0 ? 1 : 0.3 });
-    }
-    ctx.globalAlpha = 1;
-    // plaques (the bay's map) and the front door
-    M.bays.forEach(b => { const m = mocOf[b.c]; if (!m || !byId[m.id] || !visible(byId[m.id])) return; const n = byId[m.id], p = scr(n.x, n.y, R), s = Math.max(6, 11 * Math.sqrt(k));
-      ctx.fillStyle = "#fbbf24"; ctx.fillRect(p.x - s, p.y - s * 0.4, 2 * s, s * 0.8); ctx.strokeStyle = "#78350f"; ctx.lineWidth = 1; ctx.strokeRect(p.x - s, p.y - s * 0.4, 2 * s, s * 0.8);
-      P.set(n.id, { x: p.x, y: p.y, s: p.s, depth: -2, r: s, a: 1 }); });
-    const dw = Math.max(10, 46 * k), dh = Math.max(14, 70 * k);
-    for (let i = 3; i >= 1; i--) { ctx.fillStyle = i % 2 ? stoneDark : stone; ctx.fillRect(midX - dw / 2 - i * 8 * k, g0.y + (3 - i) * 3 * k, dw + i * 16 * k, 3 * k); }   // steps
-    ctx.fillStyle = night ? "#2a1d12" : "#5b3a1e";
-    ctx.beginPath(); ctx.moveTo(midX - dw / 2, g0.y); ctx.lineTo(midX - dw / 2, g0.y - dh + dw / 2); ctx.arc(midX, g0.y - dh + dw / 2, dw / 2, Math.PI, 0); ctx.lineTo(midX + dw / 2, g0.y); ctx.fill();
-    // names of the most relied-on windows when close enough to read
-    if (k > 1.1) noteLabels(nodes.filter(n => !special(n) && P.has(n.id) && M.win.has(n.id)).sort(byImportance).map(n => n.id), night ? "#f5ead6" : "#1f1a14", night ? "#1f1a14" : "rgba(255,248,235,.8)", k > 2 ? 80 : 24);
-    // zoom into a floor to walk in: the floor in the middle of the pane
-    if (cam.userMoved && k > 2.6) { const mid = M.bays.find(b => { const a = scr(b.x, b.y, R); return W / 2 >= a.x && W / 2 <= a.x + b.w * k && H / 2 >= a.y && H / 2 <= a.y + b.h * k; }); if (mid) enterFloor(mid.floor); }
-  }
-  // Facade, or one floor's rooms: st.palaceFloor (null = outside). Each change lays the palace out again.
-  function enterFloor(f) {
-    if (st.palaceFloor === f || st.view !== "palace") return;
-    st.palaceFloor = f; cam.userMoved = false;
-    applyMapLayout(true); renderLegend(); renderToday();
-    fitted = false; setTimeout(() => { fitted = true; fit(mapFitPred(), 600); }, 1000);   // after the morph lands
-  }
-  // Facade / Basement / Floor 1.. as buttons over the palace
-  let floorBarFor = null;
-  function floorBar(M) {
-    let bar = root.querySelector(".vg-floorbar");
-    if (!bar) { bar = document.createElement("div"); bar.className = "vg-floorbar"; bar.setAttribute("role", "group"); bar.setAttribute("aria-label", "Palace floors"); wrap.appendChild(bar); }
-    if (!M || floorBarFor === M) return;
-    floorBarFor = M;
-    const lv = M.levels || [], names = lv.map((cs, li) => M.hasBase && li === 0 ? "B" : String(M.hasBase ? li : li + 1));
-    const cur = M.facade ? null : M.floor;
-    bar.innerHTML = `<button class="vg-segbtn" data-floor="" aria-pressed="${cur == null}">Front</button>` +
-      lv.map((cs, li) => li).reverse().map(li => `<button class="vg-segbtn" data-floor="${li}" aria-pressed="${cur === li}" title="${esc(lv[li].map(c => c === -3 ? "Storeroom" : shortName(c)).join(", "))}">${names[li]}</button>`).join("");
-    bar.querySelectorAll("[data-floor]").forEach(b => b.onclick = () => { enterFloor(b.dataset.floor === "" ? null : +b.dataset.floor); syncAngleBtn(); });
-  }
 
