@@ -142,19 +142,19 @@
   // drawn through the kit changes angle, Neural turns or lies flat, and every other view leans back in real perspective.
   // A game has no switch: it's already first-person.
   const isGame = () => !!(SCENES[st.view] && SCENES[st.view].game);
-  const leansBack = () => !isGame() && !isoAngle() && !neural() && st.view !== "2d" && st.view !== "3d" && st.angles[st.view] === "tilt3d";
+  const leansBack = () => !isGame() && !(SCENES[st.view] && SCENES[st.view].own3d) && !isoAngle() && !neural() && st.view !== "2d" && st.view !== "3d" && st.angles[st.view] === "tilt3d";
   function dimOf() {
     const v = st.view, angle = isoAngle();
     if (v === "2d" || v === "3d") return v;
     if (angle) return angle === "flat" ? "2d" : "3d";
     if (neural()) return st.three ? "3d" : "2d";
-    return leansBack() ? "3d" : "2d";
+    return !isGame() && st.angles[v] === "tilt3d" ? "3d" : "2d";
   }
   function setDim(d) {
     const v = st.view; if (isGame() || d === dimOf()) return;
     if (v === "2d" || v === "3d") return setView(d);
     if (isoAngle()) { const own = SCENES[v].iso; st.angles[v] = d === "2d" ? "flat" : own === true ? "iso" : own; fit(null); }
-    else if (neural()) { st.angles.neural = d === "2d" ? "flat" : "3d"; layNeural(); }
+    else if (neural()) { st.angles.neural = d === "2d" ? "flat" : "3d"; layNeural(); brainLayout(true); }
     else st.angles[v] = d === "3d" ? "tilt3d" : "flat";
     syncDim(); persistSoon(); dirty = true; kick();
   }
