@@ -1,262 +1,265 @@
 {
  "vault": "Sample Vault",
- "date": "2026-11-01",
- "since": "2025-11-01",
+ "date": "2026-10-26",
+ "since": "2025-10-26",
  "recent_days": 30,
  "has_usage": false,
- "dailies_used": 73,
+ "dailies_used": 74,
  "said_unlinked": [
   [
-   "03-Resources/Support/Ticket Triage.md",
-   13,
+   "02-Projects/Fleet/Battery Swaps.md",
+   9,
    [
     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-29.md",
-    "01-Daily/2026/10-October/Journal/2026-10-03.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-05.md",
     "01-Daily/2026/10-October/Journal/2026-10-08.md",
     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-08.md",
     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-09.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-13.md",
-    "01-Daily/2026/10-October/Journal/2026-10-18.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-20.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-27.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-28.md",
-    "01-Daily/2026/10-October/Journal/2026-10-30.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-30.md"
+    "01-Daily/2026/10-October/Journal/2026-10-14.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-14.md",
+    "01-Daily/2026/10-October/Journal/2026-10-19.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-19.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-20.md"
    ]
   ],
   [
    "02-Projects/Rental App/App Store Release.md",
-   10,
+   9,
    [
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-22.md",
+    "01-Daily/2026/09-September/Journal/2026-09-16.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-16.md",
+    "01-Daily/2026/09-September/Journal/2026-09-26.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-30.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-08.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-14.md",
+    "01-Daily/2026/10-October/Journal/2026-10-16.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-16.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-26.md"
+   ]
+  ],
+  [
+   "03-Resources/Infrastructure/Monitoring Alerts.md",
+   9,
+   [
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-18.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-21.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-29.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-30.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-06.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-14.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-15.md",
+    "01-Daily/2026/10-October/Journal/2026-10-23.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-23.md"
+   ]
+  ],
+  [
+   "03-Resources/Infrastructure/SSL Certificates.md",
+   9,
+   [
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-24.md",
+    "01-Daily/2026/10-October/Journal/2026-10-06.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-06.md",
+    "01-Daily/2026/10-October/Journal/2026-10-10.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-12.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-14.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-20.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-21.md",
+    "01-Daily/2026/10-October/Journal/2026-10-24.md"
+   ]
+  ],
+  [
+   "03-Resources/Marketing/Partner Shops.md",
+   9,
+   [
+    "01-Daily/2026/09-September/Journal/2026-09-18.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-18.md",
+    "01-Daily/2026/09-September/Journal/2026-09-28.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-28.md",
+    "01-Daily/2026/10-October/Journal/2026-10-01.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-01.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-20.md",
+    "01-Daily/2026/10-October/Journal/2026-10-22.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-22.md"
+   ]
+  ],
+  [
+   "03-Resources/Support/Ticket Triage.md",
+   9,
+   [
+    "01-Daily/2026/09-September/Journal/2026-09-27.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-28.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-01.md",
+    "01-Daily/2026/10-October/Journal/2026-10-02.md",
     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-02.md",
-    "01-Daily/2026/10-October/Journal/2026-10-07.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-07.md",
     "01-Daily/2026/10-October/Journal/2026-10-12.md",
     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-12.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-19.md",
-    "01-Daily/2026/10-October/Journal/2026-10-21.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-21.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-23.md"
+   ]
+  ],
+  [
+   "02-Projects/Warehouse/Barcode Scanner Setup.md",
+   8,
+   [
+    "01-Daily/2026/09-September/Journal/2026-09-14.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-14.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-17.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-18.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-25.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-28.md",
+    "01-Daily/2026/10-October/Journal/2026-10-17.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-23.md"
+   ]
+  ],
+  [
+   "02-Projects/Fleet/Tyre Checks.md",
+   7,
+   [
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-14.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-15.md",
+    "01-Daily/2026/09-September/Journal/2026-09-22.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-22.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-25.md",
     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-21.md",
     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-22.md"
    ]
   ],
   [
-   "02-Projects/Fleet/Battery Swaps.md",
-   9,
-   [
-    "01-Daily/2026/10-October/Journal/2026-10-06.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-06.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-14.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-15.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-20.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-21.md",
-    "01-Daily/2026/10-October/Journal/2026-10-25.md",
-    "01-Daily/2026/10-October/Journal/2026-10-27.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-27.md"
-   ]
-  ],
-  [
-   "02-Projects/Fleet/Tyre Checks.md",
-   8,
-   [
-    "01-Daily/2026/09-September/Journal/2026-09-21.md",
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-21.md",
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-28.md",
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-29.md",
-    "01-Daily/2026/10-October/Journal/2026-10-02.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-02.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-06.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-28.md"
-   ]
-  ],
-  [
-   "03-Resources/Marketing/Spring Campaign.md",
-   8,
-   [
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-21.md",
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-22.md",
-    "01-Daily/2026/09-September/Journal/2026-09-25.md",
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-25.md",
-    "01-Daily/2026/10-October/Journal/2026-10-23.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-23.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-26.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-28.md"
-   ]
-  ],
-  [
-   "03-Resources/Infrastructure/Database Upgrade.md",
+   "02-Projects/Rental App/Map Screen.md",
    7,
    [
-    "01-Daily/2026/09-September/Journal/2026-09-22.md",
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-22.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-21.md",
+    "01-Daily/2026/10-October/Journal/2026-10-09.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-09.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-12.md",
+    "01-Daily/2026/10-October/Journal/2026-10-13.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-13.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-19.md"
+   ]
+  ],
+  [
+   "02-Projects/Rental App/Payment Integration.md",
+   7,
+   [
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-14.md",
     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-23.md",
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-24.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-06.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-07.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-09.md"
-   ]
-  ],
-  [
-   "03-Resources/Infrastructure/SSL Certificates.md",
-   7,
-   [
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-05.md",
     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-12.md",
     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-13.md",
     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-16.md",
-    "01-Daily/2026/10-October/Journal/2026-10-19.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-19.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-27.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-30.md"
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-19.md"
    ]
   ],
   [
-   "03-Resources/Marketing/Partner Shops.md",
-   7,
-   [
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-24.md",
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-25.md",
-    "01-Daily/2026/10-October/Journal/2026-10-04.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-05.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-07.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-08.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-28.md"
-   ]
-  ],
-  [
-   "02-Projects/Fleet/Repair Log Template.md",
+   "02-Projects/Rental App/Booking Flow.md",
    6,
    [
-    "01-Daily/2026/10-October/Journal/2026-10-01.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-01.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-07.md",
-    "01-Daily/2026/10-October/Journal/2026-10-15.md",
+    "01-Daily/2026/09-September/Journal/2026-09-17.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-17.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-21.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-22.md",
     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-15.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-30.md"
-   ]
-  ],
-  [
-   "02-Projects/Rental App/Offline Mode.md",
-   6,
-   [
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-23.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-13.md",
-    "01-Daily/2026/10-October/Journal/2026-10-14.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-14.md",
-    "01-Daily/2026/10-October/Journal/2026-10-28.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-28.md"
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-16.md"
    ]
   ],
   [
    "02-Projects/Rental App/Push Notifications.md",
    6,
    [
-    "01-Daily/2026/09-September/Journal/2026-09-23.md",
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-23.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-01.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-16.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-21.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-22.md"
-   ]
-  ],
-  [
-   "03-Resources/Infrastructure/Monitoring Alerts.md",
-   6,
-   [
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-22.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-16.md",
+    "01-Daily/2026/09-September/Journal/2026-09-20.md",
+    "01-Daily/2026/09-September/Journal/2026-09-25.md",
     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-25.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-06.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-21.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-29.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-30.md"
+    "01-Daily/2026/10-October/Journal/2026-10-15.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-15.md"
    ]
   ],
   [
    "03-Resources/Infrastructure/Server Backup.md",
    6,
    [
-    "01-Daily/2026/10-October/Journal/2026-10-16.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-16.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-22.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-26.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-27.md",
-    "01-Daily/2026/10-October/Journal/2026-10-31.md"
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-21.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-09.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-13.md",
+    "01-Daily/2026/10-October/Journal/2026-10-20.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-20.md",
+    "01-Daily/2026/10-October/Journal/2026-10-25.md"
    ]
   ],
   [
-   "03-Resources/Marketing/Newsletter Plan.md",
-   6,
+   "02-Projects/Rental App/Login Timeout Bug.md",
+   5,
    [
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-25.md",
-    "01-Daily/2026/09-September/Journal/2026-09-27.md",
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-28.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-09.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-12.md",
+    "01-Daily/2026/09-September/Journal/2026-09-23.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-23.md",
+    "01-Daily/2026/09-September/Journal/2026-09-24.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-24.md",
     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-15.md"
    ]
   ],
   [
-   "02-Projects/Rental App/Map Screen.md",
+   "02-Projects/Rental App/Offline Mode.md",
    5,
    [
-    "01-Daily/2026/09-September/Journal/2026-09-28.md",
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-28.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-15.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-16.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-26.md"
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-02.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-06.md",
+    "01-Daily/2026/10-October/Journal/2026-10-07.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-07.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-21.md"
    ]
   ],
   [
    "02-Projects/Warehouse/Inventory Counts.md",
    5,
    [
-    "01-Daily/2026/09-September/Journal/2026-09-24.md",
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-24.md",
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-30.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-14.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-29.md"
-   ]
-  ],
-  [
-   "02-Projects/Warehouse/Supplier List.md",
-   5,
-   [
-    "01-Daily/2026/09-September/Journal/2026-09-29.md",
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-29.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-17.md",
     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-01.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-30.md",
-    "01-Daily/2026/11-November/Journal/2026-11-01.md"
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-07.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-22.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-26.md"
    ]
   ],
   [
-   "03-Resources/Support/Refund Policy.md",
+   "02-Projects/Warehouse/Reorder Rules.md",
    5,
    [
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-05.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-06.md",
-    "01-Daily/2026/10-October/Journal/2026-10-09.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-09.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-20.md"
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-14.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-15.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-23.md",
+    "01-Daily/2026/10-October/Journal/2026-10-11.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-19.md"
    ]
   ],
   [
-   "02-Projects/Rental App/Payment Integration.md",
-   4,
+   "03-Resources/Infrastructure/Database Upgrade.md",
+   5,
    [
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-19.md",
-    "01-Daily/2026/10-October/Journal/2026-10-20.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-20.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-23.md"
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-15.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-16.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-18.md",
+    "01-Daily/2026/09-September/Journal/2026-09-30.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-30.md"
    ]
   ],
   [
-   "02-Projects/Warehouse/Barcode Scanner Setup.md",
-   4,
+   "03-Resources/Marketing/Newsletter Plan.md",
+   5,
    [
-    "01-Daily/2026/09-September/Journal/2026-09-20.md",
-    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-24.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-02.md",
-    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-23.md"
+    "01-Daily/2026/09-September/Journal/2026-09-21.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-21.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-25.md",
+    "01-Daily/2026/10-October/Journal/2026-10-03.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-09.md"
+   ]
+  ],
+  [
+   "03-Resources/Marketing/Spring Campaign.md",
+   5,
+   [
+    "01-Daily/2026/09-September/Journal/2026-09-15.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-15.md",
+    "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-18.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-16.md",
+    "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-26.md"
    ]
   ]
  ],
@@ -276,13 +279,13 @@
  "rhythm": {
   "0": {
    "wd": [
-    11,
-    7,
-    14,
     12,
-    8,
+    5,
+    13,
+    16,
+    11,
     3,
-    2
+    4
    ],
    "mo": [
     0,
@@ -293,21 +296,121 @@
     0,
     0,
     0,
-    14,
-    43,
+    27,
+    37,
     0,
     0
    ]
   },
   "1": {
    "wd": [
+    12,
+    2,
+    5,
+    9,
+    5,
+    2,
+    1
+   ],
+   "mo": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    11,
+    25,
+    0,
+    0
+   ]
+  },
+  "2": {
+   "wd": [
+    7,
+    14,
+    12,
     4,
+    9,
+    2,
+    1
+   ],
+   "mo": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    23,
+    26,
+    0,
+    0
+   ]
+  },
+  "3": {
+   "wd": [
     3,
     6,
-    9,
+    7,
+    2,
+    4,
+    0,
+    5
+   ],
+   "mo": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    13,
+    14,
+    0,
+    0
+   ]
+  },
+  "4": {
+   "wd": [
+    4,
+    10,
+    4,
     6,
-    1,
-    4
+    2,
+    2,
+    0
+   ],
+   "mo": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    12,
+    16,
+    0,
+    0
+   ]
+  },
+  "5": {
+   "wd": [
+    8,
+    7,
+    0,
+    4,
+    10,
+    2,
+    1
    ],
    "mo": [
     0,
@@ -320,107 +423,7 @@
     0,
     15,
     17,
-    1,
-    0
-   ]
-  },
-  "2": {
-   "wd": [
-    4,
-    14,
-    10,
-    3,
-    9,
-    1,
-    2
-   ],
-   "mo": [
     0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    11,
-    32,
-    0,
-    0
-   ]
-  },
-  "3": {
-   "wd": [
-    6,
-    8,
-    5,
-    3,
-    5,
-    5,
-    1
-   ],
-   "mo": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    6,
-    27,
-    0,
-    0
-   ]
-  },
-  "4": {
-   "wd": [
-    6,
-    12,
-    7,
-    7,
-    3,
-    0,
-    1
-   ],
-   "mo": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    9,
-    27,
-    0,
-    0
-   ]
-  },
-  "5": {
-   "wd": [
-    5,
-    1,
-    3,
-    5,
-    7,
-    1,
-    4
-   ],
-   "mo": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    9,
-    16,
-    1,
     0
    ]
   }
@@ -441,7 +444,7 @@
    "broken": 0,
    "tasks": 0,
    "words": 16,
-   "age": 8,
+   "age": 2,
    "refs": false,
    "isolated": false,
    "tags": [],
@@ -454,8 +457,8 @@
    "cluster": 4,
    "bc": 0,
    "folder": "02-Projects",
-   "mentions": 6,
-   "recent": 4,
+   "mentions": 3,
+   "recent": 2,
    "opens": 0,
    "opens90": 0,
    "inlinks": 1,
@@ -469,8 +472,8 @@
    "tags": [
     "meta/context"
    ],
-   "born": "2026-08-03",
-   "edited": "2026-10-28"
+   "born": "2026-07-28",
+   "edited": "2026-10-22"
   },
   {
    "id": "02-Projects/Fleet/Battery Swaps.md",
@@ -478,8 +481,8 @@
    "cluster": 4,
    "bc": 0.00059,
    "folder": "02-Projects/Fleet",
-   "mentions": 10,
-   "recent": 10,
+   "mentions": 9,
+   "recent": 9,
    "opens": 0,
    "opens90": 0,
    "inlinks": 3,
@@ -487,14 +490,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 115,
-   "age": 5,
+   "age": 6,
    "refs": false,
    "isolated": false,
    "tags": [
     "project/fleet"
    ],
-   "born": "2026-08-27",
-   "edited": "2026-10-27"
+   "born": "2026-08-21",
+   "edited": "2026-10-20"
   },
   {
    "id": "02-Projects/Fleet/Brake Service Schedule.md",
@@ -517,13 +520,13 @@
    "tags": [
     "project/fleet"
    ],
-   "born": "2026-08-30",
-   "edited": "2026-10-12",
+   "born": "2026-08-24",
+   "edited": "2026-10-06",
    "taskAge": 63,
    "taskItems": [
     [
      "Review brake service schedule with Ben",
-     "2026-08-30"
+     "2026-08-24"
     ]
    ]
   },
@@ -548,13 +551,13 @@
    "tags": [
     "project/fleet"
    ],
-   "born": "2025-09-07",
-   "edited": "2025-09-27",
+   "born": "2025-09-01",
+   "edited": "2025-09-21",
    "taskAge": 420,
    "taskItems": [
     [
      "Check the parts inventory still matches what we do",
-     "2025-09-07"
+     "2025-09-01"
     ]
    ]
   },
@@ -564,8 +567,8 @@
    "cluster": 4,
    "bc": 0,
    "folder": "02-Projects/Fleet",
-   "mentions": 6,
-   "recent": 4,
+   "mentions": 4,
+   "recent": 3,
    "opens": 0,
    "opens90": 0,
    "inlinks": 2,
@@ -579,8 +582,8 @@
    "tags": [
     "project/fleet"
    ],
-   "born": "2026-08-24",
-   "edited": "2026-10-30"
+   "born": "2026-08-18",
+   "edited": "2026-10-24"
   },
   {
    "id": "02-Projects/Fleet/Tyre Checks.md",
@@ -588,8 +591,8 @@
    "cluster": 4,
    "bc": 0.00059,
    "folder": "02-Projects/Fleet",
-   "mentions": 10,
-   "recent": 5,
+   "mentions": 8,
+   "recent": 2,
    "opens": 0,
    "opens90": 0,
    "inlinks": 3,
@@ -604,8 +607,8 @@
     "status/in-progress",
     "project/fleet"
    ],
-   "born": "2026-09-02",
-   "edited": "2026-10-28"
+   "born": "2026-08-27",
+   "edited": "2026-10-22"
   },
   {
    "id": "02-Projects/Rental App - Context.md",
@@ -622,14 +625,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 78,
-   "age": 10,
+   "age": 11,
    "refs": false,
    "isolated": false,
    "tags": [
     "meta/context"
    ],
-   "born": "2026-08-03",
-   "edited": "2026-10-22"
+   "born": "2026-07-28",
+   "edited": "2026-10-15"
   },
   {
    "id": "02-Projects/Rental App/API Design.md",
@@ -637,8 +640,8 @@
    "cluster": 0,
    "bc": 0.00428,
    "folder": "02-Projects/Rental App",
-   "mentions": 1,
-   "recent": 1,
+   "mentions": 2,
+   "recent": 0,
    "opens": 0,
    "opens90": 0,
    "inlinks": 2,
@@ -646,14 +649,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 123,
-   "age": 24,
+   "age": 39,
    "refs": false,
    "isolated": false,
    "tags": [
     "project/rental-app"
    ],
-   "born": "2026-08-12",
-   "edited": "2026-10-08"
+   "born": "2026-08-06",
+   "edited": "2026-09-17"
   },
   {
    "id": "02-Projects/Rental App/App Store Release.md",
@@ -662,7 +665,7 @@
    "bc": 0.00207,
    "folder": "02-Projects/Rental App",
    "mentions": 11,
-   "recent": 10,
+   "recent": 9,
    "opens": 0,
    "opens90": 0,
    "inlinks": 2,
@@ -670,14 +673,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 121,
-   "age": 10,
+   "age": 0,
    "refs": false,
    "isolated": false,
    "tags": [
     "project/rental-app"
    ],
-   "born": "2026-08-24",
-   "edited": "2026-10-22"
+   "born": "2026-08-18",
+   "edited": "2026-10-26"
   },
   {
    "id": "02-Projects/Rental App/Booking Flow.md",
@@ -701,8 +704,8 @@
     "status/in-progress",
     "project/rental-app"
    ],
-   "born": "2026-09-02",
-   "edited": "2026-10-22"
+   "born": "2026-08-27",
+   "edited": "2026-10-16"
   },
   {
    "id": "02-Projects/Rental App/Login Timeout Bug.md",
@@ -710,8 +713,8 @@
    "cluster": 0,
    "bc": 0.01389,
    "folder": "02-Projects/Rental App",
-   "mentions": 3,
-   "recent": 1,
+   "mentions": 6,
+   "recent": 2,
    "opens": 0,
    "opens90": 0,
    "inlinks": 3,
@@ -719,14 +722,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 130,
-   "age": 30,
+   "age": 11,
    "refs": false,
    "isolated": false,
    "tags": [
     "project/rental-app"
    ],
-   "born": "2026-08-15",
-   "edited": "2026-10-02"
+   "born": "2026-08-09",
+   "edited": "2026-10-15"
   },
   {
    "id": "02-Projects/Rental App/Map Screen.md",
@@ -734,8 +737,8 @@
    "cluster": 0,
    "bc": 0.00399,
    "folder": "02-Projects/Rental App",
-   "mentions": 8,
-   "recent": 6,
+   "mentions": 9,
+   "recent": 8,
    "opens": 0,
    "opens90": 0,
    "inlinks": 3,
@@ -743,14 +746,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 123,
-   "age": 6,
+   "age": 7,
    "refs": false,
    "isolated": false,
    "tags": [
     "project/rental-app"
    ],
-   "born": "2026-08-18",
-   "edited": "2026-10-26"
+   "born": "2026-08-12",
+   "edited": "2026-10-19"
   },
   {
    "id": "02-Projects/Rental App/Offline Mode.md",
@@ -759,7 +762,7 @@
    "bc": 0.00192,
    "folder": "02-Projects/Rental App",
    "mentions": 7,
-   "recent": 6,
+   "recent": 7,
    "opens": 0,
    "opens90": 0,
    "inlinks": 2,
@@ -767,14 +770,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 110,
-   "age": 4,
+   "age": 5,
    "refs": false,
    "isolated": false,
    "tags": [
     "project/rental-app"
    ],
-   "born": "2026-08-21",
-   "edited": "2026-10-28"
+   "born": "2026-08-15",
+   "edited": "2026-10-21"
   },
   {
    "id": "02-Projects/Rental App/Payment Integration.md",
@@ -782,8 +785,8 @@
    "cluster": 0,
    "bc": 0.00473,
    "folder": "02-Projects/Rental App",
-   "mentions": 8,
-   "recent": 7,
+   "mentions": 10,
+   "recent": 6,
    "opens": 0,
    "opens90": 0,
    "inlinks": 3,
@@ -791,19 +794,19 @@
    "broken": 0,
    "tasks": 1,
    "words": 139,
-   "age": 9,
+   "age": 7,
    "refs": false,
    "isolated": false,
    "tags": [
     "project/rental-app"
    ],
-   "born": "2026-08-30",
-   "edited": "2026-10-23",
+   "born": "2026-08-24",
+   "edited": "2026-10-19",
    "taskAge": 63,
    "taskItems": [
     [
      "Review payment integration with Ben",
-     "2026-08-30"
+     "2026-08-24"
     ]
    ]
   },
@@ -814,7 +817,7 @@
    "bc": 0.00739,
    "folder": "02-Projects/Rental App",
    "mentions": 7,
-   "recent": 4,
+   "recent": 3,
    "opens": 0,
    "opens90": 0,
    "inlinks": 3,
@@ -822,14 +825,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 111,
-   "age": 10,
+   "age": 11,
    "refs": false,
    "isolated": false,
    "tags": [
     "project/rental-app"
    ],
-   "born": "2026-08-27",
-   "edited": "2026-10-22"
+   "born": "2026-08-21",
+   "edited": "2026-10-15"
   },
   {
    "id": "02-Projects/Rental App/User Stories/Scope of Work — RA_Deposits.md",
@@ -852,8 +855,8 @@
    "tags": [
     "project/rental-app"
    ],
-   "born": "2026-09-22",
-   "edited": "2026-10-30"
+   "born": "2026-09-16",
+   "edited": "2026-10-24"
   },
   {
    "id": "02-Projects/Rental App/User Stories/Scope of Work — RA_GroupBookings.md",
@@ -876,8 +879,8 @@
    "tags": [
     "project/rental-app"
    ],
-   "born": "2026-09-22",
-   "edited": "2026-10-23"
+   "born": "2026-09-16",
+   "edited": "2026-10-17"
   },
   {
    "id": "02-Projects/Rental App/User Stories/Scope of Work — RA_LoyaltyPoints.md",
@@ -900,8 +903,8 @@
    "tags": [
     "project/rental-app"
    ],
-   "born": "2026-09-22",
-   "edited": "2026-10-26"
+   "born": "2026-09-16",
+   "edited": "2026-10-20"
   },
   {
    "id": "02-Projects/Rental App/User Stories/Scope of Work — WH_ScannerUpgrade.md",
@@ -924,8 +927,8 @@
    "tags": [
     "project/rental-app"
    ],
-   "born": "2026-09-22",
-   "edited": "2026-10-02"
+   "born": "2026-09-16",
+   "edited": "2026-09-26"
   },
   {
    "id": "02-Projects/Warehouse - Context.md",
@@ -933,8 +936,8 @@
    "cluster": 1,
    "bc": 0,
    "folder": "02-Projects",
-   "mentions": 5,
-   "recent": 3,
+   "mentions": 4,
+   "recent": 4,
    "opens": 0,
    "opens90": 0,
    "inlinks": 1,
@@ -942,14 +945,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 73,
-   "age": 3,
+   "age": 4,
    "refs": false,
    "isolated": false,
    "tags": [
     "meta/context"
    ],
-   "born": "2026-08-03",
-   "edited": "2026-10-29"
+   "born": "2026-07-28",
+   "edited": "2026-10-22"
   },
   {
    "id": "02-Projects/Warehouse/Barcode Scanner Setup.md",
@@ -957,8 +960,8 @@
    "cluster": 1,
    "bc": 0.00155,
    "folder": "02-Projects/Warehouse",
-   "mentions": 6,
-   "recent": 3,
+   "mentions": 9,
+   "recent": 4,
    "opens": 0,
    "opens90": 0,
    "inlinks": 3,
@@ -966,19 +969,19 @@
    "broken": 0,
    "tasks": 1,
    "words": 136,
-   "age": 9,
+   "age": 3,
    "refs": false,
    "isolated": false,
    "tags": [
     "project/warehouse"
    ],
-   "born": "2026-08-30",
+   "born": "2026-08-24",
    "edited": "2026-10-23",
    "taskAge": 63,
    "taskItems": [
     [
      "Review barcode scanner setup with Ben",
-     "2026-08-30"
+     "2026-08-24"
     ]
    ]
   },
@@ -989,7 +992,7 @@
    "bc": 0.00177,
    "folder": "02-Projects/Warehouse",
    "mentions": 7,
-   "recent": 4,
+   "recent": 6,
    "opens": 0,
    "opens90": 0,
    "inlinks": 3,
@@ -997,15 +1000,15 @@
    "broken": 0,
    "tasks": 0,
    "words": 120,
-   "age": 3,
+   "age": 0,
    "refs": false,
    "isolated": false,
    "tags": [
     "status/in-progress",
     "project/warehouse"
    ],
-   "born": "2026-09-02",
-   "edited": "2026-10-29"
+   "born": "2026-08-27",
+   "edited": "2026-10-26"
   },
   {
    "id": "02-Projects/Warehouse/Reorder Rules.md",
@@ -1014,7 +1017,7 @@
    "bc": 0.00266,
    "folder": "02-Projects/Warehouse",
    "mentions": 6,
-   "recent": 2,
+   "recent": 3,
    "opens": 0,
    "opens90": 0,
    "inlinks": 3,
@@ -1028,8 +1031,8 @@
    "tags": [
     "project/warehouse"
    ],
-   "born": "2026-08-21",
-   "edited": "2026-10-25"
+   "born": "2026-08-15",
+   "edited": "2026-10-19"
   },
   {
    "id": "02-Projects/Warehouse/Shelf Layout.md",
@@ -1052,13 +1055,13 @@
    "tags": [
     "project/warehouse"
    ],
-   "born": "2025-09-07",
-   "edited": "2025-09-27",
+   "born": "2025-09-01",
+   "edited": "2025-09-21",
    "taskAge": 420,
    "taskItems": [
     [
      "Check the shelf layout still matches what we do",
-     "2025-09-07"
+     "2025-09-01"
     ]
    ]
   },
@@ -1068,8 +1071,8 @@
    "cluster": 1,
    "bc": 0.00155,
    "folder": "02-Projects/Warehouse",
-   "mentions": 3,
-   "recent": 2,
+   "mentions": 6,
+   "recent": 6,
    "opens": 0,
    "opens90": 0,
    "inlinks": 3,
@@ -1077,14 +1080,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 120,
-   "age": 5,
+   "age": 4,
    "refs": false,
    "isolated": false,
    "tags": [
     "project/warehouse"
    ],
-   "born": "2026-08-27",
-   "edited": "2026-10-27"
+   "born": "2026-08-21",
+   "edited": "2026-10-22"
   },
   {
    "id": "02-Projects/Warehouse/Supplier List.md",
@@ -1092,7 +1095,7 @@
    "cluster": 1,
    "bc": 0.00044,
    "folder": "02-Projects/Warehouse",
-   "mentions": 6,
+   "mentions": 4,
    "recent": 3,
    "opens": 0,
    "opens90": 0,
@@ -1107,8 +1110,8 @@
    "tags": [
     "project/warehouse"
    ],
-   "born": "2026-08-24",
-   "edited": "2026-11-01"
+   "born": "2026-08-18",
+   "edited": "2026-10-26"
   },
   {
    "id": "03-Resources/Customer Support - Context.md",
@@ -1116,8 +1119,8 @@
    "cluster": 3,
    "bc": 0,
    "folder": "03-Resources",
-   "mentions": 4,
-   "recent": 3,
+   "mentions": 3,
+   "recent": 2,
    "opens": 0,
    "opens90": 0,
    "inlinks": 1,
@@ -1125,14 +1128,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 78,
-   "age": 4,
+   "age": 5,
    "refs": false,
    "isolated": false,
    "tags": [
     "meta/context"
    ],
-   "born": "2026-08-03",
-   "edited": "2026-10-28"
+   "born": "2026-07-28",
+   "edited": "2026-10-21"
   },
   {
    "id": "03-Resources/Infrastructure - Context.md",
@@ -1140,8 +1143,8 @@
    "cluster": 2,
    "bc": 0.0003,
    "folder": "03-Resources",
-   "mentions": 5,
-   "recent": 3,
+   "mentions": 7,
+   "recent": 4,
    "opens": 0,
    "opens90": 0,
    "inlinks": 2,
@@ -1149,14 +1152,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 68,
-   "age": 5,
+   "age": 10,
    "refs": false,
    "isolated": false,
    "tags": [
     "meta/context"
    ],
-   "born": "2026-08-03",
-   "edited": "2026-10-27"
+   "born": "2026-07-28",
+   "edited": "2026-10-16"
   },
   {
    "id": "03-Resources/Infrastructure/Backup Restore Test.md",
@@ -1179,8 +1182,8 @@
    "tags": [
     "technology/servers"
    ],
-   "born": "2026-09-22",
-   "edited": "2026-09-22"
+   "born": "2026-09-16",
+   "edited": "2026-09-16"
   },
   {
    "id": "03-Resources/Infrastructure/Database Upgrade.md",
@@ -1188,8 +1191,8 @@
    "cluster": 2,
    "bc": 0.00296,
    "folder": "03-Resources/Infrastructure",
-   "mentions": 8,
-   "recent": 3,
+   "mentions": 6,
+   "recent": 2,
    "opens": 0,
    "opens90": 0,
    "inlinks": 4,
@@ -1197,14 +1200,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 122,
-   "age": 23,
+   "age": 26,
    "refs": false,
    "isolated": false,
    "tags": [
     "technology/servers"
    ],
-   "born": "2026-08-27",
-   "edited": "2026-10-09"
+   "born": "2026-08-21",
+   "edited": "2026-09-30"
   },
   {
    "id": "03-Resources/Infrastructure/Disaster Recovery Plan.md",
@@ -1227,13 +1230,13 @@
    "tags": [
     "technology/servers"
    ],
-   "born": "2025-09-07",
-   "edited": "2025-09-27",
+   "born": "2025-09-01",
+   "edited": "2025-09-21",
    "taskAge": 420,
    "taskItems": [
     [
      "Check the disaster recovery plan still matches what we do",
-     "2025-09-07"
+     "2025-09-01"
     ]
    ]
   },
@@ -1243,8 +1246,8 @@
    "cluster": 2,
    "bc": 0.00044,
    "folder": "03-Resources/Infrastructure",
-   "mentions": 9,
-   "recent": 6,
+   "mentions": 11,
+   "recent": 9,
    "opens": 0,
    "opens90": 0,
    "inlinks": 2,
@@ -1252,14 +1255,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 120,
-   "age": 2,
+   "age": 3,
    "refs": false,
    "isolated": false,
    "tags": [
     "technology/servers"
    ],
-   "born": "2026-08-24",
-   "edited": "2026-10-30"
+   "born": "2026-08-18",
+   "edited": "2026-10-23"
   },
   {
    "id": "03-Resources/Infrastructure/SSL Certificates.md",
@@ -1267,8 +1270,8 @@
    "cluster": 2,
    "bc": 0.00044,
    "folder": "03-Resources/Infrastructure",
-   "mentions": 8,
-   "recent": 8,
+   "mentions": 11,
+   "recent": 9,
    "opens": 0,
    "opens90": 0,
    "inlinks": 2,
@@ -1282,8 +1285,8 @@
    "tags": [
     "technology/servers"
    ],
-   "born": "2026-08-21",
-   "edited": "2026-10-30"
+   "born": "2026-08-15",
+   "edited": "2026-10-24"
   },
   {
    "id": "03-Resources/Infrastructure/Server Backup.md",
@@ -1291,7 +1294,7 @@
    "cluster": 2,
    "bc": 0.00133,
    "folder": "03-Resources/Infrastructure",
-   "mentions": 7,
+   "mentions": 8,
    "recent": 6,
    "opens": 0,
    "opens90": 0,
@@ -1307,8 +1310,8 @@
     "status/in-progress",
     "technology/servers"
    ],
-   "born": "2026-09-02",
-   "edited": "2026-10-31"
+   "born": "2026-08-27",
+   "edited": "2026-10-25"
   },
   {
    "id": "03-Resources/Infrastructure/VPN Setup.md",
@@ -1317,7 +1320,7 @@
    "bc": 0.00296,
    "folder": "03-Resources/Infrastructure",
    "mentions": 6,
-   "recent": 6,
+   "recent": 4,
    "opens": 0,
    "opens90": 0,
    "inlinks": 4,
@@ -1325,19 +1328,19 @@
    "broken": 0,
    "tasks": 1,
    "words": 135,
-   "age": 18,
+   "age": 20,
    "refs": false,
    "isolated": false,
    "tags": [
     "technology/servers"
    ],
-   "born": "2026-08-30",
-   "edited": "2026-10-14",
+   "born": "2026-08-24",
+   "edited": "2026-10-06",
    "taskAge": 63,
    "taskItems": [
     [
      "Review vpn setup with Dev",
-     "2026-08-30"
+     "2026-08-24"
     ]
    ]
   },
@@ -1347,8 +1350,8 @@
    "cluster": 5,
    "bc": 0,
    "folder": "03-Resources",
-   "mentions": 1,
-   "recent": 1,
+   "mentions": 5,
+   "recent": 4,
    "opens": 0,
    "opens90": 0,
    "inlinks": 1,
@@ -1356,14 +1359,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 66,
-   "age": 24,
+   "age": 0,
    "refs": false,
    "isolated": false,
    "tags": [
     "meta/context"
    ],
-   "born": "2026-08-03",
-   "edited": "2026-10-08"
+   "born": "2026-07-28",
+   "edited": "2026-10-26"
   },
   {
    "id": "03-Resources/Marketing/Newsletter Plan.md",
@@ -1371,8 +1374,8 @@
    "cluster": 5,
    "bc": 0.0003,
    "folder": "03-Resources/Marketing",
-   "mentions": 7,
-   "recent": 4,
+   "mentions": 10,
+   "recent": 5,
    "opens": 0,
    "opens90": 0,
    "inlinks": 3,
@@ -1386,13 +1389,13 @@
    "tags": [
     "activity/marketing"
    ],
-   "born": "2026-08-30",
-   "edited": "2026-10-18",
+   "born": "2026-08-24",
+   "edited": "2026-10-12",
    "taskAge": 63,
    "taskItems": [
     [
      "Review newsletter plan with Chloe",
-     "2026-08-30"
+     "2026-08-24"
     ]
    ]
   },
@@ -1402,8 +1405,8 @@
    "cluster": 5,
    "bc": 0.0003,
    "folder": "03-Resources/Marketing",
-   "mentions": 9,
-   "recent": 7,
+   "mentions": 11,
+   "recent": 9,
    "opens": 0,
    "opens90": 0,
    "inlinks": 3,
@@ -1417,8 +1420,8 @@
    "tags": [
     "activity/marketing"
    ],
-   "born": "2026-08-27",
-   "edited": "2026-10-28"
+   "born": "2026-08-21",
+   "edited": "2026-10-22"
   },
   {
    "id": "03-Resources/Marketing/Social Posts.md",
@@ -1441,13 +1444,13 @@
    "tags": [
     "activity/marketing"
    ],
-   "born": "2025-09-07",
-   "edited": "2025-09-27",
+   "born": "2025-09-01",
+   "edited": "2025-09-21",
    "taskAge": 420,
    "taskItems": [
     [
      "Check the social posts still matches what we do",
-     "2025-09-07"
+     "2025-09-01"
     ]
    ]
   },
@@ -1457,8 +1460,8 @@
    "cluster": 5,
    "bc": 0.0003,
    "folder": "03-Resources/Marketing",
-   "mentions": 9,
-   "recent": 5,
+   "mentions": 6,
+   "recent": 3,
    "opens": 0,
    "opens90": 0,
    "inlinks": 3,
@@ -1473,8 +1476,8 @@
     "status/in-progress",
     "activity/marketing"
    ],
-   "born": "2026-09-02",
-   "edited": "2026-11-01"
+   "born": "2026-08-27",
+   "edited": "2026-10-26"
   },
   {
    "id": "03-Resources/Personal/Cycling Training Plan.md",
@@ -1495,8 +1498,8 @@
    "refs": false,
    "isolated": true,
    "tags": [],
-   "born": "2026-10-22",
-   "edited": "2026-10-22"
+   "born": "2026-10-16",
+   "edited": "2026-10-16"
   },
   {
    "id": "03-Resources/Release Notes 2026-03-02.md",
@@ -1513,7 +1516,7 @@
    "broken": 0,
    "tasks": 0,
    "words": 12,
-   "age": 244,
+   "age": 238,
    "refs": false,
    "isolated": false,
    "tags": [
@@ -1528,8 +1531,8 @@
    "cluster": 3,
    "bc": 0.00059,
    "folder": "03-Resources/Support",
-   "mentions": 3,
-   "recent": 1,
+   "mentions": 2,
+   "recent": 0,
    "opens": 0,
    "opens90": 0,
    "inlinks": 3,
@@ -1537,14 +1540,14 @@
    "broken": 0,
    "tasks": 0,
    "words": 116,
-   "age": 3,
+   "age": 32,
    "refs": false,
    "isolated": false,
    "tags": [
     "activity/support"
    ],
-   "born": "2026-08-27",
-   "edited": "2026-10-29"
+   "born": "2026-08-21",
+   "edited": "2026-09-24"
   },
   {
    "id": "03-Resources/Support/Escalation Process.md",
@@ -1553,7 +1556,7 @@
    "bc": 0.00059,
    "folder": "03-Resources/Support",
    "mentions": 5,
-   "recent": 3,
+   "recent": 2,
    "opens": 0,
    "opens90": 0,
    "inlinks": 2,
@@ -1561,14 +1564,14 @@
    "broken": 1,
    "tasks": 0,
    "words": 129,
-   "age": 6,
+   "age": 8,
    "refs": false,
    "isolated": false,
    "tags": [
     "activity/support"
    ],
-   "born": "2026-08-24",
-   "edited": "2026-10-26"
+   "born": "2026-08-18",
+   "edited": "2026-10-18"
   },
   {
    "id": "03-Resources/Support/Refund Policy.md",
@@ -1585,15 +1588,15 @@
    "broken": 1,
    "tasks": 0,
    "words": 139,
-   "age": 12,
+   "age": 13,
    "refs": false,
    "isolated": false,
    "tags": [
     "status/in-progress",
     "activity/support"
    ],
-   "born": "2026-09-02",
-   "edited": "2026-10-20"
+   "born": "2026-08-27",
+   "edited": "2026-10-13"
   },
   {
    "id": "03-Resources/Support/Support Macros.md",
@@ -1616,13 +1619,13 @@
    "tags": [
     "activity/support"
    ],
-   "born": "2025-09-07",
-   "edited": "2025-09-27",
+   "born": "2025-09-01",
+   "edited": "2025-09-21",
    "taskAge": 420,
    "taskItems": [
     [
      "Check the support macros still matches what we do",
-     "2025-09-07"
+     "2025-09-01"
     ]
    ]
   },
@@ -1632,8 +1635,8 @@
    "cluster": 3,
    "bc": 0.00163,
    "folder": "03-Resources/Support",
-   "mentions": 15,
-   "recent": 14,
+   "mentions": 11,
+   "recent": 11,
    "opens": 0,
    "opens90": 0,
    "inlinks": 3,
@@ -1647,13 +1650,13 @@
    "tags": [
     "activity/support"
    ],
-   "born": "2026-08-30",
-   "edited": "2026-10-31",
+   "born": "2026-08-24",
+   "edited": "2026-10-25",
    "taskAge": 63,
    "taskItems": [
     [
      "Review ticket triage with Chloe",
-     "2026-08-30"
+     "2026-08-24"
     ]
    ]
   },
@@ -1678,8 +1681,8 @@
    "tags": [
     "activity/support"
    ],
-   "born": "2026-10-17",
-   "edited": "2026-10-17"
+   "born": "2026-10-11",
+   "edited": "2026-10-11"
   },
   {
    "id": "03-Resources/Vault Backlog.md",
@@ -1702,17 +1705,17 @@
    "tags": [
     "meta/backlog"
    ],
-   "born": "2026-11-01",
-   "edited": "2026-11-01",
+   "born": "2026-10-26",
+   "edited": "2026-10-26",
    "taskAge": 0,
    "taskItems": [
     [
      "Decide whether the old warehouse notes move to the archive",
-     "2026-11-01"
+     "2026-10-26"
     ],
     [
      "Merge the two warehouse handbooks",
-     "2026-11-01"
+     "2026-10-26"
     ]
    ]
   },
@@ -1735,8 +1738,8 @@
    "refs": false,
    "isolated": false,
    "tags": [],
-   "born": "2026-10-07",
-   "edited": "2026-10-07"
+   "born": "2026-10-01",
+   "edited": "2026-10-01"
   },
   {
    "id": "04-People/Ana Lopez.md",
@@ -1745,7 +1748,7 @@
    "cluster": -1,
    "bc": 0,
    "folder": "04-People",
-   "mentions": 25,
+   "mentions": 28,
    "recent": 0,
    "opens": 0,
    "opens90": 0,
@@ -1765,7 +1768,7 @@
    "cluster": -1,
    "bc": 0,
    "folder": "04-People",
-   "mentions": 17,
+   "mentions": 15,
    "recent": 0,
    "opens": 0,
    "opens90": 0,
@@ -1785,7 +1788,7 @@
    "cluster": -1,
    "bc": 0,
    "folder": "04-People",
-   "mentions": 21,
+   "mentions": 29,
    "recent": 0,
    "opens": 0,
    "opens90": 0,
@@ -1805,7 +1808,7 @@
    "cluster": -1,
    "bc": 0,
    "folder": "04-People",
-   "mentions": 16,
+   "mentions": 12,
    "recent": 0,
    "opens": 0,
    "opens90": 0,
@@ -2495,8 +2498,35 @@
    "kind": "link"
   },
   {
-   "source": "02-Projects/Warehouse/Reorder Rules.md",
-   "target": "03-Resources/Support/Common Questions.md",
+   "source": "02-Projects/Warehouse/Supplier List.md",
+   "target": "03-Resources/Marketing/Spring Campaign.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-10-26",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-26.md",
+     "Finished the spring campaign changes"
+    ],
+    [
+     "2026-10-26",
+     "01-Daily/2026/10-October/Journal/2026-10-26.md",
+     "Talked with Ben Carter about Spring Campaign and Supplier List."
+    ]
+   ],
+   "pa": [
+    "Notes",
+    "Most questions about warehouse come up during the weekly review, and the answers end up here. When something in warehouse breaks, the first check is the last…"
+   ],
+   "pb": [
+    "Notes",
+    "We agreed to keep the marketing notes current after each change, so the team can find the latest decision. We agreed to keep the marketing notes current afte…"
+   ]
+  },
+  {
+   "source": "03-Resources/Infrastructure/Database Upgrade.md",
+   "target": "03-Resources/Support/Refund Policy.md",
    "w": 1,
    "kind": "gap",
    "why": "2× together in daily notes",
@@ -2504,26 +2534,26 @@
     [
      "2026-09-30",
      "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-30.md",
-     "Finished the common questions changes"
+     "Finished the refund policy changes"
     ],
     [
      "2026-09-30",
      "01-Daily/2026/09-September/Journal/2026-09-30.md",
-     "Talked with Chloe Kim about Common Questions and Reorder Rules."
+     "Talked with Dev Patel about Refund Policy and Database Upgrade."
     ]
    ],
    "pa": [
     "Notes",
-    "The warehouse work depends on clear owners and a short list of next steps. Customers notice warehouse problems before we do, so support tickets are an early …"
+    "When something in infrastructure breaks, the first check is the last change that went out. Customers notice infrastructure problems before we do, so support …"
    ],
    "pb": [
-    "Common Questions",
-    "The customer support work depends on clear owners and a short list of next steps. When something in customer support breaks, the first check is the last chan…"
+    "Notes",
+    "Most questions about customer support come up during the weekly review, and the answers end up here. We agreed to keep the customer support notes current aft…"
    ]
   },
   {
-   "source": "02-Projects/Fleet/Brake Service Schedule.md",
-   "target": "03-Resources/Infrastructure/Database Upgrade.md",
+   "source": "02-Projects/Fleet/Tyre Checks.md",
+   "target": "03-Resources/Support/Escalation Process.md",
    "w": 1,
    "kind": "gap",
    "why": "2× together in daily notes",
@@ -2531,39 +2561,98 @@
     [
      "2026-09-22",
      "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-22.md",
-     "Finished the brake service schedule changes"
+     "Finished the escalation process changes"
     ],
     [
      "2026-09-22",
      "01-Daily/2026/09-September/Journal/2026-09-22.md",
-     "Talked with Chloe Kim about Brake Service Schedule and Database Upgrade."
+     "Talked with Chloe Kim about Escalation Process and Tyre Checks."
     ]
    ],
    "pa": [
-    "Brake Service Schedule",
-    "Customers notice fleet maintenance problems before we do, so support tickets are an early signal. The fleet maintenance work depends on clear owners and a sh…"
+    "Notes",
+    "We agreed to keep the fleet maintenance notes current after each change, so the team can find the latest decision. When something in fleet maintenance breaks…"
    ],
    "pb": [
     "Notes",
-    "When something in infrastructure breaks, the first check is the last change that went out. Customers notice infrastructure problems before we do, so support …"
+    "Customers notice customer support problems before we do, so support tickets are an early signal. We agreed to keep the customer support notes current after e…"
    ]
   },
   {
-   "source": "02-Projects/Rental App/Offline Mode.md",
-   "target": "03-Resources/Infrastructure/VPN Setup.md",
+   "source": "02-Projects/Rental App/Map Screen.md",
+   "target": "03-Resources/Marketing/Newsletter Plan.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "3× together in daily notes",
+   "ev": [
+    [
+     "2026-10-09",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-09.md",
+     "Finished the newsletter plan changes"
+    ],
+    [
+     "2026-10-09",
+     "01-Daily/2026/10-October/Journal/2026-10-09.md",
+     "Talked with Dev Patel about Newsletter Plan and Map Screen."
+    ],
+    [
+     "2026-10-03",
+     "01-Daily/2026/10-October/Journal/2026-10-03.md",
+     "Talked with Chloe Kim about Map Screen and Newsletter Plan."
+    ]
+   ],
+   "pa": [
+    "Map Screen",
+    "The rental app work depends on clear owners and a short list of next steps. Most questions about rental app come up during the weekly review, and the answers…"
+   ],
+   "pb": [
+    "Notes",
+    "When something in marketing breaks, the first check is the last change that went out. The marketing work depends on clear owners and a short list of next ste…"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/Login Timeout Bug.md",
+   "target": "02-Projects/Rental App/Push Notifications.md",
    "w": 1,
    "kind": "gap",
    "why": "2× together in daily notes",
    "ev": [
     [
-     "2026-10-13",
-     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-13.md",
-     "Finished the offline mode changes"
+     "2026-10-15",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-15.md",
+     "Finished the login timeout bug changes"
     ],
     [
-     "2026-10-13",
-     "01-Daily/2026/10-October/Journal/2026-10-13.md",
-     "Talked with Ben Carter about Offline Mode and VPN Setup."
+     "2026-10-15",
+     "01-Daily/2026/10-October/Journal/2026-10-15.md",
+     "Talked with Ana Lopez about Login Timeout Bug and Push Notifications."
+    ]
+   ],
+   "pa": [
+    "Login Timeout Bug",
+    "We agreed to keep the rental app notes current after each change, so the team can find the latest decision. Customers notice rental app problems before we do…"
+   ],
+   "pb": [
+    "Push Notifications",
+    "The rental app work depends on clear owners and a short list of next steps. The rental app work depends on clear owners and a short list of next steps. The r…"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/Offline Mode.md",
+   "target": "02-Projects/Warehouse/Stock Transfer Procedure.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-10-07",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-07.md",
+     "Finished the stock transfer procedure changes"
+    ],
+    [
+     "2026-10-07",
+     "01-Daily/2026/10-October/Journal/2026-10-07.md",
+     "Talked with Chloe Kim about Stock Transfer Procedure and Offline Mode."
     ]
    ],
    "pa": [
@@ -2571,261 +2660,40 @@
     "The rental app checklist is short on purpose: anything longer gets skipped under pressure. Customers notice rental app problems before we do, so support tick…"
    ],
    "pb": [
-    "Notes",
-    "Most questions about infrastructure come up during the weekly review, and the answers end up here. The infrastructure checklist is short on purpose: anything…"
-   ]
-  },
-  {
-   "source": "02-Projects/Fleet/Brake Service Schedule.md",
-   "target": "02-Projects/Rental App/App Store Release.md",
-   "w": 1,
-   "kind": "gap",
-   "why": "2× together in daily notes",
-   "ev": [
-    [
-     "2026-10-12",
-     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-12.md",
-     "Finished the brake service schedule changes"
-    ],
-    [
-     "2026-10-12",
-     "01-Daily/2026/10-October/Journal/2026-10-12.md",
-     "Talked with Chloe Kim about Brake Service Schedule and App Store Release."
-    ]
-   ],
-   "pa": [
-    "Notes",
-    "We agreed to keep the fleet maintenance notes current after each change, so the team can find the latest decision. The fleet maintenance work depends on clea…"
-   ],
-   "pb": [
-    "Notes",
-    "The rental app work depends on clear owners and a short list of next steps. The rental app checklist is short on purpose: anything longer gets skipped under …"
-   ]
-  },
-  {
-   "source": "02-Projects/Rental App/Payment Integration.md",
-   "target": "03-Resources/Support/Refund Policy.md",
-   "w": 1,
-   "kind": "gap",
-   "why": "2× together in daily notes",
-   "ev": [
-    [
-     "2026-10-20",
-     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-20.md",
-     "Finished the refund policy changes"
-    ],
-    [
-     "2026-10-20",
-     "01-Daily/2026/10-October/Journal/2026-10-20.md",
-     "Talked with Chloe Kim about Refund Policy and Payment Integration."
-    ]
-   ],
-   "pa": [
-    "Payment Integration",
-    "Customers notice rental app problems before we do, so support tickets are an early signal. The rental app work depends on clear owners and a short list of ne…"
-   ],
-   "pb": [
-    "Refund Policy",
-    "We agreed to keep the customer support notes current after each change, so the team can find the latest decision. The customer support checklist is short on …"
-   ]
-  },
-  {
-   "source": "02-Projects/Rental App/Offline Mode.md",
-   "target": "02-Projects/Warehouse/Inventory Counts.md",
-   "w": 1,
-   "kind": "gap",
-   "why": "2× together in daily notes",
-   "ev": [
-    [
-     "2026-10-14",
-     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-14.md",
-     "Finished the inventory counts changes"
-    ],
-    [
-     "2026-10-14",
-     "01-Daily/2026/10-October/Journal/2026-10-14.md",
-     "Talked with Ana Lopez about Inventory Counts and Offline Mode."
-    ]
-   ],
-   "pa": [
-    "Offline Mode",
-    "The rental app work depends on clear owners and a short list of next steps. The rental app checklist is short on purpose: anything longer gets skipped under …"
-   ],
-   "pb": [
-    "Notes",
-    "Most questions about warehouse come up during the weekly review, and the answers end up here. The warehouse work depends on clear owners and a short list of …"
-   ]
-  },
-  {
-   "source": "02-Projects/Rental App/Map Screen.md",
-   "target": "03-Resources/Infrastructure/Server Backup.md",
-   "w": 1,
-   "kind": "gap",
-   "why": "2× together in daily notes",
-   "ev": [
-    [
-     "2026-10-16",
-     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-16.md",
-     "Finished the map screen changes"
-    ],
-    [
-     "2026-10-16",
-     "01-Daily/2026/10-October/Journal/2026-10-16.md",
-     "Talked with Ben Carter about Map Screen and Server Backup."
-    ]
-   ],
-   "pa": [
-    "Notes",
-    "Most questions about rental app come up during the weekly review, and the answers end up here. We agreed to keep the rental app notes current after each chan…"
-   ],
-   "pb": [
-    "Notes",
-    "When something in infrastructure breaks, the first check is the last change that went out. Customers notice infrastructure problems before we do, so support …"
-   ]
-  },
-  {
-   "source": "02-Projects/Rental App/Push Notifications.md",
-   "target": "03-Resources/Infrastructure/Database Upgrade.md",
-   "w": 1,
-   "kind": "gap",
-   "why": "2× together in daily notes",
-   "ev": [
-    [
-     "2026-09-23",
-     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-23.md",
-     "Finished the database upgrade changes"
-    ],
-    [
-     "2026-09-23",
-     "01-Daily/2026/09-September/Journal/2026-09-23.md",
-     "Talked with Ben Carter about Database Upgrade and Push Notifications."
-    ]
-   ],
-   "pa": [
-    "Notes",
-    "The rental app checklist is short on purpose: anything longer gets skipped under pressure. The rental app checklist is short on purpose: anything longer gets…"
-   ],
-   "pb": [
-    "Database Upgrade",
-    "The infrastructure checklist is short on purpose: anything longer gets skipped under pressure. When something in infrastructure breaks, the first check is th…"
-   ]
-  },
-  {
-   "source": "03-Resources/Marketing/Partner Shops.md",
-   "target": "03-Resources/Support/Ticket Triage.md",
-   "w": 1,
-   "kind": "gap",
-   "why": "3× together in daily notes",
-   "ev": [
-    [
-     "2026-10-08",
-     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-08.md",
-     "Finished the partner shops changes"
-    ],
-    [
-     "2026-10-08",
-     "01-Daily/2026/10-October/Journal/2026-10-08.md",
-     "Talked with Ana Lopez about Partner Shops and Ticket Triage."
-    ],
-    [
-     "2026-10-05",
-     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-05.md",
-     "Finished the ticket triage changes"
-    ]
-   ],
-   "pa": [
-    "Partner Shops",
-    "When something in marketing breaks, the first check is the last change that went out. The marketing checklist is short on purpose: anything longer gets skipp…"
-   ],
-   "pb": [
-    "Notes",
-    "Customers notice customer support problems before we do, so support tickets are an early signal. The customer support work depends on clear owners and a shor…"
-   ]
-  },
-  {
-   "source": "02-Projects/Fleet/Tyre Checks.md",
-   "target": "02-Projects/Warehouse/Barcode Scanner Setup.md",
-   "w": 1,
-   "kind": "gap",
-   "why": "2× together in daily notes",
-   "ev": [
-    [
-     "2026-10-02",
-     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-02.md",
-     "Finished the barcode scanner setup changes"
-    ],
-    [
-     "2026-10-02",
-     "01-Daily/2026/10-October/Journal/2026-10-02.md",
-     "Talked with Dev Patel about Barcode Scanner Setup and Tyre Checks."
-    ]
-   ],
-   "pa": [
-    "Notes",
-    "We agreed to keep the fleet maintenance notes current after each change, so the team can find the latest decision. When something in fleet maintenance breaks…"
-   ],
-   "pb": [
-    "Barcode Scanner Setup",
-    "We agreed to keep the warehouse notes current after each change, so the team can find the latest decision. The warehouse work depends on clear owners and a s…"
-   ]
-  },
-  {
-   "source": "02-Projects/Fleet/Tyre Checks.md",
-   "target": "02-Projects/Warehouse/Reorder Rules.md",
-   "w": 1,
-   "kind": "gap",
-   "why": "2× together in daily notes",
-   "ev": [
-    [
-     "2026-09-21",
-     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-21.md",
-     "Finished the reorder rules changes"
-    ],
-    [
-     "2026-09-21",
-     "01-Daily/2026/09-September/Journal/2026-09-21.md",
-     "Talked with Dev Patel about Reorder Rules and Tyre Checks."
-    ]
-   ],
-   "pa": [
-    "Notes",
-    "We agreed to keep the fleet maintenance notes current after each change, so the team can find the latest decision. When something in fleet maintenance breaks…"
-   ],
-   "pb": [
-    "Reorder Rules",
-    "We agreed to keep the warehouse notes current after each change, so the team can find the latest decision. Customers notice warehouse problems before we do, …"
-   ]
-  },
-  {
-   "source": "02-Projects/Fleet/Tyre Checks.md",
-   "target": "02-Projects/Warehouse/Supplier List.md",
-   "w": 1,
-   "kind": "gap",
-   "why": "2× together in daily notes",
-   "ev": [
-    [
-     "2026-09-29",
-     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-29.md",
-     "Finished the tyre checks changes"
-    ],
-    [
-     "2026-09-29",
-     "01-Daily/2026/09-September/Journal/2026-09-29.md",
-     "Talked with Ana Lopez about Tyre Checks and Supplier List."
-    ]
-   ],
-   "pa": [
-    "Tyre Checks",
-    "We agreed to keep the fleet maintenance notes current after each change, so the team can find the latest decision. The fleet maintenance work depends on clea…"
-   ],
-   "pb": [
-    "Notes",
+    "Stock Transfer Procedure",
     "Most questions about warehouse come up during the weekly review, and the answers end up here. When something in warehouse breaks, the first check is the last…"
    ]
   },
   {
-   "source": "02-Projects/Rental App/Payment Integration.md",
-   "target": "03-Resources/Infrastructure/SSL Certificates.md",
+   "source": "02-Projects/Fleet/Tyre Checks.md",
+   "target": "03-Resources/Marketing/Spring Campaign.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-09-15",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-15.md",
+     "Finished the tyre checks changes"
+    ],
+    [
+     "2026-09-15",
+     "01-Daily/2026/09-September/Journal/2026-09-15.md",
+     "Talked with Ben Carter about Tyre Checks and Spring Campaign."
+    ]
+   ],
+   "pa": [
+    "Notes",
+    "We agreed to keep the fleet maintenance notes current after each change, so the team can find the latest decision. When something in fleet maintenance breaks…"
+   ],
+   "pb": [
+    "Notes",
+    "We agreed to keep the marketing notes current after each change, so the team can find the latest decision. We agreed to keep the marketing notes current afte…"
+   ]
+  },
+  {
+   "source": "02-Projects/Fleet/Battery Swaps.md",
+   "target": "02-Projects/Warehouse/Reorder Rules.md",
    "w": 1,
    "kind": "gap",
    "why": "2× together in daily notes",
@@ -2833,12 +2701,66 @@
     [
      "2026-10-19",
      "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-19.md",
-     "Finished the payment integration changes"
+     "Finished the reorder rules changes"
     ],
     [
      "2026-10-19",
      "01-Daily/2026/10-October/Journal/2026-10-19.md",
-     "Talked with Ben Carter about Payment Integration and SSL Certificates."
+     "Talked with Ana Lopez about Reorder Rules and Battery Swaps."
+    ]
+   ],
+   "pa": [
+    "Battery Swaps",
+    "The fleet maintenance checklist is short on purpose: anything longer gets skipped under pressure. The fleet maintenance work depends on clear owners and a sh…"
+   ],
+   "pb": [
+    "Notes",
+    "The warehouse work depends on clear owners and a short list of next steps. Customers notice warehouse problems before we do, so support tickets are an early …"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/Login Timeout Bug.md",
+   "target": "02-Projects/Rental App/Payment Integration.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-09-23",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-23.md",
+     "Finished the payment integration changes"
+    ],
+    [
+     "2026-09-23",
+     "01-Daily/2026/09-September/Journal/2026-09-23.md",
+     "Talked with Chloe Kim about Payment Integration and Login Timeout Bug."
+    ]
+   ],
+   "pa": [
+    "Login Timeout Bug",
+    "We agreed to keep the rental app notes current after each change, so the team can find the latest decision. Customers notice rental app problems before we do…"
+   ],
+   "pb": [
+    "Notes",
+    "We agreed to keep the rental app notes current after each change, so the team can find the latest decision. Customers notice rental app problems before we do…"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/Payment Integration.md",
+   "target": "02-Projects/Warehouse/Stock Transfer Procedure.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-10-05",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-05.md",
+     "Finished the payment integration changes"
+    ],
+    [
+     "2026-10-05",
+     "01-Daily/2026/10-October/Journal/2026-10-05.md",
+     "Talked with Chloe Kim about Payment Integration and Stock Transfer Procedure."
     ]
    ],
    "pa": [
@@ -2847,7 +2769,7 @@
    ],
    "pb": [
     "Notes",
-    "We agreed to keep the infrastructure notes current after each change, so the team can find the latest decision. When something in infrastructure breaks, the …"
+    "We agreed to keep the warehouse notes current after each change, so the team can find the latest decision. When something in warehouse breaks, the first chec…"
    ]
   },
   {
@@ -2858,14 +2780,14 @@
    "why": "2× together in daily notes",
    "ev": [
     [
-     "2026-10-07",
-     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-07.md",
+     "2026-09-16",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-16.md",
      "Finished the vpn setup changes"
     ],
     [
-     "2026-10-07",
-     "01-Daily/2026/10-October/Journal/2026-10-07.md",
-     "Talked with Ben Carter about VPN Setup and App Store Release."
+     "2026-09-16",
+     "01-Daily/2026/09-September/Journal/2026-09-16.md",
+     "Talked with Chloe Kim about VPN Setup and App Store Release."
     ]
    ],
    "pa": [
@@ -2878,54 +2800,89 @@
    ]
   },
   {
-   "source": "02-Projects/Fleet/Tyre Checks.md",
-   "target": "02-Projects/Rental App/Offline Mode.md",
+   "source": "02-Projects/Warehouse/Stock Transfer Procedure.md",
+   "target": "03-Resources/Marketing/Partner Shops.md",
    "w": 1,
    "kind": "gap",
    "why": "2× together in daily notes",
    "ev": [
     [
-     "2026-10-28",
-     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-28.md",
-     "Finished the tyre checks changes"
+     "2026-10-22",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-22.md",
+     "Finished the stock transfer procedure changes"
     ],
     [
-     "2026-10-28",
-     "01-Daily/2026/10-October/Journal/2026-10-28.md",
-     "Talked with Ben Carter about Tyre Checks and Offline Mode."
-    ]
-   ]
-  },
-  {
-   "source": "02-Projects/Rental App/Payment Integration.md",
-   "target": "03-Resources/Marketing/Spring Campaign.md",
-   "w": 1,
-   "kind": "gap",
-   "why": "2× together in daily notes",
-   "ev": [
-    [
-     "2026-10-23",
-     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-23.md",
-     "Finished the payment integration changes"
-    ],
-    [
-     "2026-10-23",
-     "01-Daily/2026/10-October/Journal/2026-10-23.md",
-     "Talked with Ana Lopez about Payment Integration and Spring Campaign."
+     "2026-10-22",
+     "01-Daily/2026/10-October/Journal/2026-10-22.md",
+     "Talked with Dev Patel about Stock Transfer Procedure and Partner Shops."
     ]
    ],
    "pa": [
-    "Notes",
-    "We agreed to keep the rental app notes current after each change, so the team can find the latest decision. Customers notice rental app problems before we do…"
+    "Stock Transfer Procedure",
+    "Most questions about warehouse come up during the weekly review, and the answers end up here. When something in warehouse breaks, the first check is the last…"
    ],
    "pb": [
-    "Spring Campaign",
-    "The marketing checklist is short on purpose: anything longer gets skipped under pressure. The marketing work depends on clear owners and a short list of next…"
+    "Notes",
+    "The marketing checklist is short on purpose: anything longer gets skipped under pressure. Customers notice marketing problems before we do, so support ticket…"
    ]
   },
   {
-   "source": "03-Resources/Infrastructure/Monitoring Alerts.md",
-   "target": "03-Resources/Marketing/Spring Campaign.md",
+   "source": "03-Resources/Infrastructure/Database Upgrade.md",
+   "target": "03-Resources/Marketing/Partner Shops.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-09-18",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-18.md",
+     "Finished the database upgrade changes"
+    ],
+    [
+     "2026-09-18",
+     "01-Daily/2026/09-September/Journal/2026-09-18.md",
+     "Talked with Chloe Kim about Database Upgrade and Partner Shops."
+    ]
+   ],
+   "pa": [
+    "Database Upgrade",
+    "The infrastructure checklist is short on purpose: anything longer gets skipped under pressure. When something in infrastructure breaks, the first check is th…"
+   ],
+   "pb": [
+    "Partner Shops",
+    "When something in marketing breaks, the first check is the last change that went out. The marketing checklist is short on purpose: anything longer gets skipp…"
+   ]
+  },
+  {
+   "source": "03-Resources/Infrastructure/VPN Setup.md",
+   "target": "03-Resources/Marketing/Partner Shops.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-09-28",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-28.md",
+     "Finished the vpn setup changes"
+    ],
+    [
+     "2026-09-28",
+     "01-Daily/2026/09-September/Journal/2026-09-28.md",
+     "Talked with Ana Lopez about VPN Setup and Partner Shops."
+    ]
+   ],
+   "pa": [
+    "VPN Setup",
+    "Customers notice infrastructure problems before we do, so support tickets are an early signal. We agreed to keep the infrastructure notes current after each …"
+   ],
+   "pb": [
+    "Notes",
+    "The marketing checklist is short on purpose: anything longer gets skipped under pressure. Customers notice marketing problems before we do, so support ticket…"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/Push Notifications.md",
+   "target": "03-Resources/Marketing/Newsletter Plan.md",
    "w": 1,
    "kind": "gap",
    "why": "2× together in daily notes",
@@ -2933,94 +2890,156 @@
     [
      "2026-09-25",
      "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-25.md",
-     "Finished the monitoring alerts changes"
+     "Finished the newsletter plan changes"
     ],
     [
      "2026-09-25",
      "01-Daily/2026/09-September/Journal/2026-09-25.md",
-     "Talked with Dev Patel about Monitoring Alerts and Spring Campaign."
+     "Talked with Ben Carter about Newsletter Plan and Push Notifications."
     ]
    ],
    "pa": [
-    "Notes",
-    "We agreed to keep the infrastructure notes current after each change, so the team can find the latest decision. We agreed to keep the infrastructure notes cu…"
+    "Push Notifications",
+    "The rental app work depends on clear owners and a short list of next steps. The rental app work depends on clear owners and a short list of next steps. The r…"
    ],
    "pb": [
-    "Notes",
-    "We agreed to keep the marketing notes current after each change, so the team can find the latest decision. We agreed to keep the marketing notes current afte…"
+    "Newsletter Plan",
+    "When something in marketing breaks, the first check is the last change that went out. Customers notice marketing problems before we do, so support tickets ar…"
    ]
   },
   {
-   "source": "02-Projects/Fleet/Battery Swaps.md",
-   "target": "03-Resources/Infrastructure/Monitoring Alerts.md",
+   "source": "02-Projects/Rental App/Map Screen.md",
+   "target": "03-Resources/Infrastructure/Server Backup.md",
    "w": 1,
    "kind": "gap",
    "why": "2× together in daily notes",
    "ev": [
     [
-     "2026-10-06",
-     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-06.md",
-     "Finished the monitoring alerts changes"
+     "2026-10-13",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-13.md",
+     "Finished the server backup changes"
     ],
     [
-     "2026-10-06",
-     "01-Daily/2026/10-October/Journal/2026-10-06.md",
-     "Talked with Chloe Kim about Monitoring Alerts and Battery Swaps."
+     "2026-10-13",
+     "01-Daily/2026/10-October/Journal/2026-10-13.md",
+     "Talked with Ana Lopez about Server Backup and Map Screen."
     ]
+   ],
+   "pa": [
+    "Notes",
+    "Most questions about rental app come up during the weekly review, and the answers end up here. We agreed to keep the rental app notes current after each chan…"
+   ],
+   "pb": [
+    "Notes",
+    "When something in infrastructure breaks, the first check is the last change that went out. Customers notice infrastructure problems before we do, so support …"
    ]
   },
   {
-   "source": "02-Projects/Warehouse/Supplier List.md",
+   "source": "02-Projects/Rental App/Offline Mode.md",
    "target": "03-Resources/Support/Ticket Triage.md",
    "w": 1,
    "kind": "gap",
    "why": "2× together in daily notes",
    "ev": [
     [
-     "2026-10-30",
-     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-30.md",
-     "Finished the supplier list changes"
+     "2026-10-02",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-02.md",
+     "Finished the offline mode changes"
     ],
     [
-     "2026-10-30",
-     "01-Daily/2026/10-October/Journal/2026-10-30.md",
-     "Talked with Dev Patel about Supplier List and Ticket Triage."
+     "2026-10-02",
+     "01-Daily/2026/10-October/Journal/2026-10-02.md",
+     "Talked with Ben Carter about Offline Mode and Ticket Triage."
     ]
    ],
    "pa": [
-    "Notes",
-    "Most questions about warehouse come up during the weekly review, and the answers end up here. When something in warehouse breaks, the first check is the last…"
+    "Offline Mode",
+    "The rental app work depends on clear owners and a short list of next steps. The rental app checklist is short on purpose: anything longer gets skipped under …"
    ],
    "pb": [
-    "Ticket Triage",
-    "Most questions about customer support come up during the weekly review, and the answers end up here. When something in customer support breaks, the first che…"
+    "Notes",
+    "Customers notice customer support problems before we do, so support tickets are an early signal. The customer support work depends on clear owners and a shor…"
    ]
   },
   {
-   "source": "02-Projects/Rental App/App Store Release.md",
-   "target": "03-Resources/Infrastructure/Monitoring Alerts.md",
+   "source": "03-Resources/Infrastructure/Server Backup.md",
+   "target": "03-Resources/Marketing/Partner Shops.md",
    "w": 1,
    "kind": "gap",
    "why": "2× together in daily notes",
    "ev": [
     [
-     "2026-10-21",
-     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-21.md",
-     "Finished the monitoring alerts changes"
+     "2026-10-20",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-20.md",
+     "Finished the partner shops changes"
     ],
     [
-     "2026-10-21",
-     "01-Daily/2026/10-October/Journal/2026-10-21.md",
-     "Talked with Ana Lopez about Monitoring Alerts and App Store Release."
+     "2026-10-20",
+     "01-Daily/2026/10-October/Journal/2026-10-20.md",
+     "Talked with Dev Patel about Partner Shops and Server Backup."
     ]
    ],
    "pa": [
-    "App Store Release",
-    "When something in rental app breaks, the first check is the last change that went out. Most questions about rental app come up during the weekly review, and …"
+    "Notes",
+    "When something in infrastructure breaks, the first check is the last change that went out. Customers notice infrastructure problems before we do, so support …"
+   ],
+   "pb": [
+    "Partner Shops",
+    "When something in marketing breaks, the first check is the last change that went out. The marketing checklist is short on purpose: anything longer gets skipp…"
+   ]
+  },
+  {
+   "source": "02-Projects/Rental App/Payment Integration.md",
+   "target": "02-Projects/Warehouse/Barcode Scanner Setup.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-09-14",
+     "01-Daily/2026/09-September/Standups/Daily Standup 2026-09-14.md",
+     "Finished the payment integration changes"
+    ],
+    [
+     "2026-09-14",
+     "01-Daily/2026/09-September/Journal/2026-09-14.md",
+     "Talked with Ana Lopez about Payment Integration and Barcode Scanner Setup."
+    ]
+   ],
+   "pa": [
+    "Tasks",
+    "Review payment integration with Ben Draft the first version [completion:: 2026-10-06]"
+   ],
+   "pb": [
+    "Tasks",
+    "Review barcode scanner setup with Ben Draft the first version [completion:: 2026-10-06]"
+   ]
+  },
+  {
+   "source": "02-Projects/Fleet/Battery Swaps.md",
+   "target": "02-Projects/Rental App/App Store Release.md",
+   "w": 1,
+   "kind": "gap",
+   "why": "2× together in daily notes",
+   "ev": [
+    [
+     "2026-10-08",
+     "01-Daily/2026/10-October/Standups/Daily Standup 2026-10-08.md",
+     "Finished the app store release changes"
+    ],
+    [
+     "2026-10-08",
+     "01-Daily/2026/10-October/Journal/2026-10-08.md",
+     "Talked with Chloe Kim about App Store Release and Battery Swaps."
+    ]
+   ],
+   "pa": [
+    "Battery Swaps",
+    "The fleet maintenance checklist is short on purpose: anything longer gets skipped under pressure. The fleet maintenance work depends on clear owners and a sh…"
    ],
    "pb": [
     "Notes",
-    "We agreed to keep the infrastructure notes current after each change, so the team can find the latest decision. We agreed to keep the infrastructure notes cu…"
+    "The rental app work depends on clear owners and a short list of next steps. The rental app checklist is short on purpose: anything longer gets skipped under …"
    ]
   },
   {
@@ -3422,12 +3441,94 @@
  "gaps": [
   {
    "a": 0,
-   "b": 2,
+   "b": 1,
    "links": 0,
-   "comentions": 12,
+   "comentions": 6,
    "suggest": [
     [
      "02-Projects/Rental App/Offline Mode.md",
+     "02-Projects/Warehouse/Stock Transfer Procedure.md",
+     2
+    ],
+    [
+     "02-Projects/Rental App/Payment Integration.md",
+     "02-Projects/Warehouse/Stock Transfer Procedure.md",
+     2
+    ],
+    [
+     "02-Projects/Rental App/Payment Integration.md",
+     "02-Projects/Warehouse/Barcode Scanner Setup.md",
+     2
+    ]
+   ]
+  },
+  {
+   "a": 2,
+   "b": 5,
+   "links": 0,
+   "comentions": 6,
+   "suggest": [
+    [
+     "03-Resources/Infrastructure/Database Upgrade.md",
+     "03-Resources/Marketing/Partner Shops.md",
+     2
+    ],
+    [
+     "03-Resources/Infrastructure/VPN Setup.md",
+     "03-Resources/Marketing/Partner Shops.md",
+     2
+    ],
+    [
+     "03-Resources/Infrastructure/Server Backup.md",
+     "03-Resources/Marketing/Partner Shops.md",
+     2
+    ]
+   ]
+  },
+  {
+   "a": 1,
+   "b": 5,
+   "links": 0,
+   "comentions": 4,
+   "suggest": [
+    [
+     "02-Projects/Warehouse/Supplier List.md",
+     "03-Resources/Marketing/Spring Campaign.md",
+     2
+    ],
+    [
+     "02-Projects/Warehouse/Stock Transfer Procedure.md",
+     "03-Resources/Marketing/Partner Shops.md",
+     2
+    ]
+   ]
+  },
+  {
+   "a": 0,
+   "b": 5,
+   "links": 0,
+   "comentions": 5,
+   "suggest": [
+    [
+     "02-Projects/Rental App/Map Screen.md",
+     "03-Resources/Marketing/Newsletter Plan.md",
+     3
+    ],
+    [
+     "02-Projects/Rental App/Push Notifications.md",
+     "03-Resources/Marketing/Newsletter Plan.md",
+     2
+    ]
+   ]
+  },
+  {
+   "a": 0,
+   "b": 2,
+   "links": 0,
+   "comentions": 4,
+   "suggest": [
+    [
+     "02-Projects/Rental App/App Store Release.md",
      "03-Resources/Infrastructure/VPN Setup.md",
      2
     ],
@@ -3435,127 +3536,45 @@
      "02-Projects/Rental App/Map Screen.md",
      "03-Resources/Infrastructure/Server Backup.md",
      2
-    ],
-    [
-     "02-Projects/Rental App/Push Notifications.md",
-     "03-Resources/Infrastructure/Database Upgrade.md",
-     2
-    ]
-   ]
-  },
-  {
-   "a": 1,
-   "b": 4,
-   "links": 0,
-   "comentions": 6,
-   "suggest": [
-    [
-     "02-Projects/Fleet/Tyre Checks.md",
-     "02-Projects/Warehouse/Barcode Scanner Setup.md",
-     2
-    ],
-    [
-     "02-Projects/Fleet/Tyre Checks.md",
-     "02-Projects/Warehouse/Reorder Rules.md",
-     2
-    ],
-    [
-     "02-Projects/Fleet/Tyre Checks.md",
-     "02-Projects/Warehouse/Supplier List.md",
-     2
-    ]
-   ]
-  },
-  {
-   "a": 1,
-   "b": 3,
-   "links": 0,
-   "comentions": 4,
-   "suggest": [
-    [
-     "02-Projects/Warehouse/Reorder Rules.md",
-     "03-Resources/Support/Common Questions.md",
-     2
-    ],
-    [
-     "02-Projects/Warehouse/Supplier List.md",
-     "03-Resources/Support/Ticket Triage.md",
-     2
     ]
    ]
   },
   {
    "a": 2,
-   "b": 4,
-   "links": 0,
-   "comentions": 4,
-   "suggest": [
-    [
-     "02-Projects/Fleet/Brake Service Schedule.md",
-     "03-Resources/Infrastructure/Database Upgrade.md",
-     2
-    ],
-    [
-     "02-Projects/Fleet/Battery Swaps.md",
-     "03-Resources/Infrastructure/Monitoring Alerts.md",
-     2
-    ]
-   ]
-  },
-  {
-   "a": 0,
-   "b": 4,
-   "links": 0,
-   "comentions": 4,
-   "suggest": [
-    [
-     "02-Projects/Fleet/Brake Service Schedule.md",
-     "02-Projects/Rental App/App Store Release.md",
-     2
-    ],
-    [
-     "02-Projects/Fleet/Tyre Checks.md",
-     "02-Projects/Rental App/Offline Mode.md",
-     2
-    ]
-   ]
-  },
-  {
-   "a": 0,
    "b": 3,
    "links": 0,
    "comentions": 2,
    "suggest": [
     [
-     "02-Projects/Rental App/Payment Integration.md",
+     "03-Resources/Infrastructure/Database Upgrade.md",
      "03-Resources/Support/Refund Policy.md",
      2
     ]
    ]
   },
   {
-   "a": 0,
-   "b": 1,
+   "a": 3,
+   "b": 4,
    "links": 0,
    "comentions": 2,
    "suggest": [
     [
-     "02-Projects/Rental App/Offline Mode.md",
-     "02-Projects/Warehouse/Inventory Counts.md",
+     "02-Projects/Fleet/Tyre Checks.md",
+     "03-Resources/Support/Escalation Process.md",
      2
     ]
    ]
   },
   {
-   "a": 3,
+   "a": 4,
    "b": 5,
    "links": 0,
-   "comentions": 3,
+   "comentions": 2,
    "suggest": [
     [
-     "03-Resources/Marketing/Partner Shops.md",
-     "03-Resources/Support/Ticket Triage.md",
-     3
+     "02-Projects/Fleet/Tyre Checks.md",
+     "03-Resources/Marketing/Spring Campaign.md",
+     2
     ]
    ]
   }
@@ -3569,13 +3588,13 @@
    0,
    1,
    0,
-   2
+   6
   ],
   [
    0,
    2,
    0,
-   12
+   4
   ],
   [
    0,
@@ -3587,43 +3606,61 @@
    0,
    4,
    0,
-   4
+   2
   ],
   [
    0,
    5,
    0,
+   5
+  ],
+  [
+   1,
+   2,
+   0,
    2
   ],
   [
    1,
-   3,
+   4,
+   0,
+   2
+  ],
+  [
+   1,
+   5,
    0,
    4
   ],
   [
-   1,
+   2,
+   3,
+   0,
+   2
+  ],
+  [
+   2,
    4,
+   0,
+   2
+  ],
+  [
+   2,
+   5,
    0,
    6
   ],
   [
-   2,
+   3,
    4,
-   0,
-   4
-  ],
-  [
-   2,
-   5,
    0,
    2
   ],
   [
-   3,
+   4,
    5,
    0,
-   3
+   2
   ]
  ],
  "snapshots": [],
@@ -3677,13 +3714,13 @@
     0,
     0,
     0,
-    1,
-    7,
     12,
-    5,
-    13,
-    15,
-    4
+    14,
+    6,
+    11,
+    17,
+    3,
+    1
    ],
    "1": [
     0,
@@ -3705,13 +3742,13 @@
     0,
     0,
     0,
-    1,
-    9,
-    9,
-    1,
+    7,
+    3,
     4,
-    2,
-    7
+    8,
+    1,
+    10,
+    3
    ],
    "2": [
     0,
@@ -3733,13 +3770,13 @@
     0,
     0,
     0,
-    0,
-    11,
-    1,
-    8,
-    8,
+    9,
     6,
-    9
+    8,
+    8,
+    10,
+    8,
+    0
    ],
    "3": [
     0,
@@ -3761,13 +3798,13 @@
     0,
     0,
     0,
-    0,
     1,
     6,
     11,
-    2,
+    0,
+    4,
     5,
-    8
+    0
    ],
    "4": [
     0,
@@ -3789,13 +3826,13 @@
     0,
     0,
     0,
-    0,
+    6,
     5,
-    8,
-    4,
-    9,
-    4,
-    6
+    1,
+    7,
+    2,
+    7,
+    0
    ],
    "5": [
     0,
@@ -3817,44 +3854,16 @@
     0,
     0,
     0,
-    0,
-    8,
-    2,
     6,
+    5,
+    7,
     3,
     3,
-    4
+    5,
+    3
    ]
   },
   "notes": {
-   "03-Resources/Support/Ticket Triage.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    2,
-    5,
-    2,
-    1,
-    5
-   ],
    "02-Projects/Rental App/App Store Release.md": [
     0,
     0,
@@ -3875,125 +3884,13 @@
     0,
     0,
     0,
-    0,
+    2,
+    2,
     1,
     2,
-    2,
-    2,
-    4,
-    0
-   ],
-   "02-Projects/Fleet/Tyre Checks.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    2,
-    5,
-    1,
-    0,
-    0,
-    2
-   ],
-   "02-Projects/Fleet/Battery Swaps.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    2,
-    3,
-    3,
-    2
-   ],
-   "03-Resources/Marketing/Spring Campaign.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    4,
-    0,
-    0,
-    0,
-    2,
-    3
-   ],
-   "03-Resources/Infrastructure/Monitoring Alerts.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
     3,
     0,
-    2,
-    0,
-    2,
-    2
+    1
    ],
    "03-Resources/Marketing/Partner Shops.md": [
     0,
@@ -4015,13 +3912,97 @@
     0,
     0,
     0,
-    0,
     2,
-    1,
+    0,
     4,
     0,
     1,
-    1
+    4,
+    0
+   ],
+   "03-Resources/Infrastructure/Monitoring Alerts.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    2,
+    2,
+    3,
+    2,
+    0
+   ],
+   "03-Resources/Infrastructure/SSL Certificates.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    0,
+    3,
+    3,
+    3,
+    0
+   ],
+   "03-Resources/Support/Ticket Triage.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    4,
+    0,
+    2,
+    4,
+    0
    ],
    "02-Projects/Rental App/Payment Integration.md": [
     0,
@@ -4043,15 +4024,15 @@
     0,
     0,
     0,
+    2,
+    2,
+    0,
+    2,
+    3,
     1,
-    0,
-    0,
-    1,
-    0,
-    6,
     0
    ],
-   "03-Resources/Infrastructure/Database Upgrade.md": [
+   "03-Resources/Marketing/Newsletter Plan.md": [
     0,
     0,
     0,
@@ -4071,12 +4052,40 @@
     0,
     0,
     0,
+    1,
+    4,
+    2,
+    2,
+    1,
     0,
-    5,
+    0
+   ],
+   "02-Projects/Warehouse/Barcode Scanner Setup.md": [
     0,
-    3,
     0,
     0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    4,
+    1,
+    1,
+    0,
+    1,
+    2,
     0
    ],
    "02-Projects/Rental App/Map Screen.md": [
@@ -4100,70 +4109,14 @@
     0,
     0,
     0,
-    0,
-    2,
     1,
-    3,
-    0,
-    2
-   ],
-   "03-Resources/Infrastructure/SSL Certificates.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    3,
     2,
-    3
-   ],
-   "02-Projects/Rental App/Push Notifications.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
     2,
+    3,
     1,
-    0,
-    2,
-    2,
     0
    ],
-   "02-Projects/Rental App/Offline Mode.md": [
+   "02-Projects/Fleet/Battery Swaps.md": [
     0,
     0,
     0,
@@ -4184,67 +4137,39 @@
     0,
     0,
     0,
-    1,
     0,
-    0,
-    4,
-    0,
-    2
-   ],
-   "02-Projects/Warehouse/Inventory Counts.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    2,
-    1,
-    0,
-    2,
-    0,
-    2
-   ],
-   "03-Resources/Marketing/Newsletter Plan.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    2,
-    1,
     1,
     3,
+    2,
+    3,
+    0
+   ],
+   "02-Projects/Fleet/Tyre Checks.md": [
     0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    3,
+    3,
+    0,
+    0,
+    0,
+    2,
     0
    ],
    "03-Resources/Infrastructure/Server Backup.md": [
@@ -4268,43 +4193,14 @@
     0,
     0,
     0,
-    1,
-    0,
-    0,
     2,
-    1,
-    3
-   ],
-   "02-Projects/Warehouse/Barcode Scanner Setup.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
     0,
     1,
     2,
-    2,
-    0,
-    0,
-    1,
+    3,
     0
    ],
-   "02-Projects/Warehouse/Reorder Rules.md": [
-    0,
+   "02-Projects/Rental App/Push Notifications.md": [
     0,
     0,
     0,
@@ -4328,10 +4224,11 @@
     2,
     0,
     1,
-    1,
+    2,
+    0,
     0
    ],
-   "02-Projects/Fleet Maintenance - Context.md": [
+   "03-Resources/Infrastructure - Context.md": [
     0,
     0,
     0,
@@ -4351,15 +4248,43 @@
     0,
     0,
     0,
-    0,
+    2,
     1,
+    1,
+    1,
+    2,
+    0,
+    0
+   ],
+   "02-Projects/Warehouse/Inventory Counts.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
     1,
     0,
     2,
+    2,
+    0,
     1,
     1
    ],
-   "02-Projects/Rental App/Booking Flow.md": [
+   "02-Projects/Rental App/Offline Mode.md": [
     0,
     0,
     0,
@@ -4379,12 +4304,12 @@
     0,
     0,
     0,
-    0,
-    2,
-    2,
     0,
     0,
     2,
+    3,
+    1,
+    1,
     0
    ],
    "02-Projects/Rental App - Context.md": [
@@ -4407,17 +4332,43 @@
     0,
     0,
     0,
-    0,
-    1,
-    2,
-    0,
     2,
     1,
+    1,
+    1,
+    1,
+    0,
     0
    ],
-   "02-Projects/Warehouse/Supplier List.md": [
+   "02-Projects/Warehouse/Reorder Rules.md": [
     0,
     0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    1,
+    0,
+    1,
+    0,
+    2,
+    0
+   ],
+   "03-Resources/Marketing/Spring Campaign.md": [
     0,
     0,
     0,
@@ -4441,35 +4392,37 @@
     0,
     0,
     0,
-    3
-   ],
-   "02-Projects/Fleet/Repair Log Template.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    2,
     1,
+    0,
+    2
+   ],
+   "03-Resources/Infrastructure/Database Upgrade.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    4,
+    0,
     2,
     0,
-    1
+    0,
+    0,
+    0
    ],
    "03-Resources/Infrastructure/VPN Setup.md": [
     0,
@@ -4491,11 +4444,67 @@
     0,
     0,
     0,
-    0,
-    0,
-    1,
     2,
+    0,
     3,
+    1,
+    0,
+    0,
+    0
+   ],
+   "02-Projects/Rental App/Booking Flow.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    2,
+    0,
+    0,
+    2,
+    0,
+    0
+   ],
+   "02-Projects/Rental App/Login Timeout Bug.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    4,
+    0,
+    0,
+    2,
     0,
     0
    ],
@@ -4521,69 +4530,69 @@
     0,
     0,
     0,
+    5,
+    0,
+    1,
+    0,
+    0
+   ],
+   "02-Projects/Warehouse/Stock Transfer Procedure.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
     0,
     4,
     0,
     2,
     0
    ],
-   "02-Projects/Warehouse - Context.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    2,
-    1,
-    0,
-    1,
-    0,
-    1
-   ],
-   "03-Resources/Infrastructure - Context.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    2,
-    0,
-    1,
-    0,
-    1,
-    1
-   ],
    "03-Resources/Support/Escalation Process.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    2,
+    1,
+    0,
+    1,
+    0,
+    0
+   ],
+   "03-Resources/Marketing - Context.md": [
     0,
     0,
     0,
@@ -4631,12 +4640,124 @@
     0,
     0,
     0,
-    0,
     2,
     0,
     0,
     2,
     0,
+    0,
+    0
+   ],
+   "02-Projects/Warehouse/Supplier List.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    1,
+    2
+   ],
+   "02-Projects/Fleet/Repair Log Template.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2,
+    0,
+    1,
+    0,
+    1,
+    0
+   ],
+   "02-Projects/Warehouse - Context.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    0,
+    2,
+    0
+   ],
+   "02-Projects/Fleet Maintenance - Context.md": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    1,
+    0,
+    1,
     0
    ],
    "03-Resources/Customer Support - Context.md": [
@@ -4660,14 +4781,14 @@
     0,
     0,
     0,
-    0,
     1,
     1,
     0,
+    0,
     1,
-    1
+    0
    ],
-   "02-Projects/Warehouse/Stock Transfer Procedure.md": [
+   "02-Projects/Rental App/API Design.md": [
     0,
     0,
     0,
@@ -4687,37 +4808,9 @@
     0,
     0,
     0,
-    0,
-    1,
-    0,
-    1,
+    2,
     0,
     0,
-    1
-   ],
-   "02-Projects/Rental App/Login Timeout Bug.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    3,
     0,
     0,
     0,
@@ -4744,65 +4837,9 @@
     0,
     0,
     0,
-    0,
     2,
     0,
     0,
-    0,
-    1
-   ],
-   "02-Projects/Rental App/API Design.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0
-   ],
-   "03-Resources/Marketing - Context.md": [
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    1,
     0,
     0,
     0
@@ -4812,127 +4849,63 @@
  "followthrough": {
   "items": [
    {
-    "d": "2026-09-21",
-    "t": "Finish the spring campaign changes",
+    "d": "2026-09-14",
+    "t": "Finish the reorder rules changes",
     "s": "next",
-    "w": "2026-09-22",
-    "m": "Marketing Finished the spring campaign changes",
+    "w": "2026-09-15",
+    "m": "Warehouse Finished the reorder rules changes",
     "c": 0
    },
    {
-    "d": "2026-09-21",
-    "t": "Start the stock transfer procedure rollout",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-09-22",
-    "t": "Finish the app store release changes",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-09-22",
-    "t": "Start the monitoring alerts rollout",
-    "s": "later",
-    "w": "2026-09-25",
-    "m": "Infrastructure Finished the monitoring alerts changes",
-    "c": 0
-   },
-   {
-    "d": "2026-09-23",
-    "t": "Finish the booking flow changes",
+    "d": "2026-09-14",
+    "t": "Start the tyre checks rollout",
     "s": "next",
-    "w": "2026-09-24",
-    "m": "Rental App Finished the booking flow changes",
-    "c": 0
-   },
-   {
-    "d": "2026-09-23",
-    "t": "Start the offline mode rollout",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-09-24",
-    "t": "Finish the partner shops changes",
-    "s": "next",
-    "w": "2026-09-25",
-    "m": "Marketing Finished the partner shops changes",
-    "c": 0
-   },
-   {
-    "d": "2026-09-24",
-    "t": "Start the database upgrade rollout",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-09-25",
-    "t": "Finish the newsletter plan changes",
-    "s": "next",
-    "w": "2026-09-28",
-    "m": "Marketing Finished the newsletter plan changes",
-    "c": 0
-   },
-   {
-    "d": "2026-09-25",
-    "t": "Start the monitoring alerts rollout",
-    "s": "later",
-    "w": "2026-10-06",
-    "m": "Infrastructure Finished the monitoring alerts changes",
-    "c": 0
-   },
-   {
-    "d": "2026-09-28",
-    "t": "Finish the tyre checks changes",
-    "s": "next",
-    "w": "2026-09-29",
+    "w": "2026-09-15",
     "m": "Fleet Maintenance Finished the tyre checks changes",
     "c": 0
    },
    {
-    "d": "2026-09-28",
-    "t": "Start the escalation process rollout",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-09-29",
-    "t": "Finish the login timeout bug changes",
+    "d": "2026-09-15",
+    "t": "Finish the brake service schedule changes",
     "s": "next",
-    "w": "2026-09-30",
-    "m": "Rental App Finished the login timeout bug changes",
+    "w": "2026-09-16",
+    "m": "Fleet Maintenance Finished the brake service schedule changes",
     "c": 0
    },
    {
-    "d": "2026-09-29",
-    "t": "Start the ticket triage rollout",
+    "d": "2026-09-15",
+    "t": "Start the database upgrade rollout",
     "s": "later",
-    "w": "2026-10-05",
-    "m": "Customer Support Finished the ticket triage changes",
+    "w": "2026-09-18",
+    "m": "Infrastructure Finished the database upgrade changes",
+    "c": 1
+   },
+   {
+    "d": "2026-09-16",
+    "t": "Finish the database upgrade changes",
+    "s": "later",
+    "w": "2026-09-18",
+    "m": "Infrastructure Finished the database upgrade changes",
     "c": 0
    },
    {
-    "d": "2026-09-30",
-    "t": "Finish the login timeout bug changes",
+    "d": "2026-09-16",
+    "t": "Start the push notifications rollout",
+    "s": "later",
+    "w": "2026-09-25",
+    "m": "Marketing Reviewed push notifications with Ben",
+    "c": 0
+   },
+   {
+    "d": "2026-09-17",
+    "t": "Finish the barcode scanner setup changes",
     "s": "next",
-    "w": "2026-10-01",
-    "m": "Rental App Finished the login timeout bug changes",
+    "w": "2026-09-18",
+    "m": "Warehouse Finished the barcode scanner setup changes",
     "c": 0
    },
    {
-    "d": "2026-09-30",
+    "d": "2026-09-17",
     "t": "Start the inventory counts rollout",
     "s": "dropped",
     "w": null,
@@ -4940,319 +4913,15 @@
     "c": 0
    },
    {
-    "d": "2026-10-01",
-    "t": "Finish the push notifications changes",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-10-01",
-    "t": "Start the supplier list rollout",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-10-02",
-    "t": "Finish the app store release changes",
-    "s": "later",
-    "w": "2026-10-07",
-    "m": "Infrastructure Finished the vpn setup changes Reviewed app store release with Ben",
-    "c": 0
-   },
-   {
-    "d": "2026-10-02",
-    "t": "Start the login timeout bug rollout",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-10-05",
-    "t": "Finish the refund policy changes",
+    "d": "2026-09-18",
+    "t": "Finish the monitoring alerts changes",
     "s": "next",
-    "w": "2026-10-06",
-    "m": "Customer Support Finished the refund policy changes",
+    "w": "2026-09-21",
+    "m": "Infrastructure Finished the monitoring alerts changes",
     "c": 0
    },
    {
-    "d": "2026-10-05",
-    "t": "Start the ticket triage rollout",
-    "s": "later",
-    "w": "2026-10-08",
-    "m": "Marketing Reviewed ticket triage with Ana",
-    "c": 0
-   },
-   {
-    "d": "2026-10-06",
-    "t": "Finish the database upgrade changes",
-    "s": "next",
-    "w": "2026-10-07",
-    "m": "Infrastructure Finished the database upgrade changes",
-    "c": 0
-   },
-   {
-    "d": "2026-10-06",
-    "t": "Start the tyre checks rollout",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-10-07",
-    "t": "Finish the partner shops changes",
-    "s": "next",
-    "w": "2026-10-08",
-    "m": "Marketing Finished the partner shops changes",
-    "c": 0
-   },
-   {
-    "d": "2026-10-07",
-    "t": "Start the repair log template rollout",
-    "s": "later",
-    "w": "2026-10-15",
-    "m": "Fleet Maintenance Reviewed repair log template with Dev",
-    "c": 0
-   },
-   {
-    "d": "2026-10-08",
-    "t": "Finish the ticket triage changes",
-    "s": "next",
-    "w": "2026-10-09",
-    "m": "Customer Support Finished the ticket triage changes",
-    "c": 0
-   },
-   {
-    "d": "2026-10-08",
-    "t": "Start the api design rollout",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-10-09",
-    "t": "Finish the newsletter plan changes",
-    "s": "next",
-    "w": "2026-10-12",
-    "m": "Marketing Finished the newsletter plan changes",
-    "c": 0
-   },
-   {
-    "d": "2026-10-09",
-    "t": "Start the database upgrade rollout",
-    "s": "carried",
-    "w": null,
-    "m": "",
-    "c": 1
-   },
-   {
-    "d": "2026-10-12",
-    "t": "Finish the ssl certificates changes",
-    "s": "next",
-    "w": "2026-10-13",
-    "m": "Infrastructure Finished the ssl certificates changes",
-    "c": 0
-   },
-   {
-    "d": "2026-10-12",
-    "t": "Start the database upgrade rollout",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-10-13",
-    "t": "Finish the offline mode changes",
-    "s": "next",
-    "w": "2026-10-14",
-    "m": "Warehouse Finished the inventory counts changes Reviewed offline mode with Ana",
-    "c": 0
-   },
-   {
-    "d": "2026-10-13",
-    "t": "Start the ticket triage rollout",
-    "s": "carried",
-    "w": null,
-    "m": "",
-    "c": 1
-   },
-   {
-    "d": "2026-10-14",
-    "t": "Finish the battery swaps changes",
-    "s": "next",
-    "w": "2026-10-15",
-    "m": "Fleet Maintenance Finished the battery swaps changes",
-    "c": 0
-   },
-   {
-    "d": "2026-10-14",
-    "t": "Start the vpn setup rollout",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-10-15",
-    "t": "Finish the map screen changes",
-    "s": "next",
-    "w": "2026-10-16",
-    "m": "Rental App Finished the map screen changes",
-    "c": 0
-   },
-   {
-    "d": "2026-10-15",
-    "t": "Start the newsletter plan rollout",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-10-16",
-    "t": "Finish the ssl certificates changes",
-    "s": "next",
-    "w": "2026-10-19",
-    "m": "Rental App Finished the payment integration changes Reviewed ssl certificates with Ben",
-    "c": 0
-   },
-   {
-    "d": "2026-10-16",
-    "t": "Start the push notifications rollout",
-    "s": "later",
-    "w": "2026-10-22",
-    "m": "Rental App Finished the push notifications changes",
-    "c": 1
-   },
-   {
-    "d": "2026-10-19",
-    "t": "Finish the map screen changes",
-    "s": "later",
-    "w": "2026-10-26",
-    "m": "Rental App Finished the map screen changes",
-    "c": 0
-   },
-   {
-    "d": "2026-10-19",
-    "t": "Start the app store release rollout",
-    "s": "later",
-    "w": "2026-10-21",
-    "m": "Infrastructure Reviewed app store release with Ana",
-    "c": 0
-   },
-   {
-    "d": "2026-10-20",
-    "t": "Finish the battery swaps changes",
-    "s": "next",
-    "w": "2026-10-21",
-    "m": "Fleet Maintenance Finished the battery swaps changes",
-    "c": 0
-   },
-   {
-    "d": "2026-10-20",
-    "t": "Start the ticket triage rollout",
-    "s": "later",
-    "w": "2026-10-28",
-    "m": "Customer Support Finished the ticket triage changes",
-    "c": 1
-   },
-   {
-    "d": "2026-10-21",
-    "t": "Finish the push notifications changes",
-    "s": "next",
-    "w": "2026-10-22",
-    "m": "Rental App Finished the push notifications changes",
-    "c": 0
-   },
-   {
-    "d": "2026-10-21",
-    "t": "Start the app store release rollout",
-    "s": "carried",
-    "w": null,
-    "m": "",
-    "c": 2
-   },
-   {
-    "d": "2026-10-22",
-    "t": "Finish the app store release changes",
-    "s": "carried",
-    "w": null,
-    "m": "",
-    "c": 1
-   },
-   {
-    "d": "2026-10-22",
-    "t": "Start the server backup rollout",
-    "s": "later",
-    "w": "2026-10-27",
-    "m": "Infrastructure Finished the server backup changes",
-    "c": 1
-   },
-   {
-    "d": "2026-10-23",
-    "t": "Finish the barcode scanner setup changes",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-10-23",
-    "t": "Start the app store release rollout",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-10-26",
-    "t": "Finish the server backup changes",
-    "s": "next",
-    "w": "2026-10-27",
-    "m": "Infrastructure Finished the server backup changes",
-    "c": 0
-   },
-   {
-    "d": "2026-10-26",
-    "t": "Start the escalation process rollout",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-10-27",
-    "t": "Finish the ticket triage changes",
-    "s": "next",
-    "w": "2026-10-28",
-    "m": "Customer Support Finished the ticket triage changes",
-    "c": 0
-   },
-   {
-    "d": "2026-10-27",
-    "t": "Start the stock transfer procedure rollout",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-10-28",
-    "t": "Finish the partner shops changes",
-    "s": "dropped",
-    "w": null,
-    "m": "",
-    "c": 0
-   },
-   {
-    "d": "2026-10-28",
+    "d": "2026-09-18",
     "t": "Start the spring campaign rollout",
     "s": "dropped",
     "w": null,
@@ -5260,23 +4929,407 @@
     "c": 0
    },
    {
-    "d": "2026-10-29",
+    "d": "2026-09-21",
+    "t": "Finish the booking flow changes",
+    "s": "next",
+    "w": "2026-09-22",
+    "m": "Rental App Finished the booking flow changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-21",
+    "t": "Start the map screen rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-09-22",
+    "t": "Finish the tyre checks changes",
+    "s": "carried",
+    "w": null,
+    "m": "",
+    "c": 1
+   },
+   {
+    "d": "2026-09-22",
+    "t": "Start the supplier list rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-09-23",
+    "t": "Finish the common questions changes",
+    "s": "next",
+    "w": "2026-09-24",
+    "m": "Customer Support Finished the common questions changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-23",
+    "t": "Start the reorder rules rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-09-24",
+    "t": "Finish the booking flow changes",
+    "s": "next",
+    "w": "2026-09-25",
+    "m": "Rental App Finished the booking flow changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-24",
+    "t": "Start the repair log template rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-09-25",
+    "t": "Finish the barcode scanner setup changes",
+    "s": "next",
+    "w": "2026-09-28",
+    "m": "Warehouse Finished the barcode scanner setup changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-25",
+    "t": "Start the tyre checks rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-09-28",
+    "t": "Finish the ticket triage changes",
+    "s": "later",
+    "w": "2026-10-02",
+    "m": "Rental App Finished the offline mode changes Reviewed ticket triage with Ben",
+    "c": 1
+   },
+   {
+    "d": "2026-09-28",
+    "t": "Start the partner shops rollout",
+    "s": "later",
+    "w": "2026-10-01",
+    "m": "Warehouse Reviewed partner shops with Dev",
+    "c": 0
+   },
+   {
+    "d": "2026-09-29",
     "t": "Finish the monitoring alerts changes",
     "s": "next",
-    "w": "2026-10-30",
+    "w": "2026-09-30",
     "m": "Infrastructure Finished the monitoring alerts changes",
     "c": 0
    },
    {
-    "d": "2026-10-29",
-    "t": "Start the common questions rollout",
+    "d": "2026-09-29",
+    "t": "Start the battery swaps rollout",
+    "s": "later",
+    "w": "2026-10-08",
+    "m": "Rental App Reviewed battery swaps with Chloe",
+    "c": 0
+   },
+   {
+    "d": "2026-09-30",
+    "t": "Finish the vpn setup changes",
+    "s": "next",
+    "w": "2026-10-01",
+    "m": "Infrastructure Finished the vpn setup changes",
+    "c": 0
+   },
+   {
+    "d": "2026-09-30",
+    "t": "Start the app store release rollout",
+    "s": "later",
+    "w": "2026-10-08",
+    "m": "Rental App Finished the app store release changes",
+    "c": 1
+   },
+   {
+    "d": "2026-10-01",
+    "t": "Finish the partner shops changes",
+    "s": "carried",
+    "w": null,
+    "m": "",
+    "c": 1
+   },
+   {
+    "d": "2026-10-01",
+    "t": "Start the ticket triage rollout",
+    "s": "next",
+    "w": "2026-10-02",
+    "m": "Rental App Reviewed ticket triage with Ben",
+    "c": 0
+   },
+   {
+    "d": "2026-10-02",
+    "t": "Finish the partner shops changes",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-10-02",
+    "t": "Start the refund policy rollout",
+    "s": "carried",
+    "w": null,
+    "m": "",
+    "c": 1
+   },
+   {
+    "d": "2026-10-05",
+    "t": "Finish the brake service schedule changes",
+    "s": "next",
+    "w": "2026-10-06",
+    "m": "Fleet Maintenance Finished the brake service schedule changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-05",
+    "t": "Start the app store release rollout",
+    "s": "later",
+    "w": "2026-10-08",
+    "m": "Rental App Finished the app store release changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-06",
+    "t": "Finish the offline mode changes",
+    "s": "next",
+    "w": "2026-10-07",
+    "m": "Warehouse Finished the stock transfer procedure changes Reviewed offline mode with Chloe",
+    "c": 0
+   },
+   {
+    "d": "2026-10-06",
+    "t": "Start the vpn setup rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-10-07",
+    "t": "Finish the inventory counts changes",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-10-07",
+    "t": "Start the offline mode rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-10-08",
+    "t": "Finish the battery swaps changes",
+    "s": "next",
+    "w": "2026-10-09",
+    "m": "Fleet Maintenance Finished the battery swaps changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-08",
+    "t": "Start the repair log template rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-10-09",
+    "t": "Finish the map screen changes",
+    "s": "next",
+    "w": "2026-10-12",
+    "m": "Rental App Finished the map screen changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-09",
+    "t": "Start the server backup rollout",
+    "s": "later",
+    "w": "2026-10-13",
+    "m": "Infrastructure Finished the server backup changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-12",
+    "t": "Finish the payment integration changes",
+    "s": "next",
+    "w": "2026-10-13",
+    "m": "Rental App Finished the payment integration changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-12",
+    "t": "Start the ssl certificates rollout",
+    "s": "later",
+    "w": "2026-10-14",
+    "m": "Infrastructure Finished the ssl certificates changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-13",
+    "t": "Finish the refund policy changes",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-10-13",
+    "t": "Start the payment integration rollout",
+    "s": "later",
+    "w": "2026-10-19",
+    "m": "Rental App Finished the payment integration changes",
+    "c": 1
+   },
+   {
+    "d": "2026-10-14",
+    "t": "Finish the monitoring alerts changes",
+    "s": "next",
+    "w": "2026-10-15",
+    "m": "Infrastructure Finished the monitoring alerts changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-14",
+    "t": "Start the app store release rollout",
+    "s": "later",
+    "w": "2026-10-16",
+    "m": "Infrastructure Reviewed app store release with Ben",
+    "c": 0
+   },
+   {
+    "d": "2026-10-15",
+    "t": "Finish the booking flow changes",
+    "s": "next",
+    "w": "2026-10-16",
+    "m": "Rental App Finished the booking flow changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-15",
+    "t": "Start the booking flow rollout",
+    "s": "next",
+    "w": "2026-10-16",
+    "m": "Rental App Finished the booking flow changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-16",
+    "t": "Finish the payment integration changes",
+    "s": "next",
+    "w": "2026-10-19",
+    "m": "Rental App Finished the payment integration changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-16",
+    "t": "Start the spring campaign rollout",
+    "s": "later",
+    "w": "2026-10-26",
+    "m": "Marketing Finished the spring campaign changes",
+    "c": 1
+   },
+   {
+    "d": "2026-10-19",
+    "t": "Finish the map screen changes",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-10-19",
+    "t": "Start the spring campaign rollout",
+    "s": "later",
+    "w": "2026-10-26",
+    "m": "Marketing Finished the spring campaign changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-20",
+    "t": "Finish the ssl certificates changes",
+    "s": "next",
+    "w": "2026-10-21",
+    "m": "Infrastructure Finished the ssl certificates changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-20",
+    "t": "Start the battery swaps rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-10-21",
+    "t": "Finish the tyre checks changes",
+    "s": "next",
+    "w": "2026-10-22",
+    "m": "Fleet Maintenance Finished the tyre checks changes",
+    "c": 0
+   },
+   {
+    "d": "2026-10-21",
+    "t": "Start the offline mode rollout",
+    "s": "carried",
+    "w": null,
+    "m": "",
+    "c": 1
+   },
+   {
+    "d": "2026-10-22",
+    "t": "Finish the inventory counts changes",
+    "s": "carried",
+    "w": null,
+    "m": "",
+    "c": 1
+   },
+   {
+    "d": "2026-10-22",
+    "t": "Start the offline mode rollout",
+    "s": "dropped",
+    "w": null,
+    "m": "",
+    "c": 0
+   },
+   {
+    "d": "2026-10-23",
+    "t": "Finish the supplier list changes",
+    "s": "next",
+    "w": "2026-10-26",
+    "m": "Marketing Finished the spring campaign changes Reviewed supplier list with Ben",
+    "c": 0
+   },
+   {
+    "d": "2026-10-23",
+    "t": "Start the ticket triage rollout",
     "s": "pending",
     "w": null,
     "m": "",
     "c": 0
    }
   ],
-  "standups": 30,
+  "standups": 31,
   "days": 150
  },
  "near_dupes": [
@@ -5297,7 +5350,7 @@
     "rental-app/src",
     5,
     5,
-    "2026-10-29",
+    "2026-10-23",
     3,
     [
      "02-Projects/Rental App/Booking Flow.md"
@@ -5310,7 +5363,7 @@
     "rental-app/src/payments.js",
     2,
     2,
-    "2026-10-29",
+    "2026-10-23",
     [
      "02-Projects/Rental App/Booking Flow.md"
     ]
@@ -5319,7 +5372,7 @@
     "rental-app/src/booking.js",
     2,
     2,
-    "2026-10-20",
+    "2026-10-14",
     [
      "02-Projects/Rental App/Booking Flow.md"
     ]
@@ -5328,7 +5381,7 @@
     "rental-app/src/map.js",
     1,
     1,
-    "2026-10-23",
+    "2026-10-17",
     []
    ]
   ],
