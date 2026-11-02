@@ -320,7 +320,7 @@ class VaultHQView extends ItemView {
     api.openNote = notePath => open(notePath, true);   // a note opens in its own tab: HQ stays where it is
     api.searchNotes = (query, count) => this.plugin.recall(query, count);
     this.handle = mountVaultHQ(el.createDiv({ cls: "vg-hq-root" }), d, {
-      api, state, mobile: Platform.isMobile, screen: this.plugin.settings.hqScreen,
+      api, state, mobile: Platform.isMobile, screen: this.plugin.settings.hqScreen, onNext: () => this.plugin.nextStepSoon(),
       onScreen: s => { this.plugin.settings.hqScreen = s; this.plugin.saveSettings(); },
       ask: (title, text, ok) => confirmModal(this.app, title, text, ok),
       input: (title, text, placeholder) => inputModal(this.app, title, text, placeholder),
@@ -576,7 +576,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     this.addCommand({ id: "capture-note", name: "Capture a note", callback: captureFrom("note") });
     this.addCommand({ id: "hq-palette", name: "Find or do anything (HQ)", callback: async () => { const leaf = await this.openHQ(); if (leaf.view.handle) leaf.view.handle.palette(); } });
     this.addRibbonIcon("layout-dashboard", "Open Vault HQ", () => this.openHQ());
-    this.app.workspace.onLayoutReady(() => { if (this.settings.hqAtStart !== false) this.openHQ().then(() => setTimeout(() => this.oneHQ(), 1500)).catch(e => console.error("Vault Graph: HQ didn't open", e));   // HQ is the home screen. After a plugin update the old tab reconnects a moment after this opens a new one, so look again
+    this.app.workspace.onLayoutReady(() => { if (this.settings.hqAtStart !== false) this.openHQ().then(() => setTimeout(() => { this.oneHQ(); [HQ_TYPE, VIEW_TYPE].flatMap(t => this.app.workspace.getLeavesOfType(t)).forEach(l => l.updateHeader && l.updateHeader()); }, 1500)).catch(e => console.error("Vault Graph: HQ didn't open", e));   // HQ is the home screen. After a plugin update the old tab reconnects a moment after this opens a new one, so look again
       setTimeout(() => this.recall("warm", 1).catch(() => {}), 8000); });   // read the notes and build search's index once things are quiet, so the first real search is instant
     // a note HQ reads changed (a task ticked in the journal, a draft's status set by hand): HQ and the sidebar redraw.
     // The live signature can't see these (no file or link count changes).
@@ -628,6 +628,10 @@ module.exports = class VaultGraphPlugin extends Plugin {
     // Keep the analysis current (desktop): after a pause in editing it re-runs quietly, open graph or not. The status
     // bar only says so while it runs; between runs the live merge already shows every edit.
     if (Platform.isDesktopApp) {
+      // the next step, on every note: the same one HQ marks
+      this.nextEl = this.addStatusBarItem(); this.nextEl.addClass("vg-nextstatus"); this.nextEl.onClickEvent(() => this.goNextStep());
+      this.app.workspace.onLayoutReady(() => this.nextStepSoon(3000));
+      this.registerInterval(window.setInterval(() => this.updateNextStep(), 5 * 60 * 1000));   // the day moves on by itself: the evening's standup
       this.statusEl = this.addStatusBarItem();
       this.statusEl.addClass("vg-status");
       this.statusEl.setAttr("aria-label", "Vault Graph is updating its topics and suggestions");
@@ -1243,6 +1247,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       hqMark: (key, mark) => this.hqMark(key, mark),
       hqReact: (kind, how) => this.hqReact(kind, how),
       capture: (text, kind) => this.capture(text, kind),
+      goNextStep: () => this.goNextStep(),
       hqFocus: keys => this.hqFocus(keys),
       hqSession: (day, minutes, project) => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.sessions = VGRules.sessionAdded(sh.review, day, minutes); if (project) sh.review.sessionFor = { ...(sh.review.sessionFor || {}), [project]: VGRules.projectMinutes(sh.review, project) + minutes }; return sh; }),
       readNote: async notePath => { const f = this.app.vault.getAbstractFileByPath(normalizePath(notePath)); if (!(f instanceof TFile)) throw new Error("missing note"); return this.app.vault.cachedRead(f); },
@@ -1735,11 +1740,13 @@ module.exports = class VaultGraphPlugin extends Plugin {
   }
   // The shared file, dismissals or a device ledger changed (here or by Sync): dismissals apply at once, the sidebar redraws
   async sharedChanged(file) {
+    this.nextStepSoon();
     if (file.path !== normalizePath(this.settings.sharedPath)) { await this.loadDismissed(); this.cacheStale = true; }
     this.app.workspace.getLeavesOfType(SUGGEST_TYPE).forEach(l => l.view.renderSoon && l.view.renderSoon());
     this.app.workspace.getLeavesOfType(HQ_TYPE).forEach(l => l.view.render && l.view.render());   // Later / Done marks
   }
   refreshHQViews() {
+    this.nextStepSoon();
     [HQ_TYPE, SUGGEST_TYPE].flatMap(type => this.app.workspace.getLeavesOfType(type)).forEach(leaf => {
       const view = leaf && leaf.view, refresh = view && (typeof view.renderSoon === "function" ? view.renderSoon : view.render);
       if (typeof refresh === "function") refresh.call(view);
@@ -1801,7 +1808,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     await this.updateShared(sh => {
       sh.review = sh.review || {};
       const m = sh.review.hq = { ...(sh.review.hq || {}) };
-      if (mark) m[key] = `${mark}:${day}`; else delete m[key];
+      if (mark) m[key] = String(mark).startsWith("until:") ? mark : `${mark}:${day}`; else delete m[key];   // until:<date> carries its own day
       Object.keys(m).forEach(k => { const [how, d] = String(m[k]).split(":");
         if ((how === "later" && d !== day) || Date.parse(day) - Date.parse(d) > keep) delete m[k]; });
       return sh;
@@ -1829,6 +1836,17 @@ module.exports = class VaultGraphPlugin extends Plugin {
     } catch (e) { /* no run records on this device */ }
     return VGRules.hqGather(files, { today: day });
   }
+  // The status bar's next step and where it leads
+  nextStepSoon(ms = 1500) { if (!this.nextEl) return; clearTimeout(this.nextTimer); this.nextTimer = setTimeout(() => this.updateNextStep(), ms); }
+  async updateNextStep() {
+    if (!this.nextEl) return;
+    try {
+      const data = await this.graphData(), sh = await this.loadShared(), leaf = this.app.workspace.getLeavesOfType(HQ_TYPE)[0], s = leaf && leaf.view && leaf.view.handle && leaf.view.handle.session();
+      const n = VGRules.hqNextOf(data || {}, { review: sh && sh.review, hidden: sh && sh.cosmos && sh.cosmos.hidden, today: today(), session: s ? { title: s.title } : null });
+      this.nextEl.setText(`Next: ${n.label}`); this.nextEl.setAttr("aria-label", `Go to: ${n.label}`);
+    } catch (e) { console.error("Vault Graph: next step not worked out", e); }
+  }
+  async goNextStep() { const leaf = await this.openHQ(); if (!leaf.view.handle && leaf.view.render) await leaf.view.render(); if (leaf.view.handle) leaf.view.handle.next(); }
   // one HQ, however many tabs a restart or an update left
   oneHQ() { const open = this.app.workspace.getLeavesOfType(HQ_TYPE); open.slice(1).forEach(l => l.detach()); return open[0] || null; }
   async openHQ() {

@@ -45,7 +45,7 @@ function buildPlugin(rules) {
     + "   Sources: src/rules.js (+ the vault's rules file), src/actions.js, src/hq/*.js, src/engine.js, src/view/*.js (+ src/scenes/*.js), src/plugin.js. */\n";
   return {
     "main.js": header + rulesJs(rules) + "\n" + hqJs() + "\n" + read("engine.js") + "\n" + viewJs() + "\n" + read("plugin.js"),
-    "styles.css": read("view.css") + "\n" + read("hq.css") + "\n.vg-host { padding: 0 !important; overflow: hidden; }\n.vg-host > div { height: 100%; }\n"
+    "styles.css": read("tokens.css") + "\n" + read("view.css") + "\n" + read("hq.css") + "\n.vg-host { padding: 0 !important; overflow: hidden; }\n.vg-host > div { height: 100%; }\n"
       + "/* Obsidian desktop's floating status bar covers the bottom of the pane: lift the bottom chrome */\n"
       + "body:not(.is-mobile) .vg-host .vg-root { --vg-bottom: calc(var(--status-bar-height, 22px) + 8px); }\n",
     "manifest.json": JSON.stringify({
@@ -98,7 +98,7 @@ function buildPage(data, rules) {
   const js = rulesJs(rules) + "\n" + viewJs();
   // an inline <script> ends at the first "</script"; no source may contain one
   if (js.toLowerCase().includes("</script")) throw new Error("inline script contains </script");
-  return PAGE.replace("__CSS__", () => read("view.css")).replace("__VIEW__", () => js)
+  return PAGE.replace("__CSS__", () => read("tokens.css") + read("view.css")).replace("__VIEW__", () => js)
     .replace("__DATA__", () => JSON.stringify(data).replace(/<\//g, "<\\/"));
 }
 
@@ -111,7 +111,7 @@ function buildHQPage(data, rules) {
   // Obsidian's own rules for every button (mobile's included): HQ is tested against them, since they win over a
   // single class (a project card showed one clipped line on the phone)
   const obsidianButtons = "button { display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; overflow: hidden; height: 30px; padding: 4px 12px; background-color: #3a3a3a; box-shadow: 0 1px 2px rgba(0,0,0,.4); text-align: center; }\n";
-  return PAGE.split("<script>")[0].replace("<title>Vault Graph</title>", "<title>Vault HQ</title>").replace("__CSS__", () => obsidianButtons + read("hq.css"))
+  return PAGE.split("<script>")[0].replace("<title>Vault Graph</title>", "<title>Vault HQ</title>").replace("__CSS__", () => obsidianButtons + read("tokens.css") + read("hq.css"))
     .replace('<div id="vg" style="height:100%"></div>', '<div id="hq" style="height:100%"></div>')
     + `<script>\n${js}\nconst DATA = ${JSON.stringify(data).replace(/<\//g, "<\\/")};\n`
     + `window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, {\n  api: { openNote: p => { (window.__opened = window.__opened || []).push(p); } },\n  ${HQ_OPTS}\n});\n</script></body></html>\n`;

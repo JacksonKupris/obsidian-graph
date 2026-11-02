@@ -1,0 +1,40 @@
+/* The design system: one set of values for Vault HQ and the graph. Colour comes from the vault's theme and accent, so changing
+   those changes everything here; the fallbacks are for the standalone test pages. Sizes, radii, shadows and motion are a fixed
+   scale. tests/test_design.js fails on a value outside it. */
+.vg-root, .vg-hq {
+  /* colour: what things mean, from the theme */
+  --ds-bg: var(--background-primary, #fffcf0); --ds-surface: var(--background-secondary, #f2f0e5); --ds-line: var(--background-modifier-border, #e6e4d9);
+  --ds-hover: color-mix(in srgb, var(--ds-text) 6%, transparent);
+  --ds-text: var(--text-normal, #100f0f); --ds-muted: var(--text-muted, #6f6e69); --ds-faint: var(--text-faint, #878580);
+  --ds-accent: var(--interactive-accent, #bc5215); --ds-accent-ink: var(--text-on-accent, #fffcf0); --ds-accent-text: var(--text-accent, #bc5215);
+  --ds-accent-soft: color-mix(in srgb, var(--ds-accent) 13%, transparent);
+  --ds-ok: var(--color-green, #66800b); --ds-warn: var(--color-yellow, #ad8301); --ds-danger: var(--color-red, #af3029); --ds-info: var(--color-blue, #205ea6); --ds-special: var(--color-purple, #5e409d); --ds-cyan: var(--color-cyan, #24837b); --ds-orange: var(--color-orange, #bc5215);
+  --ds-status-ink: #fffcf0;   /* text on a solid status colour */
+  /* type: an even scale */
+  --ds-fs-2xs: 10px; --ds-fs-xs: 11px; --ds-fs-sm: 12px; --ds-fs-md: 13px; --ds-fs-base: 14px; --ds-fs-lg: 16px; --ds-fs-xl: 20px; --ds-fs-2xl: 26px; --ds-fs-3xl: 32px; --ds-fs-display: 64px;
+  --ds-w-medium: 500; --ds-w-semi: 600; --ds-w-bold: 700;
+  /* shape */
+  --ds-r-2xs: 2px; --ds-r-xs: 4px; --ds-r-sm: 6px; --ds-r-md: 8px; --ds-r-lg: 12px; --ds-r-xl: 16px; --ds-r-pill: 999px;
+  /* depth: three levels, for things resting on the page, floating over it, and in front of everything */
+  --ds-shadow-1: 0 1px 2px rgba(0, 0, 0, .1), 0 2px 8px rgba(0, 0, 0, .08);
+  --ds-shadow-2: 0 2px 4px rgba(0, 0, 0, .12), 0 10px 28px rgba(0, 0, 0, .2);
+  --ds-shadow-3: 0 4px 8px rgba(0, 0, 0, .16), 0 24px 60px rgba(0, 0, 0, .34);
+  --ds-scrim: rgba(0, 0, 0, .38);
+  /* motion */
+  --ds-fast: .12s; --ds-base: .18s; --ds-slow: .28s; --ds-ease: cubic-bezier(.2, .8, .2, 1);
+  --ds-focus: 2px solid var(--ds-accent);
+}
+/* the test pages have no theme: the same palette, dark */
+.theme-dark .vg-root, .theme-dark .vg-hq, .theme-dark.vg-root, .theme-dark.vg-hq {
+  --ds-bg: var(--background-primary, #100f0f); --ds-surface: var(--background-secondary, #1c1b1a); --ds-line: var(--background-modifier-border, #282726);
+  --ds-text: var(--text-normal, #cecdc3); --ds-muted: var(--text-muted, #878580); --ds-faint: var(--text-faint, #6f6e69);
+  --ds-accent: var(--interactive-accent, #da702c); --ds-accent-ink: var(--text-on-accent, #100f0f); --ds-accent-text: var(--text-accent, #f9ae77);
+  --ds-ok: var(--color-green, #879a39); --ds-warn: var(--color-yellow, #d0a215); --ds-danger: var(--color-red, #d14d41); --ds-info: var(--color-blue, #4385be); --ds-special: var(--color-purple, #8b7ec8); --ds-cyan: var(--color-cyan, #3aa99f); --ds-orange: var(--color-orange, #da702c);
+  --ds-status-ink: #100f0f;
+}
+@keyframes vg-ds-beacon { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ds-accent) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 10px transparent; } }
+@keyframes vg-ds-beat { 0%, 100% { transform: none; opacity: 1; } 50% { transform: scale(1.35); opacity: .7; } }
+@keyframes vg-ds-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes vg-ds-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vg-ds-slide { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@keyframes vg-ds-pop { from { opacity: 0; transform: scale(.97) translateY(4px); } to { opacity: 1; transform: none; } }

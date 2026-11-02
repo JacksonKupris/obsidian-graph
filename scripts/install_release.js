@@ -52,7 +52,8 @@ function reload(vault, id, version) {
   if (!state.running) return "Obsidian isn't running: it loads this version when it opens";
   if (state.value === "off") return "Vault Graph is turned off in Obsidian: turn it on in Settings > Community plugins";
   // the reply to the reload itself can be lost while the plugin restarts, so only the read-back below decides
-  obsidianEval(vault, `await app.plugins.disablePlugin(${q}); await app.plugins.enablePlugin(${q}); return "reloaded";`);
+  // loadManifests first: without it Obsidian re-enables the manifest it already had, and the old version keeps running
+  obsidianEval(vault, `await app.plugins.loadManifests(); await app.plugins.disablePlugin(${q}); await app.plugins.enablePlugin(${q}); return "reloaded";`);
   let loaded = null;
   for (let i = 0; i < 3 && loaded !== version; i++) {
     const r = obsidianEval(vault, `const p = app.plugins.plugins[${q}]; return p ? p.manifest.version : "not loaded";`);

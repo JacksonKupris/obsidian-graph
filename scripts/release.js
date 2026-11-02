@@ -30,6 +30,9 @@ if (flag("--resume")) {
   if (git("status", "--porcelain")) fail("commit or stash your changes first (git status lists them)");
   const s = require("./sync").sync();
   console.log(s.lines.join("\n")); if (!s.ok) process.exit(1);
+  // a release with nothing in it changes every device for no reason (it happened: someone else had just released). --force is for a re-issue.
+  const now = JSON.parse(fs.readFileSync(PKG, "utf8")).version;
+  if (!flag("--force") && git("tag", "--list", now) && !git("log", "--oneline", `${now}..HEAD`)) fail(`nothing has changed since ${now}: https://github.com/${slug}/releases/tag/${now}\nThat release already has everything on main. To re-issue it anyway: npm run release -- --force`);
 
   // 2. the new version, in package.json and manifest.json
   const step = args.find((a, i) => !a.startsWith("--") && args[i - 1] !== "--vault") || "patch";

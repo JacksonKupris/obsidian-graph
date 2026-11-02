@@ -54,7 +54,8 @@
   }
   function dock() {
     const needs = ofGroup("needs").length;
-    return `<nav class="vg-hq-dock" aria-label="Screens">${SCREENS.map(([k, label, ic]) => `<button class="vg-hq-dockbtn${cur === k || (SUB[cur] && SUB[cur][1] === k) ? " is-on" : ""}" data-go="${k}" aria-label="${label}" ${cur === k ? 'aria-current="page"' : ""} title="${label}">${icon(ic, 20)}${k === "needs" && needs ? `<span class="vg-hq-badge">${needs}</span>` : ""}</button>`).join("")}` +
+    const nextAt = nextStep().screen, nextHome = SUB[nextAt] ? SUB[nextAt][1] : nextAt;
+    return `<nav class="vg-hq-dock" aria-label="Screens">${SCREENS.map(([k, label, ic]) => `<button class="vg-hq-dockbtn${cur === k || (SUB[cur] && SUB[cur][1] === k) ? " is-on" : ""}${nextHome === k && cur !== nextAt ? " has-next" : ""}" data-go="${k}" aria-label="${label}" ${cur === k ? 'aria-current="page"' : ""} title="${label}">${icon(ic, 20)}${k === "needs" && needs ? `<span class="vg-hq-badge">${needs}</span>` : ""}</button>`).join("")}` +
       (api.openDaily ? `<span class="vg-hq-sep"></span><button class="vg-hq-dockbtn" data-daily aria-label="Open today's journal" title="Open today's journal">${icon("journal", 20)}</button>` : "") + `</nav>`;
   }
   // ---- picking several: tick rows (shift for a run of them, v on the keyboard), then one bar acts on them all. Done on old
@@ -71,13 +72,13 @@
   const pickedItems = () => [...picked].map(k => BY_KEY.get(k)).filter(Boolean);
   function bulkBar() {
     const its = pickedItems(); if (!its.length) return "";
-    return `<div class="vg-hq-bulk" role="toolbar" aria-label="${plural(its.length, "task")} selected"><b>${plural(its.length, "task")}</b><button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-primary" data-bulk="x">Done</button><button class="vg-hq-btn vg-hq-btn-sm" data-bulk="later">Later</button>${its.some(it => it.kind === "plan") ? "" /* a plan item has no checkbox to cancel */ : '<button class="vg-hq-btn vg-hq-btn-sm" data-bulk="-">Cancel them</button>'}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-bulk="clear">Clear</button></div>`;
+    return `<div class="vg-hq-bulk" role="toolbar" aria-label="${plural(its.length, "task")} selected"><b>${plural(its.length, "task")}</b><button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-primary" data-bulk="x">Done</button><button class="vg-hq-btn vg-hq-btn-sm" data-bulk="later">Later</button><button class="vg-hq-btn vg-hq-btn-sm" data-bulk="nextweek">Next week</button>${its.some(it => it.kind === "plan") ? "" /* a plan item has no checkbox to cancel */ : '<button class="vg-hq-btn vg-hq-btn-sm" data-bulk="-">Cancel them</button>'}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-bulk="clear">Clear</button></div>`;
   }
   async function bulkAct(how, btn) {
     const its = pickedItems(), c = ctx(); if (how === "clear") { picked.clear(); render(); return; } if (!its.length) return;
     if (btn) btn.disabled = true;
     const gain = list => { list.forEach(it => { gone.add(it.key); picked.delete(it.key); }); relist(); render(); };
-    if (how === "later") { await Promise.all(its.map(it => api.hqMark(it.key, "later"))); gain(its); toast(`Later: ${plural(its.length, "task")}`, async () => { await Promise.all(its.map(it => api.hqMark(it.key, null))); its.forEach(it => gone.delete(it.key)); relist(); render(); }); return; }
+    if (how === "nextweek" || how === "later") { const t = now(), d = new Date(t); d.setDate(t.getDate() + ((8 - t.getDay()) % 7 || 7)); const mark = how === "later" ? "later" : `until:${VGRules.localDay(d)}`; await Promise.all(its.map(it => api.hqMark(it.key, mark))); gain(its); toast(`${how === "later" ? "Later" : "Next week"}: ${plural(its.length, "task")}`, async () => { await Promise.all(its.map(it => api.hqMark(it.key, null))); its.forEach(it => gone.delete(it.key)); relist(); render(); }); return; }
     if (how === "-") { if (await VGActions.runBatch(its, "-", c, "the selection")) gain(its); else if (btn && btn.isConnected) btn.disabled = false; return; }
     const old = its.filter(it => it.kind === "carried"), todays = its.filter(it => it.kind !== "carried");
     if (old.length && await VGActions.runBatch(old, "x", c)) gain(old);
@@ -85,7 +86,7 @@
     if (btn && btn.isConnected) btn.disabled = false;
   }
   function row(it) {
-    return `<div class="vg-hq-item${selected() === it && railOn() ? " is-sel" : ""}${picked.has(it.key) ? " is-picked" : ""}" data-key="${esc(it.key)}">${pickBox(it)}<span class="vg-hq-kind">${icon(KIND_ICON[it.kind] || "graph", 16)}</span>` +
+    return `<div class="vg-hq-item${selected() === it && railOn() ? " is-sel" : ""}${picked.has(it.key) ? " is-picked" : ""}${(it.age || 0) >= 14 ? " is-old" : ""}" data-key="${esc(it.key)}">${pickBox(it)}<span class="vg-hq-kind">${icon(KIND_ICON[it.kind] || "graph", 16)}</span>` +
       `<div class="vg-hq-txt"><b>${esc(it.title)}</b>${it.why ? `<small>${esc(it.why)}${it.delegated ? ` · delegated to ${esc(it.delegated)}` : ""}</small>` : ""}</div>` +
       `<div class="vg-hq-acts">${starButton(it)}${railOn() ? "" : ctxButton(it)}${buttons(it)}${reactButtons(it)}</div>${railOn() ? "" : contextPanel(it)}</div>`;
   }
@@ -114,10 +115,27 @@
     const next = on ? keys.filter(k => k !== key) : [...keys, key]; STATE = { ...STATE, review: { ...(STATE.review || {}), focus: { day: day(), keys: next } } }; relist(); render(); await api.hqFocus(next);
   }
   // the day's loop, the same line wherever you are: pick, do, wrap up
+  // the one next step (VGRules.hqNextStep), and everything that points at it
+  function nextStep() {
+    const h = hq() || {}, done = VGRules.doneToday(DATA, STATE.review, day()).length, standup = (h.standups || []).some(s => s.date === day());
+    return VGRules.hqNextStep({ list: LIST, review: STATE.review, day: day(), hour: now().getHours(), done, standup, session: session && BY_KEY.get(session.key) ? { title: session.title } : null });
+  }
+  const nextChip = () => { const n = nextStep(); return `<button class="vg-hq-nextchip" data-nextstep title="${esc(n.label)}"><span class="vg-hq-nextdot" aria-hidden="true"></span><small>Next</small><b>${esc(n.label)}</b></button>`; };
+  // the beacon sits on the one control that is the next step, on the screen that has it
+  function markNext(again) {
+    if (opts.onNext) opts.onNext();
+    const n = nextStep(); el.querySelectorAll(".is-nextstep").forEach(x => x.classList.remove("is-nextstep"));
+    if (n.screen !== cur || globalQuery.trim()) return null;
+    const t = el.querySelector(n.target); if (!t) return null;
+    t.classList.add("is-nextstep");
+    if (again) { t.style.animation = "none"; void t.offsetWidth; t.style.animation = ""; }
+    return t;
+  }
+  function goNext() { const n = nextStep(); globalQuery = ""; noteHits = []; if (n.key === "session" && cur !== "session") { setScreen("session"); } else if (cur !== n.screen) setScreen(n.screen); else render(); const t = markNext(true); if (t) { t.scrollIntoView({ block: "center", behavior: "smooth" }); if (t.focus) t.focus({ preventScroll: true }); } }
   function flow() {
-    if (!api.hqFocus) return ""; const f = focus(), done = VGRules.doneToday(DATA, STATE.review, day()), h = hq() || {}, standup = (h.standups || []).find(s => s.date === day());
+    if (!api.hqFocus) return ""; const f = focus(), nextKey = nextStep().key, done = VGRules.doneToday(DATA, STATE.review, day()), h = hq() || {}, standup = (h.standups || []).find(s => s.date === day());
     const step = (go, on, n, title, sub) => `<button class="vg-hq-step${on ? " is-on" : ""}" data-go="${go}"><i>${n}</i><span><b>${esc(title)}</b><small>${esc(sub)}</small></span></button>`;
-    return `<nav class="vg-hq-flow" aria-label="Today's loop">${step("today", !f.length, "1", "Plan", f.length ? `${f.length} of ${VGRules.FOCUS_MAX} picked` : `Star up to ${VGRules.FOCUS_MAX} for today`)}${step("session", cur === "session" || !!session, "2", "Do", session ? `${session.since ? "On" : "Paused"} · ${sessionClock()}` : f.length ? `Next: ${f[0].title.slice(0, 44)}` : "Start a focus session")}${step("wrap", cur === "wrap", "3", "Wrap up", `${plural(done.length, "thing")} done · ${standup ? "standup started" : "no standup yet"}`)}</nav>`;
+    return `<nav class="vg-hq-flow" aria-label="Today's loop">${step("today", nextKey === "plan", "1", "Plan", f.length ? `${f.length} of ${VGRules.FOCUS_MAX} picked` : `Star up to ${VGRules.FOCUS_MAX} for today`)}${step("session", nextKey === "do" || nextKey === "session", "2", "Do", session ? `${session.since ? "On" : "Paused"} · ${sessionClock()}` : f.length ? `Next: ${f[0].title.slice(0, 44)}` : "Start a focus session")}${step("wrap", nextKey === "standup" || cur === "wrap", "3", "Wrap up", `${plural(done.length, "thing")} done · ${standup ? "standup started" : "no standup yet"}`)}</nav>`;
   }
   // ---- Wrap up: what got done goes in the standup, what didn't goes in tomorrow's plan
   function wrapScreen() {

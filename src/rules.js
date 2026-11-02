@@ -669,7 +669,7 @@ const VGRules = (() => {
   function hqItems(data, o, add) {
     const hq = data.hq; if (!hq) return;
     const day = o.today || hq.date || today(), marks = (o.review || {}).hq || {};
-    const skip = k => marks[k] === `later:${day}` || String(marks[k] || "").startsWith("done:");   // Later: for the day; Done: a plan item (no checkbox)
+    const skip = k => marks[k] === `later:${day}` || String(marks[k] || "").startsWith("done:") || (String(marks[k] || "").startsWith("until:") && String(marks[k]).slice(6) > day);   // Later: for the day; Done: a plan item (no checkbox)
     const put = it => { if (!skip(it.key)) add(it); };
     const label = t => plainTask(t) || "(untitled task)";
     const fieldsOf = t => ({ delegated: inlineField(t, H.delegate_field || "delegate"), review: inlineField(t, "review") });
@@ -1152,6 +1152,26 @@ const VGRules = (() => {
   const weekStart = day => { const d = new Date(`${day}T12:00:00`); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return localDay(d); };
   // Focus time per project, in the shared file by note path, so it follows the note like every other mark.
   const projectMinutes = (review, path) => ((review || {}).sessionFor || {})[path] || 0;
+  // The one next step: what the header's chip names and the beacon marks. Everything that says what to do next reads this, so
+  // they can't disagree. In order: a session you're in, something broken, the evening's standup, your focus, picking a focus,
+  // what's waiting on you, and nothing. target is a selector on that screen.
+  const STANDUP_HOUR = 16;
+  function hqNextStep(o) {
+    const { list = [], review, day, hour = 12, done = 0, standup = false, session = null } = o, focus = hqFocusItems(list, review, day), today = list.filter(i => i.group === "today"), needs = list.filter(i => i.group === "needs");
+    if (session) return { key: "session", label: `Back to: ${session.title}`, screen: "session", target: ".vg-hq-session-acts [data-act='main']" };
+    const job = needs.find(i => i.kind === "job"); if (job) return { key: "job", label: `Check: ${job.title}`, screen: "needs", target: `.vg-hq-item[data-key^='job|']` };
+    if (hour >= STANDUP_HOUR && done > 0 && !standup) return { key: "standup", label: "Start today's standup", screen: "wrap", target: "[data-makestandup]" };
+    if (focus.length) return { key: "do", label: `Focus on: ${focus[0].title}`, screen: "today", target: ".vg-hq-next [data-session]" };
+    if (today.length) return { key: "plan", label: "Pick today's focus", screen: "today", target: ".vg-hq-next .vg-hq-star" };
+    if (needs.length) return { key: "needs", label: `Clear Needs you (${needs.length})`, screen: "needs", target: ".vg-hq-sec .vg-hq-item[data-key]" };
+    return { key: "capture", label: "Capture what's next", screen: "today", target: ".vg-hq-captureinput" };
+  }
+  // The next step from the data alone, for a surface with no list of its own (the status bar, the graph).
+  function hqNextOf(data, o = {}) {
+    const day = o.today || today(), when = o.now || new Date(), hq = (data && data.hq) || {};
+    return hqNextStep({ list: todayList(data || { nodes: [], links: [] }, { review: o.review, hidden: o.hidden, today: day, now: when }), review: o.review, day, hour: when.getHours(),
+      done: doneToday(data || {}, o.review, day).length, standup: (hq.standups || []).some(s => s.date === day), session: o.session || null });
+  }
   // Triage Run: the open tasks a run deals, oldest first, and what a swipe scores. An older task is worth more; a run of
   // decisions multiplies it, up to five times.
   const triageDeck = items => (items || []).filter(it => (it.kind === "task" || it.kind === "carried") && !it.delegated).sort((a, b) => (b.age || 0) - (a.age || 0));
@@ -1171,7 +1191,7 @@ const VGRules = (() => {
   }
 
   return { plainSnippet, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
-    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, weekReview, weekStart, projectMinutes, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, weekReview, weekStart, projectMinutes, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)
