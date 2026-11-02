@@ -102,7 +102,8 @@ assert(open(null, day), "the task is listed"); assert(!open("until:2026-11-09", 
       if (c) { const back = new Date(`${c[2].slice(6)}T12:00:00`); check(back.getDay() === 1 && back > new Date(), `should come back on a coming Monday: ${c[2]}`); }
       // the evening: a day's work done and no standup
       const done = `{ review: { hq: { ${jobs.map(k => JSON.stringify(k) + ': "later:" + VGRules.today(), ').join("")}"plan|x.md|1|Finished thing": "done:" + VGRules.today() } } }`; await mount(done, 18); await screen("home");
-      check((await chip()) === "Start today's standup" || await tab.ev(`(DATA.hq.standups || []).some(s => s.date === VGRules.today())`), `in the evening: ${await chip()}`);
+      // a job that has gone late by evening comes first, by the rule above
+      check((await chip()) === "Start today's standup" || /^Check:/.test(await chip()) || await tab.ev(`(DATA.hq.standups || []).some(s => s.date === VGRules.today())`), `in the evening: ${await chip()}`);
     }
     // a narrow pane: the chip has its own line and nothing runs off
     for (const [w, m] of [[390, true], [800, false]]) { await mount(); await size(w, m); await screen("today"); check(await tab.ev(`document.querySelector(".vg-hq").scrollWidth <= document.querySelector(".vg-hq").clientWidth`), `HQ at ${w} runs off the side`); check(await tab.ev(`(() => { const d = document.querySelector(".vg-hq-dock").getBoundingClientRect(); return d.left >= 0 && d.right <= innerWidth; })()`), `the dock at ${w} doesn't fit`); if (w === 390) await shot("next-phone"); }

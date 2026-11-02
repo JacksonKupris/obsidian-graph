@@ -28,8 +28,18 @@
     const body = projectBoard ? boardHtml(all) : list.length ? `<div class="vg-hq-grid${compactProjects ? " is-compact" : ""}">${list.map(card).join("")}</div>`     : every.length
     ? empty("No projects match the current filters.", [["Reset filters", 'data-clearsearch'], ["All systems", 'data-system="all"']])
     : empty(`No projects yet (notes with type: ${Object.keys(VGRules.PROJECT_TYPES).join(", ") || "scope-of-work"}).`, nextSteps().filter(s => s[1] !== 'data-go="projects"'));
-    return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">Every project, newest first.</p>
+    return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">Every project, newest first.</p>${focusChart(every)}
     <div class="vg-hq-project-filters">${filters}<span class="vg-hq-seg vg-hq-compacttoggle" role="group" aria-label="View"><button class="vg-hq-filter${projectBoard ? " is-on" : ""}" data-board aria-pressed="${projectBoard}">Board</button>${projectBoard ? "" : `<button class="vg-hq-filter" data-compact aria-pressed="${compactProjects}">${compactProjects ? "Card view" : "Compact list"}</button>`}</span></div>${body}${drawerHtml(every)}`;
+  }
+  // focus time per project: one measure, so bars from a shared zero, the biggest first. Each row is its project's name, its time
+  // and a way into it, so the words carry what the bar shows. Hidden until there's time to show.
+  let focusChartAll = false; const FOCUS_ROWS = 5;
+  function focusChart(projects) {
+    const rows = VGRules.focusByProject(STATE.review, projects); if (!rows.length) return "";
+    const shown = focusChartAll ? rows : rows.slice(0, FOCUS_ROWS), total = rows.reduce((sum, r) => sum + r.minutes, 0);
+    const line = r => { const inner = `<span class="vg-hq-focusname">${esc(r.title)}</span><span class="vg-hq-focusbar" aria-hidden="true"><i style="width:${Math.max(2, Math.round(r.share * 100))}%"></i></span><b>${esc(VGRules.minutesWords(r.minutes))}</b>`;
+      return r.known ? `<button class="vg-hq-focusrow" data-proj="${esc(r.path)}" title="${esc(r.title)}: ${plural(r.minutes, "minute")}">${inner}</button>` : `<div class="vg-hq-focusrow" title="${esc(r.title)}: ${plural(r.minutes, "minute")}">${inner}</div>`; };
+    return `<section class="vg-hq-sec vg-hq-focuschart" aria-label="Focus time by project"><h3>Focus time by project<span>${esc(VGRules.minutesWords(total))}</span></h3>${shown.map(line).join("")}${rows.length > FOCUS_ROWS ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-focusall>${focusChartAll ? "Show fewer" : `All ${rows.length} projects`}</button></div>` : ""}</section>`;
   }
   // ---- the board: a column per status group. Drag a card across, or use its arrows (keyboard and touch); either way it's
   // setStatus, so the question about open tasks and the Undo are the same as the drawer's.

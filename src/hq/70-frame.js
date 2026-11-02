@@ -7,6 +7,9 @@
   function renderResults() { const col = el.querySelector(".vg-hq-col"); if (!col || !globalQuery.trim()) return render(); compute(); col.innerHTML = searchScreen(); const r = el.querySelector(".vg-hq-rail"); if (r) r.remove(); }
   function render() {
     compute(); el.classList.toggle("has-picks", picked.size > 0);
+    // a data update can land under an open dialog, or while you type: the dialog stays, and the focus stays where it was.
+    // Going to another screen, a control in the old one is gone with it, and the focus goes to the new screen.
+    const overlays = [...el.children].filter(c => c.matches(".vg-hq-dialog, .vg-hq-palette")), had = document.activeElement, hadInside = had && el.contains(had) && had !== el, hadKey = hadInside && !(leaving && had.closest(".vg-hq-main")) ? focusKey(had) : null, hadRange = hadKey === ".vg-hq-captureinput" ? [had.selectionStart, had.selectionEnd] : null; leaving = false;
     const label = SUB[cur] ? SUB[cur][0] : SCREENS.find(s => s[0] === cur)[1], t = now();
     const scroll = el.querySelector(".vg-hq-main") ? el.querySelector(".vg-hq-main").scrollTop : 0;
     const search = el.querySelector(".vg-hq-global-search"), restoreSearch = search && document.activeElement === search
@@ -18,16 +21,35 @@
         placeholder="Search projects, tasks, and notes  ( / )" aria-label="Search all HQ and vault notes"></label>
         ${globalQuery ? '<button class="vg-hq-btn vg-hq-btn-sm vg-hq-global-clear" data-clear-global aria-label="Clear HQ search">Clear</button>' : ""}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-keysbtn" data-keys aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</button></div>
       <span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}${(() => { const d = VGRules.doneToday(DATA, STATE.review, day()).length, m = VGRules.sessionMinutes(STATE.review, day()); return d || m ? ` · ${d} done${m ? ` · ${VGRules.minutesWords(m)}` : ""}` : ""; })()}</span></span></header>` +
-      strip() + `<main class="vg-hq-main"><div class="vg-hq-cols"><div class="vg-hq-col">${globalQuery.trim() ? searchScreen() : ({ home, session: sessionScreen, calendar: calendarScreen, threads: threadsScreen, review: reviewScreen, wrap: wrapScreen, today: todayScreen, needs: needsScreen, people: peopleScreen, projects: projectsScreen, automations: automationsScreen, sweep: sweepScreen, rows: rowsScreen })[cur]()}</div>${railAside()}</div></main>` + dock() + bulkBar() + peekHtml();
-    el.appendChild(toastEl); markNext();
+      strip() + `<main class="vg-hq-main" tabindex="-1"><div class="vg-hq-cols"><div class="vg-hq-col">${globalQuery.trim() ? searchScreen() : ({ home, session: sessionScreen, calendar: calendarScreen, threads: threadsScreen, review: reviewScreen, wrap: wrapScreen, today: todayScreen, needs: needsScreen, people: peopleScreen, projects: projectsScreen, automations: automationsScreen, sweep: sweepScreen, rows: rowsScreen })[cur]()}</div>${railAside()}</div></main>` + dock() + bulkBar() + peekHtml();
+    el.appendChild(toastEl); el.appendChild(sayEl); overlays.forEach(o => el.appendChild(o)); markNext();
     const main = el.querySelector(".vg-hq-main"); if (main) { main.scrollTop = scroll; el.style.setProperty("--hq-panel-top", `${main.offsetTop}px`); }
     if (restoreSearch !== null) { const next = el.querySelector(".vg-hq-global-search"); if (next) { next.focus(); next.setSelectionRange(...restoreSearch); } }
     if (focusedFilter) { const next = el.querySelector(`[data-project-filter="${focusedFilter}"]`); if (next) next.focus(); }
     if (onRow) focusRow(onRow);
+    if (hadInside && overlays.some(o => o.contains(had))) had.focus({ preventScroll: true });
+    else if (hadInside && !el.contains(document.activeElement)) { if (hadKey) refocus(hadKey); else { const m = el.querySelector(".vg-hq-main"); if (m) m.focus({ preventScroll: true }); }  if (hadRange) { const c = el.querySelector(".vg-hq-captureinput"); if (c && document.activeElement === c) c.setSelectionRange(...hadRange); } }
+    if (hqTour) hqTour.draw();
     if (focusDrawerOnRender) { focusDrawerOnRender = false; const close = el.querySelector(".vg-hq-drawer .vg-hq-x"); if (close) close.focus(); }
     const track = el.querySelector(".vg-hq-feedtrack"); if (track) { track.scrollLeft = feedAt * track.clientWidth;
       track.onscroll = () => { const i = Math.round(track.scrollLeft / Math.max(1, track.clientWidth)); if (i !== feedAt) { feedAt = i; el.querySelectorAll(".vg-hq-dots button").forEach((b, k) => b.classList.toggle("is-on", k === i)); } }; }
   }
+  // the screen is redrawn whole, so a control is found again by what it does: its data attributes (the capture box by its class)
+  function focusKey(e) {
+    if (!e || !e.matches || !el.contains(e) || e === el) return null;
+    if (e.matches(".vg-hq-captureinput")) return ".vg-hq-captureinput";
+    const attrs = Object.entries(e.dataset || {}); if (!attrs.length) return null;
+    return e.tagName.toLowerCase() + attrs.map(([k, v]) => `[data-${k.replace(/[A-Z]/g, c => `-${c.toLowerCase()}`)}="${CSS.escape(v)}"]`).join("");
+  }
+  // back to that control; if it's gone (the row was just done), to the next row, or else the screen itself. Never to nothing.
+  function refocus(key) {
+    let to = null; try { to = key && el.querySelector(key); } catch (e) { /* not a selector any more: the fallbacks below */ }
+    to = to || el.querySelector(".vg-hq-main .vg-hq-item[data-key]") || el.querySelector(".vg-hq-main");
+    if (to) { if (to.matches(".vg-hq-item")) to.setAttribute("tabindex", "-1"); to.focus({ preventScroll: true }); }
+  }
+  // what a screen reader hears on moving to another screen
+  let leaving = false;
+  const sayEl = document.createElement("div"); sayEl.className = "vg-hq-sr"; sayEl.setAttribute("role", "status");
   // one listener for every button (the screen is redrawn whole)
   el.addEventListener("click", e => {
     const txt = e.target.closest(".vg-hq-item[data-key] .vg-hq-txt"); if (txt && !e.target.closest("button, a") && !String(window.getSelection && window.getSelection()).length) { const k = txt.closest(".vg-hq-item").dataset.key; if (railOn()) selectItem(k); else if (api.searchNotes) toggleContext(k); return; }
@@ -40,6 +62,10 @@
     else if (d.peekback !== undefined) { const back = peek.back.slice(), to = back.pop(); peekOpen(to, back); }
     else if (d.peekclose !== undefined) { peek = null; render(); }
     else if (d.keys !== undefined) keySheet();
+    else if (d.walk) walk(d.walk, d.key);
+    else if (d.pickall !== undefined) { const f = needFilter; ofGroup("needs").filter(i => (f === "all" || i.kind === f) && pickable(i)).forEach(i => picked.add(i.key)); render(); }
+    else if (d.focusall !== undefined) { focusChartAll = !focusChartAll; render(); }
+    else if (d.captureto !== undefined) captureTo();
     else if (d.addq || d.dropq) { const words = globalQuery.trim(); globalQuery = d.addq ? `${words} ${d.addq}`.trim() : words.split(/\s+/).filter(w => w.toLowerCase() !== d.dropq).join(" "); drawer = null; searchNotes(globalQuery); render(); const field = el.querySelector(".vg-hq-global-search"); if (field) { field.focus(); field.setSelectionRange(field.value.length, field.value.length); } }
     else if (d.weekcopy) weekCopy(d.weekcopy);
     else if (d.weeksave) weekSave(d.weeksave, b);
@@ -112,10 +138,10 @@
   // notes know; c goes to capture, / to search, 1-5 to a screen, ? lists them
   // every key, on one card
   function keySheet() {
-    const rows = [["Ctrl K", "Find or do anything"], ["c", "Capture"], ["/", "Search"], ["j k", "Move through items"], ["x", "Done"], ["f", "Today's focus"], ["n", "Go to the next step"], ["s", "Focus session"], ["p", "Pause the session"], ["v", "Select the item"], ["l", "Later"], ["o", "Open the note"], ["Enter", "What your notes know"], ["w", "Wrap up"], ["r", "Weekly review"], ["1 to 6", "Screens"], ["?", "This list"]];
+    const rows = [["Ctrl K", "Find or do anything"], ["c", "Capture"], ["Ctrl Enter", "Capture, choosing where it goes"], ["/", "Search"], ["j k", "Move through items"], ["x", "Done"], ["f", "Today's focus"], ["n", "Go to the next step"], ["s", "Focus session"], ["p", "Pause the session"], ["v", "Select the item"], ["l", "Later"], ["o", "Open the note"], ["Enter", "What your notes know"], ["w", "Wrap up"], ["r", "Weekly review"], ["1 to 6", "Screens"], ["?", "This list"]];
     const box = document.createElement("div"); box.className = "vg-hq-dialog"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Keyboard shortcuts");
-    box.innerHTML = `<div class="vg-hq-dialog-card"><b>Keyboard</b><table class="vg-hq-keys">${rows.map(([k, w]) => `<tr><td><kbd>${esc(k)}</kbd></td><td>${esc(w)}</td></tr>`).join("")}</table><div class="vg-hq-row-end"><button class="vg-hq-btn vg-hq-btn-primary" data-no>Close</button></div></div>`;
-    const end = () => box.remove(); box.querySelector("[data-no]").onclick = end; box.onkeydown = ev => { ev.stopPropagation(); if (ev.key === "Escape" || ev.key === "?") end(); }; el.appendChild(box); box.querySelector("[data-no]").focus();
+    box.innerHTML = `<div class="vg-hq-dialog-card"><b>Keyboard</b><table class="vg-hq-keys">${rows.map(([k, w]) => `<tr><td><kbd>${esc(k)}</kbd></td><td>${esc(w)}</td></tr>`).join("")}</table><div class="vg-hq-row-end"><button class="vg-hq-btn vg-hq-btn-ghost" data-tour>Take the tour</button><button class="vg-hq-btn vg-hq-btn-primary" data-no>Close</button></div></div>`;
+    const end = openDialog(box, box.querySelector("[data-no]")); box.querySelector("[data-no]").onclick = end; box.querySelector("[data-tour]").onclick = () => { end(); startHQTour(); }; box.onkeydown = ev => { ev.stopPropagation(); if (ev.key === "Escape" || ev.key === "?") end(); };
   }
   const KEY_HELP = "j k move · x done · f focus · s session · v select · l later · o open · Enter context · c capture · w wrap up · r review · Ctrl K everything · / search · 1-6 screens";
   const rows = () => [...el.querySelectorAll(".vg-hq-item[data-key]")];
@@ -124,7 +150,7 @@
   let cursorKey = null;
   el.addEventListener("keydown", e => {
     if (e.target.matches(".vg-hq-captureinput")) {
-      if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); capture(e.shiftKey ? "note" : "task"); }
+      if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (e.ctrlKey || e.metaKey) captureTo(); else capture(e.shiftKey ? "note" : "task"); }
       else if (e.key === "Escape") { e.target.blur(); } return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); e.stopPropagation(); openPalette(); return; }
     if (e.target.matches("input, select, textarea") || e.ctrlKey || e.metaKey || e.altKey || el.querySelector(".vg-hq-dialog")) return;
@@ -163,14 +189,16 @@
       if (line && e.target.matches(".vg-hq-item")) { e.preventDefault(); e.target.scrollIntoView({ block: "center" }); }
     }
   });
-  function setScreen(s) { if (!known(s)) return; const moved = s !== cur; if (moved) selKey = null; if (s === "sweep" && cur !== "sweep") kept = new Set(); cur = s; drawer = null; peek = null; render(); const m = el.querySelector(".vg-hq-main"); if (m) { m.scrollTop = 0; if (moved) { const col = m.querySelector(".vg-hq-col"); if (col) col.classList.add("vg-hq-enter"); } } if (opts.onScreen) opts.onScreen(s); }
+  function setScreen(s) { if (!known(s)) return; const moved = s !== cur; if (moved) selKey = null; if (s === "sweep" && cur !== "sweep") kept = new Set(); cur = s; drawer = null; peek = null; if (moved) { needsWalk = false; leaving = true; sayEl.textContent = SUB[s] ? SUB[s][0] : SCREENS.find(x => x[0] === s)[1]; } render(); const m = el.querySelector(".vg-hq-main"); if (m) { m.scrollTop = 0; if (moved) { const col = m.querySelector(".vg-hq-col"); if (col) col.classList.add("vg-hq-enter"); } } if (opts.onScreen) opts.onScreen(s); }
   render();
+  // a first open: the tour, once HQ has settled. A vault with nothing in it has its own welcome instead.
+  if (api.hqTourSeen && !(STATE.review || {}).hqTour && !isNewVault()) tourTimer = setTimeout(() => { if (el.isConnected && !el.querySelector(".vg-hq-dialog, .vg-hq-palette")) startHQTour(); }, 1500);
   clockTimer = opts.now ? null : setInterval(() => { const c = el.querySelector(".vg-hq-clock b"); if (c) c.textContent = new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, ""); }, 30000);
   return {
     update(data, state) { DATA = data || DATA; if (state) STATE = state; gone = new Set(); relist(); searchNotes(globalQuery, 80); render(); },
-    setScreen, screen: () => cur, palette: () => openPalette(), session: () => session, next: () => goNext(),
+    setScreen, screen: () => cur, palette: () => openPalette(), session: () => session, next: () => goNext(), tour: () => startHQTour(),
     showRows: path => ctx().showRows(path),   // a report's rows (the sidebar's Review rows opens HQ there)
     items: () => LIST.slice(),
-    destroy() { sessionLog(); session = null; sessionTell(); clearInterval(sessionTick); clearInterval(clockTimer); clearTimeout(toastTimer); clearTimeout(searchTimer); clearTimeout(typeTimer); searchToken++; el.remove(); },
+    destroy() { sessionLog(); session = null; sessionTell(); clearInterval(sessionTick); clearInterval(clockTimer); clearTimeout(tourTimer); clearTimeout(toastTimer); clearTimeout(searchTimer); clearTimeout(typeTimer); searchToken++; el.remove(); },
   };
 }

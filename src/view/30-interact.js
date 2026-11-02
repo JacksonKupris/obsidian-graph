@@ -325,7 +325,7 @@
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
     if (e.key === "Escape") {
       if (SCENES[st.view] && SCENES[st.view].escape && SCENES[st.view].escape()) { e.stopPropagation(); return; }
-      if (tourIdx >= 0) endTour();
+      if (tour) endTour();
       else if (closeTools()) { $(".vg-toolsbtn").focus(); }
       else if (!$(".vg-palette").hidden) { closePalette(); }
       else if (!$(".vg-picker").hidden) closeMenu();
@@ -452,31 +452,16 @@
   // ---------------------------------------------------------------- first-run tour
   // one short sentence per step, each about the control it points at
   const TOUR = [
+    { sel: ".vg-nextbtn", title: "The next step", text: "The one thing to do now. It opens Vault HQ at that step." },
     { sel: ".vg-pickbtn", title: "Views and lenses", text: "Draw the vault another way (2D, 3D, City, Cosmos…) or open a lens: a focused list with buttons that fix what it finds. Press M." },
     { sel: ".vg-searchbtn", title: "Search", text: "Jump to any note, topic or saved view. Press / or Ctrl K." },
     { sel: ".vg-reviewbtn", title: "Today's review", text: "One small improvement at a time: a link to add, a note to put on its map, a note to write." },
     { sel: ".vg-toggle", title: "Insights", text: "What changed since the last analysis, your topics and the gaps between them. Tap a count to see those notes." },
     { sel: ".vg-cv", ring: false, title: "Tap a note", text: "Its panel lists what it needs, each with the button that fixes it." },
   ];
-  let tourIdx = -1, tourSeen = false;
-  function startTour() { tourIdx = 0; showTour(); }
-  function endTour() { tourIdx = -1; const o = root.querySelector(".vg-tour"); if (o) o.remove(); tourSeen = true; persistSoon(); }
-  function showTour() {
-    let o = root.querySelector(".vg-tour"); if (!o) { o = document.createElement("div"); o.className = "vg-tour"; root.appendChild(o); }
-    while (tourIdx < TOUR.length) { const el = $(TOUR[tourIdx].sel); if (el && el.offsetParent !== null) break; tourIdx++; }   // skip steps hidden at this width
-    if (tourIdx >= TOUR.length) { endTour(); return; }
-    const step = TOUR[tourIdx], el = $(step.sel), r = el.getBoundingClientRect(), R = root.getBoundingClientRect();
-    const x = r.left - R.left, y = r.top - R.top, below = y + r.height + 170 < R.height;
-    // a step about the whole canvas (ring: false) gets no ring and a card in the middle
-    const card = step.ring === false ? `left:${Math.max(10, (R.width - 290) / 2)}px;top:${Math.max(60, R.height / 2 - 80)}px` : `left:${Math.max(10, Math.min(R.width - 300, x))}px;${below ? `top:${y + r.height + 12}px` : `bottom:${R.height - y + 12}px`}`;
-    o.innerHTML = `${step.ring === false ? "" : `<div class="vg-tour-ring" style="left:${x - 4}px;top:${y - 4}px;width:${r.width + 8}px;height:${r.height + 8}px"></div>`}
-      <div class="vg-tour-card" style="${card}">
-        <span class="vg-muted">${tourIdx + 1} / ${TOUR.length}</span><b>${esc(step.title)}</b><p>${esc(step.text)}</p>
-        <div class="vg-confirm-acts"><button class="vg-btn vg-btn-ghost" data-t="skip">Skip</button><button class="vg-btn vg-btn-primary" data-t="next">${tourIdx === TOUR.length - 1 ? "Done" : "Next"}</button></div></div>`;
-    o.querySelector('[data-t="skip"]').onclick = endTour;
-    o.querySelector('[data-t="next"]').onclick = () => { tourIdx++; showTour(); };
-    o.querySelector('[data-t="next"]').focus();
-  }
+  let tour = null, tourSeen = false;
+  function startTour() { tour = runTour(root, TOUR, { find: s => $(s), cls: { btn: "vg-btn", primary: "vg-btn-primary", ghost: "vg-btn-ghost" }, onEnd: () => { tour = null; tourSeen = true; persistSoon(); } }); tour.draw(); }
+  function endTour() { if (tour) tour.end(); }
 
   // ---------------------------------------------------------------- confirm dialog + discovery log
   // Every action that writes to the vault asks here first (an in-app dialog: works the same on phones).

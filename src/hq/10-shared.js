@@ -9,7 +9,7 @@
     const button = (kind, path, create) => path || create
       ? `<button class="vg-hq-btn" data-daynote="${kind}" data-date="${esc(date)}"${path ? ` data-path="${esc(path)}"` : ""}>${path ? "Open" : "Create"} ${kind}</button>` : "";
     box.innerHTML = `<div class="vg-hq-dialog-card"><b>${esc(date)}</b><div class="vg-hq-row">${button("journal", journal && journal.path, api.openDaily)}${button("standup", standup, api.openStandup)}</div><div class="vg-hq-row-end"><button class="vg-hq-btn" data-cancelday>Cancel</button></div></div>`;
-    const close = () => { box.remove(); if (source && source.isConnected) source.focus(); };
+    const shut = openDialog(box, box.querySelector("button")), close = () => { shut(); if (source && source.isConnected) source.focus(); };
     box.querySelector("[data-cancelday]").onclick = close;
     box.onkeydown = e => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
     box.addEventListener("click", async e => {
@@ -27,7 +27,6 @@
         box.querySelectorAll("button").forEach(x => { x.disabled = false; });
       }
     });
-    el.appendChild(box); box.querySelector("button").focus();
   }
   async function openJournal(date, button) {
     button.disabled = true;
@@ -61,8 +60,10 @@
   // ---- picking several: tick rows (shift for a run of them, v on the keyboard), then one bar acts on them all. Done on old
   // tasks is one write with one Undo, and stays out of the standup, as in the sweep; today's go in the standup one by one.
   const picked = new Set(); let pickAnchor = null;
-  const pickable = it => it.kind === "task" || it.kind === "carried" || it.kind === "plan";
-  const pickBox = it => pickable(it) && api.setTasksStatus && api.hqMark ? `<input type="checkbox" class="vg-hq-pick" data-pick="${esc(it.key)}" aria-label="Select: ${esc(it.title)}"${picked.has(it.key) ? " checked" : ""}>` : "";
+  // the work you do, and what's waiting on you. For those the bar only puts things off: each decision still gets its own look.
+  const isWork = it => it.kind === "task" || it.kind === "carried" || it.kind === "plan";
+  const pickable = it => (isWork(it) && !!api.setTasksStatus && !!api.hqMark) || (it.group === "needs" && !!api.hqMark);
+  const pickBox = it => pickable(it) ? `<input type="checkbox" class="vg-hq-pick" data-pick="${esc(it.key)}" aria-label="Select: ${esc(it.title)}"${picked.has(it.key) ? " checked" : ""}>` : "";
   function togglePick(key, range) {
     const boxes = [...el.querySelectorAll("[data-pick]")].map(b => b.dataset.pick);
     if (range && pickAnchor && boxes.includes(pickAnchor) && boxes.includes(key)) { const [a, b] = [boxes.indexOf(pickAnchor), boxes.indexOf(key)].sort((x, y) => x - y); boxes.slice(a, b + 1).forEach(k => picked.add(k)); }
@@ -72,13 +73,15 @@
   const pickedItems = () => [...picked].map(k => BY_KEY.get(k)).filter(Boolean);
   function bulkBar() {
     const its = pickedItems(); if (!its.length) return "";
-    return `<div class="vg-hq-bulk" role="toolbar" aria-label="${plural(its.length, "task")} selected"><b>${plural(its.length, "task")}</b><button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-primary" data-bulk="x">Done</button><button class="vg-hq-btn vg-hq-btn-sm" data-bulk="later">Later</button><button class="vg-hq-btn vg-hq-btn-sm" data-bulk="nextweek">Next week</button>${its.some(it => it.kind === "plan") ? "" /* a plan item has no checkbox to cancel */ : '<button class="vg-hq-btn vg-hq-btn-sm" data-bulk="-">Cancel them</button>'}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-bulk="clear">Clear</button></div>`;
+    const work = its.every(isWork), words = pickWords(its);
+    return `<div class="vg-hq-bulk" role="toolbar" aria-label="${words} selected"><b>${words}</b>${work ? '<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-primary" data-bulk="x">Done</button>' : ""}<button class="vg-hq-btn vg-hq-btn-sm" data-bulk="later">Later</button>${its.every(it => it.group === "today") ? '<button class="vg-hq-btn vg-hq-btn-sm" data-bulk="nextweek">Next week</button>' : ""}${!work || its.some(it => it.kind === "plan") ? "" /* a plan item has no checkbox to cancel */ : '<button class="vg-hq-btn vg-hq-btn-sm" data-bulk="-">Cancel them</button>'}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-bulk="clear">Clear</button></div>`;
   }
+  const pickWords = its => plural(its.length, its.every(isWork) ? "task" : "item");
   async function bulkAct(how, btn) {
     const its = pickedItems(), c = ctx(); if (how === "clear") { picked.clear(); render(); return; } if (!its.length) return;
     if (btn) btn.disabled = true;
     const gain = list => { list.forEach(it => { gone.add(it.key); picked.delete(it.key); }); relist(); render(); };
-    if (how === "nextweek" || how === "later") { const t = now(), d = new Date(t); d.setDate(t.getDate() + ((8 - t.getDay()) % 7 || 7)); const mark = how === "later" ? "later" : `until:${VGRules.localDay(d)}`; await Promise.all(its.map(it => api.hqMark(it.key, mark))); gain(its); toast(`${how === "later" ? "Later" : "Next week"}: ${plural(its.length, "task")}`, async () => { await Promise.all(its.map(it => api.hqMark(it.key, null))); its.forEach(it => gone.delete(it.key)); relist(); render(); }); return; }
+    if (how === "nextweek" || how === "later") { const t = now(), d = new Date(t); d.setDate(t.getDate() + ((8 - t.getDay()) % 7 || 7)); const mark = how === "later" ? "later" : `until:${VGRules.localDay(d)}`; await Promise.all(its.map(it => api.hqMark(it.key, mark))); gain(its); toast(`${how === "later" ? "Later" : "Next week"}: ${pickWords(its)}`, async () => { await Promise.all(its.map(it => api.hqMark(it.key, null))); its.forEach(it => gone.delete(it.key)); relist(); render(); }); return; }
     if (how === "-") { if (await VGActions.runBatch(its, "-", c, "the selection")) gain(its); else if (btn && btn.isConnected) btn.disabled = false; return; }
     const old = its.filter(it => it.kind === "carried"), todays = its.filter(it => it.kind !== "carried");
     if (old.length && await VGActions.runBatch(old, "x", c)) gain(old);

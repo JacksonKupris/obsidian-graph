@@ -3,7 +3,7 @@
   let selKey = null;
   const NO_RAIL = new Set(["projects", "automations", "sweep", "rows", "review", "wrap", "session", "calendar"]);
   const HAS_HERO = new Set(["home", "today"]);   // these screens already show Do next in full
-  const railOn = () => el.clientWidth >= RAIL_WIDTH && !NO_RAIL.has(cur) && !globalQuery.trim();
+  const railOn = () => el.clientWidth >= RAIL_WIDTH && !NO_RAIL.has(cur) && !globalQuery.trim() && !(cur === "needs" && needsWalk);   // one at a time shows the same things itself
   const RAIL_WIDTH = 1100;
   // what the rail shows: the item you picked, or else the first thing on this screen. Nothing unrelated to the screen.
   const selected = () => BY_KEY.get(selKey) || (cur === "needs" ? ofGroup("needs")[0] : null) || (HAS_HERO.has(cur) ? doNext() : null);
@@ -51,7 +51,8 @@
     const inbox = ofKind("inbox"), carried = ofKind("carried"), stuck = VGRules.hqProjects(DATA).filter(p => p.group === "active" && Array.isArray(p.days) && !p.days.slice(-14).some(Boolean));
     const stale = (DATA.nodes || []).filter(n => !n.person && !n.ghost && !n.moc && !n.isolated && VGRules.isStale(n, (DATA.quality || {}).stale_days)).sort((a, b) => (b.bc || 0) - (a.bc || 0)).slice(0, 5);
     const ups = (h.standups || []).filter(s => days.includes(s.date)), step = (n, title, fact, action) => `<section class="vg-hq-reviewstep"><i>${n}</i><div><b>${esc(title)}</b><p>${fact}</p>${action || ""}</div></section>`;
-    return `<h1 class="vg-hq-h1">Weekly review</h1><p class="vg-hq-lede">${plural(total, "thing")} done in 7 days · ${plural(ups.length, "standup")}.</p>
+    const focused = days.reduce((sum, d) => sum + VGRules.sessionMinutes(STATE.review, d), 0);
+    return `<h1 class="vg-hq-h1">Weekly review</h1><p class="vg-hq-lede">${plural(total, "thing")} done in 7 days${focused ? ` · ${VGRules.minutesWords(focused)} focused` : ""} · ${plural(ups.length, "standup")}.</p>
       <div class="vg-hq-weekbars" role="img" aria-label="Done per day">${perDay.map(x => `<span title="${esc(x.d)}: ${x.n}"><i style="height:${Math.round(x.n / peak * 100)}%"></i><small>${esc(DAYS[new Date(x.d + "T12:00:00").getDay()])}</small></span>`).join("")}</div>` +
       step(1, "Empty the inbox", inbox.length ? plural(inbox.length, "note") + " to file." : "Nothing to file.", inbox.length ? '<button class="vg-hq-btn" data-go="needs" data-needs-to="inbox">File them</button>' : "") +
       step(2, "Sweep what's carried over", carried.length ? plural(carried.length, "task") + " rolling forward." : "Nothing carried over.", carried.length ? '<button class="vg-hq-btn" data-go="sweep">Sweep</button>' : "") +

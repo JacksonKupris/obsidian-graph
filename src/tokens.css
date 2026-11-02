@@ -32,6 +32,15 @@
   --ds-ok: var(--color-green, #879a39); --ds-warn: var(--color-yellow, #d0a215); --ds-danger: var(--color-red, #d14d41); --ds-info: var(--color-blue, #4385be); --ds-special: var(--color-purple, #8b7ec8); --ds-cyan: var(--color-cyan, #3aa99f); --ds-orange: var(--color-orange, #da702c);
   --ds-status-ink: #100f0f;
 }
+/* the tour (src/tour.js), the same on the graph and in HQ */
+.vg-tour { position: absolute; inset: 0; z-index: 19; pointer-events: none; }
+.vg-tour-ring { position: absolute; border-radius: var(--ds-r-md); box-shadow: 0 0 0 9999px var(--ds-scrim), 0 0 0 2px var(--ds-accent); transition: top var(--ds-slow) var(--ds-ease), left var(--ds-slow) var(--ds-ease), width var(--ds-slow) var(--ds-ease), height var(--ds-slow) var(--ds-ease); }
+.vg-tour-card { position: absolute; width: min(290px, calc(100% - 20px)); display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; pointer-events: auto;
+  background: var(--ds-bg); color: var(--ds-text); border: 1px solid var(--ds-line); border-radius: var(--ds-r-lg); box-shadow: var(--ds-shadow-2); animation: vg-ds-pop var(--ds-base) var(--ds-ease); }
+.vg-tour-card p { margin: 0 0 6px; font-size: var(--ds-fs-sm); line-height: 1.5; }
+.vg-tour-count { font-size: var(--ds-fs-xs); color: var(--ds-muted); }
+.vg-tour-acts { display: flex; justify-content: flex-end; gap: 8px; }
+@media (prefers-reduced-motion: reduce) { .vg-tour-ring, .vg-tour-card { transition: none; animation: none; } }
 @keyframes vg-ds-beacon { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ds-accent) 55%, transparent); } 70%, 100% { box-shadow: 0 0 0 10px transparent; } }
 @keyframes vg-ds-beat { 0%, 100% { transform: none; opacity: 1; } 50% { transform: scale(1.35); opacity: .7; } }
 @keyframes vg-ds-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

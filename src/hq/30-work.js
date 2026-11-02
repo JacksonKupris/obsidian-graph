@@ -19,8 +19,26 @@
     const out = section("Waiting on approval", shown.filter(i => i.kind === "approval")) + section("Drafts to review", shown.filter(i => i.kind === "review")) +
       section("Automations needing attention", shown.filter(i => i.kind === "job")) + section("Reports to review", shown.filter(i => i.kind === "report")) +
       section("Inbox to file", shown.filter(i => i.kind === "inbox")) + section("Vault decisions", shown.filter(i => i.kind === "backlog"));
-    return `<h1 class="vg-hq-h1">Needs you</h1><p class="vg-hq-lede">${items.length ? `Decisions only you can make, ${items.length} in all.` : "Nothing waiting on you."}</p><div class="vg-hq-filters" role="group" aria-label="Filter Needs you">${chips}</div>` +
+    const head = `<h1 class="vg-hq-h1">Needs you</h1><p class="vg-hq-lede">${items.length ? `Decisions only you can make, ${items.length} in all.` : "Nothing waiting on you."}</p><div class="vg-hq-filters" role="group" aria-label="Filter Needs you">${chips}</div>`;
+    if (needsWalk && shown.length) return head + walkHtml(shown);
+    const tools = shown.length > 1 ? `<div class="vg-hq-row vg-hq-needtools"><button class="vg-hq-btn vg-hq-btn-sm" data-walk="on">One at a time</button>${api.hqMark ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-pickall>Select all ${shown.length}</button>` : ""}</div>` : "";
+    return head + tools +
       (out || empty(needFilter === "all" ? "No approvals, drafts, failed jobs, reports or vault decisions waiting." : `No ${filters.find(f => f[0] === needFilter)[1].toLowerCase()} waiting.`, [["Show all", 'data-needfilter="all"'], ["Today", 'data-go="today"']]));
+  }
+
+  // one decision at a time, in the screen's order: whatever you do to one, the next takes its place. Skip is for this visit.
+  let needsWalk = false; const walkSkipped = new Set();
+  function walkHtml(items) {
+    const left = items.filter(i => !walkSkipped.has(i.key)), it = left[0], off = '<button class="vg-hq-btn vg-hq-btn-ghost" data-walk="off">Back to the list</button>';
+    if (!it) return empty("You've been through all of them.", [["Start over", 'data-walk="again"'], ["Back to the list", 'data-walk="off"'], ["Today", 'data-go="today"']]);
+    return `<section class="vg-hq-next vg-hq-item vg-hq-walk" data-key="${esc(it.key)}"><div class="vg-hq-eyebrow">${esc(VGRules.kindWords(it.kind))} · ${items.length - left.length + 1} of ${items.length}</div><h2>${esc(it.title)}</h2>${it.why ? `<p>${esc(it.why)}</p>` : ""}<div class="vg-hq-row">${buttons(it, true)}<button class="vg-hq-btn" data-walk="skip" data-key="${esc(it.key)}">Skip</button>${off}</div>${contextPanel(it, true)}</section>`;
+  }
+  function walk(how, key) {
+    if (how === "on") { needsWalk = true; walkSkipped.clear(); }
+    else if (how === "off") needsWalk = false;
+    else if (how === "again") walkSkipped.clear();
+    else if (how === "skip") walkSkipped.add(key);
+    render();
   }
 
   function automationsScreen() {

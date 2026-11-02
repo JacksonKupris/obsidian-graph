@@ -67,7 +67,7 @@ function mountVaultHQ(root, data, opts) {
   toastEl.setAttribute("role", "status");
   function toast(msg, undo, bad) {
     clearTimeout(toastTimer);
-    toastEl.className = "vg-hq-toast" + (bad ? " is-bad" : "");
+    toastEl.className = "vg-hq-toast" + (bad ? " is-bad" : ""); toastEl.setAttribute("role", bad ? "alert" : "status");
     toastEl.innerHTML = `<span>${esc(msg)}</span>${undo ? '<button class="vg-hq-btn vg-hq-btn-sm" data-undo>Undo</button>' : ""}`;
     toastEl.hidden = false;
     const b = toastEl.querySelector("[data-undo]"); if (b) b.onclick = () => { toastEl.hidden = true; undo(); };
@@ -76,14 +76,22 @@ function mountVaultHQ(root, data, opts) {
   function dialog(title, text, ok, withInput) {
     return new Promise(resolve => {
       const box = document.createElement("div"); box.className = "vg-hq-dialog"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", title);
-      box.innerHTML = `<div class="vg-hq-dialog-card"><b>${esc(title)}</b><p>${esc(text)}</p>${withInput ? `<input class="vg-hq-input" placeholder="${esc(withInput)}">` : ""}
+      box.innerHTML = `<div class="vg-hq-dialog-card"><b>${esc(title)}</b><p>${esc(text)}</p>${withInput ? `<input class="vg-hq-input" placeholder="${esc(withInput)}" aria-label="${esc(text)}">` : ""}
         <div class="vg-hq-row-end"><button class="vg-hq-btn" data-no>Cancel</button><button class="vg-hq-btn vg-hq-btn-primary" data-ok>${esc(ok || "OK")}</button></div></div>`;
-      const end = v => { box.remove(); resolve(v); };
+      const close = openDialog(box, box.querySelector("input") || box.querySelector("[data-ok]")), end = v => { close(); resolve(v); };
       box.querySelector("[data-no]").onclick = () => end(withInput ? null : false);
       box.querySelector("[data-ok]").onclick = () => end(withInput ? box.querySelector("input").value.trim() : true);
-      box.onkeydown = e => { if (e.key === "Escape") end(withInput ? null : false); if (e.key === "Enter" && withInput) end(box.querySelector("input").value.trim()); };
-      el.appendChild(box); (box.querySelector("input") || box.querySelector("[data-ok]")).focus();
+      box.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") end(withInput ? null : false); if (e.key === "Enter" && withInput) end(box.querySelector("input").value.trim()); };
     });
+  }
+  // every dialog: modal to a screen reader, Tab stays inside, and on closing the focus goes back where it was
+  function openDialog(box, first) {
+    const back = focusKey(document.activeElement);
+    box.setAttribute("aria-modal", "true");
+    box.addEventListener("keydown", e => { if (e.key !== "Tab") return; const f = [...box.querySelectorAll("button:not([disabled]), input, select, textarea")]; if (!f.length) return;
+      const a = f[0], z = f[f.length - 1], at = document.activeElement; if (e.shiftKey && (at === a || !box.contains(at))) { e.preventDefault(); z.focus(); } else if (!e.shiftKey && (at === z || !box.contains(at))) { e.preventDefault(); a.focus(); } });
+    el.appendChild(box); (first || box.querySelector("input, button")).focus();
+    return () => { box.remove(); refocus(back); };
   }
   const ctx = () => ({
     api, data: DATA,
@@ -98,16 +106,19 @@ function mountVaultHQ(root, data, opts) {
   function chooseFolder(it) {
     const counts = new Map(); (DATA.nodes || []).forEach(n => { const parts = String(n.folder || "").split("/"); [1, 2, 3].forEach(d => { if (parts.length >= d && parts[0]) { const f = parts.slice(0, d).join("/"); counts.set(f, (counts.get(f) || 0) + 1); } }); });
     const inbox = VGRules.folders.inbox, all = [...counts].filter(([f]) => !f.startsWith(inbox) && !f.startsWith(VGRules.folders.archive) && !f.startsWith("_") && f.includes("/")).sort((a, b) => b[1] - a[1]).map(([f]) => f);
+    const title = it.title.toLowerCase(), ranked = all.slice().sort((a, b) => (title.includes(b.split("/").pop().toLowerCase().split(" ")[0]) ? 1 : 0) - (title.includes(a.split("/").pop().toLowerCase().split(" ")[0]) ? 1 : 0));
+    return chooseFrom(`File “${it.title}”`, "Filter folders", "No folder matches.", ranked.map(f => ({ value: f, label: f })));
+  }
+  // a short list with a filter on top: Enter takes the first one showing. Resolves the option's value, or null.
+  function chooseFrom(title, filterWords, noneWords, options) {
     return new Promise(resolve => {
-      const box = document.createElement("div"); box.className = "vg-hq-dialog"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "File the note");
-      const title = it.title.toLowerCase(), ranked = all.slice().sort((a, b) => (title.includes(b.split("/").pop().toLowerCase().split(" ")[0]) ? 1 : 0) - (title.includes(a.split("/").pop().toLowerCase().split(" ")[0]) ? 1 : 0));
-      const list = q => ranked.filter(f => !q || f.toLowerCase().includes(q.toLowerCase())).slice(0, 8).map(f => `<button class="vg-hq-link" data-to="${esc(f)}">${esc(f)}</button>`).join("") || '<p class="vg-hq-ctx-none">No folder matches.</p>';
-      box.innerHTML = `<div class="vg-hq-dialog-card"><b>File “${esc(it.title)}”</b><input class="vg-hq-input" placeholder="Filter folders" aria-label="Filter folders"><div class="vg-hq-folderlist">${list("")}</div><div class="vg-hq-row-end"><button class="vg-hq-btn" data-no>Cancel</button></div></div>`;
-      const end = v => { box.remove(); resolve(v); }, input = box.querySelector("input"), out = box.querySelector(".vg-hq-folderlist");
+      const box = document.createElement("div"); box.className = "vg-hq-dialog"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", title);
+      const list = q => options.filter(o => !q || o.label.toLowerCase().includes(q.toLowerCase())).slice(0, 8).map(o => `<button class="vg-hq-link" data-to="${esc(o.value)}">${esc(o.label)}${o.sub ? `<small>${esc(o.sub)}</small>` : ""}</button>`).join("") || `<p class="vg-hq-ctx-none">${esc(noneWords)}</p>`;
+      box.innerHTML = `<div class="vg-hq-dialog-card"><b>${esc(title)}</b><input class="vg-hq-input" placeholder="${esc(filterWords)}" aria-label="${esc(filterWords)}"><div class="vg-hq-folderlist">${list("")}</div><div class="vg-hq-row-end"><button class="vg-hq-btn" data-no>Cancel</button></div></div>`;
+      const input = box.querySelector("input"), out = box.querySelector(".vg-hq-folderlist"), close = openDialog(box, input), end = v => { close(); resolve(v); };
       input.oninput = () => { out.innerHTML = list(input.value); };
       box.addEventListener("click", e => { const b = e.target.closest("[data-to]"); if (b) end(b.dataset.to); else if (e.target.closest("[data-no]")) end(null); });
-      box.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") end(null); if (e.key === "Enter") { const b = box.querySelector("[data-to]"); if (b) end(b.dataset.to); } };
-      el.appendChild(box); input.focus();
+      box.onkeydown = e => { e.stopPropagation(); if (e.key === "Escape") end(null); if (e.key === "Enter" && e.target === input) { const b = box.querySelector("[data-to]"); if (b) { e.preventDefault(); end(b.dataset.to); } } };
     });
   }
   // an item's buttons: its main action, then Later / Reject / Delegate / Open

@@ -69,11 +69,22 @@
   const nodes0 = () => (DATA.nodes || []).filter(n => !n.person && !n.ghost && !n.moc).length;
   // the capture box: Enter makes a task in today's journal, Shift+Enter a note
   let captureText = "";
-  const captureBox = () => api.capture ? `<div class="vg-hq-capture"><input class="vg-hq-captureinput" type="text" value="${esc(captureText)}" placeholder="Capture a task, a note, an idea…" aria-label="Capture"><button class="vg-hq-btn vg-hq-btn-primary" data-capture="task" title="Add to today's journal (Enter)">Add task</button><button class="vg-hq-btn" data-capture="note" title="Save as a note (Shift+Enter)">Save note</button></div>` : "";
-  async function capture(kind) {
-    const box = el.querySelector(".vg-hq-captureinput"), text = (box ? box.value : captureText).trim(); if (!text) { if (box) box.focus(); return; }
-    try { const path = await api.capture(text, kind); captureText = ""; if (box) { box.value = ""; box.focus(); } const c = ctx(); toast(kind === "note" ? "Note saved" : "Added to today", api.lastUndo && api.undo ? () => { const u = api.lastUndo(); if (u) api.undo(u.id != null ? u.id : u); } : null); if (kind === "note" && path && api.openNote && opts.openCaptured) api.openNote(path); }
+  const captureBox = () => api.capture ? `<div class="vg-hq-capture"><input class="vg-hq-captureinput" type="text" value="${esc(captureText)}" placeholder="Capture a task, a note, an idea…" aria-label="Capture"><button class="vg-hq-btn vg-hq-btn-primary" data-capture="task" title="Add to today's journal (Enter)">Add task</button>${projectsToAdd().length ? '<button class="vg-hq-btn" data-captureto title="Choose where the task goes (Ctrl+Enter)">Add to…</button>' : ""}<button class="vg-hq-btn" data-capture="note" title="Save as a note (Shift+Enter)">Save note</button></div>` : "";
+  // to: a project, for a task that belongs in its note. given: words from elsewhere (the palette), leaving the box as it is.
+  async function capture(kind, to, given) {
+    const box = el.querySelector(".vg-hq-captureinput"), text = (given || (box ? box.value : captureText)).trim(); if (!text) { if (box) box.focus(); return; }
+    try { const path = await (to ? api.capture(text, kind, to.path) : api.capture(text, kind)); if (!given) { captureText = ""; const now = el.querySelector(".vg-hq-captureinput"); if (now) { now.value = ""; now.focus(); } } toast(to ? `Added to ${to.title}` : kind === "note" ? "Note saved" : "Added to today", api.lastUndo && api.undo ? () => { const u = api.lastUndo(); if (u) api.undo(u.id != null ? u.id : u); } : null); if (kind === "note" && path && api.openNote && opts.openCaptured) api.openNote(path); }
     catch (error) { toast(error.message || "Couldn't save that", null, true); }
+  }
+  // the projects a task can go in: in progress first, then what's planned or waiting; not what's closed
+  const ADD_ORDER = ["active", "planned", "waiting"];
+  const projectsToAdd = () => VGRules.hqProjects(DATA).filter(p => p.group !== "closed").sort((a, b) => (ADD_ORDER.indexOf(a.group) + 1 || 9) - (ADD_ORDER.indexOf(b.group) + 1 || 9));
+  async function captureTo(given) {
+    const box = el.querySelector(".vg-hq-captureinput"), text = (given || (box ? box.value : captureText)).trim(); if (!text) { if (box) box.focus(); return; }
+    const projects = projectsToAdd(), TODAY = "\u0000today";
+    const to = await chooseFrom(`Where does “${text.length > 60 ? text.slice(0, 59) + "…" : text}” go?`, "Filter projects", "No project matches.", [{ value: TODAY, label: "Today's journal" }, ...projects.map(p => ({ value: p.path, label: p.title, sub: p.status || "no status" }))]);
+    if (to === null) return;
+    return capture("task", to === TODAY ? null : projects.find(p => p.path === to), given);
   }
   // ---- People: who your open work is about, for the moment before you talk to them
   function peopleScreen() {
