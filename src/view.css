@@ -69,7 +69,7 @@
 .vg-help { line-height: 2; }
 
 .vg-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.vg-root .vg-stat { background: var(--vg-raised); border: 1px solid var(--vg-line); border-radius: var(--vg-r-sm); padding: 8px 10px; text-align: left; color: inherit; font: inherit; cursor: pointer; transition: border-color var(--ds-base) var(--ds-ease), background var(--ds-base) var(--ds-ease); }
+.vg-root .vg-stat { display: block; height: auto; background: var(--vg-raised); border: 1px solid var(--vg-line); border-radius: var(--vg-r-sm); padding: 8px 10px; text-align: left; color: inherit; font: inherit; cursor: pointer; transition: border-color var(--ds-base) var(--ds-ease), background var(--ds-base) var(--ds-ease); }
 .vg-root .vg-stat:hover, .vg-root .vg-stat:focus-visible { border-color: var(--vg-accent); background: color-mix(in srgb, var(--vg-accent) 8%, var(--vg-raised)); }
 .vg-stat b { display: block; font-size: var(--vg-fs-xl); font-weight: 650; font-variant-numeric: tabular-nums; }
 .vg-stat span { font-size: var(--vg-fs-xs); color: var(--vg-muted); }
@@ -368,7 +368,7 @@
 .vg-hud .bl { bottom: 10px; left: 10px; border-bottom-width: 1.5px; border-left-width: 1.5px; }
 .vg-hud .br { bottom: 10px; right: 10px; border-bottom-width: 1.5px; border-right-width: 1.5px; }
 .vg-hud-title, .vg-hud-tele { position: absolute; display: flex; flex-direction: column; text-shadow: 0 0 8px color-mix(in srgb, var(--vg-hud) 60%, transparent); }
-.vg-hud-title { top: 60px; left: 22px; } .vg-hud-title b { font-weight: 700; letter-spacing: .18em; }
+.vg-hud-title { top: 60px; left: 22px; padding: 6px 10px; margin: -6px 0 0 -10px; border-radius: var(--ds-r-2xs); background: color-mix(in srgb, var(--vg-hud-night) 72%, transparent); } .vg-hud-title b { font-weight: 700; letter-spacing: .18em; }
 .vg-hud-title span, .vg-hud-tele span { opacity: .72; }
 .vg-hud-tele { bottom: 22px; left: 22px; max-width: min(420px, 70%); padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--vg-hud) 35%, transparent);
   background: rgba(2, 8, 20, .55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border-radius: var(--ds-r-2xs); }

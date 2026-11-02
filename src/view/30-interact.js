@@ -573,10 +573,15 @@
   // instead of text painted on the canvas where the banner or legend can cover it
   let sceneStat = { view: null, text: "" };
   function setSceneStat(text) { if (sceneStat.view !== st.view || sceneStat.text !== text) { sceneStat = { view: st.view, text }; renderStatus(); } }
+  // what's on screen, by kind: the sidebar's numbers count notes, and this says what else the total holds
+  function shownWords() {
+    const c = VGRules.noteCounts(active), more = [c.maps ? plural(c.maps, "map") : "", c.people ? (c.people === 1 ? "1 person" : `${c.people} people`) : "", c.wanted ? `${c.wanted} to write` : ""].filter(Boolean);
+    return more.length ? `${plural(c.notes, "note")} · ${more.join(" · ")}` : `${plural(c.notes, "note")} shown`;
+  }
   function renderStatus() {
     const settling = alpha > 0.005 && !neural() && !isCosmos() && !mapView();
     settledShown = settling;
-    const parts = [sceneStat.view === st.view && sceneStat.text ? sceneStat.text : `${active.length} shown`];   // what's on screen (maps, people and unwritten notes too); the sidebar counts linked notes
+    const parts = [sceneStat.view === st.view && sceneStat.text ? sceneStat.text : shownWords()];
     if (st.highlightLabel) parts.push(st.highlightLabel);
     if (st.path) parts.push(`path · ${plural(st.path.ids.length - 1, "step")}`);
     if (st.multi) parts.push(`${st.multi.size} selected`);

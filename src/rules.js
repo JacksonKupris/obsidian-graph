@@ -167,6 +167,9 @@ const VGRules = (() => {
     if (!m) { const fm = String(text).match(/^---\n([\s\S]*?)\n---/); m = fm && fm[1].match(/^(?:created|date)\s*:\s*['"]?(20\d\d)-(\d\d)-(\d\d)/m); }
     return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
   }
+  // A fenced block that a plugin runs instead of showing: its text is a script or a query, not what the note says, so search and
+  // Peek leave it out. Other code blocks are the note's content and stay.
+  const LIVE_BLOCK = /^(dataview|dataviewjs|tasks|query|base|bases)$/i;
   function recallChunks(text) {
     // line numbers count from the top of the file, frontmatter included (the line Obsidian opens at)
     const all = String(text).replace(/\r\n/g, "\n"), fm = all.match(/^---\n[\s\S]*?\n---\n/), skip = fm ? fm[0].split("\n").length - 1 : 0;
@@ -174,7 +177,7 @@ const VGRules = (() => {
     let heading = "", buf = [], start = 1 + skip, code = null, lang = "", cstart = 0, cbuf = [];
     body.split("\n").forEach((line, k) => {
       const i = k + 1 + skip, f = line.match(/^(```+|~~~+)\s*([\w+\-#.]*)/);
-      if (code !== null) { if (f && line.trim().startsWith(code.slice(0, 3))) { out.push(["code", heading, cstart, cbuf.join("\n"), lang]); code = null; } else cbuf.push(line); return; }
+      if (code !== null) { if (f && line.trim().startsWith(code.slice(0, 3))) { if (!LIVE_BLOCK.test(lang)) out.push(["code", heading, cstart, cbuf.join("\n"), lang]); code = null; } else cbuf.push(line); return; }
       if (f) { code = f[1]; lang = f[2].toLowerCase(); cstart = i; cbuf = []; return; }
       const h = line.match(/^(#{1,6})\s+(.*)/);
       if (h) { if (buf.some(x => x.trim())) out.push(["section", heading, start, buf.join("\n"), ""]); heading = h[2].trim(); buf = []; start = i; return; }
@@ -576,6 +579,17 @@ const VGRules = (() => {
     return "";
   }
   const titleOf = (text, path) => { const m = bodyOf(text).match(/^#\s+(.+)$/m); return plainTask(m ? m[1] : stemCase(path)); };
+  // What a list of graph nodes is made of. The one definition of a note: not a person, a map or a note still to write. Every count
+  // on screen comes from here, so they add up: linked + unlinked = notes, and notes + maps + people + wanted = every node.
+  function noteCounts(list) {
+    const c = { notes: 0, linked: 0, unlinked: 0, maps: 0, people: 0, wanted: 0 };
+    for (const n of list || []) { if (n.person) c.people++; else if (n.ghost) c.wanted++; else if (n.moc) c.maps++; else { c.notes++; if (n.isolated) c.unlinked++; else c.linked++; } }
+    return c;
+  }
+  // A status as it reads in a sentence: frontmatter's in-progress is "in progress". The value in the note stays as it is.
+  const statusWords = s => String(s || "").replace(/[-_]+/g, " ").trim();
+  // A branch-style code name as words, for a note whose heading is only that: JK_LiveDriveTimes reads Live Drive Times.
+  const codeNameWords = t => { const m = String(t).match(/^(?:[A-Z]+-)*[A-Z]{1,5}_([A-Za-z0-9_]+)$/); return m ? m[1].replace(/_+/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2").trim() : t; };
   // hqGather(files, { today }) -> data.hq. files: [{ path, text, fm? }] (fm: Obsidian's frontmatter; read from the
   // text when missing), plus each device's run records as { path, json } from the automation_status folder.
   function hqGather(files, o = {}) {
@@ -592,7 +606,7 @@ const VGRules = (() => {
           related: [...String(t.text).matchAll(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]+)?\]\]/g)].map(m => m[1]) }));
         const tags = tagsOf(fm), systems = [...new Set([...tags.filter(t => /^(?:system|project)\//i.test(t)), ...[].concat(fm.system || [], fm.project || []).map(plainTask).filter(Boolean)])];
         const references = value => [].concat(value || []).map(v => String(v).replace(/^\[\[|\]\]$/g, "").split("|")[0]).filter(Boolean);
-        hq.projects.push({ path: f.path, name, kind: PROJECT_TYPES[projectType(fm)], title: titleOf(f.text, f.path).replace(/^(Scope of Work|User Story)\s*[—–:-]\s*/i, ""),
+        hq.projects.push({ path: f.path, name, kind: PROJECT_TYPES[projectType(fm)], title: codeNameWords(titleOf(f.text, f.path).replace(/^(Scope of Work|User Story)\s*[—–:-]\s*/i, "")),
         status: String(fm.status || "").toLowerCase(), group: statusGroup(fm.status), summary: scopeSummary(f.text), estimate: scopeEstimate(f.text), created: String(fm.created || ""),
         tags, systems, tasks, chunks: recallChunks(f.text), parents: references(fm.parent || fm["Parent task"]), related: references(fm.related),
         updated: String(fm.updated || fm.modified || fm.created || "") });
@@ -679,7 +693,7 @@ const VGRules = (() => {
     const plan = hq.standups.find(s => s.date < day);
     if (plan) plan.plan.forEach((p, i) => put({ key: `plan|${plan.path}|${i}|${p.text}`, kind: "plan", path: plan.path, line: p.line, text: p.text, ids: [plan.path], title: label(p.text), why: `Planned in ${stemCase(plan.path)}`, score: 15 - i * 0.01 }));
     hq.projects.filter(s => s.group === "waiting").forEach(s => { const waited = s.updated ? daysBetween(s.updated, day) : 0;
-      put({ key: `approval|${s.path}`, kind: "approval", path: s.path, ids: [s.path], title: s.title, why: `${s.status}${waited > 0 ? ` for ${waited} day${waited === 1 ? "" : "s"}` : ""}`, waited, score: waited > (H.approval_overdue_days || 3) ? 21 : 12 }); });
+      put({ key: `approval|${s.path}`, kind: "approval", path: s.path, ids: [s.path], title: s.title, why: `${statusWords(s.status)}${waited > 0 ? ` for ${waited} day${waited === 1 ? "" : "s"}` : ""}`, waited, score: waited > (H.approval_overdue_days || 3) ? 21 : 12 }); });
     hq.reviews.filter(r => r.status === "waiting" || r.reviewOnly && ["pending", "proposed"].includes(r.status)).forEach(r => put({ key: `review|${r.path}`, kind: "review", path: r.path, ids: [r.path], title: r.reviewOnly ? reportTitle(r.name) : r.title,
       why: r.reviewOnly ? "Review only · no rows applied" : r.task ? `Draft for: ${r.task}` : "Draft waiting", reviewOnly: !!r.reviewOnly, score: 11.5 }));
     hqJobs(hq, o.now).filter(j => j.state === "failed" || j.state === "late").forEach(j => put({ key: `job|${j.name}|${j.last}`, kind: "job", path: H.automations_note, name: j.name, ids: [],
@@ -736,7 +750,7 @@ const VGRules = (() => {
   // The day's loop. Focus: up to three items you picked for today (review.focus, for that day only). Done today: journal tasks
   // stamped today, and plan items marked done today.
   // A note's text as it reads, for a preview: no markup, no table bars, no fold markers
-  const plainSnippet = s => String(s || "").replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/^[\s>#*-]+|[▼▶]/gm, "").replace(/\*\*|__|`|\|/g, " ").replace(/\s+/g, " ").trim();
+  const plainSnippet = s => String(s || "").replace(/^(\s*(?:[-*+]\s+)?)\[.\]\s+/gm, "$1").replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/^[\s>#*-]+|[▼▶]/gm, "").replace(/\*\*|__|`|\|/g, " ").replace(/\s+/g, " ").trim();
   const FOCUS_MAX = 3;   // three is a decision; ten is a list
   const focusKeys = (review, day) => { const f = (review || {}).focus; return f && f.day === day ? (f.keys || []) : []; };
   function hqFocusItems(list, review, day) { const by = new Map(list.map(it => [it.key, it])); return focusKeys(review, day).map(k => by.get(k)).filter(Boolean); }
@@ -1152,11 +1166,12 @@ const VGRules = (() => {
   }
   // A note's text as blocks to show in a preview, without Obsidian: its frontmatter and embeds go, and it stops at max characters.
   function notePreview(text, max = 20000) {
-    const body = String(text || "").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, ""), cut = body.length > max, blocks = []; let fence = null, para = [], paraLinks = [];
+    const body = String(text || "").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, ""), cut = body.length > max, blocks = []; let fence = null, live = false, para = [], paraLinks = [];
     const plain = s => plainSnippet(String(s).replace(/!\[\[[^\]]*\]\]/g, "")), linked = (b, raw) => { const links = noteLinks(raw); return links.length ? { ...b, links } : b; };
     const flush = () => { if (para.length) { blocks.push(paraLinks.length ? { kind: "p", text: para.join(" "), links: paraLinks } : { kind: "p", text: para.join(" ") }); para = []; paraLinks = []; } };
     for (const line of (cut ? body.slice(0, max) : body).split(/\r?\n/)) {
-      if (/^\s*(```|~~~)/.test(line)) { if (fence) { blocks.push({ kind: "code", text: fence.join("\n") }); fence = null; } else { flush(); fence = []; } continue; }
+      const mark = line.match(/^\s*(?:```|~~~)\s*([\w+\-#.]*)/);
+      if (mark) { if (fence) { if (!live) blocks.push({ kind: "code", text: fence.join("\n") }); fence = null; } else { flush(); fence = []; live = LIVE_BLOCK.test(mark[1]); } continue; }
       if (fence) { fence.push(line); continue; }
       const h = line.match(/^(#{1,6})\s+(.*)$/), item = line.match(/^\s*(?:[-*+]|\d+\.)\s+(\[.\]\s+)?(.*)$/);
       if (!line.trim()) flush();
@@ -1165,7 +1180,7 @@ const VGRules = (() => {
       else if (/^\s*!\[/.test(line) || /^\s*\|?[-: |]+\|?\s*$/.test(line)) continue;
       else { para.push(plain(line)); paraLinks.push(...noteLinks(line)); }
     }
-    flush(); if (fence) blocks.push({ kind: "code", text: fence.join("\n") });
+    flush(); if (fence && !live) blocks.push({ kind: "code", text: fence.join("\n") });
     return { blocks: blocks.filter(b => b.kind === "code" || b.text), cut };
   }
   // A day from what someone types: "friday", "tomorrow", "next week", "dec 3", "12/3", "2 weeks", "2026-12-01". Only a day after
@@ -1215,7 +1230,7 @@ const VGRules = (() => {
   function hqNextStep(o) {
     const { list = [], review, day, hour = 12, done = 0, standup = false, session = null } = o, focus = hqFocusItems(list, review, day), today = list.filter(i => i.group === "today"), needs = list.filter(i => i.group === "needs");
     if (session) return { key: "session", label: `Back to: ${session.title}`, screen: "session", target: ".vg-hq-session-acts [data-act='main']" };
-    const job = needs.find(i => i.kind === "job"); if (job) return { key: "job", label: `Check: ${job.title}`, screen: "needs", target: `.vg-hq-item[data-key^='job|']` };
+    const job = needs.find(i => i.kind === "job"); if (job) return { key: "job", label: `Check ${job.title}`, screen: "needs", target: `.vg-hq-item[data-key^='job|']` };
     if (hour >= STANDUP_HOUR && done > 0 && !standup) return { key: "standup", label: "Start today's standup", screen: "wrap", target: "[data-makestandup]" };
     if (focus.length) return { key: "do", label: `Focus on: ${focus[0].title}`, screen: "today", target: ".vg-hq-next [data-session]" };
     if (today.length) return { key: "plan", label: "Pick today's focus", screen: "today", target: ".vg-hq-next .vg-hq-star" };
@@ -1246,7 +1261,7 @@ const VGRules = (() => {
     return marks.length ? applyLedgers(follow(shared), marks) : shared;
   }
 
-  return { plainSnippet, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { plainSnippet, noteCounts, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

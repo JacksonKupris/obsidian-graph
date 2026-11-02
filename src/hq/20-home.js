@@ -66,7 +66,7 @@
     <div><i>1</i><b>Capture something</b><p>Type a task above and press Enter. It goes in today's journal.</p></div>
     <div><i>2</i><b>Star what matters</b><p>Pick up to three things for the day from Today.</p></div>
     <div><i>3</i><b>Press Ctrl K</b><p>Find anything, or do anything, from one box.</p></div></section><div class="vg-hq-row">${api.openDaily ? '<button class="vg-hq-btn vg-hq-btn-primary" data-daily>Open today\'s journal</button>' : ""}${opts.openGraph ? '<button class="vg-hq-btn" data-graph>See the graph</button>' : ""}</div>`;
-  const nodes0 = () => (DATA.nodes || []).filter(n => !n.person && !n.ghost && !n.moc).length;
+  const nodes0 = () => VGRules.noteCounts(DATA.nodes).notes;
   // the capture box: Enter makes a task in today's journal, Shift+Enter a note
   let captureText = "";
   const captureBox = () => api.capture ? `<div class="vg-hq-capture"><input class="vg-hq-captureinput" type="text" value="${esc(captureText)}" placeholder="Capture a task, a note, an idea…" aria-label="Capture"><button class="vg-hq-btn vg-hq-btn-primary" data-capture="task" title="Add to today's journal (Enter)">Add task</button>${projectsToAdd().length ? '<button class="vg-hq-btn" data-captureto title="Choose where the task goes (Ctrl+Enter)">Add to…</button>' : ""}<button class="vg-hq-btn" data-capture="note" title="Save as a note (Shift+Enter)">Save note</button></div>` : "";
@@ -82,7 +82,7 @@
   async function captureTo(given) {
     const box = el.querySelector(".vg-hq-captureinput"), text = (given || (box ? box.value : captureText)).trim(); if (!text) { if (box) box.focus(); return; }
     const projects = projectsToAdd(), TODAY = "\u0000today";
-    const to = await chooseFrom(`Where does “${text.length > 60 ? text.slice(0, 59) + "…" : text}” go?`, "Filter projects", "No project matches.", [{ value: TODAY, label: "Today's journal" }, ...projects.map(p => ({ value: p.path, label: p.title, sub: p.status || "no status" }))]);
+    const to = await chooseFrom(`Where does “${text.length > 60 ? text.slice(0, 59) + "…" : text}” go?`, "Filter projects", "No project matches.", [{ value: TODAY, label: "Today's journal" }, ...projects.map(p => ({ value: p.path, label: p.title, sub: statusWord(p) }))]);
     if (to === null) return;
     return capture("task", to === TODAY ? null : projects.find(p => p.path === to), given);
   }

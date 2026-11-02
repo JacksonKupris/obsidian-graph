@@ -47,10 +47,20 @@
   function sessionPause() { if (!session) return; if (session.since) { session.spent += Date.now() - session.since; session.since = null; } else session.since = Date.now(); render(); }
   function sessionSetLength(mins) { sessionLength = mins; if (session) { session.length = mins; session.over = false; } render(); }
   const sessionButton = (it, big) => api.hqSession && it && it.group === "today" ? `<button class="vg-hq-btn${big ? "" : " vg-hq-btn-sm"} vg-hq-focusbtn" data-session="${esc(it.key)}" title="Work on this with a timer (s)">${icon("clock", 14)} Focus</button>` : "";
+  // before a session: what it would be on, how long, and the one button that starts it; or pick something else from the list
+  function sessionIdle() {
+    const first = doNext(); if (!first) return `<h1 class="vg-hq-h1">Focus</h1>` + empty("Nothing open to focus on.", [["Today", 'data-go="today"'], ...(api.openDaily ? [["Open today's journal", "data-daily"]] : [])]);
+    const others = [...new Set([...focus(), ...ofGroup("today")])].filter(x => x !== first), spent = VGRules.sessionMinutes(STATE.review, day());
+    return `<section class="vg-hq-session"><div class="vg-hq-eyebrow">Focus on</div><h1 class="vg-hq-session-title">${esc(first.title)}</h1>${first.why ? `<p class="vg-hq-lede">${esc(first.why)}</p>` : ""}
+      <div class="vg-hq-timer is-paused"><b>${sessionLength}:00</b></div>
+      <div class="vg-hq-session-ctl">${api.hqSession ? `<button class="vg-hq-btn vg-hq-btn-primary" data-session="${esc(first.key)}">Start</button>` : ""}<span class="vg-hq-seg" role="group" aria-label="Length">${SESSION_LENGTHS.map(m => `<button class="vg-hq-filter${sessionLength === m ? " is-on" : ""}" data-sesslen="${m}" aria-pressed="${sessionLength === m}">${m}m</button>`).join("")}</span></div>
+      ${spent ? `<p class="vg-hq-lede">${esc(VGRules.minutesWords(spent))} focused today.</p>` : ""}
+      ${others.length ? `<section class="vg-hq-sec"><h3>Or start on<span>${others.length > 5 ? `5 of ${others.length}` : others.length}</span></h3>${others.slice(0, 5).map(n => `<button class="vg-hq-link" data-session="${esc(n.key)}">${esc(n.title)}<small>${esc(n.why || "")}</small></button>`).join("")}</section>` : ""}</section>`;
+  }
   function sessionScreen() {
     const it = session && BY_KEY.get(session.key);
     if (session && !it) { const next = sessionUpNext()[0]; if (next) { sessionLog(); session = { key: next.key, title: next.title, length: sessionLength, spent: 0, logged: 0, since: Date.now(), over: false }; return sessionScreen(); } }
-    if (!it) { const first = doNext(); return `<h1 class="vg-hq-h1">Focus</h1>` + (first ? `<div class="vg-hq-row">${sessionButton(first, true)}</div><p class="vg-hq-lede">Next up: ${esc(first.title)}</p>` : empty("Nothing open to focus on.", [["Today", 'data-go="today"'], ...(api.openDaily ? [["Open today's journal", "data-daily"]] : [])])); }
+    if (!it) return sessionIdle();
     const up = sessionUpNext().slice(0, 3), paused = !session.since;
     return `<section class="vg-hq-session" data-key="${esc(it.key)}"><div class="vg-hq-eyebrow">${paused ? "Paused" : "Focus"}</div>
       <h1 class="vg-hq-session-title">${esc(it.title)}</h1>${it.why ? `<p class="vg-hq-lede">${esc(it.why)}</p>` : ""}

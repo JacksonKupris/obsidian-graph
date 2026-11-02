@@ -12,12 +12,12 @@
     const hints = [["is:old", "2+ weeks old"], ["is:stale", "quiet a long time"], ["is:focus", "today's focus"], ["kind:scope", "scopes"], ["kind:carried", "carried over"], ["status:testing", "testing"]].filter(([f]) => !filters.some(x => `${x.key}:${x.value}` === f));
     const chips = `<div class="vg-hq-searchchips" role="group" aria-label="Filters">${filters.map(f => `<button class="vg-hq-filter is-on" data-dropq="${esc(`${f.key}:${f.value}`)}" aria-label="Remove ${esc(`${f.key}:${f.value}`)}">${esc(`${f.key}:${f.value}`)} ×</button>`).join("")}${hints.slice(0, 5).map(([f, label]) => `<button class="vg-hq-filter" data-addq="${esc(f)}" title="${esc(label)}">${esc(f)}</button>`).join("")}</div>`;
     const projectRows = projects.map(p => `<button class="vg-hq-proj vg-hq-search-proj" data-proj="${esc(p.path)}"><span class="vg-hq-projbody">
-      <span class="vg-hq-projhead"><small>${esc(p.kind || "Project")}</small><span class="vg-hq-pill is-${esc(p.group)}">${esc(p.status || "no status")}</span></span>
-      <b>${esc(p.title)}</b><span class="vg-hq-sum">${esc(p.summary || "No summary yet.")}</span>
-      ${p.searchHit ? `<small class="vg-hq-search-hit">${esc([p.searchHit.heading, p.searchHit.why.join(" · ")].filter(Boolean).join(" · "))}${p.searchHit.snippet ? `<span>${esc(p.searchHit.snippet)}</span>` : ""}</small>` : ""}
+      <span class="vg-hq-projhead"><small>${esc(p.kind || "Project")}</small>${pill(p)}</span>
+      <b>${esc(p.title)}</b>${p.summary ? `<span class="vg-hq-sum">${esc(p.summary)}</span>` : ""}
+      ${searchHitHtml(p)}
       <small>${esc(p.path)}</small></span></button>`).join("");
     const noteRows = notes.map(hit => `<article class="vg-hq-note-hit"><div><b>${esc(hit.heading || hit.path.split("/").pop())}</b>
-      <small>${esc(hit.path)}${hit.line ? ` · line ${hit.line}` : ""}${hit.why && hit.why.length ? ` · ${esc(hit.why.join(" · "))}` : ""}</small>
+      <small>${esc(hit.path)}${hit.line ? ` · line ${hit.line}` : ""}</small>
       ${hit.snippet ? `<p>${esc(VGRules.plainSnippet(hit.snippet))}</p>` : ""}</div><span class="vg-hq-acts">${api.readNote ? peekButton(hit.path, "Peek") : ""}${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(hit.path)}">Open source</button>` : ""}</span></article>`).join("");
     const itemRows = itemHits.map(({ it }) => row(it)).join("");
     const pending = searchPending;
@@ -58,8 +58,8 @@
     const list = top.slice(0, 6).join("; ") + (top.length > 6 ? `; and ${top.length - 6} more` : "");
     btn.disabled = true;
     const ok = await VGActions.run({ label: () => "Set status", title: () => p.title,
-      ask: mark ? () => [`Set ${p.title} to ${status}?`, `${plural(open, "open task")} will be ${done}: ${list}.`, `Set to ${status}, ${done === "ticked" ? "tick" : "cancel"} ${plural(open, "task")}`] : null,
-      run: async () => { const n = await api.setProjectStatus(path, status, !!mark); return `${p.title}: ${status}${n ? ` · ${plural(n, "task")} ${done}` : ""}`; } }, p, ctx());
+      ask: mark ? () => [`Set ${p.title} to ${VGRules.statusWords(status)}?`, `${plural(open, "open task")} will be ${done}: ${list}.`, `Set to ${VGRules.statusWords(status)}, ${done === "ticked" ? "tick" : "cancel"} ${plural(open, "task")}`] : null,
+      run: async () => { const n = await api.setProjectStatus(path, status, !!mark); return `${p.title}: ${VGRules.statusWords(status)}${n ? ` · ${plural(n, "task")} ${done}` : ""}`; } }, p, ctx());
     if (!ok) { if (btn.isConnected) btn.disabled = false; return; }
     Object.assign(p, { status, group: VGRules.statusGroup(status), updated: day() }, mark ? { tasks: [] } : {}); render();
   }
