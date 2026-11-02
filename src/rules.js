@@ -1046,6 +1046,13 @@ const VGRules = (() => {
     const fresh = Object.fromEntries(Object.entries(moves).filter(([from, to]) => from !== to).map(([from, to]) => [from, { to, at }]));
     return { v: 1, ...followMoves(marks, fresh, exists), moved: { ...(moved || {}), ...fresh } };
   }
+  // A project/ tag as people say it: the system's name from the rules file, or the tag's own words.
+  function systemLabel(tag) {
+    const named = Object.entries(R.systems || {}).find(([, s]) => s && (s.tags || []).includes(tag));
+    if (named) return named[0];
+    const words = String(tag).replace(/^project\//, "").replace(/[-_]/g, " ");
+    return words.charAt(0).toUpperCase() + words.slice(1);
+  }
   // The one read of the shared state: every ledger folded in, every path where its note is now.
   function followLedgers(shared, ledgers, exists) {
     const moves = ledgerMoves(ledgers), follow = v => followMoves(v, moves, exists);
@@ -1054,7 +1061,7 @@ const VGRules = (() => {
   }
 
   return { plainSnippet, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
-    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)
