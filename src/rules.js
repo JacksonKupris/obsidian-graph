@@ -714,6 +714,23 @@ const VGRules = (() => {
     let i = at + 1; for (let j = at + 1; j < lines.length; j++) { if (/^#{1,6}\s/.test(lines[j]) || /^```/.test(lines[j])) break; if (/^\s*[-*] \[.\]/.test(lines[j])) i = j + 1; }
     lines.splice(i, 0, line); return lines.join(nl);
   }
+  // A new task in a project's note: after the tasks under its task heading, or in a Tasks section of its own, ahead of the
+  // Related section the gardener keeps at the end. Headings inside a code block and frontmatter don't count.
+  function addProjectTask(text, task) {
+    const nl = text.includes("\r\n") ? "\r\n" : "\n", lines = text.split(/\r?\n/), line = `- [ ] ${task.trim()}`;
+    let i = 0; if (lines[0] === "---") { const close = lines.indexOf("---", 1); if (close > 0) i = close + 1; }
+    let fence = false, at = -1, related = -1;
+    for (; i < lines.length; i++) {
+      if (/^\s*```/.test(lines[i])) { fence = !fence; continue; }
+      if (fence || !/^#{1,6}\s/.test(lines[i])) continue;
+      const title = lines[i].replace(/^#+\s*/, "");
+      if (at < 0 && /\b(tasks?|to-?dos?|action items|next steps)\b/i.test(title)) at = i;
+      if (/^related\b/i.test(title)) related = i;
+    }
+    if (at >= 0) { let end = at + 1; for (let j = at + 1; j < lines.length; j++) { if (/^#{1,6}\s/.test(lines[j]) || /^```/.test(lines[j])) break; if (/^\s*[-*] \[.\]/.test(lines[j])) end = j + 1; } lines.splice(end, 0, line); return lines.join(nl); }
+    if (related >= 0) { lines.splice(related, 0, "## Tasks", "", line, ""); return lines.join(nl); }
+    return text.replace(/\s*$/, "") + nl + nl + "## Tasks" + nl + nl + line + nl;
+  }
   // Who each open item is about, for HQ's People screen: a link to the person always counts; their name in plain words
   // counts unless it's also an ordinary word (hq.people_ambiguous: "Show", "Will").
   // The day's loop. Focus: up to three items you picked for today (review.focus, for that day only). Done today: journal tasks
@@ -1186,6 +1203,11 @@ const VGRules = (() => {
   const weekStart = day => { const d = new Date(`${day}T12:00:00`); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return localDay(d); };
   // Focus time per project, in the shared file by note path, so it follows the note like every other mark.
   const projectMinutes = (review, path) => ((review || {}).sessionFor || {})[path] || 0;
+  // The same time as a ranking, for the chart: most first, each with its share of the biggest. A note that's gone keeps its row.
+  function focusByProject(review, projects) {
+    const by = new Map((projects || []).map(p => [p.path, p])), rows = Object.entries((review || {}).sessionFor || {}).filter(([, m]) => m > 0).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)), most = rows.length ? rows[0][1] : 0;
+    return rows.map(([path, minutes]) => ({ path, minutes, share: minutes / most, title: by.has(path) ? by.get(path).title : stemCase(path), known: by.has(path) }));
+  }
   // The one next step: what the header's chip names and the beacon marks. Everything that says what to do next reads this, so
   // they can't disagree. In order: a session you're in, something broken, the evening's standup, your focus, picking a focus,
   // what's waiting on you, and nothing. target is a selector on that screen.
@@ -1224,8 +1246,8 @@ const VGRules = (() => {
     return marks.length ? applyLedgers(follow(shared), marks) : shared;
   }
 
-  return { plainSnippet, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
-    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+  return { plainSnippet, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)

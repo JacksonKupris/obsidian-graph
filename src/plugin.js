@@ -1246,7 +1246,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
       setProjectStatus: (notePath, status, closeTasks) => this.setProjectStatus(notePath, status, closeTasks),
       hqMark: (key, mark) => this.hqMark(key, mark),
       hqReact: (kind, how) => this.hqReact(kind, how),
-      capture: (text, kind) => this.capture(text, kind),
+      capture: (text, kind, to) => this.capture(text, kind, to),
+      hqTourSeen: () => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.hqTour = true; return sh; }),
       goNextStep: () => this.goNextStep(),
       focusNow: () => this.focusNow || null,
       resolveLink: (target, from) => { const f = this.app.metadataCache.getFirstLinkpathDest(target, from || ""); return f ? f.path : null; },
@@ -1758,9 +1759,10 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // or null to take one back (Undo). Marks from earlier days are dropped: Later lasts the day, and a plan item's
   // standup is older than the carry-over window by then.
   // HQ's capture box: a task goes under today's journal's task heading (the journal is made if it isn't there yet); a note
-  // goes in the capture folder, named from its first words.
-  async capture(text, kind) {
+  // goes in the capture folder, named from its first words. to: a project's note, for a task that belongs there instead.
+  async capture(text, kind, to) {
     text = String(text || "").trim(); if (!text) return null;
+    if (to) { const note = this.fileAt(to); if (!note) throw new Error(`${to} isn't there any more`); await this.ioProcess(note, t => VGRules.addProjectTask(t, text)); return note.path; }
     if (kind === "note") {
       const folder = (VGRules.HQ && VGRules.HQ.capture_folder) || VGRules.folders.inbox, title = text.split(/\r?\n/)[0].replace(/[\\/:*?"<>|#^\[\]]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60).trim() || "Capture";
       let path = normalizePath(`${folder}/${title}.md`); for (let i = 2; this.app.vault.getAbstractFileByPath(path); i++) path = normalizePath(`${folder}/${title} ${i}.md`);
