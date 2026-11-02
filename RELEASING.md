@@ -116,6 +116,7 @@ It ships everything committed since the last release.
 | `0.6.15 is already tagged` | That version exists. Run `npm run release` (it picks the next one) or name a higher one. |
 | `tests failed; nothing was committed or pushed` | Fix the failing test shown above it, commit, release again. |
 | `committed and tagged 0.6.15 here, but the push failed` | Usually offline or not signed in. Fix that, then `git push origin main 0.6.15` and `npm run release -- --resume`. |
+| `nothing has changed since 0.6.15` | That release already has everything on `main`, usually because someone just released. Nothing to do. To re-issue it anyway: `npm run release -- --force`. |
 | `GitHub's hourly API limit is used up` | The release itself is fine; only checking on it is limited. Watch the Actions page, or `npm run release -- --resume` after the time shown. |
 | `no release after 20 minutes` | Open the printed link: still queued, running, or failed (see above). |
 | `Node 20.x: this needs Node 22 or newer` | Install Node 22+ from nodejs.org. |
