@@ -49,9 +49,14 @@ assert.strictEqual(R.hqNextStep({ list: [{ key: "j", group: "needs", kind: "job"
     await tab.ev(`(() => { window.__o.now = new Date(); window.vaultHQ.update(DATA); })()`);
     // a long title under hidden buttons
     await tab.ev(`window.vaultHQ.setScreen("today")`); await sleep(150);
-    assert(await tab.ev(`matchMedia("(hover: hover)").matches`), "this browser has no hover, so the veil can't be tested");
-    const veil = await tab.ev(`(() => { const acts = [...document.querySelectorAll(".vg-hq-sec .vg-hq-item[data-key] > .vg-hq-acts")].filter(a => getComputedStyle(a).position === "absolute" && !a.parentElement.matches(":hover, :focus-within, :focus, .is-sel")); return { n: acts.length, veiled: acts.filter(a => getComputedStyle(a).backgroundImage !== "none").length }; })()`);
-    check(veil.n > 0, "no resting row to test"); check(veil.veiled === 0, `${veil.veiled} rows hide part of their title behind invisible buttons`);
+    // the rule itself, read from the stylesheet: GitHub's headless Chrome has no hover, so its media block never applies there
+    const ruleThere = await tab.ev(`(() => { const walk = rules => [...rules].some(r => r.cssRules && r.cssRules.length ? walk(r.cssRules) : r.selectorText && r.selectorText.includes(":not(:hover)") && r.selectorText.trim().endsWith("> .vg-hq-acts") && r.style.backgroundImage === "none"); return [...document.styleSheets].some(s => { try { return walk(s.cssRules); } catch (e) { return false; } }); })()`);
+    check(ruleThere, "no rule clears the veil from a resting row's hidden buttons");
+    // and where there is a pointer, on the rows themselves
+    if (await tab.ev(`matchMedia("(hover: hover)").matches`)) {
+      const veil = await tab.ev(`(() => { const acts = [...document.querySelectorAll(".vg-hq-sec .vg-hq-item[data-key] > .vg-hq-acts")].filter(a => getComputedStyle(a).position === "absolute" && !a.parentElement.matches(":hover, :focus-within, :focus, .is-sel")); return { n: acts.length, veiled: acts.filter(a => getComputedStyle(a).backgroundImage !== "none").length }; })()`);
+      check(veil.n > 0, "no resting row to test"); check(veil.veiled === 0, `${veil.veiled} rows hide part of their title behind invisible buttons`);
+    }
     // the header stays put from screen to screen
     const x = async s => { await tab.ev(`window.vaultHQ.setScreen("${s}")`); await sleep(100); return tab.ev(`document.querySelector(".vg-hq-nextchip").getBoundingClientRect().left`); };
     const a = await x("home"), b = await x("review"), d = await x("today"); check(a === b && b === d, `the chip moves between screens: ${a}, ${b}, ${d}`);
