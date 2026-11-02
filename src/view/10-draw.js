@@ -114,7 +114,9 @@
         ctx.lineWidth = 2.5; ctx.strokeStyle = accent; ctx.stroke();
         ctx.globalAlpha = a * 0.25; ctx.beginPath(); ctx.arc(p.x, p.y, r + 6, 0, 2 * Math.PI); ctx.lineWidth = 4; ctx.stroke();
       } else if (overlayHit(n) && a > 0.5) { ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 2 * Math.PI); ctx.lineWidth = 2; ctx.strokeStyle = fg; ctx.stroke(); }
-      if (st.layers.tasks && n.tasks > 0 && a > 0.3 && (!MOBILE || cam.k > 1.6 || n.tasks >= 10 || st.selected === n.id)) badges.push([p.x + r * 0.8, p.y - r * 0.8, n.tasks]);
+      // a note with open tasks: a small dot from far away, the count once you've zoomed in or picked it; dozens of bright
+      // numbers at once are louder than the notes they sit on
+      if (st.layers.tasks && n.tasks > 0 && a > 0.3) { if (cam.k > 1.6 || st.selected === n.id || st.hover === n.id) badges.push([p.x + r * 0.8, p.y - r * 0.8, n.tasks]); else { ctx.globalAlpha = 0.9; ctx.fillStyle = css("--vg-task"); ctx.beginPath(); ctx.arc(p.x + r * 0.75, p.y - r * 0.75, 2.2, 0, 2 * Math.PI); ctx.fill(); } }
       p.r = r; p.a = a;
     }
     ctx.globalAlpha = 1;

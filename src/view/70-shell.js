@@ -303,7 +303,7 @@
   function syncMapsBtn(view) {   // the Views button shows where you are
     syncDim();
     const g = GRAPH_INFO[view]; if (!$(".vg-pickbtn")) return;
-    $(".vg-pickname").textContent = MAPS[view] || (g ? g[1] : view);
+    $(".vg-pickname").textContent = MAPS[view] || (view === "2d" || view === "3d" ? "Views" /* the 2D/3D switch beside it says which */ : g ? g[1] : view);
     $(".vg-pickicon").innerHTML = icon(MAPS[view] ? MAP_INFO[view][0] : g ? g[0] : "layers", 16);
   }
   function closeMenu() {

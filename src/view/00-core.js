@@ -241,7 +241,8 @@ function mountVaultGraph(root, DATA, opts) {
       </div>
     </aside>
     <main class="vg-canvas">
-      <canvas class="vg-cv" role="img" aria-label="Graph of ${nodes.length} notes in ${DATA.clusters.length} topic clusters. Use the panels or search to explore it."></canvas>
+      <span class="vg-sr" id="vg-cv-label-${root.dataset.vgId = root.dataset.vgId || Math.random().toString(36).slice(2, 8)}">Graph of ${nodes.length} notes in ${DATA.clusters.length} topic clusters.</span>
+      <canvas class="vg-cv" role="img" aria-labelledby="vg-cv-label-${root.dataset.vgId}"></canvas>
       <div class="vg-hud" aria-hidden="true"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
         <div class="vg-hud-title"></div><div class="vg-hud-tele"></div><div class="vg-scan"></div></div>
       <div class="vg-lasso" hidden></div>
@@ -276,7 +277,7 @@ function mountVaultGraph(root, DATA, opts) {
         <button class="vg-ibtn vg-reviewbtn" title="Today's review" aria-label="Today's review" hidden>${icon("sparkles")}<span class="vg-tlabel">Review</span><span class="vg-reviewcount">0</span></button>
         <button class="vg-searchbtn" aria-label="Search notes" title="Search (/ or Ctrl K)">${icon("search", 14)}<span>Search notes</span><kbd>/</kbd></button>
         <div class="vg-menuwrap">
-          <button class="vg-ibtn vg-pickbtn" aria-haspopup="dialog" aria-expanded="false" title="Views, lenses and styles (M)"><span class="vg-pickicon">${icon("hub", 16)}</span><span class="vg-pickname">2D</span><span class="vg-caret" aria-hidden="true">▾</span></button>
+          <button class="vg-ibtn vg-pickbtn" aria-haspopup="dialog" aria-expanded="false" title="Views, lenses and styles (M)"><span class="vg-pickicon">${icon("hub", 16)}</span><span class="vg-pickname">Views</span><span class="vg-caret" aria-hidden="true">▾</span></button>
         </div>
         <div class="vg-seg vg-dimseg" role="group" aria-label="2D or 3D"><button class="vg-segbtn" data-dim="2d" aria-pressed="true" title="2D (3)">2D</button><button class="vg-segbtn" data-dim="3d" aria-pressed="false" title="3D (3)">3D</button></div>
         <div class="vg-menuwrap"><button class="vg-ibtn vg-toolsbtn" aria-haspopup="menu" aria-expanded="false" aria-pressed="false" title="Select, save, time-lapse">${icon("layers")}<span class="vg-tlabel">Tools</span><span class="vg-caret" aria-hidden="true">▾</span></button>

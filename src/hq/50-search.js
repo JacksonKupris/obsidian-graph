@@ -1,10 +1,16 @@
   function searchScreen() {
-    const query = globalQuery.trim(), projects = VGRules.hqProjectSearch(DATA, VGRules.hqProjects(DATA), query, { today: day() });
-    const itemHits = LIST.map(it => ({ it, score: Math.max(VGRules.fuzzyScore(query, it.title), VGRules.fuzzyScore(query, it.text || ""),
-      VGRules.fuzzyScore(query, it.path || "") - 2, VGRules.fuzzyScore(query, it.why || "") - 3) }))
-      .filter(x => x.score >= 0).sort((a, b) => b.score - a.score || a.it.title.localeCompare(b.it.title)).slice(0, 12);
+    const { text: query, filters } = VGRules.hqSearchQuery(globalQuery), passOpts = { today: day(), focus: VGRules.focusKeys(STATE.review, day()), staleDays: VGRules.RULES.stale_days };
+    const passes = x => VGRules.hqSearchPasses(x, filters, passOpts);
+    const projects = VGRules.hqProjectSearch(DATA, VGRules.hqProjects(DATA), query, { today: day() }).filter(passes);
+    const itemHits = LIST.filter(passes).map(it => ({ it, score: query ? Math.max(VGRules.fuzzyScore(query, it.title), VGRules.fuzzyScore(query, it.text || ""),
+      VGRules.fuzzyScore(query, it.path || "") - 2, VGRules.fuzzyScore(query, it.why || "") - 3) : 0 }))
+      .filter(x => x.score >= 0).sort((a, b) => b.score - a.score || a.it.title.localeCompare(b.it.title)).slice(0, query ? 12 : 30);
     const projectPaths = new Set((DATA.hq && DATA.hq.projects || []).map(p => p.path));
-    const notes = noteHits.filter(hit => !projectPaths.has(hit.path)).slice(0, 16);
+    // a filter on where a note is can apply to notes too; one about items or projects leaves notes out, rather than show notes it can't judge
+    const noteOk = hit => filters.every(({ key, value }) => key === "in" || key === "system" ? String(hit.path).toLowerCase().includes(value) : false);
+    const notes = noteHits.filter(hit => !projectPaths.has(hit.path) && noteOk(hit)).slice(0, 16);
+    const hints = [["is:old", "2+ weeks old"], ["is:stale", "quiet a long time"], ["is:focus", "today's focus"], ["kind:scope", "scopes"], ["kind:carried", "carried over"], ["status:testing", "testing"]].filter(([f]) => !filters.some(x => `${x.key}:${x.value}` === f));
+    const chips = `<div class="vg-hq-searchchips" role="group" aria-label="Filters">${filters.map(f => `<button class="vg-hq-filter is-on" data-dropq="${esc(`${f.key}:${f.value}`)}" aria-label="Remove ${esc(`${f.key}:${f.value}`)}">${esc(`${f.key}:${f.value}`)} ×</button>`).join("")}${hints.slice(0, 5).map(([f, label]) => `<button class="vg-hq-filter" data-addq="${esc(f)}" title="${esc(label)}">${esc(f)}</button>`).join("")}</div>`;
     const projectRows = projects.map(p => `<button class="vg-hq-proj vg-hq-search-proj" data-proj="${esc(p.path)}"><span class="vg-hq-projbody">
       <span class="vg-hq-projhead"><small>${esc(p.kind || "Project")}</small><span class="vg-hq-pill is-${esc(p.group)}">${esc(p.status || "no status")}</span></span>
       <b>${esc(p.title)}</b><span class="vg-hq-sum">${esc(p.summary || "No summary yet.")}</span>
@@ -12,12 +18,12 @@
       <small>${esc(p.path)}</small></span></button>`).join("");
     const noteRows = notes.map(hit => `<article class="vg-hq-note-hit"><div><b>${esc(hit.heading || hit.path.split("/").pop())}</b>
       <small>${esc(hit.path)}${hit.line ? ` · line ${hit.line}` : ""}${hit.why && hit.why.length ? ` · ${esc(hit.why.join(" · "))}` : ""}</small>
-      ${hit.snippet ? `<p>${esc(VGRules.plainSnippet(hit.snippet))}</p>` : ""}</div>${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(hit.path)}">Open source</button>` : ""}</article>`).join("");
+      ${hit.snippet ? `<p>${esc(VGRules.plainSnippet(hit.snippet))}</p>` : ""}</div><span class="vg-hq-acts">${api.readNote ? peekButton(hit.path, "Peek") : ""}${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(hit.path)}">Open source</button>` : ""}</span></article>`).join("");
     const itemRows = itemHits.map(({ it }) => row(it)).join("");
     const pending = searchPending;
     const emptyResult = !projectRows && !itemRows && !noteRows
       ? `<div class="vg-hq-empty">${noteSearchError ? esc(noteSearchError) : pending ? "Searching vault notes…" : "No matching HQ items or vault notes."}</div>` : "";
-    return `<h1 class="vg-hq-h1">Search results</h1><p class="vg-hq-lede">Across HQ items, every project, and vault notes. Project filters do not limit these results.</p>` +
+    return `<h1 class="vg-hq-h1">Search results</h1>${chips}` +
       (itemRows ? section("HQ items", itemHits.map(x => x.it)) : "") +
       (projectRows ? `<section class="vg-hq-sec"><h3>Projects <span>${projects.length}</span></h3><div class="vg-hq-grid">${projectRows}</div></section>` : "") +
       (noteRows ? `<section class="vg-hq-sec"><h3>Vault notes <span>${notes.length}</span></h3>${noteRows}</section>` : "") +
@@ -27,11 +33,12 @@
   function searchNotes(query, delay = 180) {
     clearTimeout(searchTimer);
     const token = ++searchToken;
-    noteHits = []; noteSearchError = ""; searchPending = !!(query.trim() && api.searchNotes);
-    if (!query.trim() || !api.searchNotes) return;
+    const words = VGRules.hqSearchQuery(query).text;
+    noteHits = []; noteSearchError = ""; searchPending = !!(words && api.searchNotes);
+    if (!words || !api.searchNotes) return;
     searchTimer = setTimeout(async () => {
       try {
-        const hits = await api.searchNotes(query.trim(), 24);
+        const hits = await api.searchNotes(words, 24);
         if (token !== searchToken) return;
         noteHits = Array.isArray(hits) ? hits : []; searchPending = false;
       } catch (error) {

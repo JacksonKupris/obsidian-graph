@@ -15,10 +15,10 @@
     const onRow = document.activeElement && document.activeElement.matches && document.activeElement.matches(".vg-hq-item[data-key]") ? document.activeElement.dataset.key : null;
     el.innerHTML = `<header class="vg-hq-top"><span class="vg-hq-crumb"><b>Vault HQ</b> / ${esc(label)}</span>
       <div class="vg-hq-global-tools"><label class="vg-hq-global-searchlabel"><input class="vg-hq-global-search vg-hq-project-search" type="search" value="${esc(globalQuery)}"
-        placeholder="Search projects, tasks, and notes…" aria-label="Search all HQ and vault notes"></label>
-        ${globalQuery ? '<button class="vg-hq-btn vg-hq-btn-sm vg-hq-global-clear" data-clear-global aria-label="Clear HQ search">Clear</button>' : ""}</div>
+        placeholder="Search projects, tasks, and notes  ( / )" aria-label="Search all HQ and vault notes"></label>
+        ${globalQuery ? '<button class="vg-hq-btn vg-hq-btn-sm vg-hq-global-clear" data-clear-global aria-label="Clear HQ search">Clear</button>' : ""}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-keysbtn" data-keys aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</button></div>
       <span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}</span></span></header>` +
-      strip() + `<main class="vg-hq-main"><div class="vg-hq-cols"><div class="vg-hq-col">${globalQuery.trim() ? searchScreen() : ({ home, session: sessionScreen, calendar: calendarScreen, threads: threadsScreen, review: reviewScreen, wrap: wrapScreen, today: todayScreen, needs: needsScreen, people: peopleScreen, projects: projectsScreen, automations: automationsScreen, sweep: sweepScreen, rows: rowsScreen })[cur]()}</div>${railAside()}</div></main>` + dock() + bulkBar();
+      strip() + `<main class="vg-hq-main"><div class="vg-hq-cols"><div class="vg-hq-col">${globalQuery.trim() ? searchScreen() : ({ home, session: sessionScreen, calendar: calendarScreen, threads: threadsScreen, review: reviewScreen, wrap: wrapScreen, today: todayScreen, needs: needsScreen, people: peopleScreen, projects: projectsScreen, automations: automationsScreen, sweep: sweepScreen, rows: rowsScreen })[cur]()}</div>${railAside()}</div></main>` + dock() + bulkBar() + peekHtml();
     el.appendChild(toastEl);
     const main = el.querySelector(".vg-hq-main"); if (main) { main.scrollTop = scroll; el.style.setProperty("--hq-panel-top", `${main.offsetTop}px`); }
     if (restoreSearch !== null) { const next = el.querySelector(".vg-hq-global-search"); if (next) { next.focus(); next.setSelectionRange(...restoreSearch); } }
@@ -32,9 +32,15 @@
   el.addEventListener("click", e => {
     const txt = e.target.closest(".vg-hq-item[data-key] .vg-hq-txt"); if (txt && !e.target.closest("button, a") && !String(window.getSelection && window.getSelection()).length) { const k = txt.closest(".vg-hq-item").dataset.key; if (railOn()) selectItem(k); else if (api.searchNotes) toggleContext(k); return; }
     const box = e.target.closest("[data-pick]"); if (box) { togglePick(box.dataset.pick, e.shiftKey); return; }
-    const b = e.target.closest("button, [data-closedrawer]"); if (!b || !el.contains(b) || b.disabled) return;
+    const b = e.target.closest("button, [data-closedrawer], [data-peekclose]"); if (!b || !el.contains(b) || b.disabled) return;
     const d = b.dataset;
-    if (d.session !== undefined) sessionStart(d.session);
+    if (d.peek) peekOpen(d.peek);
+    else if (d.peekclose !== undefined) { peek = null; render(); }
+    else if (d.keys !== undefined) keySheet();
+    else if (d.addq || d.dropq) { const words = globalQuery.trim(); globalQuery = d.addq ? `${words} ${d.addq}`.trim() : words.split(/\s+/).filter(w => w.toLowerCase() !== d.dropq).join(" "); drawer = null; searchNotes(globalQuery); render(); const field = el.querySelector(".vg-hq-global-search"); if (field) { field.focus(); field.setSelectionRange(field.value.length, field.value.length); } }
+    else if (d.weekcopy) weekCopy(d.weekcopy);
+    else if (d.weeksave) weekSave(d.weeksave, b);
+    else if (d.session !== undefined) sessionStart(d.session);
     else if (d.sessionctl) ({ pause: sessionPause, end: sessionEnd, next: sessionNext })[d.sessionctl]();
     else if (d.sesslen) sessionSetLength(+d.sesslen);
     else if (d.bulk) bulkAct(d.bulk, b);
@@ -141,6 +147,7 @@
   });
   el.addEventListener("input", e => { if (e.target.matches(".vg-hq-captureinput")) captureText = e.target.value; });
   el.addEventListener("keydown", e => {
+    if (e.key === "Escape" && peek) { e.preventDefault(); peek = null; render(); return; }
     if (e.key === "Escape" && drawer) {
       e.preventDefault(); const path = drawer; drawer = null; render();
       const opener = [...el.querySelectorAll("[data-proj]")].find(x => x.dataset.proj === path); if (opener) opener.focus();
@@ -152,7 +159,7 @@
       if (line && e.target.matches(".vg-hq-item")) { e.preventDefault(); e.target.scrollIntoView({ block: "center" }); }
     }
   });
-  function setScreen(s) { if (!known(s)) return; if (s !== cur) selKey = null; if (s === "sweep" && cur !== "sweep") kept = new Set(); cur = s; drawer = null; render(); const m = el.querySelector(".vg-hq-main"); if (m) m.scrollTop = 0; if (opts.onScreen) opts.onScreen(s); }
+  function setScreen(s) { if (!known(s)) return; const moved = s !== cur; if (moved) selKey = null; if (s === "sweep" && cur !== "sweep") kept = new Set(); cur = s; drawer = null; peek = null; render(); const m = el.querySelector(".vg-hq-main"); if (m) { m.scrollTop = 0; if (moved) { const col = m.querySelector(".vg-hq-col"); if (col) col.classList.add("vg-hq-enter"); } } if (opts.onScreen) opts.onScreen(s); }
   render();
   clockTimer = opts.now ? null : setInterval(() => { const c = el.querySelector(".vg-hq-clock b"); if (c) c.textContent = new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, ""); }, 30000);
   return {

@@ -680,7 +680,7 @@ const VGRules = (() => {
     if (plan) plan.plan.forEach((p, i) => put({ key: `plan|${plan.path}|${i}|${p.text}`, kind: "plan", path: plan.path, line: p.line, text: p.text, ids: [plan.path], title: label(p.text), why: `Planned in ${stemCase(plan.path)}`, score: 15 - i * 0.01 }));
     hq.projects.filter(s => s.group === "waiting").forEach(s => { const waited = s.updated ? daysBetween(s.updated, day) : 0;
       put({ key: `approval|${s.path}`, kind: "approval", path: s.path, ids: [s.path], title: s.title, why: `${s.status}${waited > 0 ? ` for ${waited} day${waited === 1 ? "" : "s"}` : ""}`, waited, score: waited > (H.approval_overdue_days || 3) ? 21 : 12 }); });
-    hq.reviews.filter(r => r.status === "waiting" || r.reviewOnly && ["pending", "proposed"].includes(r.status)).forEach(r => put({ key: `review|${r.path}`, kind: "review", path: r.path, ids: [r.path], title: r.reviewOnly ? r.name : r.title,
+    hq.reviews.filter(r => r.status === "waiting" || r.reviewOnly && ["pending", "proposed"].includes(r.status)).forEach(r => put({ key: `review|${r.path}`, kind: "review", path: r.path, ids: [r.path], title: r.reviewOnly ? reportTitle(r.name) : r.title,
       why: r.reviewOnly ? "Review only · no rows applied" : r.task ? `Draft for: ${r.task}` : "Draft waiting", reviewOnly: !!r.reviewOnly, score: 11.5 }));
     hqJobs(hq, o.now).filter(j => j.state === "failed" || j.state === "late").forEach(j => put({ key: `job|${j.name}|${j.last}`, kind: "job", path: H.automations_note, name: j.name, ids: [],
       title: `${j.name}: ${j.state === "failed" ? "failed" : "late"}`, why: j.summary || j.when, score: j.state === "failed" ? 13 : 10 }));
@@ -951,7 +951,7 @@ const VGRules = (() => {
     out.review.hiddenKinds = mergeList(rb.hiddenKinds, rm.hiddenKinds, rd.hiddenKinds, str);
     if (rm.reactions || rd.reactions) { const b = obj(rb.reactions), m = obj(rm.reactions), d = obj(rd.reactions), add = (k, f) => Math.max(0, (obj(d[k])[f] || 0) + (obj(m[k])[f] || 0) - (obj(b[k])[f] || 0));   // adds both devices' gains, like XP
       out.review.reactions = Object.fromEntries([...new Set([...Object.keys(m), ...Object.keys(d)])].map(k => [k, { more: add(k, "more"), less: add(k, "less") }])); }
-    if (rm.sessions || rd.sessions) { const m = obj(rm.sessions), d = obj(rd.sessions); out.review.sessions = Object.fromEntries([...new Set([...Object.keys(m), ...Object.keys(d)])].map(k => [k, Math.max(m[k] || 0, d[k] || 0)])); }
+    ["sessions", "sessionFor"].forEach(field => { if (rm[field] || rd[field]) { const m = obj(rm[field]), d = obj(rd[field]); out.review[field] = Object.fromEntries([...new Set([...Object.keys(m), ...Object.keys(d)])].map(k => [k, Math.max(m[k] || 0, d[k] || 0)])); } });
     const cb = obj(base.cosmos), cm = obj(mine.cosmos), cd = obj(disk.cosmos);
     if (mine.cosmos || disk.cosmos) {
       const c = out.cosmos = { ...cd, ...cm };
@@ -1098,6 +1098,60 @@ const VGRules = (() => {
     return null;
   }
   const wikiraceScore = ({ hops, par, hubs = 0, traps = 0, seconds = 0 }) => Math.max(0, 1000 - Math.max(0, hops - par) * 100 - hubs * 50 - traps * 75 - Math.floor(seconds));
+  // A generated report's file name as people read it: its date stays, the machine's run stamp and host don't.
+  const reportTitle = name => String(name).replace(/(\d{4}-\d{2}-\d{2})\s+\d{6}-\d+(\s+\S+)?$/, "$1");
+  // What HQ's search understands besides words: kind:, status:, system:, tag:, in: and is:stale, is:old or is:focus. Only names
+  // it knows are filters, so "note: this" or a time like 10:30 stays plain words.
+  const SEARCH_FILTERS = ["kind", "status", "system", "tag", "in", "is"];
+  function hqSearchQuery(query) {
+    const filters = [], text = String(query).replace(/(?:^|\s)([a-z]+):("[^"]+"|\S+)/gi, (all, k, v) => { const key = k.toLowerCase(); if (!SEARCH_FILTERS.includes(key)) return all; filters.push({ key, value: v.replace(/^"|"$/g, "").toLowerCase() }); return " "; }).replace(/\s+/g, " ").trim();
+    return { text, filters };
+  }
+  // does one HQ item or project pass every filter? A filter that means nothing for this kind of thing doesn't pass it.
+  function hqSearchPasses(x, filters, o = {}) {
+    const has = (v, ...of) => of.some(s => String(s == null ? "" : s).toLowerCase().includes(v)), stale = o.staleDays || 90, project = !!x.group && !x.kindKey && !x.key;
+    return filters.every(({ key, value }) => {
+      if (key === "kind") return has(value, x.kind, project ? "" : kindWords(x.kind));
+      if (key === "status") return project && has(value, x.status, x.group);
+      if (key === "system") return project ? (x.systems || []).some(s => has(value, s, systemLabel(s))) : has(value, x.path);
+      if (key === "tag") return (x.tags || []).some(t => has(value, t));
+      if (key === "in") return has(value, x.path);
+      if (key === "is") {
+        const age = project ? (x.updated && o.today ? Math.round((Date.parse(o.today) - Date.parse(x.updated)) / 864e5) : 0) : x.age || 0;
+        if (value === "stale") return age >= stale; if (value === "old") return age >= 14;
+        if (value === "focus") return !project && (o.focus || []).includes(x.key);
+      }
+      return false;
+    });
+  }
+  // A note's text as blocks to show in a preview, without Obsidian: its frontmatter and embeds go, and it stops at max characters.
+  function notePreview(text, max = 20000) {
+    const body = String(text || "").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, ""), cut = body.length > max, blocks = []; let fence = null, para = [];
+    const flush = () => { if (para.length) { blocks.push({ kind: "p", text: para.join(" ") }); para = []; } };
+    for (const line of (cut ? body.slice(0, max) : body).split(/\r?\n/)) {
+      if (/^\s*(```|~~~)/.test(line)) { if (fence) { blocks.push({ kind: "code", text: fence.join("\n") }); fence = null; } else { flush(); fence = []; } continue; }
+      if (fence) { fence.push(line); continue; }
+      const h = line.match(/^(#{1,6})\s+(.*)$/), item = line.match(/^\s*(?:[-*+]|\d+\.)\s+(\[.\]\s+)?(.*)$/);
+      if (!line.trim()) flush();
+      else if (h) { flush(); blocks.push({ kind: "h", level: h[1].length, text: plainSnippet(h[2]) }); }
+      else if (item) { flush(); blocks.push({ kind: "li", text: plainSnippet(item[2]), done: !!(item[1] && /x/i.test(item[1])), task: !!item[1], deep: /^\s{2,}/.test(line) }); }
+      else if (/^\s*!\[/.test(line) || /^\s*\|?[-: |]+\|?\s*$/.test(line)) continue;
+      else para.push(plainSnippet(line));
+    }
+    flush(); if (fence) blocks.push({ kind: "code", text: fence.join("\n") });
+    return { blocks: blocks.filter(b => b.kind === "code" || b.text), cut };
+  }
+  // A week's work as Markdown, for a standup, an update or a note. week: the Monday.
+  function weekReview(data, review, monday) {
+    const start = new Date(`${monday}T12:00:00`), days = Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return localDay(d); });
+    const rows = days.map(date => ({ date, done: doneToday(data, review, date), minutes: sessionMinutes(review, date) })), total = rows.reduce((a, r) => a + r.done.length, 0), focus = rows.reduce((a, r) => a + r.minutes, 0);
+    const lines = [`**${total} done** on ${rows.filter(r => r.done.length).length} days${focus ? ` · ${minutesWords(focus)} focused` : ""}`, ""];
+    rows.filter(r => r.done.length).forEach(r => { lines.push(`## ${new Date(`${r.date}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`, "", ...r.done.map(d => `- ${d.text}`), ""); });
+    return { total, focus, text: lines.join("\n").trim() + "\n" };
+  }
+  const weekStart = day => { const d = new Date(`${day}T12:00:00`); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return localDay(d); };
+  // Focus time per project, in the shared file by note path, so it follows the note like every other mark.
+  const projectMinutes = (review, path) => ((review || {}).sessionFor || {})[path] || 0;
   // Triage Run: the open tasks a run deals, oldest first, and what a swipe scores. An older task is worth more; a run of
   // decisions multiplies it, up to five times.
   const triageDeck = items => (items || []).filter(it => (it.kind === "task" || it.kind === "carried") && !it.delegated).sort((a, b) => (b.age || 0) - (a.age || 0));
@@ -1117,7 +1171,7 @@ const VGRules = (() => {
   }
 
   return { plainSnippet, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
-    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, weekReview, weekStart, projectMinutes, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)
