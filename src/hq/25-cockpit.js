@@ -32,13 +32,13 @@
   }
   // Threads: the same open work, grouped by the project it belongs to, which is how it's thought about
   function threadsHtml(limit) {
-    const list = threads().filter(t => t.project), shown = limit ? list.slice(0, limit) : list;
+    const list = threads().filter(t => t.project || t.area), shown = limit ? list.slice(0, limit) : list;
     if (!shown.length) return "";
-    return `<section class="vg-hq-sec"><h3>Threads<span>${list.length}</span></h3><div class="vg-hq-threads">${shown.map(t => `<button class="vg-hq-thread" data-proj="${esc(t.project.path)}"><b>${esc(t.project.title)}</b><small>${plural(t.items.length, "open item")}${t.project.status ? ` · ${esc(t.project.status)}` : ""}</small><span class="vg-hq-threadbar"><i style="width:${Math.min(100, t.items.length * 12)}%"></i></span></button>`).join("")}</div>${limit && list.length > limit ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-go="threads">All ${list.length} threads</button></div>` : ""}</section>`;
+    return `<section class="vg-hq-sec"><h3>Threads<span>${list.length}</span></h3><div class="vg-hq-threads">${shown.map(t => `<button class="vg-hq-thread" ${t.project ? `data-proj="${esc(t.project.path)}"` : 'data-go="threads"'}><b>${esc(t.title)}</b><small>${plural(t.items.length, "open item")}${t.project && t.project.status ? ` · ${esc(t.project.status)}` : ""}</small><span class="vg-hq-threadbar"><i style="width:${Math.min(100, t.items.length * 12)}%"></i></span></button>`).join("")}</div>${limit && list.length > limit ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-go="threads">All ${list.length} threads</button></div>` : ""}</section>`;
   }
   function threadsScreen() {
     const all = threads();
-    return `<h1 class="vg-hq-h1">Threads</h1>${flow()}<p class="vg-hq-lede">Your open work by what it belongs to.</p>` + (all.length ? all.map(t => section(t.project ? t.project.title : "Everything else", t.items)).join("") : empty("No open work yet.", [["Today", 'data-go="today"']]));
+    return `<h1 class="vg-hq-h1">Threads</h1>${flow()}<p class="vg-hq-lede">Your open work by what it belongs to.</p>` + (all.length ? all.map(t => section(t.title, t.items)).join("") : empty("No open work yet.", [["Today", 'data-go="today"']]));
   }
   // ---- the weekly review: five minutes, in order, each step going to where it's done
   function reviewScreen() {
@@ -53,5 +53,5 @@
       step(2, "Sweep what's carried over", carried.length ? plural(carried.length, "task") + " rolling forward." : "Nothing carried over.", carried.length ? '<button class="vg-hq-btn" data-go="sweep">Sweep</button>' : "") +
       step(3, "Check projects that stopped moving", stuck.length ? `${plural(stuck.length, "active project")} with no activity in 14 days: ${stuck.slice(0, 3).map(p => esc(p.title)).join(" · ")}` : "Every active project moved in the last 14 days.", stuck.length ? '<button class="vg-hq-btn" data-go="projects">Projects</button>' : "") +
       step(4, "Refresh what you rely on", stale.length ? `Relied on and gone stale: ${stale.slice(0, 3).map(n => esc(n.name)).join(" · ")}` : "Nothing you rely on has gone stale.", stale.length && api.openNote ? `<button class="vg-hq-btn" data-open="${esc(stale[0].id)}">Open the first</button>` : "") +
-      step(5, "Decide what's next", "Star up to three for Monday.", '<button class="vg-hq-btn vg-hq-btn-primary" data-go="today">Plan</button>');
+      step(5, "Decide what's next", `Star up to ${VGRules.FOCUS_MAX} to do next.`, '<button class="vg-hq-btn vg-hq-btn-primary" data-go="today">Plan</button>');
   }

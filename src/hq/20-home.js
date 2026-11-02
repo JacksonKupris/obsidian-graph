@@ -43,9 +43,29 @@
       <button class="vg-hq-tile" data-go="projects"><span class="vg-hq-eyebrow">Projects</span><span class="vg-hq-big">${count("active")}</span><small>in progress · ${count("planned")} planned · ${count("waiting")} waiting</small></button></div>`;
     const upkeep = ofGroup("upkeep").slice(0, 3);
     const status = `<p class="vg-hq-status">${plural(nodes0(), "note")} · ${plural((DATA.clusters || []).length, "topic")}${DATA.date ? ` · analysed ${esc(shortDate(DATA.date))}` : ""}${opts.openGraph ? ' · <button class="vg-hq-linkbtn" data-graph>Open the graph</button>' : ""}</p>`;
-    return `<h1 class="vg-hq-h1">${greeting()}</h1>${briefHtml()}${captureBox()}${flow()}${journalWarning()}${hiddenKindsLine()}${tiles}${threadsHtml(6)}${feed}` +
-      (upkeep.length ? section("Vault upkeep", upkeep) : "") + status;
+    const off = new Set((STATE.review || {}).hqHome || []), on = k => !off.has(k);
+    if (isNewVault()) return `<h1 class="vg-hq-h1">Welcome</h1>${welcomeHtml()}`;
+    return `<h1 class="vg-hq-h1">${greeting()}</h1>${on("brief") ? briefHtml() : ""}${captureBox()}${on("loop") ? flow() : ""}${journalWarning()}${hiddenKindsLine()}${on("cards") ? tiles : ""}${on("momentum") ? momentumHtml() : ""}${on("threads") ? threadsHtml(6) : ""}${on("feed") ? feed : ""}` +
+      (on("upkeep") && upkeep.length ? section("Vault upkeep", upkeep) : "") + status + customizeHtml(off);
   }
+  // Home's parts, each one yours to turn off
+  const HOME_PARTS = [["brief", "Morning brief"], ["loop", "Plan, Do, Wrap up"], ["cards", "Do next, Needs you, Projects"], ["momentum", "Momentum"], ["threads", "Threads"], ["feed", "On this day and more"], ["upkeep", "Vault upkeep"]];
+  let customizing = false;
+  const customizeHtml = off => !api.hqHome ? "" : customizing ? `<section class="vg-hq-sec vg-hq-customize"><h3>Show on Home</h3><div class="vg-hq-filters" role="group" aria-label="Show on Home">${HOME_PARTS.map(([k, label]) => `<button class="vg-hq-filter${off.has(k) ? "" : " is-on"}" data-homepart="${k}" aria-pressed="${!off.has(k)}">${esc(label)}</button>`).join("")}</div><div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-customize>Done</button></div></section>` : `<div class="vg-hq-row"><button class="vg-hq-linkbtn vg-hq-customizebtn" data-customize>Customize Home</button></div>`;
+  function toggleHomePart(k) { const off = new Set((STATE.review || {}).hqHome || []); if (off.has(k)) off.delete(k); else off.add(k); const list = [...off]; STATE = { ...STATE, review: { ...(STATE.review || {}), hqHome: list } }; render(); api.hqHome(list); }
+  // Momentum: what got done, day by day, for the last two weeks
+  function momentumHtml() {
+    const days = Array.from({ length: 14 }, (_, i) => { const d = new Date(now()); d.setDate(d.getDate() - 13 + i); return VGRules.localDay(d); });
+    const per = days.map(d => VGRules.doneToday(DATA, STATE.review, d).length), total = per.reduce((a, b) => a + b, 0); if (!total) return "";
+    const peak = Math.max(1, ...per); let streak = 0; for (let i = per.length - 1; i >= 0; i--) { if (per[i]) streak++; else if (i < per.length - 1) break; }
+    return `<section class="vg-hq-momentum" aria-label="Done in the last two weeks"><div><span class="vg-hq-big">${total}</span><small>done in 2 weeks${streak > 1 ? ` · ${streak} days running` : ""}</small></div><div class="vg-hq-sparkbars">${per.map((n, i) => `<i title="${esc(days[i])}: ${n}" style="height:${Math.max(6, Math.round(n / peak * 100))}%"${n ? "" : ' class="is-none"'}></i>`).join("")}</div></section>`;
+  }
+  // a vault with nothing to show yet: what to do first, not a page of zeroes
+  const isNewVault = () => { const h = hq() || {}; return !(h.journals || []).length && !(h.projects || []).length && !LIST.length; };
+  const welcomeHtml = () => `<p class="vg-hq-brief">This is your home screen. Everything you capture and everything your notes know comes together here.</p>${captureBox()}<section class="vg-hq-welcome">
+    <div><i>1</i><b>Capture something</b><p>Type a task above and press Enter. It goes in today's journal.</p></div>
+    <div><i>2</i><b>Star what matters</b><p>Pick up to three things for the day from Today.</p></div>
+    <div><i>3</i><b>Press Ctrl K</b><p>Find anything, or do anything, from one box.</p></div></section><div class="vg-hq-row">${api.openDaily ? '<button class="vg-hq-btn vg-hq-btn-primary" data-daily>Open today\'s journal</button>' : ""}${opts.openGraph ? '<button class="vg-hq-btn" data-graph>See the graph</button>' : ""}</div>`;
   const nodes0 = () => (DATA.nodes || []).filter(n => !n.person && !n.ghost && !n.moc).length;
   // the capture box: Enter makes a task in today's journal, Shift+Enter a note
   let captureText = "";

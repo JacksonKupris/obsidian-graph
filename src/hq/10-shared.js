@@ -75,7 +75,7 @@
     if (!api.searchNotes || (!always && ctxOpen !== it.key)) return "";
     loadContext(it); const hits = ctxCache.get(it.key);
     const body = hits === null ? `<p class="vg-hq-ctx-none">Looking in your notes…</p>` : !hits || !hits.length ? `<p class="vg-hq-ctx-none">Nothing related in your notes.</p>`
-      : hits.map(h => `<button class="vg-hq-ctxhit" data-open="${esc(h.path)}"><b>${esc(nameOf(h.path))}</b>${h.heading && h.heading !== nameOf(h.path) ? `<small>${esc(h.heading)}</small>` : ""}${h.snippet ? `<span>${esc(h.snippet)}</span>` : ""}</button>`).join("");
+      : hits.map(h => `<button class="vg-hq-ctxhit" data-open="${esc(h.path)}"><b>${esc(nameOf(h.path))}</b>${h.heading && h.heading !== nameOf(h.path) ? `<small>${esc(h.heading)}</small>` : ""}${h.snippet ? `<span>${esc(VGRules.plainSnippet(h.snippet))}</span>` : ""}</button>`).join("");
     return `<div class="vg-hq-ctx"><div class="vg-hq-eyebrow">From your notes</div><div class="vg-hq-ctxhits">${body}</div></div>`;
   }
   // More / Less like this: on every item when the host can keep them

@@ -1,23 +1,25 @@
   // ---- the command palette (Ctrl K): one box for everything. Commands, today's work and projects answer as you type; your
   // notes follow as soon as the search does, and what they mean after that. Enter runs the highlighted row.
   let palette = null;
+  // a short query is the start of a word ("ses" isn't "Review RTI Server Software" or "wire harnesses"); a longer one may skip letters
+  const closeTo = (t, text) => t.length <= 4 && !String(text).toLowerCase().split(/[^a-z0-9]+/).some(w => w.startsWith(t.toLowerCase())) ? -1 : VGRules.fuzzyScore(t, text);
   function paletteCommands(q) {
     const t = q.trim(), go = (label, s, hint) => ({ label, hint, run: () => setScreen(s) });
     const base = [go("Home", "home", "1"), go("Today", "today", "2"), go("Needs you", "needs", "3"), go("People", "people", "4"), go("Projects", "projects", "5"), go("Threads", "threads"), go("Wrap up", "wrap", "w"), go("Weekly review", "review", "r"), go("Automations", "automations"),
       ...(api.openDaily ? [{ label: "Open today's journal", run: () => api.openDaily(day()) }] : []), ...(api.openStandup ? [{ label: "Open today's standup", run: () => api.openStandup(day()) }] : []), ...(opts.openGraph ? [{ label: "Open the graph", run: () => opts.openGraph() }] : [])];
-    const made = t && api.capture ? [{ label: `Add task: ${t}`, hint: "journal", run: () => api.capture(t, "task").then(() => toast("Added to today")) }, { label: `Save note: ${t}`, hint: "inbox", run: () => api.capture(t, "note").then(() => toast("Note saved")) }] : [];
     if (!t) return base;
-    return [...base.map(c => ({ c, s: VGRules.fuzzyScore(t, c.label) })).filter(x => x.s >= 0).sort((a, b) => b.s - a.s).slice(0, 5).map(x => x.c), ...made];
+    return base.map(c => ({ c, s: closeTo(t, c.label) })).filter(x => x.s >= 0).sort((a, b) => b.s - a.s).slice(0, 4).map(x => x.c);
   }
   function paletteRows(q) {
-    const t = q.trim(), rows = [{ head: "Do" }, ...paletteCommands(q)];
+    const t = q.trim(), cmds = paletteCommands(q), rows = cmds.length ? [{ head: t ? "Go" : "Go to" }, ...cmds] : [];
     if (!t) return rows;
-    const items = LIST.map(it => ({ it, s: VGRules.fuzzyScore(t, it.title) })).filter(x => x.s >= 0).sort((a, b) => b.s - a.s).slice(0, 6);
+    const items = LIST.map(it => ({ it, s: closeTo(t, it.title) })).filter(x => x.s >= 0).sort((a, b) => b.s - a.s).slice(0, 6);
     if (items.length) rows.push({ head: "Open work" }, ...items.map(({ it }) => ({ label: it.title, hint: VGRules.kindWords(it.kind), run: () => { setScreen(it.group === "needs" ? "needs" : it.group === "upkeep" ? "home" : "today"); selectItem(it.key); } })));
-    const projects = VGRules.hqProjects(DATA).map(p => ({ p, s: Math.max(VGRules.fuzzyScore(t, p.title), VGRules.fuzzyScore(t, p.name || "")) })).filter(x => x.s >= 0).sort((a, b) => b.s - a.s).slice(0, 5);
+    const projects = VGRules.hqProjects(DATA).map(p => ({ p, s: Math.max(closeTo(t, p.title), closeTo(t, p.name || "")) })).filter(x => x.s >= 0).sort((a, b) => b.s - a.s).slice(0, 5);
     if (projects.length) rows.push({ head: "Projects" }, ...projects.map(({ p }) => ({ label: p.title, hint: p.status || "project", run: () => { setScreen("projects"); drawer = p.path; focusDrawerOnRender = true; render(); } })));
-    if (palette.notes.length) rows.push({ head: "In your notes" }, ...palette.notes.map(h => ({ label: nameOf(h.path), sub: h.snippet, hint: h.heading && h.heading !== nameOf(h.path) ? h.heading : "", run: () => api.openNote && api.openNote(h.path) })));
+    if (palette.notes.length) rows.push({ head: "In your notes" }, ...palette.notes.map(h => ({ label: nameOf(h.path), sub: VGRules.plainSnippet(h.snippet), hint: h.heading && h.heading !== nameOf(h.path) ? h.heading : "", run: () => api.openNote && api.openNote(h.path) })));
     if (palette.meaning.length) rows.push({ head: "Similar in meaning" }, ...palette.meaning.map(h => ({ label: nameOf(h.path), hint: h.heading || "", run: () => api.openNote && api.openNote(h.path) })));
+    if (api.capture) rows.push({ head: "Capture" }, { label: `Add task: ${t}`, hint: "today's journal", run: () => api.capture(t, "task").then(() => toast("Added to today")) }, { label: `Save note: ${t}`, hint: "inbox", run: () => api.capture(t, "note").then(() => toast("Note saved")) });
     return rows;
   }
   function paletteDraw() {

@@ -4,9 +4,10 @@ An Obsidian plugin that maps your vault: it finds the topics your notes form, th
 
 ## What you get
 
+- **Vault HQ**: your home screen. Capture in one box, star what matters today, and pick anything to see what your notes already know about it. A morning brief, threads of related work, people, a daily wrap-up that feeds your standup, a weekly review, and Ctrl K to find or do anything.
 - **Today**: one list of next steps, with today's three at the top. Link two notes that belong together, add a note to its topic's map, write a note other notes already link to, check that a note you rely on is still current, give a topic a map, link a note nothing points to. Each has its button and Undo. It's in the graph's Insights tab, its Today panel (the flag button, or G) and the sidebar.
 - **Map**: the graph itself in 2D or 3D, coloured by topic, with the bridge notes and the gaps between topics.
-- **Scenes**: the same notes as pictures (a city, a garden, a palace, the sky, a food web…), and scenes you write yourself in a note.
+- **Scenes**: the same notes as pictures (a neon city, a food web, weather, a radar of open tasks, a heat clock, and a first-person shooter where every note is an enemy), every one in 2D or 3D, with a time-lapse of how your vault grew, and scenes you write yourself in a note.
 - **Lenses**: questions you can ask (what's important but stale, what to write next, which notes are duplicates, what a folder mixes).
 - **Search**: finds what you half remember: misspellings, "last week", a person's name, "near" a note.
 - **Cosmos**: every body offers notes at a distance (black hole 0; a binary's or planet's notes 1; a star's rings 1-3, up to three links away) and each note goes to the nearest. Ties go to black hole, then binary, planet, star, then target-path order, independent of placement order. Saved stars must target existing notes after vault reorganizations.

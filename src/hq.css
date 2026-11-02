@@ -270,7 +270,7 @@
 .vg-hq .vg-hq-thread small { color: var(--hq-muted); }
 .vg-hq .vg-hq-threadbar { height: 3px; border-radius: 3px; background: var(--hq-line); overflow: hidden; display: block; } .vg-hq .vg-hq-threadbar i { display: block; height: 100%; background: var(--hq-accent); }
 /* weekly review */
-.vg-hq .vg-hq-weekbars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; height: 84px; margin: 0 0 var(--hq-gap); }
+.vg-hq .vg-hq-weekbars { display: grid; grid-template-columns: repeat(7, minmax(0, 40px)); gap: 10px; height: 84px; margin: 0 0 var(--hq-gap); }
 .vg-hq .vg-hq-weekbars span { display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; gap: 4px; min-height: 0; text-align: center; }
 .vg-hq .vg-hq-weekbars i { display: block; min-height: 2px; border-radius: 3px; background: var(--hq-accent); } .vg-hq .vg-hq-weekbars small { color: var(--hq-muted); font-size: 11px; }
 .vg-hq .vg-hq-reviewstep { display: flex; gap: 14px; padding: 14px 0; border-top: 1px solid var(--hq-line); }
@@ -287,3 +287,18 @@
 .vg-hq .vg-hq-palrow em { flex: none; color: var(--hq-faint); font-style: normal; font-size: 11px; }
 .vg-hq .vg-hq-palrow.is-at, .vg-hq .vg-hq-palrow:hover { background: var(--hq-accent-soft); }
 .vg-hq .vg-hq-palfoot { padding: 8px 14px; border-top: 1px solid var(--hq-line); color: var(--hq-faint); font-size: 11px; }
+
+/* momentum */
+.vg-hq .vg-hq-momentum { display: flex; gap: 20px; align-items: center; margin: 0 0 var(--hq-gap); padding: 14px 16px; border: 1px solid var(--hq-line); border-radius: var(--hq-r); }
+.vg-hq .vg-hq-momentum > div:first-child { display: grid; flex: none; } .vg-hq .vg-hq-momentum small { color: var(--hq-muted); }
+.vg-hq .vg-hq-sparkbars { flex: 1; display: flex; align-items: flex-end; justify-content: flex-end; gap: 4px; height: 44px; min-width: 0; }
+.vg-hq .vg-hq-sparkbars i { flex: 0 1 14px; min-width: 3px; border-radius: 3px; background: var(--hq-accent); } .vg-hq .vg-hq-sparkbars i.is-none { background: var(--hq-line); }
+/* first run */
+.vg-hq .vg-hq-welcome { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: var(--hq-gap); }
+.vg-hq .vg-hq-welcome > div { display: grid; gap: 4px; padding: 16px; border: 1px solid var(--hq-line); border-radius: var(--hq-r); }
+.vg-hq .vg-hq-welcome i { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--hq-accent); color: var(--hq-accent-ink); font-style: normal; font-weight: 600; }
+.vg-hq .vg-hq-welcome p { margin: 0; color: var(--hq-muted); }
+/* the key sheet and Customize */
+.vg-hq .vg-hq-keys { margin: 10px 0; border-collapse: collapse; width: 100%; } .vg-hq .vg-hq-keys td { padding: 4px 8px; } .vg-hq .vg-hq-keys td:first-child { white-space: nowrap; width: 1%; }
+.vg-hq .vg-hq-keys kbd { padding: 1px 6px; border: 1px solid var(--hq-line); border-radius: 5px; background: var(--hq-surface); font: inherit; font-size: 12px; }
+.vg-hq .vg-hq-customizebtn { margin-top: 10px; color: var(--hq-faint); font-size: 12px; }

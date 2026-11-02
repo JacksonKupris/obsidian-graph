@@ -349,6 +349,7 @@
     "carry_days": 30,
     "reaction_weight": 0.6,
     "journal_tasks_heading": "Today's Tasks",
+    "thread_areas": {},
     "capture_folder": "00-Inbox",
     "people_ambiguous": [
       "Show",

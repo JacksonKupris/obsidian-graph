@@ -50,7 +50,7 @@ function buildPlugin(rules) {
       + "body:not(.is-mobile) .vg-host .vg-root { --vg-bottom: calc(var(--status-bar-height, 22px) + 8px); }\n",
     "manifest.json": JSON.stringify({
       id: pluginId(rules), name: "Vault Graph", version: pkg.version, minAppVersion: "1.4.0",
-      description: "Maps the vault: topic clusters, bridge notes and gaps, with views and lenses for acting on them.",
+      description: "Your vault's home screen and map: capture, focus, what your notes know about any task, search that finds what you half remember, and views of your notes.",
       author: "Jackson", isDesktopOnly: false,
     }, null, 2) + "\n",
     // the rulebook on its own, for checks that compare it with the vault's Python (the vault's own tests)

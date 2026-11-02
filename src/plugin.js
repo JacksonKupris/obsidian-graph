@@ -570,6 +570,11 @@ module.exports = class VaultGraphPlugin extends Plugin {
     this.registerView(SUGGEST_TYPE, leaf => new VaultGraphSuggestView(leaf, this));
     this.registerView(HQ_TYPE, leaf => new VaultHQView(leaf, this));
     this.addCommand({ id: "open-hq", name: "Open Vault HQ", callback: () => this.openHQ() });
+    // from anywhere in Obsidian, without leaving the note you're in; give them a hotkey
+    const captureFrom = kind => async () => { const text = await inputModal(this.app, kind === "note" ? "Capture a note" : "Capture a task", kind === "note" ? "It goes in the capture folder." : "It goes in today's journal.", kind === "note" ? "An idea…" : "Something to do…"); if (!text || !text.trim()) return; try { await this.capture(text, kind); new Notice(kind === "note" ? "Note saved" : "Added to today"); } catch (e) { new Notice(`Couldn't save that: ${e.message}`, 8000); } };
+    this.addCommand({ id: "capture-task", name: "Capture a task", callback: captureFrom("task") });
+    this.addCommand({ id: "capture-note", name: "Capture a note", callback: captureFrom("note") });
+    this.addCommand({ id: "hq-palette", name: "Find or do anything (HQ)", callback: async () => { const leaf = await this.openHQ(); if (leaf.view.handle) leaf.view.handle.palette(); } });
     this.addRibbonIcon("layout-dashboard", "Open Vault HQ", () => this.openHQ());
     this.app.workspace.onLayoutReady(() => { if (this.settings.hqAtStart !== false) this.openHQ().catch(e => console.error("Vault Graph: HQ didn't open", e));   // HQ is the home screen
       setTimeout(() => this.recall("warm", 1).catch(() => {}), 8000); });   // read the notes and build search's index once things are quiet, so the first real search is instant
@@ -1239,6 +1244,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       hqReact: (kind, how) => this.hqReact(kind, how),
       capture: (text, kind) => this.capture(text, kind),
       hqFocus: keys => this.hqFocus(keys),
+      hqHome: hidden => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.hqHome = hidden; return sh; }),
       planLine: text => this.planLine(text),
       searchMeaning: (q, n) => this.searchMeaning(q, n),
       stampReviewed: notePath => this.stampReviewed(notePath),
@@ -2123,6 +2129,7 @@ class VaultGraphSettings extends PluginSettingTab {
       });
     });
     new Setting(el).setName("Plugin").setHeading();
+    new Setting(el).setName("Open Vault HQ at startup").setDesc("Your home screen, when Obsidian opens").addToggle(t => t.setValue(this.plugin.settings.hqAtStart !== false).onChange(async v => { this.plugin.settings.hqAtStart = v; await this.plugin.saveSettings(); }));
     const text = (name, desc, key, placeholder) => new Setting(el).setName(name).setDesc(desc)
       .addText(t => t.setPlaceholder(placeholder).setValue(this.plugin.settings[key])
         .onChange(async v => { this.plugin.settings[key] = v.trim() || DEFAULTS[key]; await this.plugin.saveSettings(); }));

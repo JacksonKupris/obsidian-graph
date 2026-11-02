@@ -38,6 +38,8 @@
     else if (d.ctx) toggleContext(d.ctx);
     else if (d.capture) capture(d.capture);
     else if (d.page) { opened.add(d.page); render(); }
+    else if (d.homepart) toggleHomePart(d.homepart);
+    else if (d.customize !== undefined) { customizing = !customizing; render(); }
     else if (d.star) toggleFocus(d.star);
     else if (d.plan) { const it = BY_KEY.get(d.plan); if (it) api.planLine(VGRules.plainTask(it.text || it.title)).then(ok => toast(ok ? "In tomorrow's plan" : "Couldn't find that heading in the standup", null, !ok)); }
     else if (d.logall !== undefined) logAll(b);
@@ -82,6 +84,13 @@
   });
   // ---- the keyboard: j / k move through the items, x does the main action, l is Later, o opens, Enter shows what your
   // notes know; c goes to capture, / to search, 1-5 to a screen, ? lists them
+  // every key, on one card
+  function keySheet() {
+    const rows = [["Ctrl K", "Find or do anything"], ["c", "Capture"], ["/", "Search"], ["j k", "Move through items"], ["x", "Done"], ["f", "Today's focus"], ["l", "Later"], ["o", "Open the note"], ["Enter", "What your notes know"], ["w", "Wrap up"], ["r", "Weekly review"], ["1 to 5", "Screens"], ["?", "This list"]];
+    const box = document.createElement("div"); box.className = "vg-hq-dialog"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Keyboard shortcuts");
+    box.innerHTML = `<div class="vg-hq-dialog-card"><b>Keyboard</b><table class="vg-hq-keys">${rows.map(([k, w]) => `<tr><td><kbd>${esc(k)}</kbd></td><td>${esc(w)}</td></tr>`).join("")}</table><div class="vg-hq-row-end"><button class="vg-hq-btn vg-hq-btn-primary" data-no>Close</button></div></div>`;
+    const end = () => box.remove(); box.querySelector("[data-no]").onclick = end; box.onkeydown = ev => { ev.stopPropagation(); if (ev.key === "Escape" || ev.key === "?") end(); }; el.appendChild(box); box.querySelector("[data-no]").focus();
+  }
   const KEY_HELP = "j k move · x done · f focus · l later · o open · Enter context · c capture · w wrap up · r review · Ctrl K everything · / search · 1-5 screens";
   const rows = () => [...el.querySelectorAll(".vg-hq-item[data-key]")];
   function focusRow(key) { const r = rows().find(x => x.dataset.key === key); if (r) { r.setAttribute("tabindex", "-1"); r.focus({ preventScroll: true }); r.scrollIntoView({ block: "nearest" }); } }
@@ -107,7 +116,7 @@
     else if (k === "c") { const b = el.querySelector(".vg-hq-captureinput"); if (b) { e.preventDefault(); b.focus(); } else { setScreen("today"); const n = el.querySelector(".vg-hq-captureinput"); if (n) { e.preventDefault(); n.focus(); } } }
     else if (k === "/") { const b = el.querySelector(".vg-hq-global-search"); if (b) { e.preventDefault(); b.focus(); } }
     else if (/^[1-5]$/.test(k) && SCREENS[+k - 1]) { e.preventDefault(); setScreen(SCREENS[+k - 1][0]); }
-    else if (k === "?") { e.preventDefault(); toast(KEY_HELP); }
+    else if (k === "?") { e.preventDefault(); keySheet(); }
   });
   el.addEventListener("input", e => { if (e.target.matches(".vg-hq-captureinput")) captureText = e.target.value; });
   el.addEventListener("keydown", e => {
@@ -127,7 +136,7 @@
   clockTimer = opts.now ? null : setInterval(() => { const c = el.querySelector(".vg-hq-clock b"); if (c) c.textContent = new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, ""); }, 30000);
   return {
     update(data, state) { DATA = data || DATA; if (state) STATE = state; gone = new Set(); relist(); searchNotes(globalQuery, 80); render(); },
-    setScreen, screen: () => cur,
+    setScreen, screen: () => cur, palette: () => openPalette(),
     showRows: path => ctx().showRows(path),   // a report's rows (the sidebar's Review rows opens HQ there)
     items: () => LIST.slice(),
     destroy() { clearInterval(clockTimer); clearTimeout(toastTimer); clearTimeout(searchTimer); clearTimeout(typeTimer); searchToken++; el.remove(); },
