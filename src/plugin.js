@@ -320,7 +320,7 @@ class VaultHQView extends ItemView {
     api.openNote = notePath => open(notePath, true);   // a note opens in its own tab: HQ stays where it is
     api.searchNotes = (query, count) => this.plugin.recall(query, count);
     this.handle = mountVaultHQ(el.createDiv({ cls: "vg-hq-root" }), d, {
-      api, state, mobile: Platform.isMobile, screen: this.plugin.settings.hqScreen, onNext: () => this.plugin.nextStepSoon(),
+      api, state, mobile: Platform.isMobile, screen: this.plugin.settings.hqScreen, onNext: () => this.plugin.nextStepSoon(), onSession: s => this.plugin.showFocus(s), notify: msg => new Notice(msg, 0),
       onScreen: s => { this.plugin.settings.hqScreen = s; this.plugin.saveSettings(); },
       ask: (title, text, ok) => confirmModal(this.app, title, text, ok),
       input: (title, text, placeholder) => inputModal(this.app, title, text, placeholder),
@@ -1248,6 +1248,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
       hqReact: (kind, how) => this.hqReact(kind, how),
       capture: (text, kind) => this.capture(text, kind),
       goNextStep: () => this.goNextStep(),
+      focusNow: () => this.focusNow || null,
+      resolveLink: (target, from) => { const f = this.app.metadataCache.getFirstLinkpathDest(target, from || ""); return f ? f.path : null; },
       hqFocus: keys => this.hqFocus(keys),
       hqSession: (day, minutes, project) => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.sessions = VGRules.sessionAdded(sh.review, day, minutes); if (project) sh.review.sessionFor = { ...(sh.review.sessionFor || {}), [project]: VGRules.projectMinutes(sh.review, project) + minutes }; return sh; }),
       readNote: async notePath => { const f = this.app.vault.getAbstractFileByPath(normalizePath(notePath)); if (!(f instanceof TFile)) throw new Error("missing note"); return this.app.vault.cachedRead(f); },
@@ -1841,10 +1843,20 @@ module.exports = class VaultGraphPlugin extends Plugin {
   async updateNextStep() {
     if (!this.nextEl) return;
     try {
-      const data = await this.graphData(), sh = await this.loadShared(), leaf = this.app.workspace.getLeavesOfType(HQ_TYPE)[0], s = leaf && leaf.view && leaf.view.handle && leaf.view.handle.session();
-      const n = VGRules.hqNextOf(data || {}, { review: sh && sh.review, hidden: sh && sh.cosmos && sh.cosmos.hidden, today: today(), session: s ? { title: s.title } : null });
+      const data = await this.graphData(), sh = await this.loadShared();
+      if (this.focusNow) return;   // the clock has the status bar; a session that started while this was reading
+      const n = VGRules.hqNextOf(data || {}, { review: sh && sh.review, hidden: sh && sh.cosmos && sh.cosmos.hidden, today: today() });
       this.nextEl.setText(`Next: ${n.label}`); this.nextEl.setAttr("aria-label", `Go to: ${n.label}`);
     } catch (e) { console.error("Vault Graph: next step not worked out", e); }
+  }
+  // A focus session running in HQ: its clock takes the status bar, so it shows while you work in a note, and the graph's chip follows.
+  showFocus(s) {
+    const changed = !this.focusNow !== !s; this.focusNow = s || null;
+    if (changed) this.app.workspace.getLeavesOfType(VIEW_TYPE).forEach(l => { if (l.view && l.view.handle && l.view.handle.syncNext) l.view.handle.syncNext(); });
+    if (!this.nextEl) return;
+    this.nextEl.toggleClass("is-over", !!(s && s.over));
+    if (!s) { clearTimeout(this.nextTimer); this.updateNextStep(); return; }
+    this.nextEl.setText(`${s.paused ? "Paused" : "Focus"} ${s.clock} · ${s.title}`); this.nextEl.setAttr("aria-label", `Go to: ${s.title}`);
   }
   async goNextStep() { const leaf = await this.openHQ(); if (!leaf.view.handle && leaf.view.render) await leaf.view.render(); if (leaf.view.handle) leaf.view.handle.next(); }
   // one HQ, however many tabs a restart or an update left

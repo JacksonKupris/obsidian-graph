@@ -367,6 +367,7 @@
 .vg-hq .vg-hq-peek-body { margin-top: 12px; line-height: 1.5; overflow-wrap: anywhere; } .vg-hq .vg-hq-drawer .vg-hq-peek-body p { color: var(--hq-text); margin: 0 0 8px; }
 .vg-hq .vg-hq-peek-h { margin: 14px 0 6px; font-size: var(--ds-fs-base); font-weight: 700; color: var(--hq-text); }
 .vg-hq .vg-hq-drawer .vg-hq-peek-body .vg-hq-peek-li { margin: 0 0 3px; padding-left: 14px; text-indent: -14px; } .vg-hq .vg-hq-peek-li.is-deep { margin-left: 16px !important; } .vg-hq .vg-hq-drawer .vg-hq-peek-body .vg-hq-peek-li.is-done { color: var(--hq-muted); text-decoration: line-through; }
+.vg-hq .vg-hq-drawer .vg-hq-peek-body .vg-hq-linkbtn { width: auto; min-height: 0; margin: 0; text-align: inherit; vertical-align: baseline; text-decoration: underline; text-underline-offset: 2px; }
 .vg-hq .vg-hq-peek-body pre { margin: 0 0 8px; padding: 8px 10px; border-radius: var(--hq-r-sm); background: var(--hq-surface); overflow-x: auto; font-size: var(--ds-fs-sm); }
 .vg-hq .vg-hq-note-hit .vg-hq-acts { flex: none; max-width: none; }
 /* search's filters; a small week panel in the calendar; the keys button */
@@ -376,6 +377,7 @@
 /* moving between screens: quick enough to feel like the same place */
 .vg-hq .vg-hq-enter { animation: vg-ds-rise var(--ds-base) var(--ds-ease); }
 
+.vg-nextstatus.is-over { color: var(--text-warning, var(--text-accent)); font-weight: var(--font-semibold, 600); }
 .vg-nextstatus { cursor: pointer; color: var(--text-accent); max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* room for the Next flag above Do next's buttons, so it doesn't sit on the text */
 .vg-hq .vg-hq-next > .vg-hq-row { margin-top: 18px; }

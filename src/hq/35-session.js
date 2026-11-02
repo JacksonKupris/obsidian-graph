@@ -12,14 +12,17 @@
     if (t) t.textContent = sessionClock();
     if (bar) bar.style.width = `${Math.min(100, sessionMs() / (session.length * 60000) * 100)}%`;
     if (step) step.textContent = `${session.since ? "On" : "Paused"} · ${sessionClock()}`;
-    if (left < 0 && !session.over) { session.over = true; toast(`${session.length} minutes are up`); if (cur === "session") render(); }
+    if (left < 0 && !session.over) { session.over = true; const say = `${session.length} minutes are up`; if (opts.notify) opts.notify(say); else toast(say); if (cur === "session") render(); }
+    sessionTell();
   }
+  // the session as anything outside HQ shows it: the status bar, the graph's chip
+  const sessionTell = () => { if (opts.onSession) opts.onSession(session ? { title: session.title, clock: sessionClock(), over: !!session.over, paused: !session.since } : null); };
   function sessionStart(key) {
     compute();
     const it = BY_KEY.get(key) || (session && BY_KEY.get(session.key)) || doNext();
     if (session && it && session.key !== it.key) sessionLog();
     if (it && (!session || session.key !== it.key)) session = { key: it.key, title: it.title, length: sessionLength, spent: 0, logged: 0, since: Date.now(), over: false };
-    clearInterval(sessionTick); sessionTick = setInterval(sessionPaint, 1000);
+    clearInterval(sessionTick); sessionTick = setInterval(sessionPaint, 1000); sessionTell();
     setScreen("session");
   }
   // whole minutes not yet on record, in the shared file
@@ -32,7 +35,7 @@
     STATE = { ...STATE, review: { ...review, sessions: VGRules.sessionAdded(review, day(), minutes), ...(project ? { sessionFor: { ...(review.sessionFor || {}), [project]: VGRules.projectMinutes(review, project) + minutes } } : {}) } };
     api.hqSession(day(), minutes, project);
   }
-  function sessionEnd() { const spent = sessionMs(); sessionLog(); session = null; clearInterval(sessionTick); sessionTick = null; const whole = Math.floor(spent / 60000); toast(whole ? `Focused ${VGRules.minutesWords(whole)}` : "Session ended"); setScreen("today"); }
+  function sessionEnd() { const spent = sessionMs(); sessionLog(); session = null; sessionTell(); clearInterval(sessionTick); sessionTick = null; const whole = Math.floor(spent / 60000); toast(whole ? `Focused ${VGRules.minutesWords(whole)}` : "Session ended"); setScreen("today"); }
   // what comes after this item: the rest of today's focus, then the next thing today
   const sessionUpNext = () => { const here = session && session.key, list = [...focus(), ...ofGroup("today")]; return [...new Set(list)].filter(it => it.key !== here); };
   function sessionNext() {
