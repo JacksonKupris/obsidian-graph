@@ -1244,6 +1244,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       hqReact: (kind, how) => this.hqReact(kind, how),
       capture: (text, kind) => this.capture(text, kind),
       hqFocus: keys => this.hqFocus(keys),
+      hqSession: (day, minutes) => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.sessions = VGRules.sessionAdded(sh.review, day, minutes); return sh; }),
       hqHome: hidden => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.hqHome = hidden; return sh; }),
       planLine: text => this.planLine(text),
       searchMeaning: (q, n) => this.searchMeaning(q, n),
@@ -1541,7 +1542,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     try { const s = await this.app.vault.adapter.stat(normalizePath(`${this.manifest.dir}/main.js`)); return `${s.size}|${s.mtime}`; } catch (e) { return ""; }
   }
   // The weekly State of the vault note (written by `vault_graph.py --state`, run by the gardener) gets pictures:
-  // Weather, Radar and Food web as they look now, saved to attachments/ and embedded under "## Maps".
+  // Weather, Radar and Food web as they look now, saved to the attachments folder and embedded under "## Maps".
   async stateSnapshots() {
     const notes = this.app.vault.getMarkdownFiles().filter(f => f.path.startsWith(`${VGRules.folders.reports}/State of the Vault `)).sort((a, b) => b.path.localeCompare(a.path));
     if (!notes.length) { new Notice("No State of the vault note yet: run the analysis with --state (the Friday gardener does)"); return; }
@@ -1549,7 +1550,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const was = v.handle._debug.st.view, day = today(), lines = [];
     for (const w of ["weather", "radar", "foodweb"]) {
       v.handle.setView(w); await sleep(3200);
-      const name = `attachments/state-${day}-${w}.png`;
+      const name = `${VGRules.folders.attachments}/state-${day}-${w}.png`;
       await this.saveBinary(name, await v.handle.snapshot()); lines.push(`![[${name.split("/").pop()}]]`);
     }
     v.handle.setView(was);

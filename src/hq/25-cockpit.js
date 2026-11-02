@@ -1,7 +1,7 @@
   // ---- the cockpit: the rail beside the list, the morning brief, threads and the weekly review. The rail is the second brain
   // made visible: pick anything and it shows what the vault knows about it, without leaving the list you're working through.
   let selKey = null;
-  const NO_RAIL = new Set(["projects", "automations", "sweep", "rows", "review", "wrap"]);
+  const NO_RAIL = new Set(["projects", "automations", "sweep", "rows", "review", "wrap", "session", "calendar"]);
   const HAS_HERO = new Set(["home", "today"]);   // these screens already show Do next in full
   const railOn = () => el.clientWidth >= RAIL_WIDTH && !NO_RAIL.has(cur) && !globalQuery.trim();
   const RAIL_WIDTH = 1100;
@@ -16,7 +16,7 @@
     const project = th && th.project, decisions = project ? (project.decisions || []).slice(0, 3) : [];
     const echoesHero = !BY_KEY.get(selKey) && HAS_HERO.has(cur) && it === doNext();   // the title and buttons are right beside it
     return `${echoesHero ? `<div class="vg-hq-eyebrow">About Do next</div>` : `<div class="vg-hq-eyebrow">${esc(VGRules.kindWords(it.kind))}</div><h2 class="vg-hq-railtitle">${esc(it.title)}</h2>${it.why ? `<p class="vg-hq-railwhy">${esc(it.why)}</p>` : ""}
-      <div class="vg-hq-row">${starButton(it)}${buttons(it)}</div>`}
+      <div class="vg-hq-row">${starButton(it)}${buttons(it)}${sessionButton(it)}</div>`}
       ${project ? `<div class="vg-hq-railblock"><div class="vg-hq-eyebrow">Thread</div><button class="vg-hq-link" data-proj="${esc(project.path)}">${esc(project.title)}<small>${esc(project.status || "no status")} · ${plural(th.items.length, "open item")}</small></button></div>` : ""}
       ${who.length ? `<div class="vg-hq-railblock"><div class="vg-hq-eyebrow">People</div><div class="vg-hq-row">${who.map(p => `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(p.id)}">${esc(p.name)}</button>`).join("")}</div></div>` : ""}
       ${decisions.length ? `<div class="vg-hq-railblock"><div class="vg-hq-eyebrow">Decided</div>${decisions.map(d => `<button class="vg-hq-link" data-open="${esc(d.path)}">${esc(d.title)}<small>${esc(d.date || "")}</small></button>`).join("")}</div>` : ""}

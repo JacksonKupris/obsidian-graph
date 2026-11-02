@@ -6,7 +6,7 @@
   const SEARCH_PAUSE = 90;
   function renderResults() { const col = el.querySelector(".vg-hq-col"); if (!col || !globalQuery.trim()) return render(); compute(); col.innerHTML = searchScreen(); const r = el.querySelector(".vg-hq-rail"); if (r) r.remove(); }
   function render() {
-    compute();
+    compute(); el.classList.toggle("has-picks", picked.size > 0);
     const label = SUB[cur] ? SUB[cur][0] : SCREENS.find(s => s[0] === cur)[1], t = now();
     const scroll = el.querySelector(".vg-hq-main") ? el.querySelector(".vg-hq-main").scrollTop : 0;
     const search = el.querySelector(".vg-hq-global-search"), restoreSearch = search && document.activeElement === search
@@ -18,7 +18,7 @@
         placeholder="Search projects, tasks, and notes…" aria-label="Search all HQ and vault notes"></label>
         ${globalQuery ? '<button class="vg-hq-btn vg-hq-btn-sm vg-hq-global-clear" data-clear-global aria-label="Clear HQ search">Clear</button>' : ""}</div>
       <span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}</span></span></header>` +
-      strip() + `<main class="vg-hq-main"><div class="vg-hq-cols"><div class="vg-hq-col">${globalQuery.trim() ? searchScreen() : ({ home, threads: threadsScreen, review: reviewScreen, wrap: wrapScreen, today: todayScreen, needs: needsScreen, people: peopleScreen, projects: projectsScreen, automations: automationsScreen, sweep: sweepScreen, rows: rowsScreen })[cur]()}</div>${railAside()}</div></main>` + dock();
+      strip() + `<main class="vg-hq-main"><div class="vg-hq-cols"><div class="vg-hq-col">${globalQuery.trim() ? searchScreen() : ({ home, session: sessionScreen, calendar: calendarScreen, threads: threadsScreen, review: reviewScreen, wrap: wrapScreen, today: todayScreen, needs: needsScreen, people: peopleScreen, projects: projectsScreen, automations: automationsScreen, sweep: sweepScreen, rows: rowsScreen })[cur]()}</div>${railAside()}</div></main>` + dock() + bulkBar();
     el.appendChild(toastEl);
     const main = el.querySelector(".vg-hq-main"); if (main) { main.scrollTop = scroll; el.style.setProperty("--hq-panel-top", `${main.offsetTop}px`); }
     if (restoreSearch !== null) { const next = el.querySelector(".vg-hq-global-search"); if (next) { next.focus(); next.setSelectionRange(...restoreSearch); } }
@@ -31,9 +31,20 @@
   // one listener for every button (the screen is redrawn whole)
   el.addEventListener("click", e => {
     const txt = e.target.closest(".vg-hq-item[data-key] .vg-hq-txt"); if (txt && !e.target.closest("button, a") && !String(window.getSelection && window.getSelection()).length) { const k = txt.closest(".vg-hq-item").dataset.key; if (railOn()) selectItem(k); else if (api.searchNotes) toggleContext(k); return; }
+    const box = e.target.closest("[data-pick]"); if (box) { togglePick(box.dataset.pick, e.shiftKey); return; }
     const b = e.target.closest("button, [data-closedrawer]"); if (!b || !el.contains(b) || b.disabled) return;
     const d = b.dataset;
-    if (d.act) act(d.act, d.key, b);
+    if (d.session !== undefined) sessionStart(d.session);
+    else if (d.sessionctl) ({ pause: sessionPause, end: sessionEnd, next: sessionNext })[d.sessionctl]();
+    else if (d.sesslen) sessionSetLength(+d.sesslen);
+    else if (d.bulk) bulkAct(d.bulk, b);
+    else if (d.calday) { calDay = d.calday; render(); }
+    else if (d.calmonth) { calMonth = d.calmonth === "0" ? null : VGRules.monthShift(calMonth || day().slice(0, 7), +d.calmonth); calDay = null; render(); }
+    else if (d.calcopy) calendarCopy(d.calcopy);
+    else if (d.board !== undefined) { projectBoard = !projectBoard; render(); }
+    else if (d.boardmore) { boardOpen.add(d.boardmore); render(); }
+    else if (d.pmove) boardMove(d.path, d.pmove, b);
+    else if (d.act) act(d.act, d.key, b);
     else if (d.react) react(d.react, d.kind);
     else if (d.ctx) toggleContext(d.ctx);
     else if (d.capture) capture(d.capture);
@@ -71,6 +82,12 @@
       feedAt = d.feedto ? +d.feedto : (feedAt + +d.feed + n) % n; if (track) track.scrollTo({ left: feedAt * track.clientWidth, behavior: "smooth" });
       el.querySelectorAll(".vg-hq-dots button").forEach((x, k) => x.classList.toggle("is-on", k === feedAt)); }
   });
+  // the board's drag: one path at a time, dropped on a column
+  let dragging = null;
+  el.addEventListener("dragstart", e => { const c = e.target.closest && e.target.closest("[data-card]"); if (!c) return; dragging = c.dataset.card; c.classList.add("is-dragging"); if (e.dataTransfer) { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", dragging); } });
+  el.addEventListener("dragend", () => { dragging = null; el.querySelectorAll(".is-dragging, .is-drop").forEach(x => x.classList.remove("is-dragging", "is-drop")); });
+  el.addEventListener("dragover", e => { const col = dragging && e.target.closest && e.target.closest("[data-column]"); if (!col || col.dataset.column === "other") return; e.preventDefault(); el.querySelectorAll(".is-drop").forEach(x => x !== col && x.classList.remove("is-drop")); col.classList.add("is-drop"); });
+  el.addEventListener("drop", e => { const col = dragging && e.target.closest && e.target.closest("[data-column]"); if (!col) return; e.preventDefault(); const path = dragging; dragging = null; col.classList.remove("is-drop"); boardMove(path, col.dataset.column); });
   let typeTimer = null;
   el.addEventListener("input", e => { if (e.target.matches(".vg-hq-global-search")) { const had = !!globalQuery; globalQuery = e.target.value; drawer = null; searchNotes(globalQuery); clearTimeout(typeTimer);
     if (!had !== !globalQuery) render(); else typeTimer = setTimeout(renderResults, SEARCH_PAUSE); } });
@@ -86,12 +103,12 @@
   // notes know; c goes to capture, / to search, 1-5 to a screen, ? lists them
   // every key, on one card
   function keySheet() {
-    const rows = [["Ctrl K", "Find or do anything"], ["c", "Capture"], ["/", "Search"], ["j k", "Move through items"], ["x", "Done"], ["f", "Today's focus"], ["l", "Later"], ["o", "Open the note"], ["Enter", "What your notes know"], ["w", "Wrap up"], ["r", "Weekly review"], ["1 to 5", "Screens"], ["?", "This list"]];
+    const rows = [["Ctrl K", "Find or do anything"], ["c", "Capture"], ["/", "Search"], ["j k", "Move through items"], ["x", "Done"], ["f", "Today's focus"], ["s", "Focus session"], ["p", "Pause the session"], ["v", "Select the item"], ["l", "Later"], ["o", "Open the note"], ["Enter", "What your notes know"], ["w", "Wrap up"], ["r", "Weekly review"], ["1 to 6", "Screens"], ["?", "This list"]];
     const box = document.createElement("div"); box.className = "vg-hq-dialog"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Keyboard shortcuts");
     box.innerHTML = `<div class="vg-hq-dialog-card"><b>Keyboard</b><table class="vg-hq-keys">${rows.map(([k, w]) => `<tr><td><kbd>${esc(k)}</kbd></td><td>${esc(w)}</td></tr>`).join("")}</table><div class="vg-hq-row-end"><button class="vg-hq-btn vg-hq-btn-primary" data-no>Close</button></div></div>`;
     const end = () => box.remove(); box.querySelector("[data-no]").onclick = end; box.onkeydown = ev => { ev.stopPropagation(); if (ev.key === "Escape" || ev.key === "?") end(); }; el.appendChild(box); box.querySelector("[data-no]").focus();
   }
-  const KEY_HELP = "j k move · x done · f focus · l later · o open · Enter context · c capture · w wrap up · r review · Ctrl K everything · / search · 1-5 screens";
+  const KEY_HELP = "j k move · x done · f focus · s session · v select · l later · o open · Enter context · c capture · w wrap up · r review · Ctrl K everything · / search · 1-6 screens";
   const rows = () => [...el.querySelectorAll(".vg-hq-item[data-key]")];
   function focusRow(key) { const r = rows().find(x => x.dataset.key === key); if (r) { r.setAttribute("tabindex", "-1"); r.focus({ preventScroll: true }); r.scrollIntoView({ block: "nearest" }); } }
   function toggleContext(key) { ctxOpen = ctxOpen === key ? null : key; cursorKey = key; const it = BY_KEY.get(key); render(); focusRow(key); }
@@ -109,13 +126,17 @@
     else if (k === "x" && onRow()) { e.preventDefault(); act("main", onRow()); }
     else if (k === "l" && onRow()) { e.preventDefault(); act("later", onRow()); }
     else if (k === "f" && onRow() && api.hqFocus) { e.preventDefault(); toggleFocus(onRow()); }
+    else if (k === "s" && api.hqSession) { e.preventDefault(); sessionStart(onRow()); }
+    else if (k === "p" && session) { e.preventDefault(); sessionPause(); }
+    else if (k === "v" && onRow() && BY_KEY.get(onRow()) && pickable(BY_KEY.get(onRow()))) { e.preventDefault(); togglePick(onRow(), e.shiftKey); }
+    else if (k === "Escape" && picked.size && !drawer) { e.preventDefault(); picked.clear(); render(); }
     else if (k === "w") { e.preventDefault(); setScreen("wrap"); }
     else if (k === "r") { e.preventDefault(); setScreen("review"); }
     else if (k === "o" && onRow()) { const it = BY_KEY.get(onRow()); if (it && (it.path || (it.ids || [])[0]) && api.openNote) { e.preventDefault(); api.openNote(it.path || it.ids[0]); } }
     else if (k === "Enter" && e.target.matches(".vg-hq-item[data-key]")) { e.preventDefault(); toggleContext(e.target.dataset.key); }
     else if (k === "c") { const b = el.querySelector(".vg-hq-captureinput"); if (b) { e.preventDefault(); b.focus(); } else { setScreen("today"); const n = el.querySelector(".vg-hq-captureinput"); if (n) { e.preventDefault(); n.focus(); } } }
     else if (k === "/") { const b = el.querySelector(".vg-hq-global-search"); if (b) { e.preventDefault(); b.focus(); } }
-    else if (/^[1-5]$/.test(k) && SCREENS[+k - 1]) { e.preventDefault(); setScreen(SCREENS[+k - 1][0]); }
+    else if (/^[1-6]$/.test(k) && SCREENS[+k - 1]) { e.preventDefault(); setScreen(SCREENS[+k - 1][0]); }
     else if (k === "?") { e.preventDefault(); keySheet(); }
   });
   el.addEventListener("input", e => { if (e.target.matches(".vg-hq-captureinput")) captureText = e.target.value; });
@@ -136,9 +157,9 @@
   clockTimer = opts.now ? null : setInterval(() => { const c = el.querySelector(".vg-hq-clock b"); if (c) c.textContent = new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, ""); }, 30000);
   return {
     update(data, state) { DATA = data || DATA; if (state) STATE = state; gone = new Set(); relist(); searchNotes(globalQuery, 80); render(); },
-    setScreen, screen: () => cur, palette: () => openPalette(),
+    setScreen, screen: () => cur, palette: () => openPalette(), session: () => session,
     showRows: path => ctx().showRows(path),   // a report's rows (the sidebar's Review rows opens HQ there)
     items: () => LIST.slice(),
-    destroy() { clearInterval(clockTimer); clearTimeout(toastTimer); clearTimeout(searchTimer); clearTimeout(typeTimer); searchToken++; el.remove(); },
+    destroy() { sessionLog(); clearInterval(sessionTick); clearInterval(clockTimer); clearTimeout(toastTimer); clearTimeout(searchTimer); clearTimeout(typeTimer); searchToken++; el.remove(); },
   };
 }

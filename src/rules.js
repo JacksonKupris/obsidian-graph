@@ -729,6 +729,23 @@ const VGRules = (() => {
     Object.entries((review || {}).hq || {}).forEach(([k, v]) => { if (v === `done:${day}` && k.startsWith("plan|")) add(k.split("|").slice(3).join("|"), k.split("|")[1]); });
     return out;
   }
+  // The calendar: a month of work, one row per day, from the same doneToday every other surface uses. lead: blank cells
+  // before the 1st, with the week starting on Monday like the week strip.
+  function hqCalendar(data, review, month) {
+    const [y, m] = String(month).split("-").map(Number), hq = data.hq || {}, journals = new Set((hq.journals || []).map(j => j.date)), standups = new Set((hq.standups || []).map(s => s.date));
+    const days = Array.from({ length: new Date(y, m, 0).getDate() }, (_, i) => { const date = `${month}-${String(i + 1).padStart(2, "0")}`; return { date, n: i + 1, done: doneToday(data, review, date).length, journal: journals.has(date), standup: standups.has(date) }; });
+    const peak = Math.max(0, ...days.map(d => d.done)), busiest = peak ? days.find(d => d.done === peak) : null;
+    return { month, days, lead: (new Date(y, m - 1, 1).getDay() + 6) % 7, peak, busiest, total: days.reduce((a, d) => a + d.done, 0), worked: days.filter(d => d.done).length };
+  }
+  const monthShift = (month, by) => { const [y, m] = String(month).split("-").map(Number), d = new Date(y, m - 1 + by, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
+  // Focus sessions: minutes per day, in the shared file. A day's time from two devices keeps the larger, like the other bests.
+  const sessionMinutes = (review, day) => ((review || {}).sessions || {})[day] || 0;
+  const sessionAdded = (review, day, minutes, keep = 60) => { const all = { ...((review || {}).sessions || {}), [day]: sessionMinutes(review, day) + minutes }; return Object.fromEntries(Object.entries(all).sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, keep)); };
+  const minutesWords = n => (n >= 60 ? `${Math.floor(n / 60)}h${n % 60 ? ` ${n % 60}m` : ""}` : `${n}m`);
+  // The project board: its columns are the status groups, in the order work moves. A column that holds a status choice takes
+  // drops; moving there sets its first choice.
+  const BOARD_GROUPS = ["planned", "active", "waiting", "closed"];
+  const statusForGroup = group => (H.status_choices || []).find(s => statusGroup(s) === group) || null;
   // Threads: open work grouped by the project it belongs to. An item links its project, or its words pick one out: at least two
   // words of the project's title and half of them, or the one word of a short title that no other project has. Words many
   // projects or many open items share say nothing. A wrong group is worse than none, so what fits nowhere comes last, with no
@@ -934,6 +951,7 @@ const VGRules = (() => {
     out.review.hiddenKinds = mergeList(rb.hiddenKinds, rm.hiddenKinds, rd.hiddenKinds, str);
     if (rm.reactions || rd.reactions) { const b = obj(rb.reactions), m = obj(rm.reactions), d = obj(rd.reactions), add = (k, f) => Math.max(0, (obj(d[k])[f] || 0) + (obj(m[k])[f] || 0) - (obj(b[k])[f] || 0));   // adds both devices' gains, like XP
       out.review.reactions = Object.fromEntries([...new Set([...Object.keys(m), ...Object.keys(d)])].map(k => [k, { more: add(k, "more"), less: add(k, "less") }])); }
+    if (rm.sessions || rd.sessions) { const m = obj(rm.sessions), d = obj(rd.sessions); out.review.sessions = Object.fromEntries([...new Set([...Object.keys(m), ...Object.keys(d)])].map(k => [k, Math.max(m[k] || 0, d[k] || 0)])); }
     const cb = obj(base.cosmos), cm = obj(mine.cosmos), cd = obj(disk.cosmos);
     if (mine.cosmos || disk.cosmos) {
       const c = out.cosmos = { ...cd, ...cm };
@@ -1099,7 +1117,7 @@ const VGRules = (() => {
   }
 
   return { plainSnippet, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
-    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)

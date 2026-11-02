@@ -24,13 +24,26 @@
     };
     const filters = dropdown("kind", "Kind", kindFilter, [["all", `All kinds (${every.length})`], ...kinds.map(k => [k, `${k} (${every.filter(p => p.kind === k).length})`])]) +
       dropdown("system", "System", systemFilter, [["all", "All systems"], ...systems.map(s => [s, VGRules.systemLabel(s)])]) +
-      dropdown("status", "Project status", filter, FILTERS.map(([k, label]) => [k, `${label} (${k === "all" ? all.length : all.filter(p => p.group === k).length})`]));
-    const body = list.length ? `<div class="vg-hq-grid${compactProjects ? " is-compact" : ""}">${list.map(card).join("")}</div>`     : every.length
+      (projectBoard ? "" : dropdown("status", "Project status", filter, FILTERS.map(([k, label]) => [k, `${label} (${k === "all" ? all.length : all.filter(p => p.group === k).length})`])));   // on the board the columns are the statuses
+    const body = projectBoard ? boardHtml(all) : list.length ? `<div class="vg-hq-grid${compactProjects ? " is-compact" : ""}">${list.map(card).join("")}</div>`     : every.length
     ? empty("No projects match the current filters.", [["Reset filters", 'data-clearsearch'], ["All systems", 'data-system="all"']])
     : empty(`No projects yet (notes with type: ${Object.keys(VGRules.PROJECT_TYPES).join(", ") || "scope-of-work"}).`, nextSteps().filter(s => s[1] !== 'data-go="projects"'));
     return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">Every project, newest first.</p>
-    <div class="vg-hq-project-filters">${filters}<button class="vg-hq-filter vg-hq-compacttoggle" data-compact aria-pressed="${compactProjects}">${compactProjects ? "Card view" : "Compact list"}</button></div>${body}${drawerHtml(every)}`;
+    <div class="vg-hq-project-filters">${filters}<span class="vg-hq-seg vg-hq-compacttoggle" role="group" aria-label="View"><button class="vg-hq-filter${projectBoard ? " is-on" : ""}" data-board aria-pressed="${projectBoard}">Board</button>${projectBoard ? "" : `<button class="vg-hq-filter" data-compact aria-pressed="${compactProjects}">${compactProjects ? "Card view" : "Compact list"}</button>`}</span></div>${body}${drawerHtml(every)}`;
   }
+  // ---- the board: a column per status group. Drag a card across, or use its arrows (keyboard and touch); either way it's
+  // setStatus, so the question about open tasks and the Undo are the same as the drawer's.
+  let projectBoard = false; const boardOpen = new Set(), BOARD_PAGE = 20, GROUP_WORDS = { planned: "Planned", active: "In progress", waiting: "Waiting", closed: "Done", other: "Needs a status" };
+  function boardHtml(projects) {
+    const groups = [...VGRules.BOARD_GROUPS, ...(projects.some(p => !VGRules.BOARD_GROUPS.includes(p.group)) ? ["other"] : [])], can = !!api.setProjectStatus;
+    const moves = VGRules.BOARD_GROUPS.filter(g => VGRules.statusForGroup(g));
+    const cardOf = p => { const at = moves.indexOf(p.group), back = moves[at - 1], on = at < 0 ? moves[0] : moves[at + 1], word = g => GROUP_WORDS[g];
+      return `<div class="vg-hq-bcard" data-card="${esc(p.path)}"${can ? ' draggable="true"' : ""}><button class="vg-hq-btitle" data-proj="${esc(p.path)}"><b>${esc(p.title)}</b><small>${esc(p.status || "no status")}${(p.systems || []).length ? ` · ${esc(VGRules.systemLabel(p.systems[0]))}` : ""}${(p.tasks || []).length ? ` · ${plural(p.tasks.length, "open task")}` : ""}</small></button>
+        ${can ? `<span class="vg-hq-bmoves">${back ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-pmove="${esc(back)}" data-path="${esc(p.path)}" aria-label="Move ${esc(p.title)} to ${esc(word(back))}" title="To ${esc(word(back))}">${icon("left", 12)}</button>` : ""}${on ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-pmove="${esc(on)}" data-path="${esc(p.path)}" aria-label="Move ${esc(p.title)} to ${esc(word(on))}" title="To ${esc(word(on))}">${icon("right", 12)}</button>` : ""}</span>` : ""}</div>`; };
+    return `<div class="vg-hq-board">${groups.map(g => { const list = projects.filter(p => (g === "other" ? !VGRules.BOARD_GROUPS.includes(p.group) : p.group === g)), shown = boardOpen.has(g) ? list : list.slice(0, BOARD_PAGE);
+      return `<section class="vg-hq-col-b" data-column="${g}" aria-label="${esc(GROUP_WORDS[g])}"><h3>${esc(GROUP_WORDS[g])}<span>${list.length}</span></h3>${shown.map(cardOf).join("") || '<p class="vg-hq-lede">None.</p>'}${shown.length < list.length ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-boardmore="${g}">Show ${list.length - shown.length} more</button>` : ""}</section>`; }).join("")}</div>`;
+  }
+  function boardMove(path, group, btn) { const status = VGRules.statusForGroup(group), p = ((hq() || {}).projects || []).find(x => x.path === path); if (!status || !p || VGRules.statusGroup(p.status) === group) return; return setStatus(path, status, btn || { disabled: false, isConnected: false }); }
   function drawerHtml(all) {
     const p = drawer && all.find(x => x.path === drawer); if (!p) return "";
     const facts = [["Status", p.status || "—"], ["Estimate", p.estimate || "—"], ["Updated", p.updated ? shortDate(p.updated) : "—"], ["Named in the dailies", `${plural((p.days || []).length, "day")} in 30`],
