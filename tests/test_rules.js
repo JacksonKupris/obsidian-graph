@@ -446,7 +446,7 @@ for (const f of ["view.js", "plugin.js", "hq"]) {
           VGRules.linkedByName({ "b/Two.md": { "z/one.md": 1 } }, "a/One.md", "b/Two.md"), VGRules.linkedByName({ "a/One.md": { "c/Three.md": 1 } }, "a/One.md", "b/Two.md")], [true, true, false]);
         check("a near-duplicate pair you've linked stops showing (liveMerge)", /data\.near_dupes = [^\n]*VGRules\.linkedByName\(resolved, a, b\)/.test(plug), true);
         check("the shared file is written only by writeShared", (plug.match(/adapter\.write\(normalizePath\(this\.settings\.sharedPath\)/g) || []).length, 1);
-        check("loadShared folds in every device's ledger", /async loadShared\(\) \{[\s\S]{0,400}VGRules\.applyLedgers\(sh, ledgers\)/.test(plug), true);
+        check("loadShared folds in every device's ledger", /async loadShared\(\) \{[\s\S]{0,400}VGRules\.followLedgers\(sh, await this\.loadLedgers\(\)/.test(plug), true);
       }
       // missions carry helper functions (e.g. a stale-notes list): the copy taken before a save must not throw on them
       const live = { v: 1, review: { skipped: {} }, cosmos: { xp: 1, missions: [{ id: "m1", c: 3, stale: () => [] }] } };

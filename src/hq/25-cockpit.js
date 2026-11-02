@@ -1,11 +1,12 @@
   // ---- the cockpit: the rail beside the list, the morning brief, threads and the weekly review. The rail is the second brain
   // made visible: pick anything and it shows what the vault knows about it, without leaving the list you're working through.
   let selKey = null;
-  const NO_RAIL = new Set(["projects", "automations", "sweep", "rows"]);
+  const NO_RAIL = new Set(["projects", "automations", "sweep", "rows", "review", "wrap"]);
+  const HAS_HERO = new Set(["home", "today"]);   // these screens already show Do next in full
   const railOn = () => el.clientWidth >= RAIL_WIDTH && !NO_RAIL.has(cur) && !globalQuery.trim();
   const RAIL_WIDTH = 1100;
-  // what the rail shows: the item you picked, or else the first thing on this screen
-  const selected = () => BY_KEY.get(selKey) || (cur === "needs" ? ofGroup("needs")[0] : null) || doNext();
+  // what the rail shows: the item you picked, or else the first thing on this screen. Nothing unrelated to the screen.
+  const selected = () => BY_KEY.get(selKey) || (cur === "needs" ? ofGroup("needs")[0] : null) || (HAS_HERO.has(cur) ? doNext() : null);
   let threadsCache = null;   // worked out once per list: compute() clears it
   const threads = () => threadsCache || (threadsCache = VGRules.hqThreads(LIST.filter(it => it.group === "today"), VGRules.hqProjects(DATA)));
   function railHtml() {
@@ -13,8 +14,9 @@
     if (!it) return `<div class="vg-hq-railempty"><p>Nothing selected.</p><small>Pick an item to see what your notes know about it.</small></div>`;
     const th = threads().find(t => t.items.includes(it)), who = VGRules.hqPeople(DATA, [it]).filter(p => p.items.length), src = it.path || (it.ids || [])[0];
     const project = th && th.project, decisions = project ? (project.decisions || []).slice(0, 3) : [];
-    return `<div class="vg-hq-eyebrow">${esc(VGRules.kindWords(it.kind))}</div><h2 class="vg-hq-railtitle">${esc(it.title)}</h2>${it.why ? `<p class="vg-hq-railwhy">${esc(it.why)}</p>` : ""}
-      <div class="vg-hq-row">${starButton(it)}${buttons(it)}</div>
+    const echoesHero = !BY_KEY.get(selKey) && HAS_HERO.has(cur) && it === doNext();   // the title and buttons are right beside it
+    return `${echoesHero ? `<div class="vg-hq-eyebrow">About Do next</div>` : `<div class="vg-hq-eyebrow">${esc(VGRules.kindWords(it.kind))}</div><h2 class="vg-hq-railtitle">${esc(it.title)}</h2>${it.why ? `<p class="vg-hq-railwhy">${esc(it.why)}</p>` : ""}
+      <div class="vg-hq-row">${starButton(it)}${buttons(it)}</div>`}
       ${project ? `<div class="vg-hq-railblock"><div class="vg-hq-eyebrow">Thread</div><button class="vg-hq-link" data-proj="${esc(project.path)}">${esc(project.title)}<small>${esc(project.status || "no status")} · ${plural(th.items.length, "open item")}</small></button></div>` : ""}
       ${who.length ? `<div class="vg-hq-railblock"><div class="vg-hq-eyebrow">People</div><div class="vg-hq-row">${who.map(p => `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(p.id)}">${esc(p.name)}</button>`).join("")}</div></div>` : ""}
       ${decisions.length ? `<div class="vg-hq-railblock"><div class="vg-hq-eyebrow">Decided</div>${decisions.map(d => `<button class="vg-hq-link" data-open="${esc(d.path)}">${esc(d.title)}<small>${esc(d.date || "")}</small></button>`).join("")}</div>` : ""}
@@ -38,7 +40,7 @@
   }
   function threadsScreen() {
     const all = threads();
-    return `<h1 class="vg-hq-h1">Threads</h1>${flow()}<p class="vg-hq-lede">Your open work by what it belongs to.</p>` + (all.length ? all.map(t => section(t.title, t.items)).join("") : empty("No open work yet.", [["Today", 'data-go="today"']]));
+    return `<h1 class="vg-hq-h1">Threads</h1><p class="vg-hq-lede">Your open work by what it belongs to.</p>` + (all.length ? all.map(t => section(t.title, t.items)).join("") : empty("No open work yet.", [["Today", 'data-go="today"']]));
   }
   // ---- the weekly review: five minutes, in order, each step going to where it's done
   function reviewScreen() {

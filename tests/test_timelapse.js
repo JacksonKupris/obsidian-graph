@@ -15,7 +15,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await tab.ev(`document.querySelectorAll('.vg-tour').forEach(x => x.remove())`);
     check(await tab.ev(`!${q(".vg-replaybtn")} && !${q(".vg-replay")}`), "there's still a second control");
     // on one view: opening plays
-    const views = (await tab.ev(`${D}.views()`)).filter(v => v !== "dungeon");
+    const views = await tab.ev(`${D}.views().filter(v => !(${D}.scenes()[v] || {}).game)`);
     const key = k => tab.ev(`${q(".vg-root")}.dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(k)}, bubbles: true }))`);
     await key("t"); await sleep(50);
     check(await tab.ev(`!${q(".vg-timebar")}.hidden`), "T didn't open the bar"); check(await tab.ev(`!!${D}.replay() && ${D}.replay().playing`), "opening didn't play");

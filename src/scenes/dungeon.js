@@ -9,15 +9,7 @@
   const TS = 64, DOOR = 9, SECRET = 8, BOSS_FLOOR = 2, EXIT_FLOOR = 3, SECTOR = 15, FONT = 'Impact, Haettenschweiler, "Arial Narrow Bold", "Roboto Condensed", sans-serif';
 
   // ---------------------------------------------------------------- rules of the game
-  // r: body radius in cells; h: height against a wall's 1; z: how far it floats; pain: chance a hit staggers it
-  const KINDS = {
-    wisp:    { name: "Wisp",    is: "unlinked or tiny note", hp: 20,  speed: 3.6, melee: 7,  ranged: 0,  shot: 0,   every: 0.9, r: 0.3,  h: 0.55, z: 0.22, pain: 0.9,  score: 50 },
-    grunt:   { name: "Grunt",   is: "ordinary note",         hp: 45,  speed: 2.2, melee: 10, ranged: 7,  shot: 7,   every: 2.4, r: 0.32, h: 0.85, z: 0,    pain: 0.7,  score: 100 },
-    spitter: { name: "Spitter", is: "well-linked note",      hp: 70,  speed: 1.7, melee: 10, ranged: 12, shot: 8.5, every: 1.6, r: 0.42, h: 0.85, z: 0.12, pain: 0.5,  score: 200 },
-    hunter:  { name: "Hunter",  is: "person",                hp: 130, speed: 3.3, melee: 22, ranged: 0,  shot: 0,   every: 0.8, r: 0.35, h: 0.95, z: 0,    pain: 0.3,  score: 350 },
-    brute:   { name: "Brute",   is: "long note or other map", hp: 240, speed: 1.3, melee: 28, ranged: 18, shot: 6,   every: 2.6, r: 0.5,  h: 1.15, z: 0,    pain: 0.2,  score: 500 },
-    boss:    { name: "Boss",    is: "the topic's map",       hp: 900, speed: 1.5, melee: 40, ranged: 16, shot: 8,   every: 1.0, r: 0.7,  h: 1.6,  z: 0,    pain: 0.04, score: 5000, fan: 3 },
-  };
+  const KINDS = VGRules.FOE_KINDS;   // what each kind of note is as an enemy: every game on the vault uses these
   // level: the level this gun is lying in (earlier levels on a shorter campaign, see gunLevel). Rate in seconds.
   const GUNS = [
     { key: "fist",     name: "Fist",     ammo: null,      dmg: 20,  rate: 0.36, pellets: 1, spread: 0,     range: 1.5, level: -1, sfx: "punch" },
@@ -48,9 +40,7 @@
     cos.dungeon = { reached: G.reached, best: G.best, bestRun: G.bestRun, hunt: G.huntDone }; persistSoon(); };
 
   // what a note is decides what it is here: the same note is the same enemy on every run
-  const percentile = (vals, f) => { const a = vals.slice().sort((x, y) => x - y); return a.length ? a[Math.min(a.length - 1, Math.floor(a.length * f))] : 0; };
-  const linksOf = n => (n.inlinks || 0) + (n.outlinks || 0);
-  const kindOf = (n, s) => n.person ? "hunter" : n.moc || (n.words || 0) >= s.long ? "brute" : n.isolated || (n.words || 0) < s.tiny ? "wisp" : linksOf(n) >= s.linked ? "spitter" : "grunt";
+  const kindOf = VGRules.foeKind;
   // A level per topic, smallest first, so the campaign grows. A topic of one or two notes joins the unclustered level.
   function levelList() {
     if (G.levels) return G.levels;
@@ -133,7 +123,7 @@
         break; } }
     const openSpot = (r, margin = 1) => { for (let t = 0; t < 30; t++) { const x = r.x0 + margin + rand() * Math.max(0, r.w - margin * 2), y = r.y0 + margin + rand() * Math.max(0, r.h - margin * 2); if (!g[Math.floor(y) * gw + Math.floor(x)]) return [x, y]; } return [r.cx + 0.5, r.cy + 0.5]; };
     // every note becomes an enemy: the map (or else the most relied-on note) is the boss, the rest spread by room size
-    const all = nodes.filter(n => !n.ghost), stats = { long: percentile(all.map(n => n.words || 0), 0.9), tiny: percentile(all.map(n => n.words || 0), 0.2), linked: percentile(all.map(linksOf), 0.75) };
+    const all = nodes.filter(n => !n.ghost), stats = VGRules.foeStats(all);
     const bossNote = notes.find(n => n.moc) || notes[0], hard = 1 + 0.07 * i, spots = rooms.filter(r => r !== rooms[0] && r !== bossRoom), hpIn = new Map(rooms.map(r => [r, 0]));
     const area = spots.reduce((s, r) => s + r.w * r.h, 0), weighted = spots.flatMap(r => Array(Math.max(1, Math.round(r.w * r.h / area * 60))).fill(r));
     notes.forEach(n => { const isBoss = n === bossNote, kind = isBoss ? "boss" : kindOf(n, stats), K = KINDS[kind], stale = !isBoss && !special(n) && staleFor(n, Q.stale_days);

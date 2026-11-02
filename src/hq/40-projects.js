@@ -3,6 +3,7 @@
   const FILTERS = [["active", "In progress"], ["planned", "Planned"], ["waiting", "Waiting"], ["closed", "Done"], ["other", "Needs classification"], ["all", "All"]];
   function spark(days) {
     const set = new Set(days || []), t = Date.parse(day()), cells = [];
+    if (!set.size) return "";
     for (let i = 29; i >= 0; i--) cells.push(set.has(VGRules.localDay(new Date(t - i * 864e5))));
     return `<span class="vg-hq-spark" title="${plural(set.size, "day")} named in the dailies (last 30 days)">${cells.map(on => `<i${on ? ' class="is-on"' : ""}></i>`).join("")}</span>`;
   }
@@ -12,24 +13,23 @@
     const all = every.filter(p => (kindFilter === "all" || p.kind === kindFilter) && (systemFilter === "all" || (p.systems || []).includes(systemFilter)));
     const list = VGRules.hqProjectSearch(DATA, all.filter(p => filter === "all" || p.group === filter), "", { today: day() });
     const pill = p => `<span class="vg-hq-pill is-${esc(p.group)}">${esc(p.status || "no status")}</span>`;
-    // a scope's code name (JK_Branch) beside its kind; other notes are named by their title
-    const sub = p => [p.kind, /^Scope of Work\b/i.test(p.name) ? p.name.replace(/^.*[—–-]\s*/, "") : ""].filter(Boolean).join(" · ");
-    const card = p => `<button class="vg-hq-proj" data-proj="${esc(p.path)}">${hills(p.name, 70)}<span class="vg-hq-projbody"><span class="vg-hq-projhead"><small>${esc(sub(p))}</small>${pill(p)}</span>
-      <b>${esc(p.title)}</b><span class="vg-hq-sum">${esc(p.summary || "No summary yet.")}</span>${p.searchHit ? `<small class="vg-hq-search-hit">${esc([p.searchHit.heading, p.searchHit.why.join(" · ")].filter(Boolean).join(" · "))}${p.searchHit.snippet ? `<span>${esc(p.searchHit.snippet)}</span>` : ""}</small>` : ""}${(p.systems || []).length ? `<small class="vg-hq-project-systems">${esc(p.systems.join(" · "))}</small>` : ""}<span class="vg-hq-projfoot">${spark(p.days)}<small>${esc(p.estimate || (p.updated ? `Updated ${shortDate(p.updated)}` : ""))}</small></span></span></button>`;
+    // a scope's code name (JK_Branch) is the card's tooltip: its title says the same thing in words
+    const code = p => (/^Scope of Work\b/i.test(p.name) ? p.name.replace(/^.*[—–-]\s*/, "") : "");
+    const card = p => `<button class="vg-hq-proj" data-proj="${esc(p.path)}"${code(p) ? ` title="${esc(code(p))}"` : ""}><span class="vg-hq-projbody"><span class="vg-hq-projhead"><small>${esc(p.kind)}</small>${pill(p)}</span>
+      <b>${esc(p.title)}</b><span class="vg-hq-sum">${esc(p.summary || "No summary yet.")}</span>${p.searchHit ? `<small class="vg-hq-search-hit">${esc([p.searchHit.heading, p.searchHit.why.join(" · ")].filter(Boolean).join(" · "))}${p.searchHit.snippet ? `<span>${esc(p.searchHit.snippet)}</span>` : ""}</small>` : ""}${(p.systems || []).length ? `<small class="vg-hq-project-systems">${esc(p.systems.map(VGRules.systemLabel).join(" · "))}</small>` : ""}<span class="vg-hq-projfoot">${spark(p.days)}<small>${esc(p.estimate || (p.updated ? `Updated ${shortDate(p.updated)}` : ""))}</small></span></span></button>`;
     const dropdown = (key, label, selected, choices) => {
       if (!choices.some(([value]) => value === selected)) choices.push([selected, `${selected} (0)`]);
       return `<label class="vg-hq-selectlabel">${esc(label)}<select class="vg-hq-select" data-project-filter="${key}" aria-label="${esc(label)}">${choices.map(([value, text]) =>
         `<option value="${esc(value)}"${value === selected ? " selected" : ""}>${esc(text)}</option>`).join("")}</select></label>`;
     };
     const filters = dropdown("kind", "Kind", kindFilter, [["all", `All kinds (${every.length})`], ...kinds.map(k => [k, `${k} (${every.filter(p => p.kind === k).length})`])]) +
-      dropdown("system", "System", systemFilter, [["all", "All systems"], ...systems.map(s => [s, s])]) +
+      dropdown("system", "System", systemFilter, [["all", "All systems"], ...systems.map(s => [s, VGRules.systemLabel(s)])]) +
       dropdown("status", "Project status", filter, FILTERS.map(([k, label]) => [k, `${label} (${k === "all" ? all.length : all.filter(p => p.group === k).length})`]));
     const body = list.length ? `<div class="vg-hq-grid${compactProjects ? " is-compact" : ""}">${list.map(card).join("")}</div>`     : every.length
     ? empty("No projects match the current filters.", [["Reset filters", 'data-clearsearch'], ["All systems", 'data-system="all"']])
     : empty(`No projects yet (notes with type: ${Object.keys(VGRules.PROJECT_TYPES).join(", ") || "scope-of-work"}).`, nextSteps().filter(s => s[1] !== 'data-go="projects"'));
     return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">Every project, newest first.</p>
-    <div class="vg-hq-project-tools"><button class="vg-hq-filter" data-compact aria-pressed="${compactProjects}">${compactProjects ? "Card view" : "Compact list"}</button></div>
-    <div class="vg-hq-project-filters">${filters}</div>${body}${drawerHtml(every)}`;
+    <div class="vg-hq-project-filters">${filters}<button class="vg-hq-filter vg-hq-compacttoggle" data-compact aria-pressed="${compactProjects}">${compactProjects ? "Card view" : "Compact list"}</button></div>${body}${drawerHtml(every)}`;
   }
   function drawerHtml(all) {
     const p = drawer && all.find(x => x.path === drawer); if (!p) return "";

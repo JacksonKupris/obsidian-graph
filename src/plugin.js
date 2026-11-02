@@ -114,7 +114,7 @@ class VaultGraphView extends ItemView {
       ...this.plugin.viewActions(this),   // the same actions every graph surface gets
       store: {   // layout + view settings live in the plugin's data.json (Obsidian Sync carries it)
         load: () => this.plugin.settings.view || null,
-        save: view => { this.plugin.settings.view = view; this.plugin.saveSettings(); },
+        save: view => { this.plugin.settings.view = this.plugin.followSaved(view); this.plugin.saveSettings(); },   // an open graph still holds old paths after a move
       },
       onHoverNote: (notePath, event) => this.app.workspace.trigger("hover-link", {
         event, source: VIEW_TYPE, hoverParent: this, targetEl: this.contentEl, linktext: notePath,
@@ -557,7 +557,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     }
     // keep the content log current: a note's "since" moves only when its fingerprint changes
     this.registerEvent(this.app.vault.on("modify", file => { if (file instanceof TFile && file.extension === "md" && !this.ignoreEdit(file.path)) this.noteContent(file); }));
-    this.registerEvent(this.app.vault.on("rename", (file, old) => { if (CONTENT.log[old]) { CONTENT.log[file.path] = CONTENT.log[old]; delete CONTENT.log[old]; this.saveContentSoon(); } }));
+    this.registerEvent(this.app.vault.on("rename", (file, old) => { if (CONTENT.log[old]) { CONTENT.log[file.path] = CONTENT.log[old]; delete CONTENT.log[old]; this.saveContentSoon(); } if (file instanceof TFile) this.noteMoved(file.path, old); }));
     this.registerView(VIEW_TYPE, leaf => new VaultGraphView(leaf, this));
     this.registerView(LOCAL_TYPE, leaf => new VaultGraphLocalView(leaf, this));
     this.registerView(HOME_TYPE, leaf => new VaultGraphHomeView(leaf, this));
@@ -1653,9 +1653,39 @@ module.exports = class VaultGraphPlugin extends Plugin {
   async loadShared() {
     let sh = null;
     try { sh = JSON.parse(await this.app.vault.adapter.read(normalizePath(this.settings.sharedPath))); } catch (e) { /* no file yet */ }
-    const ledgers = await this.loadLedgers();
-    return ledgers.length ? VGRules.applyLedgers(sh, ledgers) : sh;
+    return VGRules.followLedgers(sh, await this.loadLedgers(), this.pathExists);
   }
+  // A note moved or was renamed (a folder move is one of these per note). Batched, since a move can be hundreds of notes.
+  noteMoved(to, from) {
+    this.movesQueued = { ...(this.movesQueued || {}), [from]: to };
+    clearTimeout(this.movesTimer);
+    this.movesTimer = setTimeout(() => this.flushMoves(), 1000);
+  }
+  async flushMoves() {
+    clearTimeout(this.movesTimer);
+    const moves = this.movesQueued; this.movesQueued = null;
+    if (moves) try { await this.recordMoves(moves); } catch (e) { console.error("Vault Graph: moved notes not recorded", e); }
+  }
+  // The one write for moves: on record in this device's ledger, then every saved mark rewritten to the new paths.
+  async recordMoves(moves) {
+    const io = this.app.vault.adapter, dir = normalizePath(VGRules.files.device_ledgers), path = `${dir}/${this.deviceId()}.json`;
+    let mine = null;
+    try { mine = JSON.parse(await io.read(path)); } catch (e) { /* this device's first mark */ }
+    if (!(await io.exists(dir))) await io.mkdir(dir);
+    await io.write(path, JSON.stringify(VGRules.ledgerMoved(mine, moves, new Date().toISOString(), this.pathExists), null, 1) + "\n");
+    const shared = await this.loadShared();
+    if (shared) await this.writeShared(shared);
+    await this.loadDismissed();
+    const file = normalizePath(this.settings.dismissedPath);
+    try {
+      const before = await io.read(file), after = JSON.stringify(this.followSaved(JSON.parse(before)), null, 2);
+      if (JSON.stringify(JSON.parse(before)) !== JSON.stringify(JSON.parse(after))) await io.write(file, after);
+    } catch (e) { /* no dismissals yet */ }
+    if (this.settings.view) { this.settings.view = this.followSaved(this.settings.view); await this.saveSettings(); }
+    this.refreshHQViews();
+  }
+  get pathExists() { return p => !!this.app.vault.getAbstractFileByPath(p); }
+  followSaved(v) { return VGRules.followMoves(v, this.moves || {}, this.pathExists); }
   // The one write path for the shared file outside a graph view (sidebar actions): change a copy of it and save
   // through the same three-way merge as saveShared, re-read just before writing so another device's save isn't lost
   async updateShared(change) {
@@ -1698,7 +1728,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
   async loadDismissed() {
     let pairs = [];
     try { pairs = JSON.parse(await this.app.vault.adapter.read(normalizePath(this.settings.dismissedPath))).pairs || []; } catch (e) { /* no dismissals yet */ }
-    [...pairs, ...VGRules.ledgerDismissed(await this.loadLedgers())].forEach(p => p && p.a && p.b && DISMISSED.add(dismissKey(p.a, p.b)));
+    const ledgers = await this.loadLedgers(); this.moves = VGRules.ledgerMoves(ledgers);
+    [...pairs, ...VGRules.ledgerDismissed(ledgers)].map(p => this.followSaved(p)).forEach(p => p && p.a && p.b && DISMISSED.add(dismissKey(p.a, p.b)));
   }
   // The shared file, dismissals or a device ledger changed (here or by Sync): dismissals apply at once, the sidebar redraws
   async sharedChanged(file) {

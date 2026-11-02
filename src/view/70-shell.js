@@ -258,7 +258,7 @@
     ["Space", ["neural", "cosmos"]],
     ["Maps", ["subway", "weather", "cyberpunk"]],
     ["Analysis", ["foodweb", "clock", "radar"]],
-    ["Play", ["dungeon"]],
+    ["Play", ["triage", "wikirace", "survivors", "dungeon"]],
   ];
   function viewGroups(xs) {
     const by = new Map(xs.map(i => [i.k, i])), used = new Set(), out = [];
@@ -613,6 +613,6 @@
     destroy() { persistNow(); destroyed = true; clearTimeout(persistTimer); 
       if (RM && RM.removeEventListener) RM.removeEventListener("change", onReduced);
       win.removeEventListener("keyup", keyUp, true); win.removeEventListener("blur", releaseKeys); root.ownerDocument.removeEventListener("visibilitychange", onHidden);
-      cancelAnimationFrame(raf); ro.disconnect(); if (io) io.disconnect(); root.innerHTML = ""; root.classList.remove("vg-root", "has-inspector", "vg-side-hidden", "vg-side-open", "is-neural", "is-compact", "is-mobile", "is-playing"); },
+      cancelAnimationFrame(raf); ro.disconnect(); if (dprQuery) dprQuery.removeEventListener("change", dprChanged); if (io) io.disconnect(); root.innerHTML = ""; root.classList.remove("vg-root", "has-inspector", "vg-side-hidden", "vg-side-open", "is-neural", "is-compact", "is-mobile", "is-playing"); },
   };
 }

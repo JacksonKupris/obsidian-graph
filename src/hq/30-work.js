@@ -1,7 +1,7 @@
   // ---- Today: Do next, then the day in order: today's journal, the last standup's plan, what's carried over
   function todayScreen() {
     const next = doNext(), tasks = ofKind("task"), plan = ofKind("plan"), carried = ofKind("carried");
-    const big = next ? `<section class="vg-hq-next vg-hq-item" data-key="${esc(next.key)}"><div class="vg-hq-eyebrow">Do next</div><h2>${esc(next.title)}</h2><p>${esc(next.why)}</p><div class="vg-hq-row">${starButton(next)}${buttons(next, true)}</div>${railOn() ? "" : contextPanel(next, true)}</section>` : "";
+    const big = next ? `<section class="vg-hq-next vg-hq-item" data-key="${esc(next.key)}"><div class="vg-hq-eyebrow">Do next</div><h2>${esc(next.title)}</h2><p>${esc(next.why)}</p><div class="vg-hq-row">${starButton(next)}${railOn() ? "" : ctxButton(next)}${buttons(next, true)}</div>${railOn() ? "" : contextPanel(next)}</section>` : "";
     const planFrom = plan.length ? `Plan from ${shortDate((plan[0].path.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || "")}` : "Plan";
     const shown = carriedAll ? carried : carried.slice(0, 8);
     const inFocus = focus().filter(t => t !== next);

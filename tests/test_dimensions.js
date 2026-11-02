@@ -21,7 +21,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     for (const v of views) {
       await tab.ev(`document.querySelectorAll('.vg-tour').forEach(x => x.remove()); ${D}.setView(${JSON.stringify(v)})`); await sleep(v === "2d" || v === "3d" ? 500 : 1100); await tab.ev(`${D}.drawNow()`);
       const shows = await tab.ev(`!${q(".vg-dimseg")}.hidden && !!${q(".vg-dimseg")}.offsetParent`);
-      if (v === "dungeon") { if (shows) out.push("dungeon: a game has no 2D/3D switch"); continue; }
+      if (await tab.ev(`!!(${D}.scenes()[${JSON.stringify(v)}] || {}).game`)) { if (shows) out.push(`${v}: a game has no 2D/3D switch`); continue; }
       if (!shows) { out.push(`${v}: no 2D/3D switch`); continue; }
       const first = await pressed(), other = first === "3d" ? "2d" : "3d";
       await tab.ev(`${q(`[data-dim="${other}"]`)}.click()`); await sleep(v === "2d" || v === "3d" ? 400 : 120);

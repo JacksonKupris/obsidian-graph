@@ -46,6 +46,7 @@ function mountVaultGraph(root, DATA, opts) {
     focusAlpha: [1, 0.95, 0.7, 0.5, 0.35],                            // fade by links away from the focused note
   });
   const MOBILE = !!opts.mobile || (window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+  const screenDpr = () => Math.min(window.devicePixelRatio || 1, MOBILE ? 2 : 3);   // every canvas size and transform uses this
   const RM = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
   let reducedNow = !!(RM && RM.matches);
   const onReduced = e => { reducedNow = e.matches; };

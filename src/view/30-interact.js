@@ -69,15 +69,21 @@
     if (more) kick();
   }
   function kick() { if (!raf && !destroyed) raf = requestAnimationFrame(frame); }
-  const ro = new ResizeObserver(() => {
-    const dpr = Math.min(window.devicePixelRatio || 1, MOBILE ? 2 : 3);
+  const sizeCanvas = () => {
+    const dpr = screenDpr();
     W = wrap.clientWidth; H = wrap.clientHeight;
     cv.width = Math.max(1, Math.round(W * dpr)); cv.height = Math.max(1, Math.round(H * dpr));
     cv.style.width = W + "px"; cv.style.height = H + "px";
     if (fitted && !cam.userMoved) fit(lastFit, 0);   // keep the framing until the user pans/zooms
     dirty = true; kick();
-  });
+  };
+  const ro = new ResizeObserver(sizeCanvas);
   ro.observe(wrap);
+  // the window moved to a screen with other scaling: the same size in CSS, so ResizeObserver stays quiet, but a new density
+  let dprQuery = null;
+  const dprChanged = () => { if (destroyed) return; sizeCanvas(); watchDpr(); };
+  const watchDpr = () => { if (dprQuery) dprQuery.removeEventListener("change", dprChanged); dprQuery = window.matchMedia ? window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`) : null; if (dprQuery) dprQuery.addEventListener("change", dprChanged); };
+  watchDpr();
   if (io && !opts.alwaysOn) io.observe(wrap);   // alwaysOn: the plugin's off-screen self-test still has to draw
   if (opts.embed) cv.style.touchAction = "pan-y pinch-zoom";   // one finger scrolls the page around the embed
   const narrow = () => root.clientWidth < 760;

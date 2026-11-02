@@ -111,7 +111,7 @@
     : st.view === "radar" ? (n => !special(n) && n.tasks > 0) : (n => !special(n) && !n.ghost);
 
   function mapFrame() {
-    const dpr = Math.min(window.devicePixelRatio || 1, MOBILE ? 2 : 3);
+    const dpr = screenDpr();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
     ctx.clearRect(0, 0, W, H);   // the theme background can be see-through (Hearth cards): without this, frames smear
     P.clear(); labelRects = []; bodies = []; spots = [];
@@ -160,7 +160,8 @@
   }
   function layNeural() { st.three = st.angles.neural !== "flat"; if (!st.three) { cam.spin = null; animateTo({ yaw: 0, pitch: 0 }, 500); } cv.style.cursor = st.three ? "grab" : "default"; }
   function syncDim() {
-    const d = dimOf(), seg = $(".vg-dimseg"); if (seg) seg.hidden = isGame();
+    const d = dimOf(), seg = $(".vg-dimseg"), status = $(".vg-status"); if (seg) seg.hidden = isGame();
+    if (status) status.style.display = isGame() ? "none" : "";   // a count of notes means nothing in a game, and it sits on the game's own text
     $$("[data-dim]").forEach(b => b.setAttribute("aria-pressed", b.dataset.dim === d));
     cv.classList.toggle("is-tilt3d", leansBack());
   }
