@@ -1008,8 +1008,53 @@ const VGRules = (() => {
   }
   const ledgerDismissed = ledgers => (ledgers || []).flatMap(l => (l && l.dismissed) || []);
 
+  // Marks are keyed by a note's path, so they follow it when it moves. Each device keeps the moves it saw in its ledger
+  // (moved: { old: { to, at } }), since Sync shows another device a move as a delete and a create, with no rename to
+  // hear. Every read goes through followLedgers, so a mark in any device's ledger or an old copy of a file still lands
+  // on the note. A path that exists again (a new note took the old name, or the move was undone) is not followed.
+  const hasMove = (moves, p) => Object.prototype.hasOwnProperty.call(moves, p);
+  function ledgerMoves(ledgers) {
+    const out = {};
+    (ledgers || []).forEach(l => Object.entries((l && l.moved) || {}).forEach(([from, m]) => { if (m && m.to && (!hasMove(out, from) || String(m.at) > String(out[from].at))) out[from] = m; }));
+    return out;
+  }
+  function movedPath(moves, path, exists) {
+    const seen = new Set(); let p = path;
+    while (hasMove(moves, p) && !seen.has(p) && !(exists && exists(p))) { seen.add(p); p = moves[p].to; }
+    return p;
+  }
+  // The same state with every path in it moved: a value, a key, or one part of a key like "link|a.md|b.md".
+  function followMoves(state, moves, exists) {
+    if (!moves || !Object.keys(moves).length) return state;
+    const text = s => (s.includes("|") ? s.split("|").map(x => movedPath(moves, x, exists)).join("|") : movedPath(moves, s, exists));
+    const walk = v => {
+      if (typeof v === "string") return text(v);
+      if (Array.isArray(v)) {   // two entries that are now the same note count once
+        const seen = new Set();
+        return v.map(walk).filter(x => { const k = typeof x === "string" ? x : x && typeof x.id === "string" ? `id:${x.id}` : null; if (k === null) return true; if (seen.has(k)) return false; seen.add(k); return true; });
+      }
+      if (!v || typeof v !== "object") return v;
+      const out = {};
+      Object.entries(v).forEach(([k, x]) => { const to = text(k), val = walk(x); out[to] = to in out ? (typeof val === "string" && typeof out[to] === "string" ? newer(out[to], val) : k === to ? val : out[to]) : val; });
+      return out;
+    };
+    return walk(state);
+  }
+  // A ledger after this device saw moves: they're on record for the other devices, and its own marks use the new paths.
+  function ledgerMoved(ledger, moves, at, exists) {
+    const { moved, ...marks } = ledger && typeof ledger === "object" ? ledger : {};
+    const fresh = Object.fromEntries(Object.entries(moves).filter(([from, to]) => from !== to).map(([from, to]) => [from, { to, at }]));
+    return { v: 1, ...followMoves(marks, fresh, exists), moved: { ...(moved || {}), ...fresh } };
+  }
+  // The one read of the shared state: every ledger folded in, every path where its note is now.
+  function followLedgers(shared, ledgers, exists) {
+    const moves = ledgerMoves(ledgers), follow = v => followMoves(v, moves, exists);
+    const marks = (ledgers || []).filter(l => l && typeof l === "object").map(({ moved, ...l }) => follow(l));
+    return marks.length ? applyLedgers(follow(shared), marks) : shared;
+  }
+
   return { plainSnippet, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
-    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)

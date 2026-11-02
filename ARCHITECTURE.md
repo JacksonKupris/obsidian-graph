@@ -33,7 +33,7 @@ One system, not bolted-on parts: one state, shared rules, one action path, share
 ## One state
 
 - **Data is always live.** The plugin keeps one merged state (`graphData()`) that every surface redraws from: the analysis output plus Obsidian's own index (`liveMerge`), so links, tasks, tags, maps, new and deleted notes show at once. The desktop plugin re-runs the analysis 30 s after the last edit. There is no manual refresh step.
-- **Shared state across devices** (review skips, today's three, XP, saved views) is one synced file. Each save merges with the file on disk (`VGRules.mergeShared`, three-way, against what this view last read or wrote), and each device also keeps a ledger of its marks (`ledgerAdd` / `applyLedgers`), so a device whose copy Sync dropped loses nothing.
+- **Shared state across devices** (review skips, today's three, XP, saved views) is one synced file. Each save merges with the file on disk (`VGRules.mergeShared`, three-way, against what this view last read or wrote), and each device also keeps a ledger of its marks (`ledgerAdd` / `applyLedgers`), so a device whose copy Sync dropped loses nothing. Marks are keyed by path, so they follow a note when it moves: a rename goes in this device's ledger (`recordMoves`, `moved`), and every read goes through `followLedgers`, since Sync shows another device a move as a delete and a create.
 
 ## Shared parts, not per-surface copies
 

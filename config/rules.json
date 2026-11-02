@@ -43,7 +43,7 @@
   "record_tags": "^(status/(done|archived|cancelled)|type/(release-notes|meeting|report))$",
   "record_paths": "(^|/)(Release-Notes|Transaction-Updates)/",
   "dated_name": "\\d{4}-\\d{2}-\\d{2}",
-  "hub_name": "(hub|index|moc|people|dashboard|kanban)$|^(01-daily|home|readme)$",
+  "hub_name": "(hub|index|moc|people|dashboard|kanban|readme)$|^(01-daily|home)$",
   "private_name": "\\bprivate\\b|do not share|\\bsecrets?\\b",
   "stack": {
     "_about": "A topic's name leads with its stack: the technology (else project) tag most of its notes carry. skip: tag words too broad to name a topic. words: how a tag word is spelled in a name. platforms: project tags that name a platform, not a piece of work. Add your own systems here.",

@@ -915,6 +915,28 @@ def ledger_dismissed() -> list:
     return out
 
 
+def ledger_moves() -> dict:
+    """Notes moved or renamed, from every device's ledger (VGRules.ledgerMoves): the latest move of each path."""
+    out = {}
+    for f in sorted(LEDGER_DIR.glob("*.json")) if LEDGER_DIR.is_dir() else []:
+        try:
+            for old, m in json.loads(f.read_text(encoding="utf-8")).get("moved", {}).items():
+                if m.get("to") and (old not in out or str(m.get("at")) > str(out[old].get("at"))):
+                    out[old] = m
+        except (OSError, ValueError, AttributeError):
+            continue
+    return out
+
+
+def moved_path(moves: dict, path: str, exists) -> str:
+    """Where a note is now (VGRules.movedPath): a path that exists again is not followed."""
+    seen = set()
+    while path in moves and path not in seen and not exists(path):
+        seen.add(path)
+        path = moves[path]["to"]
+    return path
+
+
 def _dismissed() -> set:
     """Pairs Jackson dismissed (graph "Dismiss" button, or [-] rows via the gardener), by note name."""
     global _DISMISSED_CACHE
@@ -924,7 +946,9 @@ def _dismissed() -> set:
         except (OSError, ValueError):
             pairs = []
         pairs += ledger_dismissed()
-        _DISMISSED_CACHE = {frozenset((_name(p["a"]).lower(), _name(p["b"]).lower())) for p in pairs if p.get("a") and p.get("b")}
+        moves, exists = ledger_moves(), lambda p: (vl.VAULT / p).exists()
+        now = lambda p: _name(moved_path(moves, p, exists)).lower()
+        _DISMISSED_CACHE = {frozenset((now(p["a"]), now(p["b"]))) for p in pairs if p.get("a") and p.get("b")}
     return _DISMISSED_CACHE
 
 

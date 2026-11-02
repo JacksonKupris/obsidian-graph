@@ -22,10 +22,13 @@ const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.a
     console.log(`  cyberpunk: ${city.towers} towers in ${city.districts} districts, ${ms.toFixed(1)} ms a frame`);
     check(ms < 33, `a frame takes ${ms.toFixed(1)} ms (30 fps is 33)`);
     // a click on a tower selects its note: the tallest one drawn on screen, away from the toolbars
+    await tab.ev(`document.querySelectorAll('.vg-tour, .vg-tour-card').forEach(x => x.remove())`);   // the first-run tour comes back after the view changes and sits over the canvas
     const target = await tab.ev(`(() => { const P = ${D}.P; let best = null; P.forEach((p, id) => { if (p.a > 0.5 && p.r > 4 && p.x > 320 && p.x < innerWidth - 40 && p.y > 90 && p.y < innerHeight - 90 && (!best || p.depth < best.depth || p.r > best.r)) best = { id, x: p.x, y: p.y, r: p.r }; }); return best; })()`);
     check(target, "no tower on screen to click");
     if (target) { const r = await tab.ev(`(() => { const b = document.querySelector('.vg-cv').getBoundingClientRect(); return [b.left, b.top]; })()`);
-      const x = r[0] + target.x, y = r[1] + target.y; for (const type of ["mousePressed", "mouseReleased"]) await tab.send("Input.dispatchMouseEvent", { type, x, y, button: "left", clickCount: 1 }); await sleep(200);
+      const x = r[0] + target.x, y = r[1] + target.y, over = await tab.ev(`document.elementFromPoint(${x}, ${y}).className`);
+      check(String(over).includes("vg-cv"), `something covers the tower: ${over}`);
+      for (const type of ["mousePressed", "mouseReleased"]) await tab.send("Input.dispatchMouseEvent", { type, x, y, button: "left", clickCount: 1 }); await sleep(200);
       check(await tab.ev(`!!${D}.st.selected`), "clicking a tower selected nothing"); await tab.ev(`${D}.drawNow()`); await shot("selected"); }
     await tab.ev(`${D}.st.selected = null`);
     const errs = await tab.ev("window.__errs");
