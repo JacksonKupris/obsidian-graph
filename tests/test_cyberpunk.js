@@ -31,10 +31,39 @@ const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.a
       for (const type of ["mousePressed", "mouseReleased"]) await tab.send("Input.dispatchMouseEvent", { type, x, y, button: "left", clickCount: 1 }); await sleep(200);
       check(await tab.ev(`!!${D}.st.selected`), "clicking a tower selected nothing"); await tab.ev(`${D}.drawNow()`); await shot("selected"); }
     await tab.ev(`${D}.st.selected = null`);
+    // the still city is kept: a frame paints the kept picture and what moves, and doesn't walk the towers. Counted on the real canvas.
+    const count = code => tab.ev(`(() => { const p = CanvasRenderingContext2D.prototype, was = {}, n = { fillRect: 0, drawImage: 0 }, main = document.querySelector(".vg-cv").getContext("2d"); for (const m of Object.keys(n)) { was[m] = p[m]; p[m] = function (...a) { n[m]++; n[m + "On"] = (n[m + "On"] || 0) + (this === main ? 1 : 0); return was[m].apply(this, a); }; } try { ${code} } finally { Object.assign(p, was); } return n; })()`);
+    await tab.ev(`${D}.drawNow()`);
+    const still = await count(`${D}.drawNow();`), towers = city.towers;
+    check(still.drawImage <= 2 && still.fillRect <= 6, `a still frame should show the kept city, not repaint it: ${JSON.stringify(still)}`);
+    const moved = await count(`${D}.cam.tx += 40; ${D}.drawNow();`);
+    check(moved.fillRect > still.fillRect + Math.min(5, towers), `a moved camera should repaint it: ${JSON.stringify(moved)}`);
+    const pick = await tab.ev(`${D}.P.size`); check(pick >= towers * 0.5, `clicks still need every tower after a kept frame: ${pick}`);
+    await tab.ev(`${D}.cam.tx -= 40; ${D}.drawNow()`);
+    const firstId = await tab.ev(`${D}.maps().cyberpunk.blds[0].n.id`);
+    const filter = await count(`${D}.st.hidden.add(${JSON.stringify(firstId)}); ${D}.drawNow();`); check(filter.fillRect > still.fillRect, "hiding a note should repaint the city"); await tab.ev(`${D}.st.hidden.delete(${JSON.stringify(firstId)}); ${D}.drawNow()`);
+    // it's still alive: the rain and traffic change the picture from one frame to the next
+    const shotOf = () => tab.ev(`(() => { const c = document.querySelector(".vg-cv"); return c.toDataURL("image/jpeg", 0.5).length + ":" + c.toDataURL("image/jpeg", 0.5).slice(2000, 2060); })()`);
+    const a1 = await shotOf(); await sleep(300); await tab.ev(`${D}.drawNow()`); check(a1 !== await shotOf(), "the picture should move");
     const errs = await tab.ev("window.__errs");
     check(!errs.length, "page errors: " + errs.join("; "));
   } catch (e) { fails.push(e.message); }
   await tab.close();
+  // a phone: at most 20 frames a second, the kept picture slid while it's moved, and it catches up with the camera by itself
+  const phone = await cdp.open({ html: env.pageWith("mobile: true,"), port: 9358 });
+  if (phone) { try {
+    if (!await phone.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000)) throw new Error("the graph didn't mount on a phone");
+    await phone.send("Emulation.setDeviceMetricsOverride", { width: 412, height: 915, deviceScaleFactor: 2, mobile: true });
+    const D = "window.vaultGraph._debug"; await phone.ev(`document.querySelectorAll('.vg-tour').forEach(x => x.remove()); ${D}.setView("cyberpunk")`); await sleep(1800);
+    check(await phone.ev(`document.querySelector(".vg-root").classList.contains("is-mobile")`), "the page isn't a phone");
+    const fps = await phone.ev(`(async () => { const main = document.querySelector(".vg-cv").getContext("2d"), was = main.drawImage; let n = 0; main.drawImage = function (...a) { n++; return was.apply(this, a); }; await new Promise(r => setTimeout(r, 2000)); delete main.drawImage; return { perSec: n / 2, focus: document.hasFocus() }; })()`);
+    check(fps.perSec <= 24, `a phone should draw at most 20 frames a second: ${JSON.stringify(fps)}`); if (fps.focus) check(fps.perSec >= 8, `it should still move: ${JSON.stringify(fps)}`);
+    const slide = await phone.ev(`(() => { const d = window.vaultGraph._debug; d.drawNow(); const c = document.querySelector(".vg-cv").getContext("2d"), was = CanvasRenderingContext2D.prototype.fillRect; let fills = 0; CanvasRenderingContext2D.prototype.fillRect = function (...a) { fills++; return was.apply(this, a); }; d.cam.tx += 30; d.drawNow(); CanvasRenderingContext2D.prototype.fillRect = was; d.cam.tx -= 30; return fills; })()`); check(slide <= 8, `moving on a phone should slide the kept picture, not repaint it: ${slide} fills`);
+    await sleep(200); const before = await phone.ev(`${D}.drawNow(); ${D}.scenes && [...${D}.P.values()].filter(p => p.a > 0).map(p => Math.round(p.x)).slice(0, 5).join()`);
+    await phone.ev(`${D}.cam.tx += 120; window.dispatchEvent(new Event("resize"))`); await sleep(500);
+    const after = await phone.ev(`[...${D}.P.values()].filter(p => p.a > 0).map(p => Math.round(p.x)).slice(0, 5).join()`); check(before !== after, "on a phone the city should catch up with the camera");
+    check((await phone.ev("window.__errs || []")).length === 0, "page errors on a phone");
+  } catch (e) { fails.push(e.message); } await phone.close(); }
   console.log(fails.length ? "FAIL - cyberpunk: " + fails.join("; ") : "ok - cyberpunk: a tower per note, clicks select, frame budget");
   process.exit(fails.length ? 1 : 0);
 })();

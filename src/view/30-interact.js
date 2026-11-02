@@ -2,6 +2,7 @@
   let settledShown = false, lastNeural = 0, onScreen = true, lastMapAnim = 0, drawMs = 0;
   const liveEdits = [];   // notes edited while the graph is open (from live sync): {id, t}
   const tickOf = (o, now) => { const dt = Math.min(100, now - (o.last || now)); o.last = now; return reducedMotion() ? 0 : dt; };
+  const PHONE_REST_MS = 20000;
   const ANIM_MAPS = { ...Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.fps || 30])), radar: 60, weather: 30, foodweb: 30, subway: 30, clock: 30 };   // divisors of 60 Hz: an even cadence, no judder
   // An embed scrolled out of view (or a hidden pane) costs nothing: the loop stops and restarts when it's back
   const io = typeof IntersectionObserver === "function" ? new IntersectionObserver(es => {
@@ -43,9 +44,10 @@
     if (isCosmos()) { dirty = true; more = true; if (st.ship) shipStep(); }
     // Animated maps (radar sweep, ships, wind, twinkling, swaying plants, pulses) redrew only on input, so they
     // jumped. Like neural: a steady budget while visible, full rate while moving, 3 fps when Obsidian isn't focused.
+    // A phone gets less, and less again once it's left alone: it's held in the hand and runs on a battery. A game keeps its rate.
     const animFps = mapView() && (!reducedMotion() || (SCENES[st.view] && SCENES[st.view].game)) ? ANIM_MAPS[st.view] || 0 : 0;
     if (animFps) {
-      const busy = morph || tween || drag, fps = busy ? 0 : !document.hasFocus() ? 3 : opts.compact ? Math.min(15, animFps) : animFps;
+      const busy = morph || tween || drag, phone = MOBILE && !(SCENES[st.view] && SCENES[st.view].game), fps = busy ? 0 : !document.hasFocus() ? 3 : opts.compact ? Math.min(15, animFps) : phone ? Math.min(now - lastInteract > PHONE_REST_MS ? 10 : 20, animFps) : animFps;
       if (!fps || now - lastMapAnim >= 1000 / fps - 2) { lastMapAnim = now; dirty = true; }
       more = true;
     }
