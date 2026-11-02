@@ -12,6 +12,12 @@ assert.strictEqual((T.find(t => t.project && t.project.path === "a.md") || { ite
 assert.strictEqual((T.find(t => t.project && t.project.path === "b.md") || { items: [] }).items[0].key, "2", "a link didn't find the thread");
 assert.deepStrictEqual(T[T.length - 1].items.map(i => i.key).sort(), ["3", "4"], "work that fits nowhere (or only shares common words) should stay out of threads");
 assert.strictEqual(T[T.length - 1].project, null);
+assert.strictEqual(VGRules.hqThreads([{ key: "1", title: "Test the service alarm on the console" }], [{ path: "a.md", title: "Service Alarm Webhooks", group: "closed" }])[0].project, null, "open work joined a closed project");
+assert.strictEqual(VGRules.hqThreads([{ key: "1", title: "Update bills to use the credit card" }], [{ path: "a.md", title: "Hamachi Network Password + Kiosk Software Update", group: "active" }])[0].project, null, "one shared word of a long title made a thread");
+assert.strictEqual(VGRules.hqThreads([{ key: "1", title: "Update the console's packages" }, { key: "2", title: "Run the sticker fix on the console database" }], [{ path: "a.md", title: "Fix Dispatch Console Out-of-Memory Crashes", group: "active" }])[0].project, null, "the name of a system made a thread");
+const AREA = VGRules.hqThreads([{ key: "1", title: "Update the Console's packages" }, { key: "2", title: "Fix the Odoo console login" }, { key: "3", title: "Pay the bills" }, { key: "4", title: "Consoles are down" }], [], { Dispatch: ["console"], Odoo: ["odoo console"] });
+assert.deepStrictEqual(AREA.map(t => [t.title, t.items.length]), [["Dispatch", 2], ["Odoo", 1], ["Everything else", 1]], "work with no project should group by the area it names, longest phrase first");
+assert.strictEqual(VGRules.plainSnippet("> **SES lists** are [[Note|case]] `sensitive` | ▼ x"), "SES lists are case sensitive x", "a preview shows markup");
 // the brief says only what's true
 const brief = VGRules.hqBrief({ hq: { journals: [{ path: "j", tasks: [{ mark: "x", text: "A ✅ 2026-10-27" }] }] } }, [{ kind: "approval", key: "a", title: "x" }], {}, "2026-10-28", []);
 assert(brief.some(s => s.startsWith("1 done yesterday")), "brief: " + brief); assert(brief.some(s => s.includes("1 approval")), "brief: " + brief);
@@ -24,7 +30,7 @@ assert.deepStrictEqual(VGRules.hqBrief({}, [], {}, "2026-10-28", []), [], "an em
   try {
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     const mount = (data = "DATA") => tab.ev(`(() => { window.__calls = []; window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), ${data}, { now: new Date("2026-10-28T12:00:00"), ask: async () => true, openGraph: () => window.__calls.push(["graph"]),
-      api: { capture: async (t, k) => window.__calls.push(["capture", t, k]), hqMark: async () => {}, hqFocus: async () => {}, openNote: p => window.__calls.push(["open", p]), openDaily: async d => window.__calls.push(["daily", d]), openStandup: async d => window.__calls.push(["standup", d]), setTaskStatus: async () => {}, logWork: async () => false,
+      api: { capture: async (t, k) => window.__calls.push(["capture", t, k]), hqMark: async () => {}, hqFocus: async () => {}, hqHome: async h => window.__calls.push(["home", h]), openNote: p => window.__calls.push(["open", p]), openDaily: async d => window.__calls.push(["daily", d]), openStandup: async d => window.__calls.push(["standup", d]), setTaskStatus: async () => {}, logWork: async () => false,
         searchNotes: async q => [{ path: "Old fix.md", heading: "How it was solved", snippet: "We did this before" }], searchMeaning: async q => [{ path: "Close in meaning.md", heading: "" }] } }); })()`);
     await mount(); await sleep(120);
     await tab.send("Emulation.setDeviceMetricsOverride", { width: 1500, height: 900, deviceScaleFactor: 1, mobile: false }); await tab.ev(`window.vaultHQ.setScreen("today")`); await sleep(120);
@@ -43,16 +49,27 @@ assert.deepStrictEqual(VGRules.hqBrief({}, [], {}, "2026-10-28", []), [], "an em
     const type = v => tab.ev(`(() => { const i = document.querySelector(".vg-hq-palinput"); i.value = ${JSON.stringify(v)}; i.dispatchEvent(new Event("input", { bubbles: true })); })()`);
     await type("wrap"); await sleep(20); check(await tab.ev(`document.querySelector(".vg-hq-palrow.is-at").textContent.includes("Wrap up")`), "typing didn't find the command");
     await press("Enter"); await sleep(40); check(await tab.ev("window.vaultHQ.screen()") === "wrap", "Enter didn't run the command"); check(await tab.ev(`!document.querySelector(".vg-hq-palette")`), "the palette stayed open");
-    await press("k", "ctrlKey: true"); await sleep(20); await type("call the vendor"); await sleep(250);
+    await press("k", "ctrlKey: true"); await sleep(20); await type("zzq"); await sleep(10); check(await tab.ev(`document.querySelector(".vg-hq-palrow.is-at").textContent.includes("Add task")`), "with nothing found, adding should be what Enter does");
+    await type("today"); await sleep(10); check(await tab.ev(`!document.querySelector(".vg-hq-palrow.is-at").textContent.includes("Add task")`), "Enter would add a task instead of finding: finding comes first");
+    await type("call the vendor"); await sleep(250);
     check(await tab.ev(`[...document.querySelectorAll(".vg-hq-palrow")].some(r => r.textContent.includes("Add task: call the vendor"))`), "the palette doesn't offer to add it");
     check(await tab.ev(`document.querySelector(".vg-hq-palrows").textContent.includes("Old fix") && document.querySelector(".vg-hq-palrows").textContent.includes("Close in meaning")`), "the palette doesn't show notes and meaning");
     await tab.ev(`[...document.querySelectorAll(".vg-hq-palrow")].find(r => r.textContent.includes("Add task")).click()`); await sleep(30);
     check((await tab.ev("window.__calls")).some(c => c[0] === "capture" && c[1] === "call the vendor" && c[2] === "task"), "the palette's Add task didn't capture");
     await press("k", "ctrlKey: true"); await sleep(20); await press("Escape"); check(await tab.ev(`!document.querySelector(".vg-hq-palette")`), "Esc didn't close the palette");
+    // Home's parts turn off and stay off; the key sheet opens and closes; a brand-new vault gets a welcome, not zeroes
+    await tab.ev(`window.vaultHQ.setScreen("home")`); await sleep(30);
+    const parts = await tab.ev(`(() => { const had = !!document.querySelector(".vg-hq-customizebtn"); return had; })()`);
+    await press("?"); await sleep(20); check(await tab.ev(`!!document.querySelector(".vg-hq-keys")`), "? doesn't open the key sheet"); await press("Escape"); check(await tab.ev(`!document.querySelector(".vg-hq-keys")`), "Esc doesn't close the key sheet");
+    await tab.ev(`(() => { window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), { nodes: [], links: [], hq: { journals: [], standups: [], projects: [], backlog: [], reports: [], reviews: [], decisions: [], runs: {}, runlog: [], inbox: [] } }, { now: new Date("2026-10-28T12:00:00"), api: { capture: async () => {}, openDaily: async () => {} } }); })()`); await sleep(30);
+    check(await tab.ev(`/Welcome/.test(document.querySelector(".vg-hq-main").textContent) && !!document.querySelector(".vg-hq-captureinput")`), "a new vault gets no welcome");
+    await mount(); await sleep(60); await tab.ev(`window.vaultHQ.setScreen("home")`); await sleep(30);
     // every screen draws and goes somewhere
     for (const s of ["home", "today", "needs", "people", "projects", "threads", "wrap", "review", "automations"]) { await tab.ev(`window.vaultHQ.setScreen(${JSON.stringify(s)})`); await sleep(25);
       check(await tab.ev(`document.querySelectorAll(".vg-hq-main button").length > 0`), `${s} is a dead end`); check(await tab.ev(`window.vaultHQ.screen()`) === s, `${s} didn't open`); }
     await tab.ev(`window.vaultHQ.setScreen("review")`); check(await tab.ev(`document.querySelectorAll(".vg-hq-reviewstep").length`) === 5, "the review isn't five steps");
+    await tab.ev(`window.vaultHQ.setScreen("home")`); await sleep(20); await tab.ev(`document.querySelector("[data-customize]").click()`); await sleep(20); await tab.ev(`document.querySelector('[data-homepart="brief"]').click()`); await sleep(20);
+    check((await tab.ev("window.__calls")).some(c => c[0] === "home" && c[1].includes("brief")), "Customize doesn't save"); check(await tab.ev(`!document.querySelector(".vg-hq-brief")`), "turning the brief off didn't hide it"); await tab.ev(`document.querySelector('[data-homepart="brief"]').click()`); await sleep(20);
     // phone width: no rail, the same work inline
     await tab.send("Emulation.setDeviceMetricsOverride", { width: 420, height: 900, deviceScaleFactor: 1, mobile: true }); await tab.ev(`window.vaultHQ.setScreen("home")`); await sleep(60); await tab.ev(`window.vaultHQ.setScreen("today")`); await sleep(60);
     check(await tab.ev(`!document.querySelector(".vg-hq-rail") && !!document.querySelector(".vg-hq-ctxbtn")`), "phone width should use the inline context");

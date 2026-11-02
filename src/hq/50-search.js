@@ -12,7 +12,7 @@
       <small>${esc(p.path)}</small></span></button>`).join("");
     const noteRows = notes.map(hit => `<article class="vg-hq-note-hit"><div><b>${esc(hit.heading || hit.path.split("/").pop())}</b>
       <small>${esc(hit.path)}${hit.line ? ` · line ${hit.line}` : ""}${hit.why && hit.why.length ? ` · ${esc(hit.why.join(" · "))}` : ""}</small>
-      ${hit.snippet ? `<p>${esc(hit.snippet)}</p>` : ""}</div>${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(hit.path)}">Open source</button>` : ""}</article>`).join("");
+      ${hit.snippet ? `<p>${esc(VGRules.plainSnippet(hit.snippet))}</p>` : ""}</div>${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(hit.path)}">Open source</button>` : ""}</article>`).join("");
     const itemRows = itemHits.map(({ it }) => row(it)).join("");
     const pending = searchPending;
     const emptyResult = !projectRows && !itemRows && !noteRows
