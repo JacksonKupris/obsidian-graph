@@ -939,6 +939,8 @@ const VGRules = (() => {
       const c = out.cosmos = { ...cd, ...cm };
       if (cm.dungeon || cd.dungeon) { const m = obj(cm.dungeon), d = obj(cd.dungeon); c.dungeon = { reached: Math.max(m.reached || 0, d.reached || 0), best: Math.max(m.best || 0, d.best || 0), bestRun: Math.max(m.bestRun || 0, d.bestRun || 0), hunt: [m.hunt || "", d.hunt || ""].sort().pop() }; }
       if (cm.triage || cd.triage) { const m = obj(cm.triage), d = obj(cd.triage); c.triage = { best: Math.max(m.best || 0, d.best || 0), bestCombo: Math.max(m.bestCombo || 0, d.bestCombo || 0), runs: Math.max(m.runs || 0, d.runs || 0) }; }
+      if (cm.survivors || cd.survivors) { const m = obj(cm.survivors), d = obj(cd.survivors), most = k => Math.max(m[k] || 0, d[k] || 0); c.survivors = { best: most("best"), longest: most("longest"), wins: most("wins"), runs: most("runs") }; }
+      if (cm.wikirace || cd.wikirace) { const m = obj(cm.wikirace), d = obj(cd.wikirace), late = String(m.day || "") >= String(d.day || "") ? m : d, same = m.day === d.day; c.wikirace = { day: late.day || "", today: same ? Math.max(m.today || 0, d.today || 0) : late.today || 0, best: Math.max(m.best || 0, d.best || 0), streak: same ? Math.max(m.streak || 0, d.streak || 0) : late.streak || 0 }; }
       if (cm.viewOpens || cd.viewOpens) { const b = obj(cb.viewOpens), m = obj(cm.viewOpens), d = obj(cd.viewOpens), v = {}; new Set([...Object.keys(m), ...Object.keys(d)]).forEach(k => { v[k] = (d[k] || 0) + Math.max(0, (m[k] || 0) - (b[k] || 0)); }); c.viewOpens = v; }   // adds both devices' gains, like XP
       c.ach = mergeMap(cb.ach, cm.ach, cd.ach);
       c.hidden = mergeList(cb.hidden, cm.hidden, cd.hidden, str).slice(-500);
@@ -1047,6 +1049,37 @@ const VGRules = (() => {
     const fresh = Object.fromEntries(Object.entries(moves).filter(([from, to]) => from !== to).map(([from, to]) => [from, { to, at }]));
     return { v: 1, ...followMoves(marks, fresh, exists), moved: { ...(moved || {}), ...fresh } };
   }
+  // A note as an enemy: what it is decides what it is, the same in every game and on every run.
+  // r: body radius in cells; h: height against a wall's 1; z: how far it floats; pain: chance a hit staggers it
+  const FOE_KINDS = {
+    wisp:    { name: "Wisp",    is: "unlinked or tiny note", hp: 20,  speed: 3.6, melee: 7,  ranged: 0,  shot: 0,   every: 0.9, r: 0.3,  h: 0.55, z: 0.22, pain: 0.9,  score: 50 },
+    grunt:   { name: "Grunt",   is: "ordinary note",         hp: 45,  speed: 2.2, melee: 10, ranged: 7,  shot: 7,   every: 2.4, r: 0.32, h: 0.85, z: 0,    pain: 0.7,  score: 100 },
+    spitter: { name: "Spitter", is: "well-linked note",      hp: 70,  speed: 1.7, melee: 10, ranged: 12, shot: 8.5, every: 1.6, r: 0.42, h: 0.85, z: 0.12, pain: 0.5,  score: 200 },
+    hunter:  { name: "Hunter",  is: "person",                hp: 130, speed: 3.3, melee: 22, ranged: 0,  shot: 0,   every: 0.8, r: 0.35, h: 0.95, z: 0,    pain: 0.3,  score: 350 },
+    brute:   { name: "Brute",   is: "long note or other map", hp: 240, speed: 1.3, melee: 28, ranged: 18, shot: 6,   every: 2.6, r: 0.5,  h: 1.15, z: 0,    pain: 0.2,  score: 500 },
+    boss:    { name: "Boss",    is: "the topic's map",       hp: 900, speed: 1.5, melee: 40, ranged: 16, shot: 8,   every: 1.0, r: 0.7,  h: 1.6,  z: 0,    pain: 0.04, score: 5000, fan: 3 },
+  };
+  const foeLinks = n => (n.inlinks || 0) + (n.outlinks || 0);
+  const foePercentile = (vals, f) => { const a = vals.slice().sort((x, y) => x - y); return a.length ? a[Math.min(a.length - 1, Math.floor(a.length * f))] : 0; };
+  const foeStats = notes => ({ long: foePercentile(notes.map(n => n.words || 0), 0.9), tiny: foePercentile(notes.map(n => n.words || 0), 0.2), linked: foePercentile(notes.map(foeLinks), 0.75) });
+  const foeKind = (n, s) => (n.person ? "hunter" : n.moc || (n.words || 0) >= s.long ? "brute" : n.isolated || (n.words || 0) < s.tiny ? "wisp" : foeLinks(n) >= s.linked ? "spitter" : "grunt");
+
+  // Wikirace: today's route, the same on every device while the links are the same. par is the fewest hops without using a
+  // hub, so it can always be matched for free. hubs and people aren't ends of a route. edges: [[a, b]] (a link goes both ways).
+  function wikiraceRoute(edges, day, o = {}) {
+    const avoid = o.avoid || new Set(), min = o.minHops || 3, max = o.maxHops || 6, near = new Map(), hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+    edges.forEach(([a, b]) => { if (a === b || avoid.has(a) || avoid.has(b)) return; [[a, b], [b, a]].forEach(([x, y]) => { if (!near.has(x)) near.set(x, new Set()); near.get(x).add(y); }); });
+    const starts = [...near.keys()].sort(); if (!starts.length) return null;
+    const first = hash(String(day)) % starts.length;
+    for (let i = 0; i < starts.length; i++) {
+      const from = starts[(first + i) % starts.length], dist = new Map([[from, 0]]), queue = [from];
+      for (let k = 0; k < queue.length; k++) { const d = dist.get(queue[k]); if (d < max) near.get(queue[k]).forEach(y => { if (!dist.has(y)) { dist.set(y, d + 1); queue.push(y); } }); }
+      const ends = [...dist].filter(([, d]) => d >= min).map(([id]) => id).sort();
+      if (ends.length) { const to = ends[hash(day + "|" + from) % ends.length]; return { from, to, par: dist.get(to), day }; }
+    }
+    return null;
+  }
+  const wikiraceScore = ({ hops, par, hubs = 0, traps = 0, seconds = 0 }) => Math.max(0, 1000 - Math.max(0, hops - par) * 100 - hubs * 50 - traps * 75 - Math.floor(seconds));
   // Triage Run: the open tasks a run deals, oldest first, and what a swipe scores. An older task is worth more; a run of
   // decisions multiplies it, up to five times.
   const triageDeck = items => (items || []).filter(it => (it.kind === "task" || it.kind === "carried") && !it.delegated).sort((a, b) => (b.age || 0) - (a.age || 0));
@@ -1066,7 +1099,7 @@ const VGRules = (() => {
   }
 
   return { plainSnippet, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
-    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)

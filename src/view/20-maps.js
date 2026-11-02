@@ -160,7 +160,8 @@
   }
   function layNeural() { st.three = st.angles.neural !== "flat"; if (!st.three) { cam.spin = null; animateTo({ yaw: 0, pitch: 0 }, 500); } cv.style.cursor = st.three ? "grab" : "default"; }
   function syncDim() {
-    const d = dimOf(), seg = $(".vg-dimseg"); if (seg) seg.hidden = isGame();
+    const d = dimOf(), seg = $(".vg-dimseg"), status = $(".vg-status"); if (seg) seg.hidden = isGame();
+    if (status) status.style.display = isGame() ? "none" : "";   // a count of notes means nothing in a game, and it sits on the game's own text
     $$("[data-dim]").forEach(b => b.setAttribute("aria-pressed", b.dataset.dim === d));
     cv.classList.toggle("is-tilt3d", leansBack());
   }

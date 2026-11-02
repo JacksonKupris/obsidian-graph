@@ -258,7 +258,7 @@
     ["Space", ["neural", "cosmos"]],
     ["Maps", ["subway", "weather", "cyberpunk"]],
     ["Analysis", ["foodweb", "clock", "radar"]],
-    ["Play", ["triage", "dungeon"]],
+    ["Play", ["triage", "wikirace", "survivors", "dungeon"]],
   ];
   function viewGroups(xs) {
     const by = new Map(xs.map(i => [i.k, i])), used = new Set(), out = [];
