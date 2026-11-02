@@ -57,8 +57,35 @@
     return `<nav class="vg-hq-dock" aria-label="Screens">${SCREENS.map(([k, label, ic]) => `<button class="vg-hq-dockbtn${cur === k || (SUB[cur] && SUB[cur][1] === k) ? " is-on" : ""}" data-go="${k}" aria-label="${label}" ${cur === k ? 'aria-current="page"' : ""} title="${label}">${icon(ic, 20)}${k === "needs" && needs ? `<span class="vg-hq-badge">${needs}</span>` : ""}</button>`).join("")}` +
       (api.openDaily ? `<span class="vg-hq-sep"></span><button class="vg-hq-dockbtn" data-daily aria-label="Open today's journal" title="Open today's journal">${icon("journal", 20)}</button>` : "") + `</nav>`;
   }
+  // ---- picking several: tick rows (shift for a run of them, v on the keyboard), then one bar acts on them all. Done on old
+  // tasks is one write with one Undo, and stays out of the standup, as in the sweep; today's go in the standup one by one.
+  const picked = new Set(); let pickAnchor = null;
+  const pickable = it => it.kind === "task" || it.kind === "carried" || it.kind === "plan";
+  const pickBox = it => pickable(it) && api.setTasksStatus && api.hqMark ? `<input type="checkbox" class="vg-hq-pick" data-pick="${esc(it.key)}" aria-label="Select: ${esc(it.title)}"${picked.has(it.key) ? " checked" : ""}>` : "";
+  function togglePick(key, range) {
+    const boxes = [...el.querySelectorAll("[data-pick]")].map(b => b.dataset.pick);
+    if (range && pickAnchor && boxes.includes(pickAnchor) && boxes.includes(key)) { const [a, b] = [boxes.indexOf(pickAnchor), boxes.indexOf(key)].sort((x, y) => x - y); boxes.slice(a, b + 1).forEach(k => picked.add(k)); }
+    else if (picked.has(key)) picked.delete(key); else picked.add(key);
+    pickAnchor = key; render();
+  }
+  const pickedItems = () => [...picked].map(k => BY_KEY.get(k)).filter(Boolean);
+  function bulkBar() {
+    const its = pickedItems(); if (!its.length) return "";
+    return `<div class="vg-hq-bulk" role="toolbar" aria-label="${plural(its.length, "task")} selected"><b>${plural(its.length, "task")}</b><button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-primary" data-bulk="x">Done</button><button class="vg-hq-btn vg-hq-btn-sm" data-bulk="later">Later</button>${its.some(it => it.kind === "plan") ? "" /* a plan item has no checkbox to cancel */ : '<button class="vg-hq-btn vg-hq-btn-sm" data-bulk="-">Cancel them</button>'}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-bulk="clear">Clear</button></div>`;
+  }
+  async function bulkAct(how, btn) {
+    const its = pickedItems(), c = ctx(); if (how === "clear") { picked.clear(); render(); return; } if (!its.length) return;
+    if (btn) btn.disabled = true;
+    const gain = list => { list.forEach(it => { gone.add(it.key); picked.delete(it.key); }); relist(); render(); };
+    if (how === "later") { await Promise.all(its.map(it => api.hqMark(it.key, "later"))); gain(its); toast(`Later: ${plural(its.length, "task")}`, async () => { await Promise.all(its.map(it => api.hqMark(it.key, null))); its.forEach(it => gone.delete(it.key)); relist(); render(); }); return; }
+    if (how === "-") { if (await VGActions.runBatch(its, "-", c, "the selection")) gain(its); else if (btn && btn.isConnected) btn.disabled = false; return; }
+    const old = its.filter(it => it.kind === "carried"), todays = its.filter(it => it.kind !== "carried");
+    if (old.length && await VGActions.runBatch(old, "x", c)) gain(old);
+    for (const it of todays) if (await VGActions.runToday(it, c)) gain([it]);
+    if (btn && btn.isConnected) btn.disabled = false;
+  }
   function row(it) {
-    return `<div class="vg-hq-item${selected() === it && railOn() ? " is-sel" : ""}" data-key="${esc(it.key)}"><span class="vg-hq-kind">${icon(KIND_ICON[it.kind] || "graph", 16)}</span>` +
+    return `<div class="vg-hq-item${selected() === it && railOn() ? " is-sel" : ""}${picked.has(it.key) ? " is-picked" : ""}" data-key="${esc(it.key)}">${pickBox(it)}<span class="vg-hq-kind">${icon(KIND_ICON[it.kind] || "graph", 16)}</span>` +
       `<div class="vg-hq-txt"><b>${esc(it.title)}</b>${it.why ? `<small>${esc(it.why)}${it.delegated ? ` · delegated to ${esc(it.delegated)}` : ""}</small>` : ""}</div>` +
       `<div class="vg-hq-acts">${starButton(it)}${railOn() ? "" : ctxButton(it)}${buttons(it)}${reactButtons(it)}</div>${railOn() ? "" : contextPanel(it)}</div>`;
   }
@@ -90,14 +117,15 @@
   function flow() {
     if (!api.hqFocus) return ""; const f = focus(), done = VGRules.doneToday(DATA, STATE.review, day()), h = hq() || {}, standup = (h.standups || []).find(s => s.date === day());
     const step = (go, on, n, title, sub) => `<button class="vg-hq-step${on ? " is-on" : ""}" data-go="${go}"><i>${n}</i><span><b>${esc(title)}</b><small>${esc(sub)}</small></span></button>`;
-    return `<nav class="vg-hq-flow" aria-label="Today's loop">${step("today", !f.length, "1", "Plan", f.length ? `${f.length} of ${VGRules.FOCUS_MAX} picked` : `Star up to ${VGRules.FOCUS_MAX} for today`)}${step("today", !!f.length, "2", "Do", f.length ? `Next: ${f[0].title.slice(0, 44)}` : "Nothing in focus yet")}${step("wrap", cur === "wrap", "3", "Wrap up", `${plural(done.length, "thing")} done · ${standup ? "standup started" : "no standup yet"}`)}</nav>`;
+    return `<nav class="vg-hq-flow" aria-label="Today's loop">${step("today", !f.length, "1", "Plan", f.length ? `${f.length} of ${VGRules.FOCUS_MAX} picked` : `Star up to ${VGRules.FOCUS_MAX} for today`)}${step("session", cur === "session" || !!session, "2", "Do", session ? `${session.since ? "On" : "Paused"} · ${sessionClock()}` : f.length ? `Next: ${f[0].title.slice(0, 44)}` : "Start a focus session")}${step("wrap", cur === "wrap", "3", "Wrap up", `${plural(done.length, "thing")} done · ${standup ? "standup started" : "no standup yet"}`)}</nav>`;
   }
   // ---- Wrap up: what got done goes in the standup, what didn't goes in tomorrow's plan
   function wrapScreen() {
     const done = VGRules.doneToday(DATA, STATE.review, day()), h = hq() || {}, standup = (h.standups || []).find(s => s.date === day()), left = focus();
     const doneRows = done.map(d => `<div class="vg-hq-item"><span class="vg-hq-kind">${icon("check", 16)}</span><div class="vg-hq-txt"><b>${esc(d.text)}</b></div></div>`).join("");
     const leftRows = left.map(it => `<div class="vg-hq-item"><span class="vg-hq-kind">${icon("clock", 16)}</span><div class="vg-hq-txt"><b>${esc(it.title)}</b></div><div class="vg-hq-acts">${standup && api.planLine ? `<button class="vg-hq-btn vg-hq-btn-sm" data-plan="${esc(it.key)}">Plan for tomorrow</button>` : ""}${buttons(it)}</div></div>`).join("");
-    return `<h1 class="vg-hq-h1">Wrap up</h1>${flow()}<p class="vg-hq-lede">${plural(done.length, "thing")} done today${left.length ? ` · ${left.length} still in focus` : ""}.</p>
+    const focused = VGRules.sessionMinutes(STATE.review, day());
+    return `<h1 class="vg-hq-h1">Wrap up</h1>${flow()}<p class="vg-hq-lede">${plural(done.length, "thing")} done today${focused ? ` · ${VGRules.minutesWords(focused)} focused` : ""}${left.length ? ` · ${left.length} still in focus` : ""}.</p>
       <div class="vg-hq-row vg-hq-wrapacts">${standup ? `${done.length && api.logWork ? '<button class="vg-hq-btn vg-hq-btn-primary" data-logall>Add all to the standup</button>' : ""}${api.openNote ? `<button class="vg-hq-btn" data-open="${esc(standup.path)}">Open the standup</button>` : ""}` : api.openStandup ? `<button class="vg-hq-btn vg-hq-btn-primary" data-makestandup>Start today's standup</button>` : ""}</div>
       ${doneRows ? `<section class="vg-hq-sec"><h3>Done today<span>${done.length}</span></h3>${doneRows}</section>` : empty("Nothing marked done today yet.", [["Today", 'data-go="today"']])}
       ${leftRows ? `<section class="vg-hq-sec"><h3>Still in focus<span>${left.length}</span></h3>${leftRows}</section>` : ""}`;

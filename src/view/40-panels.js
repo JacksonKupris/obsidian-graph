@@ -680,7 +680,7 @@
     if (!blob) { toast("Couldn't capture the image", "warn"); return; }
     const name = `Vault Graph ${today()} ${new Date().toTimeString().slice(0, 5).replace(":", "")}.png`;
     if (opts.saveBinary) {
-      try { const p = await opts.saveBinary(`attachments/${name}`, await blob.arrayBuffer()); toast(`Saved ${(p || name).split("/").pop()}`, "ok"); } catch (e) { toast("Couldn't save the image", "warn"); }
+      try { const p = await opts.saveBinary(`${VGRules.folders.attachments}/${name}`, await blob.arrayBuffer()); toast(`Saved ${(p || name).split("/").pop()}`, "ok"); } catch (e) { toast("Couldn't save the image", "warn"); }
     } else {
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     }
