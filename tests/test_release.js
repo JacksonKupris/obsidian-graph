@@ -13,6 +13,8 @@ function run(options = {}) {
       if (args[0] === "status") return { status: 0, stdout: options.dirty ? " M src/hq.js" : "" };
       if (args[0] === "remote") return { status: 0, stdout: "https://github.com/owner/repo.git" };
       if (args[0] === "push" && options.pushFails) return { status: 1, stderr: "rejected" };
+      if (args[0] === "tag" && args[2] === "0.6.14" && options.tagged) return { status: 0, stdout: "0.6.14" };
+      if (args[0] === "log" && options.tagged) return { status: 0, stdout: options.commits || "" };
     }
     if (args.some(arg => String(arg).replace(/\\/g, "/").endsWith("tests/run.js")) && options.failedTests)
       return { status: null, error: new Error("could not start tests") };
@@ -22,12 +24,17 @@ function run(options = {}) {
     __dirname: path.join(__dirname, "../scripts"),
     require: name => name === "fs" ? { readFileSync: () => '{"version":"0.6.14"}', writeFileSync: (...args) => writes.push(args) } :
       name === "child_process" ? { spawnSync } : name === "./sync" ? { sync: () => (calls.push(["sync"]), { ok: !options.behind, lines: [] }) } : require(name),
-    process: { execPath: process.execPath, versions: process.versions, env: {}, argv: ["node", "release.js", "--no-wait"], exit: code => { exit = code; throw stop; } },
+    process: { execPath: process.execPath, versions: process.versions, env: {}, argv: ["node", "release.js", "--no-wait", ...(options.args || [])], exit: code => { exit = code; throw stop; } },
     console: { log: message => messages.push(message) },
   };
   try { vm.runInNewContext(source, context); } catch (error) { if (error !== stop) throw error; }
   return { calls, writes, messages, exit };
 }
+// a release with nothing in it is refused, before anything changes; new commits or --force let it through
+{ const empty = run({ tagged: true });
+  assert.strictEqual(empty.exit, 1, "an empty release should be refused"); assert(empty.messages.some(m => /nothing has changed since 0\.6\.14/.test(m)), "it should say why");
+  assert(!empty.calls.some(c => c[1] === "push" || c[1] === "tag" && c[2] !== "--list") && !empty.writes.length, "a refused release changes nothing");
+  assert.strictEqual(run({ tagged: true, commits: "abc A change" }).exit, 0, "new commits should release"); assert.strictEqual(run({ tagged: true, args: ["--force"] }).exit, 0, "--force should re-issue"); }
 const good = run();
 assert.strictEqual(good.exit, 0);
 assert.strictEqual(JSON.parse(good.writes[0][1]).version, "0.6.15");

@@ -31,8 +31,9 @@
 /* eslint-disable no-unused-vars */
 function mountVaultGraph(root, DATA, opts) {
   opts = opts || {};
-  const PALETTE = ["#2563eb", "#16a34a", "#ea580c", "#9333ea", "#0891b2", "#dc2626", "#ca8a04", "#db2777",
-                   "#4f46e5", "#059669", "#b45309", "#7c3aed", "#0d9488", "#be123c", "#65a30d", "#c026d3"];
+  // Flexoki, its two strengths of each hue: readable on both of its backgrounds, and at home in the vault's theme
+  const PALETTE = ["#4385BE", "#879A39", "#DA702C", "#8B7EC8", "#3AA99F", "#D14D41", "#D0A215", "#CE5D97",
+                   "#205EA6", "#66800B", "#BC5215", "#5E409D", "#24837B", "#AF3029", "#AD8301", "#A02F6F"];
   const NEON = ["#38bdf8", "#4ade80", "#fb923c", "#c084fc", "#22d3ee", "#f87171", "#facc15", "#f472b6",
                 "#818cf8", "#34d399", "#fbbf24", "#a78bfa", "#2dd4bf", "#fb7185", "#a3e635", "#e879f9"];
   // One settings object for what the renderer's views, scenes and panels share: colours that carry a meaning, timings
@@ -280,6 +281,7 @@ function mountVaultGraph(root, DATA, opts) {
           <button class="vg-ibtn vg-pickbtn" aria-haspopup="dialog" aria-expanded="false" title="Views, lenses and styles (M)"><span class="vg-pickicon">${icon("hub", 16)}</span><span class="vg-pickname">Views</span><span class="vg-caret" aria-hidden="true">▾</span></button>
         </div>
         <div class="vg-seg vg-dimseg" role="group" aria-label="2D or 3D"><button class="vg-segbtn" data-dim="2d" aria-pressed="true" title="2D (3)">2D</button><button class="vg-segbtn" data-dim="3d" aria-pressed="false" title="3D (3)">3D</button></div>
+        <button class="vg-nextbtn" hidden title="Go to it in Vault HQ"><i class="vg-nextdot" aria-hidden="true"></i><small>Next</small><b></b></button>
         <div class="vg-menuwrap"><button class="vg-ibtn vg-toolsbtn" aria-haspopup="menu" aria-expanded="false" aria-pressed="false" title="Select, save, time-lapse">${icon("layers")}<span class="vg-tlabel">Tools</span><span class="vg-caret" aria-hidden="true">▾</span></button>
           <div class="vg-menu vg-toolsmenu" role="menu" hidden></div></div>
         <span class="vg-toolsrc" hidden>   <!-- the tools themselves: the Tools menu and the phone's picker sheet press these -->

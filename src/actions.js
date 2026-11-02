@@ -206,6 +206,9 @@ const VGActions = (() => {
     { key: "later", label: "Later", title: "Not today: it comes back tomorrow", when: (it, c) => !!VGRules.TODAY_GROUP[it.kind] && !!c.api.hqMark,
       run: async (it, c) => { await c.api.hqMark(it.key, "later"); return `Later: ${short(it.title)}`; },
       undo: (it, c) => c.api.hqMark(it.key, null) },
+    { key: "nextweek", label: "Next week", title: "Not this week: it comes back next Monday", quiet: true, when: (it, c) => !!VGRules.TODAY_GROUP[it.kind] && it.group === "today" && !!c.api.hqMark,
+      run: async (it, c) => { const d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); await c.api.hqMark(it.key, `until:${VGRules.localDay(d)}`); return `Next week: ${short(it.title)}`; },
+      undo: (it, c) => c.api.hqMark(it.key, null) },
     { key: "reject", label: "Reject", title: "Reject the draft, with the reason", when: (it, c) => it.kind === "review" && !it.reviewOnly && !!c.api.setNoteStatus,
       run: async (it, c) => {
         const why = c.input ? await c.input("Reject the draft", `Why reject “${it.title}”? The reason goes in the draft.`, "Reason") : (await c.ask("Reject the draft", `Reject “${it.title}”?`, "Reject")) ? "" : null;

@@ -223,7 +223,7 @@ check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }
   check("hq: every kind has an action", Object.keys(Q.TODAY_GROUP).filter(k => !A.TODAY[k]), []);
   const api = { setTaskStatus: 1, setTaskField: 1, setNoteStatus: 1, hqMark: 1, openNote: 1 }, more = it => A.todayMore(it, { api }).map(m => m.key);
   check("hq: the other buttons each item offers", [more(task), more(L.find(i => i.kind === "review")), more(L.find(i => i.kind === "approval")), more(L.find(i => i.kind === "carried" && i.delegated))],
-    [["later", "delegate", "open"], ["later", "reject", "open"], ["later"], ["later", "open"]]);
+    [["later", "nextweek", "delegate", "open"], ["later", "reject", "open"], ["later"], ["later", "nextweek", "open"]]);
 }
 
 // ---- 3. no private copies of shared rules in the surfaces

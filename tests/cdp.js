@@ -78,7 +78,10 @@ async function open(o) {
     const i = ++id, t = setTimeout(() => { pending.delete(i); rej(new Error(`${method}: no reply in ${ms / 1000} s`)); }, ms);
     pending.set(i, [d => { clearTimeout(t); res(d); }, e => { clearTimeout(t); rej(e); }]);
     ws.send(JSON.stringify({ id: i, method, params: params || {} })); });
-  const ev = async e => { const r = await send("Runtime.evaluate", { expression: e, awaitPromise: true, returnByValue: true }); return r.result && r.result.result && r.result.result.value; };
+  // an error in the page is an error here: quietly returning undefined made a broken expression look like "no result"
+  const ev = async e => { const r = await send("Runtime.evaluate", { expression: e, awaitPromise: true, returnByValue: true }), x = r.result && r.result.exceptionDetails;
+    if (x) throw new Error(`in the page: ${(x.exception && x.exception.description) || x.text}\n  while running: ${String(e).slice(0, 160)}`);
+    return r.result && r.result.result && r.result.result.value; };
   if (o.fresh) await send("Runtime.discardConsoleEntries");
   await send("Runtime.enable");
   await send("Inspector.enable").catch(() => {});   // for targetCrashed

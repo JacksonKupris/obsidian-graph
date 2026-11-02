@@ -58,8 +58,7 @@ function mountVaultHQ(root, data, opts) {
   function hills(seed, h = 120) {
     let r = seedOf(seed); const rnd = () => ((r = (r * 1103515245 + 12345) >>> 0) / 4294967296);
     const layer = (y, amp, o) => { let d = `M0 ${h}L0 ${y}`; for (let x = 0; x <= 400; x += 50) d += ` Q${x + 25} ${y - amp * (rnd() - 0.3)} ${x + 50} ${y + amp * (rnd() - 0.5) * 0.6}`; return `<path d="${d} L400 ${h}Z" fill="currentColor" opacity="${o}"/>`; };
-    const sx = 260 + rnd() * 110, sy = 38 + rnd() * 16;
-    return `<svg class="vg-hq-art" viewBox="0 0 400 ${h}" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><circle class="vg-hq-sun" cx="${sx}" cy="${sy}" r="16"/>${layer(h * 0.55, 30, 0.22)}${layer(h * 0.7, 24, 0.32)}${layer(h * 0.85, 18, 0.5)}</svg>`;
+    return `<svg class="vg-hq-art" viewBox="0 0 400 ${h}" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${layer(h * 0.55, 30, 0.22)}${layer(h * 0.7, 24, 0.32)}${layer(h * 0.85, 18, 0.5)}</svg>`;
   }
 
   // ---- the actions: a context for VGActions, with HQ's own dialog and toast when the host gives none
@@ -111,9 +110,9 @@ function mountVaultHQ(root, data, opts) {
     });
   }
   // an item's buttons: its main action, then Later / Reject / Delegate / Open
-  function buttons(it, big) {
+  function buttons(it, big, all) {   // all: the rarer choices too, where there's room (a row keeps to the usual ones)
     const c = ctx(), main = VGActions.todayWhen(it, c) ? `<button class="vg-hq-btn vg-hq-btn-primary${big ? "" : " vg-hq-btn-sm"}" data-act="main" data-key="${esc(it.key)}">${esc(VGActions.todayLabel(it))}</button>` : "";
-    const more = VGActions.todayMore(it, c).filter(m => !(m.key === "open" && (VGActions.todayLabel(it) === "Open" || it.reviewOnly)))
+    const more = VGActions.todayMore(it, c).filter(m => !(m.key === "open" && (VGActions.todayLabel(it) === "Open" || it.reviewOnly)) && (!m.quiet || big || all))
       .map(m => `<button class="vg-hq-btn${big ? "" : " vg-hq-btn-sm"}${m.key === "later" ? " vg-hq-btn-ghost" : ""}" data-act="${m.key}" data-key="${esc(it.key)}" title="${esc(typeof m.title === "function" ? m.title(it) : m.title)}">${esc(m.label)}</button>`).join("");
     return main + more;
   }

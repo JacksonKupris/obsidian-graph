@@ -300,7 +300,10 @@
       p.style.left = Math.max(8, Math.min(r.left - op.left, op.width - p.offsetWidth - 8)) + "px"; p.style.top = (r.bottom - op.top + 6) + "px"; }
     const f = p.querySelector('.vg-tile[aria-pressed="true"]') || p.querySelector(".vg-picker-tab[aria-selected=\"true\"]") || p.querySelector(".vg-tile"); if (f) f.focus({ preventScroll: true });
   }
+  // the next step, the same one HQ and the status bar name; it leads to HQ, where it's marked
+  const syncNextBtn = () => { const b = $(".vg-nextbtn"); if (!b || !opts.goNextStep || !DATA.hq) return; const n = VGRules.hqNextOf(todayData(), { review, hidden: cos.hidden, today: today() }); b.querySelector("b").textContent = n.label; b.setAttribute("aria-label", `Next: ${n.label}`); b.hidden = false; b.onclick = () => opts.goNextStep(); };
   function syncMapsBtn(view) {   // the Views button shows where you are
+    syncNextBtn();
     syncDim();
     const g = GRAPH_INFO[view]; if (!$(".vg-pickbtn")) return;
     $(".vg-pickname").textContent = MAPS[view] || (view === "2d" || view === "3d" ? "Views" /* the 2D/3D switch beside it says which */ : g ? g[1] : view);
