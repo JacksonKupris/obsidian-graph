@@ -36,6 +36,8 @@
     const d = b.dataset;
     if (d.nextstep !== undefined) goNext();
     else if (d.peek) peekOpen(d.peek);
+    else if (d.peeklink) peekOpen(d.peeklink, [...peek.back, peek.path]);
+    else if (d.peekback !== undefined) { const back = peek.back.slice(), to = back.pop(); peekOpen(to, back); }
     else if (d.peekclose !== undefined) { peek = null; render(); }
     else if (d.keys !== undefined) keySheet();
     else if (d.addq || d.dropq) { const words = globalQuery.trim(); globalQuery = d.addq ? `${words} ${d.addq}`.trim() : words.split(/\s+/).filter(w => w.toLowerCase() !== d.dropq).join(" "); drawer = null; searchNotes(globalQuery); render(); const field = el.querySelector(".vg-hq-global-search"); if (field) { field.focus(); field.setSelectionRange(field.value.length, field.value.length); } }
@@ -169,6 +171,6 @@
     setScreen, screen: () => cur, palette: () => openPalette(), session: () => session, next: () => goNext(),
     showRows: path => ctx().showRows(path),   // a report's rows (the sidebar's Review rows opens HQ there)
     items: () => LIST.slice(),
-    destroy() { sessionLog(); clearInterval(sessionTick); clearInterval(clockTimer); clearTimeout(toastTimer); clearTimeout(searchTimer); clearTimeout(typeTimer); searchToken++; el.remove(); },
+    destroy() { sessionLog(); session = null; sessionTell(); clearInterval(sessionTick); clearInterval(clockTimer); clearTimeout(toastTimer); clearTimeout(searchTimer); clearTimeout(typeTimer); searchToken++; el.remove(); },
   };
 }

@@ -301,7 +301,7 @@
     const f = p.querySelector('.vg-tile[aria-pressed="true"]') || p.querySelector(".vg-picker-tab[aria-selected=\"true\"]") || p.querySelector(".vg-tile"); if (f) f.focus({ preventScroll: true });
   }
   // the next step, the same one HQ and the status bar name; it leads to HQ, where it's marked
-  const syncNextBtn = () => { const b = $(".vg-nextbtn"); if (!b || !opts.goNextStep || !DATA.hq) return; const n = VGRules.hqNextOf(todayData(), { review, hidden: cos.hidden, today: today() }); b.querySelector("b").textContent = n.label; b.setAttribute("aria-label", `Next: ${n.label}`); b.hidden = false; b.onclick = () => opts.goNextStep(); };
+  const syncNextBtn = () => { const b = $(".vg-nextbtn"); if (!b || !opts.goNextStep || !DATA.hq) return; const n = VGRules.hqNextOf(todayData(), { review, hidden: cos.hidden, today: today(), session: opts.focusNow ? opts.focusNow() : null }); b.querySelector("b").textContent = n.label; b.setAttribute("aria-label", `Next: ${n.label}`); b.hidden = false; b.onclick = () => opts.goNextStep(); };
   function syncMapsBtn(view) {   // the Views button shows where you are
     syncNextBtn();
     syncDim();
@@ -613,6 +613,7 @@
     async snapshot() { const blob = await new Promise(res => cv.toBlob(res, "image/png")); return blob.arrayBuffer(); },   // the canvas as PNG (State of the vault)
     _debug: { drawNow() { if (!W) return null; const t0 = performance.now(); draw(performance.now()); dirty = false; return performance.now() - t0; },   // tests: a frame now, its ms
       views: () => [...Object.keys(GRAPH_INFO), ...Object.keys(MAPS)], lenses: () => Object.keys(LENSES), openLens, st, cam, active: () => active, P, alpha: () => alpha, layouts, setView, scenes: () => SCENES, drawMs: () => drawMs, maps: () => mapCache, cos: () => cos, nodes, nb, replay: () => replay, visible, rules: VGRules },
+    syncNext: syncNextBtn,
     destroy() { persistNow(); destroyed = true; clearTimeout(persistTimer); 
       if (RM && RM.removeEventListener) RM.removeEventListener("change", onReduced);
       win.removeEventListener("keyup", keyUp, true); win.removeEventListener("blur", releaseKeys); root.ownerDocument.removeEventListener("visibilitychange", onHidden);

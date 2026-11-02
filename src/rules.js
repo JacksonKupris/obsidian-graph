@@ -1124,22 +1124,56 @@ const VGRules = (() => {
       return false;
     });
   }
+  // The notes a line links to, as written: embeds and links to a heading in the same note aren't places to go.
+  const noteLinks = s => [...String(s || "").matchAll(/(!)?\[\[([^\]|]*)(?:\|([^\]]*))?\]\]/g)].filter(m => !m[1] && m[2].split("#")[0].trim()).map(m => { const inner = m[2].replace(/\\$/, ""); return { target: inner.split("#")[0].trim(), label: (m[3] || inner).trim() }; });
+  // A block's text cut at its links, in order, for whatever draws it. A link whose label isn't in the text stays text.
+  function previewParts(b) {
+    const out = []; let rest = (b && b.text) || "";
+    for (const l of (b && b.links) || []) { const i = l.label ? rest.indexOf(l.label) : -1; if (i < 0) continue; if (i) out.push({ text: rest.slice(0, i) }); out.push({ text: l.label, target: l.target }); rest = rest.slice(i + l.label.length); }
+    if (rest) out.push({ text: rest });
+    return out;
+  }
   // A note's text as blocks to show in a preview, without Obsidian: its frontmatter and embeds go, and it stops at max characters.
   function notePreview(text, max = 20000) {
-    const body = String(text || "").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, ""), cut = body.length > max, blocks = []; let fence = null, para = [];
-    const flush = () => { if (para.length) { blocks.push({ kind: "p", text: para.join(" ") }); para = []; } };
+    const body = String(text || "").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, ""), cut = body.length > max, blocks = []; let fence = null, para = [], paraLinks = [];
+    const plain = s => plainSnippet(String(s).replace(/!\[\[[^\]]*\]\]/g, "")), linked = (b, raw) => { const links = noteLinks(raw); return links.length ? { ...b, links } : b; };
+    const flush = () => { if (para.length) { blocks.push(paraLinks.length ? { kind: "p", text: para.join(" "), links: paraLinks } : { kind: "p", text: para.join(" ") }); para = []; paraLinks = []; } };
     for (const line of (cut ? body.slice(0, max) : body).split(/\r?\n/)) {
       if (/^\s*(```|~~~)/.test(line)) { if (fence) { blocks.push({ kind: "code", text: fence.join("\n") }); fence = null; } else { flush(); fence = []; } continue; }
       if (fence) { fence.push(line); continue; }
       const h = line.match(/^(#{1,6})\s+(.*)$/), item = line.match(/^\s*(?:[-*+]|\d+\.)\s+(\[.\]\s+)?(.*)$/);
       if (!line.trim()) flush();
-      else if (h) { flush(); blocks.push({ kind: "h", level: h[1].length, text: plainSnippet(h[2]) }); }
-      else if (item) { flush(); blocks.push({ kind: "li", text: plainSnippet(item[2]), done: !!(item[1] && /x/i.test(item[1])), task: !!item[1], deep: /^\s{2,}/.test(line) }); }
+      else if (h) { flush(); blocks.push(linked({ kind: "h", level: h[1].length, text: plain(h[2]) }, h[2])); }
+      else if (item) { flush(); blocks.push(linked({ kind: "li", text: plain(item[2]), done: !!(item[1] && /x/i.test(item[1])), task: !!item[1], deep: /^\s{2,}/.test(line) }, item[2])); }
       else if (/^\s*!\[/.test(line) || /^\s*\|?[-: |]+\|?\s*$/.test(line)) continue;
-      else para.push(plainSnippet(line));
+      else { para.push(plain(line)); paraLinks.push(...noteLinks(line)); }
     }
     flush(); if (fence) blocks.push({ kind: "code", text: fence.join("\n") });
     return { blocks: blocks.filter(b => b.kind === "code" || b.text), cut };
+  }
+  // A day from what someone types: "friday", "tomorrow", "next week", "dec 3", "12/3", "2 weeks", "2026-12-01". Only a day after
+  // today counts; anything else is null. A date with no year is the next time it comes round.
+  const WEEKDAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"], MONTH_NAMES = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+  function parseDay(text, day = today()) {
+    const s = String(text || "").trim().toLowerCase().replace(/^(on|in|until)\s+/, "").replace(/,/g, " ").replace(/(\d)(st|nd|rd|th)\b/g, "$1").replace(/\s+/g, " "), base = new Date(`${day}T12:00:00`), year = base.getFullYear();
+    const plus = n => { const d = new Date(base); d.setDate(d.getDate() + n); return localDay(d); };
+    const dated = (y, m, d) => { const t = new Date(y, m, d, 12); return t.getMonth() === m && t.getDate() === d ? localDay(t) : null; };
+    const coming = (m, d) => { const a = dated(year, m, d); return a && a > day ? a : dated(year + 1, m, d); };
+    const named = (names, word) => word.length >= 3 ? names.findIndex(n => n.startsWith(word)) : -1;
+    let out = null, m;
+    if (s === "tomorrow" || s === "tmrw") out = plus(1);
+    else if (s === "next week") out = plus((8 - base.getDay()) % 7 || 7);
+    else if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))) out = dated(+m[1], m[2] - 1, +m[3]);
+    else if ((m = s.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?$/))) out = m[3] ? dated(m[3].length === 2 ? 2000 + +m[3] : +m[3], m[1] - 1, +m[2]) : coming(m[1] - 1, +m[2]);
+    else if ((m = s.match(/^(a|an|one|\d+) (day|week|month)s?$/))) {
+      const n = /^\d/.test(m[1]) ? +m[1] : 1;
+      if (m[2] === "day") out = plus(n); else if (m[2] === "week") out = plus(n * 7);
+      else { const t = new Date(year, base.getMonth() + n, 1, 12), last = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate(); t.setDate(Math.min(base.getDate(), last)); out = localDay(t); }
+    }
+    else if ((m = s.match(/^(?:next )?([a-z]+)$/))) { const w = named(WEEKDAY_NAMES, m[1]); if (w >= 0) out = plus((w - base.getDay() + 7) % 7 || 7); }
+    else if ((m = s.match(/^([a-z]+) (\d{1,2})$/))) { const i = named(MONTH_NAMES, m[1]); if (i >= 0) out = coming(i, +m[2]); }
+    else if ((m = s.match(/^(\d{1,2}) ([a-z]+)$/))) { const i = named(MONTH_NAMES, m[2]); if (i >= 0) out = coming(i, +m[1]); }
+    return out && out > day ? out : null;
   }
   // A week's work as Markdown, for a standup, an update or a note. week: the Monday.
   function weekReview(data, review, monday) {
@@ -1191,7 +1225,7 @@ const VGRules = (() => {
   }
 
   return { plainSnippet, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
-    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, weekReview, weekStart, projectMinutes, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)

@@ -64,6 +64,7 @@ function mountVaultHQ(root, data, opts) {
   // ---- the actions: a context for VGActions, with HQ's own dialog and toast when the host gives none
   const toastEl = document.createElement("div");
   let toastTimer = null;
+  toastEl.setAttribute("role", "status");
   function toast(msg, undo, bad) {
     clearTimeout(toastTimer);
     toastEl.className = "vg-hq-toast" + (bad ? " is-bad" : "");
@@ -87,7 +88,7 @@ function mountVaultHQ(root, data, opts) {
   const ctx = () => ({
     api, data: DATA,
     ask: opts.ask || ((t, x, ok) => dialog(t, x, ok)),
-    input: opts.input || ((t, x, ph) => dialog(t, x, "Reject", ph || "Reason")),
+    input: opts.input || ((t, x, ph, ok) => dialog(t, x, ok || "Reject", ph || "Reason")),
     done: (msg, undo) => { toast(msg, undo); if (opts.onDone) opts.onDone(msg); },
     fail: msg => toast(msg, null, true),
     showRows: path => { rowsPath = path; setScreen("rows"); },
@@ -113,7 +114,7 @@ function mountVaultHQ(root, data, opts) {
   function buttons(it, big, all) {   // all: the rarer choices too, where there's room (a row keeps to the usual ones)
     const c = ctx(), main = VGActions.todayWhen(it, c) ? `<button class="vg-hq-btn vg-hq-btn-primary${big ? "" : " vg-hq-btn-sm"}" data-act="main" data-key="${esc(it.key)}">${esc(VGActions.todayLabel(it))}</button>` : "";
     const more = VGActions.todayMore(it, c).filter(m => !(m.key === "open" && (VGActions.todayLabel(it) === "Open" || it.reviewOnly)) && (!m.quiet || big || all))
-      .map(m => `<button class="vg-hq-btn${big ? "" : " vg-hq-btn-sm"}${m.key === "later" ? " vg-hq-btn-ghost" : ""}" data-act="${m.key}" data-key="${esc(it.key)}" title="${esc(typeof m.title === "function" ? m.title(it) : m.title)}">${esc(m.label)}</button>`).join("");
+      .map(m => `<button class="vg-hq-btn${big ? "" : " vg-hq-btn-sm"}${m.quiet ? " vg-hq-btn-ghost" : ""}" data-act="${m.key}" data-key="${esc(it.key)}" title="${esc(typeof m.title === "function" ? m.title(it) : m.title)}">${esc(m.label)}</button>`).join("");
     return main + more;
   }
   async function act(kind, key, btn) {

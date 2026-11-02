@@ -22,6 +22,11 @@ assert.strictEqual(step({ list: [task, job], session: { title: "Ship it" }, hour
 const jp = R.canonicalDailyPath ? `${R.folders.daily}/2026/11-November/Journal/${day}.md` : "j.md";
 const hq = { date: day, journals: [{ path: jp, date: day, tasks: [{ mark: " ", text: "Snoozed", line: 1 }] }], standups: [], projects: [], backlog: [], reports: [], reviews: [], decisions: [], runs: {}, runlog: [], inbox: [] };
 const open = (mark, today) => R.todayList({ nodes: [], links: [], hq }, { today, review: { hq: mark ? { [`task|${jp}|Snoozed`]: mark } : {} } }).some(i => i.title === "Snoozed");
+{ const d = "2026-11-04", at = t => R.parseDay(t, d);   // a Wednesday
+  for (const [said, want] of [["tomorrow", "2026-11-05"], ["friday", "2026-11-06"], ["Fri", "2026-11-06"], ["wed", "2026-11-11"], ["next monday", "2026-11-09"], ["next week", "2026-11-09"], ["on tuesday", "2026-11-10"], ["3 days", "2026-11-07"], ["in 2 weeks", "2026-11-18"], ["a month", "2026-12-04"], ["dec 3", "2026-12-03"], ["December 3rd", "2026-12-03"], ["3 dec", "2026-12-03"], ["jan 2", "2027-01-02"], ["nov 4", "2027-11-04"], ["12/25", "2026-12-25"], ["1/2/27", "2027-01-02"], ["2026-12-01", "2026-12-01"]])
+    assert.strictEqual(at(said), want, `"${said}"`);
+  for (const said of ["", "soon", "sunny", "fr", "feb 31", "13/40", "2026-11-04", "2020-01-01", "0 days", "yesterday"]) assert.strictEqual(at(said), null, `"${said}" isn't a day to come back on`);
+  assert.strictEqual(R.parseDay("a month", "2027-01-31"), "2027-02-28", "the end of a month stays in the next one"); }
 assert(open(null, day), "the task is listed"); assert(!open("until:2026-11-09", day), "a snooze hides it"); assert(open("until:2026-11-02", day), "it's back on its day");
 
 // from the data alone: the answer the status bar and the graph show

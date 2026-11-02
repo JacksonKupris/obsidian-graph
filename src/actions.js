@@ -209,6 +209,15 @@ const VGActions = (() => {
     { key: "nextweek", label: "Next week", title: "Not this week: it comes back next Monday", quiet: true, when: (it, c) => !!VGRules.TODAY_GROUP[it.kind] && it.group === "today" && !!c.api.hqMark,
       run: async (it, c) => { const d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); await c.api.hqMark(it.key, `until:${VGRules.localDay(d)}`); return `Next week: ${short(it.title)}`; },
       undo: (it, c) => c.api.hqMark(it.key, null) },
+    { key: "snooze", label: "Pick a day", title: "Bring it back on a day you name", quiet: true, when: (it, c) => !!VGRules.TODAY_GROUP[it.kind] && it.group === "today" && !!c.api.hqMark && !!c.input,
+      run: async (it, c) => {
+        const said = await c.input("Bring it back on…", `When should “${it.title}” come back?`, "friday, dec 3, 2 weeks", "Snooze");
+        if (!said || !said.trim()) return null;
+        const to = VGRules.parseDay(said);
+        if (!to) throw new Error(`“${said.trim()}” isn't a day after today`);
+        await c.api.hqMark(it.key, `until:${to}`);
+        return `Back ${new Date(`${to}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}: ${short(it.title)}`; },
+      undo: (it, c) => c.api.hqMark(it.key, null) },
     { key: "reject", label: "Reject", title: "Reject the draft, with the reason", when: (it, c) => it.kind === "review" && !it.reviewOnly && !!c.api.setNoteStatus,
       run: async (it, c) => {
         const why = c.input ? await c.input("Reject the draft", `Why reject “${it.title}”? The reason goes in the draft.`, "Reason") : (await c.ask("Reject the draft", `Reject “${it.title}”?`, "Reject")) ? "" : null;
