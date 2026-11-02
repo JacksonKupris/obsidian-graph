@@ -15,12 +15,12 @@
     const th = threads().find(t => t.items.includes(it)), who = VGRules.hqPeople(DATA, [it]).filter(p => p.items.length), src = it.path || (it.ids || [])[0];
     const project = th && th.project, decisions = project ? (project.decisions || []).slice(0, 3) : [];
     const echoesHero = !BY_KEY.get(selKey) && HAS_HERO.has(cur) && it === doNext();   // the title and buttons are right beside it
-    return `${echoesHero ? `<div class="vg-hq-eyebrow">About Do next</div>` : `<div class="vg-hq-eyebrow">${esc(VGRules.kindWords(it.kind))}</div><h2 class="vg-hq-railtitle">${esc(it.title)}</h2>${it.why ? `<p class="vg-hq-railwhy">${esc(it.why)}</p>` : ""}
+    return `${echoesHero ? "" : `<div class="vg-hq-eyebrow">${esc(VGRules.kindWords(it.kind))}</div><h2 class="vg-hq-railtitle">${esc(it.title)}</h2>${it.why ? `<p class="vg-hq-railwhy">${esc(it.why)}</p>` : ""}
       <div class="vg-hq-row">${starButton(it)}${buttons(it, false, true)}${sessionButton(it)}</div>`}
-      ${project ? `<div class="vg-hq-railblock"><div class="vg-hq-eyebrow">Thread</div><button class="vg-hq-link" data-proj="${esc(project.path)}">${esc(project.title)}<small>${esc(project.status || "no status")} · ${plural(th.items.length, "open item")}</small></button></div>` : ""}
+      ${project ? `<div class="vg-hq-railblock"><div class="vg-hq-eyebrow">Thread</div><button class="vg-hq-link" data-proj="${esc(project.path)}">${esc(project.title)}<small>${esc(statusWord(project))} · ${plural(th.items.length, "open item")}</small></button></div>` : ""}
       ${who.length ? `<div class="vg-hq-railblock"><div class="vg-hq-eyebrow">People</div><div class="vg-hq-row">${who.map(p => `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(p.id)}">${esc(p.name)}</button>`).join("")}</div></div>` : ""}
       ${decisions.length ? `<div class="vg-hq-railblock"><div class="vg-hq-eyebrow">Decided</div>${decisions.map(d => `<button class="vg-hq-link" data-open="${esc(d.path)}">${esc(d.title)}<small>${esc(d.date || "")}</small></button>`).join("")}</div>` : ""}
-      ${contextPanel(it, true)}${src && api.openNote ? `<div class="vg-hq-row vg-hq-railfoot"><button class="vg-hq-linkbtn" data-open="${esc(src)}">${esc(nameOf(src))}</button></div>` : ""}`;
+      ${contextPanel(it, true)}${src && api.openNote ? `<div class="vg-hq-row vg-hq-railfoot"><button class="vg-hq-linkbtn" data-open="${esc(src)}">Open ${esc(nameOf(src))}</button></div>` : ""}`;
   }
   // the rail takes room only when it has something to say: with nothing picked the list has the width
   const railAside = () => railOn() && selected() ? `<aside class="vg-hq-rail" aria-label="About the selected item" aria-live="polite">${railHtml()}</aside>` : "";
@@ -38,7 +38,7 @@
     const list = threads().filter(t => t.project || t.area), shown = limit ? list.slice(0, limit) : list;
     if (!shown.length) return "";
     const most = Math.max(...list.map(t => t.items.length));   // bars against the biggest thread, so they differ
-    return `<section class="vg-hq-sec"><h3>Threads<span>${list.length}</span></h3><div class="vg-hq-threads">${shown.map(t => `<button class="vg-hq-thread" ${t.project ? `data-proj="${esc(t.project.path)}"` : 'data-go="threads"'}><b>${esc(t.title)}</b><small>${plural(t.items.length, "open item")}${t.project && t.project.status ? ` · ${esc(t.project.status)}` : ""}</small><span class="vg-hq-threadbar"><i style="width:${Math.round(t.items.length / most * 100)}%"></i></span></button>`).join("")}</div>${limit && list.length > limit ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-go="threads">All ${list.length} threads</button></div>` : ""}</section>`;
+    return `<section class="vg-hq-sec"><h3>Threads<span>${list.length}</span></h3><div class="vg-hq-threads">${shown.map(t => `<button class="vg-hq-thread" ${t.project ? `data-proj="${esc(t.project.path)}"` : 'data-go="threads"'}><b>${esc(t.title)}</b><small>${plural(t.items.length, "open item")}${t.project && t.project.status ? ` · ${esc(statusWord(t.project))}` : ""}</small><span class="vg-hq-threadbar"><i style="width:${Math.round(t.items.length / most * 100)}%"></i></span></button>`).join("")}</div>${limit && list.length > limit ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-go="threads">All ${list.length} threads</button></div>` : ""}</section>`;
   }
   function threadsScreen() {
     const all = threads();
@@ -53,7 +53,7 @@
     const ups = (h.standups || []).filter(s => days.includes(s.date)), step = (n, title, fact, action) => `<section class="vg-hq-reviewstep"><i>${n}</i><div><b>${esc(title)}</b><p>${fact}</p>${action || ""}</div></section>`;
     const focused = days.reduce((sum, d) => sum + VGRules.sessionMinutes(STATE.review, d), 0);
     return `<h1 class="vg-hq-h1">Weekly review</h1><p class="vg-hq-lede">${plural(total, "thing")} done in 7 days${focused ? ` · ${VGRules.minutesWords(focused)} focused` : ""} · ${plural(ups.length, "standup")}.</p>
-      <div class="vg-hq-weekbars" role="img" aria-label="Done per day">${perDay.map(x => `<span title="${esc(x.d)}: ${x.n}"><i style="height:${Math.round(x.n / peak * 100)}%"></i><small>${esc(DAYS[new Date(x.d + "T12:00:00").getDay()])}</small></span>`).join("")}</div>` +
+      <div class="vg-hq-weekbars" role="img" aria-label="Done per day">${perDay.map(x => `<span title="${esc(x.d)}: ${x.n}"><b>${x.n}</b><i style="height:${Math.round(x.n / peak * 100)}%"></i><small>${esc(DAYS[new Date(x.d + "T12:00:00").getDay()])}</small></span>`).join("")}</div>` +
       step(1, "Empty the inbox", inbox.length ? plural(inbox.length, "note") + " to file." : "Nothing to file.", inbox.length ? '<button class="vg-hq-btn" data-go="needs" data-needs-to="inbox">File them</button>' : "") +
       step(2, "Sweep what's carried over", carried.length ? plural(carried.length, "task") + " rolling forward." : "Nothing carried over.", carried.length ? '<button class="vg-hq-btn" data-go="sweep">Sweep</button>' : "") +
       step(3, "Check projects that stopped moving", stuck.length ? `${plural(stuck.length, "active project")} with no activity in 14 days: ${stuck.slice(0, 3).map(p => esc(p.title)).join(" · ")}` : "Every active project moved in the last 14 days.", stuck.length ? '<button class="vg-hq-btn" data-go="projects">Projects</button>' : "") +

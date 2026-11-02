@@ -111,7 +111,9 @@
   }
   // More / Less like this: on every item when the host can keep them
   const isFocus = it => VGRules.focusKeys(STATE.review, day()).includes(it.key);
-  const starButton = it => api.hqFocus && it.group === "today" ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-star${isFocus(it) ? " is-on" : ""}" data-star="${esc(it.key)}" aria-pressed="${isFocus(it)}" aria-label="Today's focus" title="${isFocus(it) ? "Take out of today's focus" : "Add to today's focus"} (f)">${isFocus(it) ? "★" : "☆"}</button>` : "";
+  // worded: on Do next, where it's what the day's Plan step asks for; a row keeps just the star
+  const starButton = (it, worded) => api.hqFocus && it.group === "today" ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-star${isFocus(it) ? " is-on" : ""}" data-star="${esc(it.key)}" aria-pressed="${isFocus(it)}" aria-label="Today's focus" title="${isFocus(it) ? "Take out of today's focus" : "Add to today's focus"} (f)">${isFocus(it) ? "★" : "☆"}${worded ? ` ${isFocus(it) ? "Starred" : "Star"}` : ""}</button>` : "";
+  const statusWord = p => VGRules.statusWords(p && p.status) || "no status";
   async function toggleFocus(key) {
     const keys = VGRules.focusKeys(STATE.review, day()), on = keys.includes(key);
     if (!on && keys.length >= VGRules.FOCUS_MAX) { toast(`Today's focus holds ${VGRules.FOCUS_MAX}. Take one out first.`, null, true); return; }
@@ -171,11 +173,12 @@
   }
   const PAGE = 30, opened = new Set();   // long lists come a page at a time, whatever the vault's size
   const pageOf = (title, items) => opened.has(title) || items.length <= PAGE ? items : items.slice(0, PAGE);
-  const section = (title, items, more) => items.length ? `<section class="vg-hq-sec"><h3>${esc(title)}<span>${items.length}</span></h3>${taskRows(pageOf(title, items))}${pageOf(title, items).length < items.length ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-page="${esc(title)}">Show ${items.length - PAGE} more</button></div>` : ""}${more || ""}</section>` : "";
+  // total: when the list shows only part of what there is, the heading says so
+  const section = (title, items, more, total) => items.length ? `<section class="vg-hq-sec"><h3>${esc(title)}<span>${total > items.length ? `${items.length} of ${total}` : items.length}</span></h3>${taskRows(pageOf(title, items))}${pageOf(title, items).length < items.length ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-page="${esc(title)}">Show ${items.length - PAGE} more</button></div>` : ""}${more || ""}</section>` : "";
   // an empty screen says what's true and where to go next
   const empty = (fact, next) => `<div class="vg-hq-empty"><p>${esc(fact)}</p><div class="vg-hq-row">${next.map(([label, attr]) => `<button class="vg-hq-btn" ${attr}>${esc(label)}</button>`).join("")}</div></div>`;
   const nextSteps = () => [...(api.openDaily ? [["Open today's journal", "data-daily"]] : []), ...(opts.openGraph ? [["Open the graph", "data-graph"]] : []), ["Projects", 'data-go="projects"']];
   const journalWarning = () => ((hq() || {}).journalDuplicates || []).length
-    ? `<aside class="vg-hq-warning" role="status"><b>Duplicate journal paths detected.</b> No notes were merged or removed. Vault HQ uses the expected year/month path when available; other copies remain untouched.
+    ? `<aside class="vg-hq-warning" role="status"><b>Journals with the same date in two places.</b>
       ${hq().journalDuplicates.map(d => `<p>${esc(d.date)} · using <code>${esc(d.canonical)}</code></p><div class="vg-hq-row">${(d.paths || []).map(path => api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(path)}">Open ${esc(path)}</button>` : `<code>${esc(path)}</code>`).join("")}</div>`).join("")}</aside>` : "";
 

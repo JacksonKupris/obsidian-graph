@@ -193,8 +193,18 @@
   render();
   // a first open: the tour, once HQ has settled. A vault with nothing in it has its own welcome instead.
   if (api.hqTourSeen && !(STATE.review || {}).hqTour && !isNewVault()) tourTimer = setTimeout(() => { if (el.isConnected && !el.querySelector(".vg-hq-dialog, .vg-hq-palette")) startHQTour(); }, 1500);
-  clockTimer = opts.now ? null : setInterval(() => { const c = el.querySelector(".vg-hq-clock b"); if (c) c.textContent = new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, ""); }, 30000);
+  // The clock, and the part of the list that depends on it: a job goes late, or the day turns over, with no note changing and so
+  // no update from the host. Every few minutes the list is worked out again; the screen is redrawn only if that changed anything.
+  const LIST_RECHECK = 5 * 60000; let checkedAt = now().getTime(), shownDay = day();
+  function tick() {
+    const t = now(), c = el.querySelector(".vg-hq-clock b"); if (c) c.textContent = t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "");
+    if (t.getTime() - checkedAt < LIST_RECHECK) return; checkedAt = t.getTime();
+    const keys = () => LIST.map(it => it.key).join("\n"), was = keys(); relist(); compute();
+    if (keys() !== was || day() !== shownDay) { shownDay = day(); render(); }
+  }
+  clockTimer = opts.now ? null : setInterval(tick, 30000);
   return {
+    tick,
     update(data, state) { DATA = data || DATA; if (state) STATE = state; gone = new Set(); relist(); searchNotes(globalQuery, 80); render(); },
     setScreen, screen: () => cur, palette: () => openPalette(), session: () => session, next: () => goNext(), tour: () => startHQTour(),
     showRows: path => ctx().showRows(path),   // a report's rows (the sidebar's Review rows opens HQ there)

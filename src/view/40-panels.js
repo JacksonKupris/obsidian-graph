@@ -157,7 +157,7 @@
     select(id);
   }
   function renderInsights() {
-    const linked = ranked.length, iso = nodes.filter(n => n.isolated && !special(n)).length;
+    const { linked, unlinked: iso } = VGRules.noteCounts(nodes);
     // each count is a button that shows what it counts: the whole graph, the topics, the gaps, the unlinked notes
     const stat = (v, l, cls, go, title) => `<button class="vg-stat ${cls || ""}" data-stat="${go}" title="${title}"><b>${v}</b><span>${l}</span></button>`;
     const html =

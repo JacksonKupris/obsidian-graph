@@ -7,16 +7,18 @@
     for (let i = 29; i >= 0; i--) cells.push(set.has(VGRules.localDay(new Date(t - i * 864e5))));
     return `<span class="vg-hq-spark" title="${plural(set.size, "day")} named in the dailies (last 30 days)">${cells.map(on => `<i${on ? ' class="is-on"' : ""}></i>`).join("")}</span>`;
   }
+  const pill = p => `<span class="vg-hq-pill is-${esc(p.group)}">${esc(statusWord(p))}</span>`;
+  // where a search found a project: the heading and the passage, in the words of the note
+  const searchHitHtml = p => p.searchHit ? `<small class="vg-hq-search-hit">${esc(p.searchHit.heading || "")}${p.searchHit.snippet ? `<span>${esc(VGRules.plainSnippet(p.searchHit.snippet))}</span>` : ""}</small>` : "";
   function projectsScreen() {
     const every = VGRules.hqProjects(DATA), kinds = [...new Set(every.map(p => p.kind))];
     const systems = [...new Set(every.flatMap(p => p.systems || []))].sort((a, b) => a.localeCompare(b));
     const all = every.filter(p => (kindFilter === "all" || p.kind === kindFilter) && (systemFilter === "all" || (p.systems || []).includes(systemFilter)));
     const list = VGRules.hqProjectSearch(DATA, all.filter(p => filter === "all" || p.group === filter), "", { today: day() });
-    const pill = p => `<span class="vg-hq-pill is-${esc(p.group)}">${esc(p.status || "no status")}</span>`;
     // a scope's code name (JK_Branch) is the card's tooltip: its title says the same thing in words
     const code = p => (/^Scope of Work\b/i.test(p.name) ? p.name.replace(/^.*[—–-]\s*/, "") : "");
     const card = p => `<button class="vg-hq-proj" data-proj="${esc(p.path)}"${code(p) ? ` title="${esc(code(p))}"` : ""}><span class="vg-hq-projbody"><span class="vg-hq-projhead"><small>${esc(p.kind)}</small>${pill(p)}</span>
-      <b>${esc(p.title)}</b><span class="vg-hq-sum">${esc(p.summary || "No summary yet.")}</span>${p.searchHit ? `<small class="vg-hq-search-hit">${esc([p.searchHit.heading, p.searchHit.why.join(" · ")].filter(Boolean).join(" · "))}${p.searchHit.snippet ? `<span>${esc(p.searchHit.snippet)}</span>` : ""}</small>` : ""}${(p.systems || []).length ? `<small class="vg-hq-project-systems">${esc(p.systems.map(VGRules.systemLabel).join(" · "))}</small>` : ""}<span class="vg-hq-projfoot">${spark(p.days)}<small>${esc(p.estimate || (p.updated ? `Updated ${shortDate(p.updated)}` : ""))}</small></span></span></button>`;
+      <b>${esc(p.title)}</b>${p.summary ? `<span class="vg-hq-sum">${esc(p.summary)}</span>` : ""}${searchHitHtml(p)}${(p.systems || []).length ? `<small class="vg-hq-project-systems">${esc(p.systems.map(VGRules.systemLabel).join(" · "))}</small>` : ""}<span class="vg-hq-projfoot">${spark(p.days)}<small>${esc([p.updated ? `Updated ${shortDate(p.updated)}` : "", p.estimate ? `est. ${p.estimate}` : ""].filter(Boolean).join(" · "))}</small></span></span></button>`;
     const dropdown = (key, label, selected, choices) => {
       if (!choices.some(([value]) => value === selected)) choices.push([selected, `${selected} (0)`]);
       return `<label class="vg-hq-selectlabel">${esc(label)}<select class="vg-hq-select" data-project-filter="${key}" aria-label="${esc(label)}">${choices.map(([value, text]) =>
@@ -49,7 +51,7 @@
     const moves = VGRules.BOARD_GROUPS.filter(g => VGRules.statusForGroup(g));
     const cardOf = p => { const at = moves.indexOf(p.group), back = moves[at - 1], on = at < 0 ? moves[0] : moves[at + 1], word = g => GROUP_WORDS[g];
       const quiet = p.group !== "closed" && p.updated && (Date.parse(day()) - Date.parse(p.updated)) / 864e5 >= VGRules.RULES.stale_days;
-      return `<div class="vg-hq-bcard${quiet ? " is-quiet" : ""}" data-card="${esc(p.path)}"${can ? ' draggable="true"' : ""}><button class="vg-hq-btitle" data-proj="${esc(p.path)}"><b>${esc(p.title)}</b><small>${quiet ? `<span class="vg-hq-quiet">Quiet since ${esc(shortDate(p.updated))}</span> · ` : ""}${esc(p.status || "no status")}${(p.systems || []).length ? ` · ${esc(VGRules.systemLabel(p.systems[0]))}` : ""}${(p.tasks || []).length ? ` · ${plural(p.tasks.length, "open task")}` : ""}${VGRules.projectMinutes(STATE.review, p.path) ? ` · ${VGRules.minutesWords(VGRules.projectMinutes(STATE.review, p.path))}` : ""}</small></button>
+      return `<div class="vg-hq-bcard${quiet ? " is-quiet" : ""}" data-card="${esc(p.path)}"${can ? ' draggable="true"' : ""}><button class="vg-hq-btitle" data-proj="${esc(p.path)}"><b>${esc(p.title)}</b><small>${quiet ? `<span class="vg-hq-quiet">Quiet since ${esc(shortDate(p.updated))}</span> · ` : ""}${esc(statusWord(p))}${(p.systems || []).length ? ` · ${esc(VGRules.systemLabel(p.systems[0]))}` : ""}${(p.tasks || []).length ? ` · ${plural(p.tasks.length, "open task")}` : ""}${VGRules.projectMinutes(STATE.review, p.path) ? ` · ${VGRules.minutesWords(VGRules.projectMinutes(STATE.review, p.path))}` : ""}</small></button>
         ${can ? `<span class="vg-hq-bmoves">${back ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-pmove="${esc(back)}" data-path="${esc(p.path)}" aria-label="Move ${esc(p.title)} to ${esc(word(back))}" title="To ${esc(word(back))}">${icon("left", 12)}</button>` : ""}${on ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-pmove="${esc(on)}" data-path="${esc(p.path)}" aria-label="Move ${esc(p.title)} to ${esc(word(on))}" title="To ${esc(word(on))}">${icon("right", 12)}</button>` : ""}</span>` : ""}</div>`; };
     return `<div class="vg-hq-board">${groups.map(g => { const list = projects.filter(p => (g === "other" ? !VGRules.BOARD_GROUPS.includes(p.group) : p.group === g)), shown = boardOpen.has(g) ? list : list.slice(0, BOARD_PAGE);
       return `<section class="vg-hq-col-b" data-column="${g}" aria-label="${esc(GROUP_WORDS[g])}"><h3>${esc(GROUP_WORDS[g])}<span>${list.length}</span></h3>${shown.map(cardOf).join("") || '<p class="vg-hq-lede">None.</p>'}${shown.length < list.length ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-boardmore="${g}">Show ${list.length - shown.length} more</button>` : ""}</section>`; }).join("")}</div>`;
@@ -58,14 +60,14 @@
   function drawerHtml(all) {
     const p = drawer && all.find(x => x.path === drawer); if (!p) return "";
     const minutes = VGRules.projectMinutes(STATE.review, p.path);
-    const facts = [["Status", p.status || "—"], ["Estimate", p.estimate || "—"], ["Updated", p.updated ? shortDate(p.updated) : "—"], ["Named in the dailies", `${plural((p.days || []).length, "day")} in 30`],
+    const facts = [["Status", statusWord(p)], ...(p.estimate ? [["Estimate", p.estimate]] : []), ...(p.updated ? [["Updated", shortDate(p.updated)]] : []), ["Named in the dailies", `${plural((p.days || []).length, "day")} in 30`],
       ...(minutes ? [["Focused", VGRules.minutesWords(minutes)]] : []),
       ...(p.systems && p.systems.length ? [["Systems", p.systems.map(VGRules.systemLabel).join(", ")]] : []), ...(p.tags && p.tags.length ? [["Tags", p.tags.join(", ")]] : [])];
     // its open tasks, in the sweep's rows: Done / Cancel each, or all at once (the shared batch action)
     const tasks = p.tasks || [], canTick = !!api.setTasksStatus;
     const duplicates = new Map();
     tasks.forEach(t => { const key = VGRules.plainTask(t.text).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim(); if (key) duplicates.set(key, (duplicates.get(key) || 0) + 1); });
-    const taskList = `<h3>Open tasks · ${tasks.length}</h3>` + (!tasks.length ? `<p class="vg-hq-lede">No open tasks.</p>`
+    const taskList = `<h3>${tasks.length ? `Open tasks · ${tasks.length}` : "No open tasks"}</h3>` + (!tasks.length ? ""
       : (canTick ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-sm" data-pbatch="x">Done all</button><button class="vg-hq-btn vg-hq-btn-sm" data-pbatch="-">Cancel all</button></div>` : "")
       + tasks.map(t => { const key = VGRules.plainTask(t.text).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim(), same = duplicates.get(key) > 1;
         const refs = (t.related || []).map(target => `<button class="vg-hq-link" data-open="${esc(target)}">Related: ${esc(target)}</button>`).join("");
@@ -78,11 +80,11 @@
     const relationships = [...(p.parents || []).map(target => [target, "Parent"]), ...(p.related || []).map(target => [target, "Related"])];
     return `<div class="vg-hq-scrim" data-closedrawer></div><aside class="vg-hq-drawer" role="dialog" aria-modal="false" aria-labelledby="vg-hq-drawer-title" tabindex="-1"><button class="vg-hq-x" data-closedrawer aria-label="Close project details">${icon("close")}</button>
       <button class="vg-hq-btn vg-hq-btn-ghost vg-hq-drawer-back" data-closedrawer>${icon("left", 14)} Back to projects</button>
-      <small>${esc(p.name)}</small><h2 id="vg-hq-drawer-title">${esc(p.title)}</h2><p>${esc(p.summary || "No summary yet.")}</p>
+      <small>${esc(p.name)}</small><h2 id="vg-hq-drawer-title">${esc(p.title)}</h2>${p.summary ? `<p>${esc(p.summary)}</p>` : ""}
       <dl class="vg-hq-facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>${spark(p.days)}
       ${relationships.length && api.openNote ? `<h3>Relationships</h3>${relationships.map(([target, label]) => `<button class="vg-hq-link" data-open="${esc(target)}">${label}: ${esc(target)}</button>`).join("")}` : ""}
       ${api.setProjectStatus && VGRules.STATUS_CHOICES.length ? `<h3>Status</h3><div class="vg-hq-filters" role="group" aria-label="Set status">${VGRules.STATUS_CHOICES.map(s =>
-        `<button class="vg-hq-filter${p.status === s ? " is-on" : ""}" data-setstatus="${esc(s)}" aria-pressed="${p.status === s}">${esc(s)}</button>`).join("")}</div>` : ""}
+        `<button class="vg-hq-filter${p.status === s ? " is-on" : ""}" data-setstatus="${esc(s)}" aria-pressed="${p.status === s}">${esc(VGRules.statusWords(s))}</button>`).join("")}</div>` : ""}
       ${taskList}
       ${p.decisions.length ? `<h3>Decisions</h3>${p.decisions.map(d => `<button class="vg-hq-link" data-open="${esc(d.path)}">${esc(d.title)}<small>${esc(d.date)}</small></button>`).join("")}` : ""}
       <div class="vg-hq-row">${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-primary" data-open="${esc(p.path)}">Open the note</button>` : ""}</div></aside>`;

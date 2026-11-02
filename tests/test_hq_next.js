@@ -65,7 +65,7 @@ assert(open(null, day), "the task is listed"); assert(!open("until:2026-11-09", 
     await mount(); await size(1500);
     // something broken comes before the rest of the day, with its beacon on its own row
     const jobs = await tab.ev(`window.vaultHQ.items().filter(i => i.kind === "job").map(i => i.key)`);
-    if (jobs.length) { check(/^Check:/.test(await chip()), `a failed job should come first: ${await chip()}`); await tab.ev(`document.querySelector("[data-nextstep]").click()`); await sleep(100); check(await tab.ev(`window.vaultHQ.screen()`) === "needs", "the chip should go to Needs you"); check(await tab.ev(`document.querySelector(".is-nextstep") && document.querySelector(".is-nextstep").dataset.key.startsWith("job|")`), "the beacon should be on the job");
+    if (jobs.length) { check(/^Check /.test(await chip()), `a failed job should come first: ${await chip()}`); await tab.ev(`document.querySelector("[data-nextstep]").click()`); await sleep(100); check(await tab.ev(`window.vaultHQ.screen()`) === "needs", "the chip should go to Needs you"); check(await tab.ev(`document.querySelector(".is-nextstep") && document.querySelector(".is-nextstep").dataset.key.startsWith("job|")`), "the beacon should be on the job");
       const set = `{ review: { hq: Object.fromEntries(${JSON.stringify(jobs)}.map(k => [k, "later:" + VGRules.localDay(new Date())])) } }`; const again = mount; mount = (state = set, hour = 12) => again(state, hour); await mount(); await size(1500); }
     const hasWork = await tab.ev(`window.vaultHQ.items().some(i => i.group === "today")`);
     // the chip is on every screen, and says one thing everywhere
