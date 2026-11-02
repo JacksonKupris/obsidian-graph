@@ -61,10 +61,11 @@ const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.a
     check(!await tab.ev(`${A}.solidAt(${G}.L, ${G}.me.x, ${G}.me.y)`), "walked through a wall");
 
     // shooting: face an enemy at close range; the shot hurts it, costs ammo and leaves the graph's selection alone
-    const aimed = `(() => { const L = ${G}.L, m = ${G}.me, e = L.enemies.find(o => !o.dead && o !== L.boss) || L.boss; m.x = e.x - 1; m.y = e.y; if (${A}.solidAt(L, m.x, m.y)) { m.x = e.x + 1; if (${A}.solidAt(L, m.x, m.y)) { m.x = e.x; m.y = e.y - 1; } } m.a = Math.atan2(e.y - m.y, e.x - m.x); m.gun = "pistol"; m.vx = m.vy = 0; m.ammo.bullets = 50; L.doors.forEach(d => { d.open = 1; d.hold = 99; }); ${G}.__t = e; return e.name; })()`;
-    await tab.ev(safe); await tab.ev(`${D}.st.selected = null`); await tab.ev(aimed); await frames(1);
-    const h0 = await tab.ev(`[${G}.__t.hp, ${G}.me.ammo.bullets]`);
-    await key("keydown", " ", root); await frames(8); await key("keyup", " ", root);
+    // aim and pull the trigger in one step: a woken enemy walks off the line, so any wait in between makes a slow machine miss
+    const aimed = `(() => { const L = ${G}.L, m = ${G}.me, e = L.enemies.find(o => !o.dead && o !== L.boss) || L.boss; m.x = e.x - 1; m.y = e.y; if (${A}.solidAt(L, m.x, m.y)) { m.x = e.x + 1; if (${A}.solidAt(L, m.x, m.y)) { m.x = e.x; m.y = e.y - 1; } } m.a = Math.atan2(e.y - m.y, e.x - m.x); m.gun = "pistol"; m.vx = m.vy = 0; m.cool = 0; m.swap = 0; m.ammo.bullets = 50; L.doors.forEach(d => { d.open = 1; d.hold = 99; }); ${G}.__t = e; const was = [e.hp, m.ammo.bullets]; ${root}.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true })); ${D}.drawNow(); return was; })()`;
+    await tab.ev(safe); await tab.ev(`${D}.st.selected = null`);
+    const h0 = await tab.ev(aimed);
+    await frames(8); await key("keyup", " ", root);
     const h1 = await tab.ev(`[${G}.__t.hp, ${G}.me.ammo.bullets]`);
     check(h1[0] < h0[0], "Space didn't hurt the enemy in the crosshair"); check(h1[1] < h0[1], "a shot cost no ammo");
     check(await tab.ev(`${D}.st.selected`) === null, "shooting selected a note");
