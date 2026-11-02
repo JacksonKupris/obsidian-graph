@@ -367,6 +367,22 @@
   .vg-hq .vg-hq-timer b { font-size: 52px; }
 }
 
+/* peek */
+.vg-hq .vg-hq-peek { width: min(620px, 100%); z-index: 9; } .vg-hq .vg-hq-peek h2 { margin-right: 28px; overflow-wrap: anywhere; } .vg-hq .vg-hq-peek > small { color: var(--hq-faint); overflow-wrap: anywhere; font-size: 11px; }
+.vg-hq .vg-hq-peek-body { margin-top: 12px; line-height: 1.5; overflow-wrap: anywhere; } .vg-hq .vg-hq-drawer .vg-hq-peek-body p { color: var(--hq-text); margin: 0 0 8px; }
+.vg-hq .vg-hq-peek-h { margin: 14px 0 6px; font-size: 14px; font-weight: 700; color: var(--hq-text); }
+.vg-hq .vg-hq-drawer .vg-hq-peek-body .vg-hq-peek-li { margin: 0 0 3px; padding-left: 14px; text-indent: -14px; } .vg-hq .vg-hq-peek-li.is-deep { margin-left: 16px !important; } .vg-hq .vg-hq-drawer .vg-hq-peek-body .vg-hq-peek-li.is-done { color: var(--hq-muted); text-decoration: line-through; }
+.vg-hq .vg-hq-peek-body pre { margin: 0 0 8px; padding: 8px 10px; border-radius: var(--hq-r-sm); background: var(--hq-surface); overflow-x: auto; font-size: 12px; }
+.vg-hq .vg-hq-note-hit .vg-hq-acts { flex: none; max-width: none; }
+/* search's filters; a small week panel in the calendar; the keys button */
+.vg-hq .vg-hq-searchchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 12px; } .vg-hq .vg-hq-searchchips .vg-hq-filter { padding: 3px 10px; font-size: 12px; }
+.vg-hq .vg-hq-calweek { display: grid; gap: 2px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--hq-line); } .vg-hq .vg-hq-calweek .vg-hq-row { margin-top: 6px; }
+.vg-hq .vg-hq-keysbtn { flex: none; width: 30px; height: 30px; padding: 0; justify-content: center; } .vg-hq .vg-hq-global-tools { align-items: center; }
+/* moving between screens: quick enough to feel like the same place */
+@keyframes vg-hq-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.vg-hq .vg-hq-enter { animation: vg-hq-in .16s ease-out; }
+@media (prefers-reduced-motion: reduce) { .vg-hq .vg-hq-enter { animation: none; } }
+
 /* momentum */
 .vg-hq .vg-hq-momentum { display: flex; gap: 20px; align-items: center; margin: 0 0 var(--hq-gap); padding: 14px 16px; border: 1px solid var(--hq-line); border-radius: var(--hq-r); }
 .vg-hq .vg-hq-momentum > div:first-child { display: grid; flex: none; } .vg-hq .vg-hq-momentum small { color: var(--hq-muted); }

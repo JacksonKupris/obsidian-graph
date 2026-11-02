@@ -38,7 +38,7 @@
     const groups = [...VGRules.BOARD_GROUPS, ...(projects.some(p => !VGRules.BOARD_GROUPS.includes(p.group)) ? ["other"] : [])], can = !!api.setProjectStatus;
     const moves = VGRules.BOARD_GROUPS.filter(g => VGRules.statusForGroup(g));
     const cardOf = p => { const at = moves.indexOf(p.group), back = moves[at - 1], on = at < 0 ? moves[0] : moves[at + 1], word = g => GROUP_WORDS[g];
-      return `<div class="vg-hq-bcard" data-card="${esc(p.path)}"${can ? ' draggable="true"' : ""}><button class="vg-hq-btitle" data-proj="${esc(p.path)}"><b>${esc(p.title)}</b><small>${esc(p.status || "no status")}${(p.systems || []).length ? ` · ${esc(VGRules.systemLabel(p.systems[0]))}` : ""}${(p.tasks || []).length ? ` · ${plural(p.tasks.length, "open task")}` : ""}</small></button>
+      return `<div class="vg-hq-bcard" data-card="${esc(p.path)}"${can ? ' draggable="true"' : ""}><button class="vg-hq-btitle" data-proj="${esc(p.path)}"><b>${esc(p.title)}</b><small>${esc(p.status || "no status")}${(p.systems || []).length ? ` · ${esc(VGRules.systemLabel(p.systems[0]))}` : ""}${(p.tasks || []).length ? ` · ${plural(p.tasks.length, "open task")}` : ""}${VGRules.projectMinutes(STATE.review, p.path) ? ` · ${VGRules.minutesWords(VGRules.projectMinutes(STATE.review, p.path))}` : ""}</small></button>
         ${can ? `<span class="vg-hq-bmoves">${back ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-pmove="${esc(back)}" data-path="${esc(p.path)}" aria-label="Move ${esc(p.title)} to ${esc(word(back))}" title="To ${esc(word(back))}">${icon("left", 12)}</button>` : ""}${on ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-pmove="${esc(on)}" data-path="${esc(p.path)}" aria-label="Move ${esc(p.title)} to ${esc(word(on))}" title="To ${esc(word(on))}">${icon("right", 12)}</button>` : ""}</span>` : ""}</div>`; };
     return `<div class="vg-hq-board">${groups.map(g => { const list = projects.filter(p => (g === "other" ? !VGRules.BOARD_GROUPS.includes(p.group) : p.group === g)), shown = boardOpen.has(g) ? list : list.slice(0, BOARD_PAGE);
       return `<section class="vg-hq-col-b" data-column="${g}" aria-label="${esc(GROUP_WORDS[g])}"><h3>${esc(GROUP_WORDS[g])}<span>${list.length}</span></h3>${shown.map(cardOf).join("") || '<p class="vg-hq-lede">None.</p>'}${shown.length < list.length ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-boardmore="${g}">Show ${list.length - shown.length} more</button>` : ""}</section>`; }).join("")}</div>`;
@@ -46,8 +46,10 @@
   function boardMove(path, group, btn) { const status = VGRules.statusForGroup(group), p = ((hq() || {}).projects || []).find(x => x.path === path); if (!status || !p || VGRules.statusGroup(p.status) === group) return; return setStatus(path, status, btn || { disabled: false, isConnected: false }); }
   function drawerHtml(all) {
     const p = drawer && all.find(x => x.path === drawer); if (!p) return "";
+    const minutes = VGRules.projectMinutes(STATE.review, p.path);
     const facts = [["Status", p.status || "—"], ["Estimate", p.estimate || "—"], ["Updated", p.updated ? shortDate(p.updated) : "—"], ["Named in the dailies", `${plural((p.days || []).length, "day")} in 30`],
-      ...(p.systems && p.systems.length ? [["Systems", p.systems.join(", ")]] : []), ...(p.tags && p.tags.length ? [["Tags", p.tags.join(", ")]] : [])];
+      ...(minutes ? [["Focused", VGRules.minutesWords(minutes)]] : []),
+      ...(p.systems && p.systems.length ? [["Systems", p.systems.map(VGRules.systemLabel).join(", ")]] : []), ...(p.tags && p.tags.length ? [["Tags", p.tags.join(", ")]] : [])];
     // its open tasks, in the sweep's rows: Done / Cancel each, or all at once (the shared batch action)
     const tasks = p.tasks || [], canTick = !!api.setTasksStatus;
     const duplicates = new Map();

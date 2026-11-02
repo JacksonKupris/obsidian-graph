@@ -22,9 +22,10 @@
       ${decisions.length ? `<div class="vg-hq-railblock"><div class="vg-hq-eyebrow">Decided</div>${decisions.map(d => `<button class="vg-hq-link" data-open="${esc(d.path)}">${esc(d.title)}<small>${esc(d.date || "")}</small></button>`).join("")}</div>` : ""}
       ${contextPanel(it, true)}${src && api.openNote ? `<div class="vg-hq-row vg-hq-railfoot"><button class="vg-hq-linkbtn" data-open="${esc(src)}">${esc(nameOf(src))}</button></div>` : ""}`;
   }
-  const railAside = () => railOn() ? `<aside class="vg-hq-rail" aria-label="About the selected item" aria-live="polite">${railHtml()}</aside>` : "";
+  // the rail takes room only when it has something to say: with nothing picked the list has the width
+  const railAside = () => railOn() && selected() ? `<aside class="vg-hq-rail" aria-label="About the selected item" aria-live="polite">${railHtml()}</aside>` : "";
   // just the rail: moving through a list doesn't rebuild the list
-  function updateRail() { const r = el.querySelector(".vg-hq-rail"); if (r) r.innerHTML = railHtml(); el.querySelectorAll(".vg-hq-item.is-sel").forEach(x => x.classList.remove("is-sel")); const it = selected(); if (it) { const row = [...el.querySelectorAll(".vg-hq-item[data-key]")].find(x => x.dataset.key === it.key); if (row) row.classList.add("is-sel"); } }
+  function updateRail() { const r = el.querySelector(".vg-hq-rail"); if (!r && railOn() && selected()) { render(); return; } if (r) r.innerHTML = railHtml(); el.querySelectorAll(".vg-hq-item.is-sel").forEach(x => x.classList.remove("is-sel")); const it = selected(); if (it) { const row = [...el.querySelectorAll(".vg-hq-item[data-key]")].find(x => x.dataset.key === it.key); if (row) row.classList.add("is-sel"); } }
   function selectItem(key) { selKey = key; cursorKey = key; updateRail(); }
 
   // ---- the morning brief: the day in a few sentences, from what the vault already says
@@ -36,7 +37,8 @@
   function threadsHtml(limit) {
     const list = threads().filter(t => t.project || t.area), shown = limit ? list.slice(0, limit) : list;
     if (!shown.length) return "";
-    return `<section class="vg-hq-sec"><h3>Threads<span>${list.length}</span></h3><div class="vg-hq-threads">${shown.map(t => `<button class="vg-hq-thread" ${t.project ? `data-proj="${esc(t.project.path)}"` : 'data-go="threads"'}><b>${esc(t.title)}</b><small>${plural(t.items.length, "open item")}${t.project && t.project.status ? ` · ${esc(t.project.status)}` : ""}</small><span class="vg-hq-threadbar"><i style="width:${Math.min(100, t.items.length * 12)}%"></i></span></button>`).join("")}</div>${limit && list.length > limit ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-go="threads">All ${list.length} threads</button></div>` : ""}</section>`;
+    const most = Math.max(...list.map(t => t.items.length));   // bars against the biggest thread, so they differ
+    return `<section class="vg-hq-sec"><h3>Threads<span>${list.length}</span></h3><div class="vg-hq-threads">${shown.map(t => `<button class="vg-hq-thread" ${t.project ? `data-proj="${esc(t.project.path)}"` : 'data-go="threads"'}><b>${esc(t.title)}</b><small>${plural(t.items.length, "open item")}${t.project && t.project.status ? ` · ${esc(t.project.status)}` : ""}</small><span class="vg-hq-threadbar"><i style="width:${Math.round(t.items.length / most * 100)}%"></i></span></button>`).join("")}</div>${limit && list.length > limit ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-go="threads">All ${list.length} threads</button></div>` : ""}</section>`;
   }
   function threadsScreen() {
     const all = threads();

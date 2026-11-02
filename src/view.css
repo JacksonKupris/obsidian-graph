@@ -618,6 +618,7 @@
 .vg-rv { display: flex; flex-direction: column; gap: 2px; padding: 2px 6px 4px; }
 .vg-rv-title { font-size: var(--vg-fs); line-height: 1.35; overflow-wrap: anywhere; }
 .vg-td-main .vg-rv-title, .vg-td-main .vg-item-sub { display: block; }   /* the reason under its title, not run into it */
+.vg-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }   /* for screen readers: Obsidian shows any aria-label as a hover tooltip */
 .vg-rv .vg-ins-actions { margin: 8px 0 2px; }
 .vg-review .vg-card { border-color: color-mix(in srgb, var(--vg-accent) 45%, var(--vg-line)); }
 .vg-savedrow { display: flex; align-items: flex-start; gap: 2px; }

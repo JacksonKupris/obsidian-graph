@@ -88,6 +88,7 @@ assert.strictEqual(R.statusForGroup("nowhere"), null);
     if (boxes >= 2) {
       check(!(await tab.ev(`!!document.querySelector(".vg-hq-bulk")`)), "the bar shows with nothing picked");
       const pick = (i, o = "{}") => tab.ev(`document.querySelectorAll("[data-pick]")[${i}].dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, ...${o} }))`);
+      await sleep(240);   // past the screen's entrance, which slides everything a few pixels
       const y0 = await tab.ev(`document.querySelectorAll("[data-pick]")[1].getBoundingClientRect().top`);
       await pick(0); await sleep(30); check(await tab.ev(`/1 task/.test(document.querySelector(".vg-hq-bulk b").textContent)`), "one tick doesn't show in the bar"); await shot("bulk");
       check((await tab.ev(`document.querySelectorAll("[data-pick]")[1].getBoundingClientRect().top`)) === y0, "ticking a row moved the next row");

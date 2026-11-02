@@ -27,8 +27,10 @@
     if (!session || !api.hqSession) return;
     const minutes = Math.floor(sessionMs() / 60000) - session.logged; if (minutes < 1) return;
     session.logged += minutes;
-    STATE = { ...STATE, review: { ...(STATE.review || {}), sessions: VGRules.sessionAdded(STATE.review, day(), minutes) } };
-    api.hqSession(day(), minutes);
+    const it = BY_KEY.get(session.key), th = it && threads().find(t => t.items.includes(it)), project = th && th.project ? th.project.path : (it && it.kind === "approval" ? it.path : null);
+    const review = STATE.review || {};
+    STATE = { ...STATE, review: { ...review, sessions: VGRules.sessionAdded(review, day(), minutes), ...(project ? { sessionFor: { ...(review.sessionFor || {}), [project]: VGRules.projectMinutes(review, project) + minutes } } : {}) } };
+    api.hqSession(day(), minutes, project);
   }
   function sessionEnd() { const spent = sessionMs(); sessionLog(); session = null; clearInterval(sessionTick); sessionTick = null; const whole = Math.floor(spent / 60000); toast(whole ? `Focused ${VGRules.minutesWords(whole)}` : "Session ended"); setScreen("today"); }
   // what comes after this item: the rest of today's focus, then the next thing today

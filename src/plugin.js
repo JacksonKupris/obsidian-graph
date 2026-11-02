@@ -576,7 +576,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     this.addCommand({ id: "capture-note", name: "Capture a note", callback: captureFrom("note") });
     this.addCommand({ id: "hq-palette", name: "Find or do anything (HQ)", callback: async () => { const leaf = await this.openHQ(); if (leaf.view.handle) leaf.view.handle.palette(); } });
     this.addRibbonIcon("layout-dashboard", "Open Vault HQ", () => this.openHQ());
-    this.app.workspace.onLayoutReady(() => { if (this.settings.hqAtStart !== false) this.openHQ().catch(e => console.error("Vault Graph: HQ didn't open", e));   // HQ is the home screen
+    this.app.workspace.onLayoutReady(() => { if (this.settings.hqAtStart !== false) this.openHQ().then(() => setTimeout(() => this.oneHQ(), 1500)).catch(e => console.error("Vault Graph: HQ didn't open", e));   // HQ is the home screen. After a plugin update the old tab reconnects a moment after this opens a new one, so look again
       setTimeout(() => this.recall("warm", 1).catch(() => {}), 8000); });   // read the notes and build search's index once things are quiet, so the first real search is instant
     // a note HQ reads changed (a task ticked in the journal, a draft's status set by hand): HQ and the sidebar redraw.
     // The live signature can't see these (no file or link count changes).
@@ -1244,7 +1244,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
       hqReact: (kind, how) => this.hqReact(kind, how),
       capture: (text, kind) => this.capture(text, kind),
       hqFocus: keys => this.hqFocus(keys),
-      hqSession: (day, minutes) => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.sessions = VGRules.sessionAdded(sh.review, day, minutes); return sh; }),
+      hqSession: (day, minutes, project) => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.sessions = VGRules.sessionAdded(sh.review, day, minutes); if (project) sh.review.sessionFor = { ...(sh.review.sessionFor || {}), [project]: VGRules.projectMinutes(sh.review, project) + minutes }; return sh; }),
+      readNote: async notePath => { const f = this.app.vault.getAbstractFileByPath(normalizePath(notePath)); if (!(f instanceof TFile)) throw new Error("missing note"); return this.app.vault.cachedRead(f); },
       hqHome: hidden => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.hqHome = hidden; return sh; }),
       planLine: text => this.planLine(text),
       searchMeaning: (q, n) => this.searchMeaning(q, n),
@@ -1828,9 +1829,10 @@ module.exports = class VaultGraphPlugin extends Plugin {
     } catch (e) { /* no run records on this device */ }
     return VGRules.hqGather(files, { today: day });
   }
+  // one HQ, however many tabs a restart or an update left
+  oneHQ() { const open = this.app.workspace.getLeavesOfType(HQ_TYPE); open.slice(1).forEach(l => l.detach()); return open[0] || null; }
   async openHQ() {
-    const open = this.app.workspace.getLeavesOfType(HQ_TYPE); open.slice(1).forEach(l => l.detach());   // one HQ, however many tabs a restart left
-    let leaf = open[0];
+    let leaf = this.oneHQ();
     if (!leaf) { leaf = this.app.workspace.getLeaf("tab"); await leaf.setViewState({ type: HQ_TYPE, active: true }); }
     this.app.workspace.revealLeaf(leaf);
     return leaf;
