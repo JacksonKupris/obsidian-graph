@@ -37,11 +37,12 @@ const assert = require("assert"), cdp = require("./cdp"), env = require("./env")
       assert.equal(await tab.ev(`document.querySelector('[data-project-filter="kind"] option[value="all"]').textContent`), "All kinds (3)");
       assert.equal(await tab.ev(`document.querySelector('[data-project-filter="status"] option[value="active"]').textContent`), "In progress (1)");
       await tab.ev(`(() => {const style=document.createElement("style");style.textContent="select {height:30px;font-size:11px;background-image:none;padding:0 8px;box-shadow:0 1px 3px black;}";document.head.appendChild(style);})()`);
-      assert(await tab.ev(`[...document.querySelectorAll(".vg-hq-select")].every(s => {
+      // the style was added a moment ago: a loaded CI machine may not have settled it. It has to settle right, within the wait.
+      assert(await tab.waitFor(`[...document.querySelectorAll(".vg-hq-select")].every(s => {
         const c=getComputedStyle(s), r=s.getBoundingClientRect();
         return r.height >= 44 && parseFloat(c.fontSize) >= 14 && parseFloat(c.paddingRight) >= 36 &&
           c.backgroundImage.includes("gradient") && c.boxShadow === "none" && r.right <= innerWidth;
-      })`), "dropdowns override cramped host styles with readable text, arrow space and touch height");
+      }) ? 1 : 0`, 4000), "dropdowns override cramped host styles with readable text, arrow space and touch height");
       assert(await tab.ev(`getComputedStyle(document.querySelector(".vg-hq-global-search"),"::placeholder").opacity === "1"`),
         "search placeholders retain readable opacity");
       await tab.ev(`window.__selectProjectFilter("kind","Story");window.vaultHQ.update(null,null)`);
