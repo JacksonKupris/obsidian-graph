@@ -938,6 +938,7 @@ const VGRules = (() => {
     if (mine.cosmos || disk.cosmos) {
       const c = out.cosmos = { ...cd, ...cm };
       if (cm.dungeon || cd.dungeon) { const m = obj(cm.dungeon), d = obj(cd.dungeon); c.dungeon = { reached: Math.max(m.reached || 0, d.reached || 0), best: Math.max(m.best || 0, d.best || 0), bestRun: Math.max(m.bestRun || 0, d.bestRun || 0), hunt: [m.hunt || "", d.hunt || ""].sort().pop() }; }
+      if (cm.triage || cd.triage) { const m = obj(cm.triage), d = obj(cd.triage); c.triage = { best: Math.max(m.best || 0, d.best || 0), bestCombo: Math.max(m.bestCombo || 0, d.bestCombo || 0), runs: Math.max(m.runs || 0, d.runs || 0) }; }
       if (cm.viewOpens || cd.viewOpens) { const b = obj(cb.viewOpens), m = obj(cm.viewOpens), d = obj(cd.viewOpens), v = {}; new Set([...Object.keys(m), ...Object.keys(d)]).forEach(k => { v[k] = (d[k] || 0) + Math.max(0, (m[k] || 0) - (b[k] || 0)); }); c.viewOpens = v; }   // adds both devices' gains, like XP
       c.ach = mergeMap(cb.ach, cm.ach, cd.ach);
       c.hidden = mergeList(cb.hidden, cm.hidden, cd.hidden, str).slice(-500);
@@ -1046,6 +1047,10 @@ const VGRules = (() => {
     const fresh = Object.fromEntries(Object.entries(moves).filter(([from, to]) => from !== to).map(([from, to]) => [from, { to, at }]));
     return { v: 1, ...followMoves(marks, fresh, exists), moved: { ...(moved || {}), ...fresh } };
   }
+  // Triage Run: the open tasks a run deals, oldest first, and what a swipe scores. An older task is worth more; a run of
+  // decisions multiplies it, up to five times.
+  const triageDeck = items => (items || []).filter(it => (it.kind === "task" || it.kind === "carried") && !it.delegated).sort((a, b) => (b.age || 0) - (a.age || 0));
+  const triagePoints = (age, combo) => Math.round((10 + Math.min(age || 0, 120) / 4) * (1 + Math.min(combo || 0, 16) * 0.25));
   // A project/ tag as people say it: the system's name from the rules file, or the tag's own words.
   function systemLabel(tag) {
     const named = Object.entries(R.systems || {}).find(([, s]) => s && (s.tags || []).includes(tag));
@@ -1061,7 +1066,7 @@ const VGRules = (() => {
   }
 
   return { plainSnippet, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
-    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)

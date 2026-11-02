@@ -47,7 +47,7 @@
     const more = { weather: drawWeather, foodweb: drawFoodweb, clock: drawClock, radar: drawRadar }[st.view];
     if (more) return more(now);
     if (SCENES[st.view]) return SCENES[st.view].draw(now);
-    const dpr = Math.min(window.devicePixelRatio || 1, MOBILE ? 2 : 3);
+    const dpr = screenDpr();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H); ctx.fillStyle = css("--vg-bg"); ctx.fillRect(0, 0, W, H);   // clear first: the theme background can be see-through
     project();
@@ -302,7 +302,7 @@
     ctx.restore();
   }
   function drawNeural(now) {
-    const dpr = Math.min(window.devicePixelRatio || 1, MOBILE ? 2 : 3);
+    const dpr = screenDpr();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // deep-space backdrop with a vignette
     const bgG = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.75);

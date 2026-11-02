@@ -349,7 +349,7 @@
   }
   const STARFIELD = Array.from({ length: 260 }, (_, i) => { const h = hash("star" + i); return [(h % 10000) / 10000, ((h >>> 14) % 10000) / 10000, 0.3 + ((h >>> 7) % 70) / 100, (h >>> 3) % 3]; });
   function drawCosmos(now) {
-    const dpr = Math.min(window.devicePixelRatio || 1, MOBILE ? 2 : 3);
+    const dpr = screenDpr();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const bg = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.8);
     bg.addColorStop(0, "#0a1024"); bg.addColorStop(1, "#010208"); ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);

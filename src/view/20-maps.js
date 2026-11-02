@@ -111,7 +111,7 @@
     : st.view === "radar" ? (n => !special(n) && n.tasks > 0) : (n => !special(n) && !n.ghost);
 
   function mapFrame() {
-    const dpr = Math.min(window.devicePixelRatio || 1, MOBILE ? 2 : 3);
+    const dpr = screenDpr();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
     ctx.clearRect(0, 0, W, H);   // the theme background can be see-through (Hearth cards): without this, frames smear
     P.clear(); labelRects = []; bodies = []; spots = [];
