@@ -16,7 +16,7 @@
   }
   const litLevel = n => { const a = activity(n); return staleFor(n, Q.stale_days) ? 0 : a > 0.3 ? 2 : 1; };
   scene("cyberpunk", {
-    name: "Cyberpunk", icon: "cyberpunk", fps: 30, own3d: true,
+    name: "Cyberpunk", icon: "cyberpunk", fps: 30, phoneFps: 30, restFps: 30, own3d: true,   // a frame only adds what moves, so a phone can afford it, and fast rain judders below 30
     blurb: "A rain-soaked neon city: topics are districts, notes are towers, stale ones go dark",
     toast: "Cyberpunk — a district per topic. Height is how relied-on a note is, lit windows how active, dark towers are stale, pink beacons are open tasks, the spire is the topic's map, stalls are notes with no topic",
     layout(geo) {
@@ -46,12 +46,14 @@
     // can't afford thirty times a second. Each frame shows the kept picture and adds what moves: flicker, beacons, traffic, rain.
     draw(now) {
       const { dpr, R, litSet, font, k } = mapFrame(), D = mapCache.cyberpunk, reduced = reducedMotion(), dt = tickOf(CP, now); CP.t += dt / 1000; const t = CP.t;
-      const backdrop = () => { const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, "#05010f"); sky.addColorStop(0.5, "#1a0533"); sky.addColorStop(1, "#4a0e4e"); ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+      const backdrop = (mx = 0, my = 0) => { const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, "#05010f"); sky.addColorStop(0.5, "#1a0533"); sky.addColorStop(1, "#4a0e4e"); ctx.fillStyle = sky; ctx.fillRect(-mx, -my, W + 2 * mx, H + 2 * my);
         // the low sun behind everything, cut by bands of smog
         const sr = Math.min(W, H) * 0.3, sx = W * 0.5, sy = H * 0.34, sun = ctx.createLinearGradient(0, sy - sr, 0, sy + sr); sun.addColorStop(0, "#fde047"); sun.addColorStop(0.55, "#f472b6"); sun.addColorStop(1, "#7e22ce");
         ctx.fillStyle = sun; ctx.beginPath(); ctx.arc(sx, sy, sr, 0, 2 * Math.PI); ctx.fill(); ctx.fillStyle = "#1a0533"; for (let i = 0; i < 7; i++) { const y = sy + sr * (0.08 + i * 0.13), h = 2 + i * 1.6; ctx.fillRect(sx - sr, y, sr * 2, h); } };
       if (!D) { backdrop(); return; }
-      const shown = n => n && mapShown(n), F = facades(), onScreen = (x, w) => x + w > -20 && x < W + 20;
+      // a phone paints the kept picture a little softer and with a margin around the screen, so it can be slid under a finger
+      const phone = MOBILE && !reduced, mx = phone ? W * 0.4 : 0, my = phone ? H * 0.25 : 0, ld = phone ? Math.min(dpr, 1.5) : dpr;
+      const shown = n => n && mapShown(n), F = facades(), onScreen = (x, w) => x + w > -20 - mx && x < W + mx + 20;
       // 3D: each street further back is smaller and nearer the horizon. 2D: the same city, flat on.
       const deep = st.angles.cyberpunk === "tilt3d", vy = H * 0.16, depthOf = row => deep ? 0.42 + 0.58 * Math.pow((row + 1) / Math.max(1, D.rows), 1.25) : 1;
       const at = (x, y, row) => { const q = scr(x, y, R), sc = depthOf(row); return { x: W / 2 + (q.x - W / 2) * sc, y: vy + (q.y - vy) * sc }; };
@@ -59,18 +61,21 @@
       let sig = 0; for (const b of D.blds) { const n = b.n; sig = (Math.imul(sig, 31) + (shown(n) ? 1 + (!litSet || litSet.has(n.id) ? 2 : 0) + litLevel(n) * 4 + (n.tasks > 0 ? 16 : 0) : 0)) | 0; }
       const size = [W, H, dpr].join("x"), key = [k.toFixed(4), cam.tx.toFixed(1), cam.ty.toFixed(1), cam.yaw.toFixed(3), cam.pitch.toFixed(3), deep, st.selected || "", sig].join("|");
       const kept = CP.city && CP.city.map === D && CP.city.size === size ? CP.city : null;
-      // a phone slides and scales the kept picture under your finger, and repaints a few times a second; the loop catches up with the camera when it stops
-      if (kept && kept.key !== key && !kept.since) kept.since = now;
-      const wait = kept && kept.key !== key && MOBILE && !reduced && now - kept.since < 150;
+      // a repaint is the long frame a finger feels, so a phone doesn't repaint while the camera moves: it slides and scales the kept
+      // picture, and repaints once the camera has stopped, or when it would run out of picture
+      if (key !== CP.seenKey) { CP.seenKey = key; CP.seenAt = now; }
+      const scale = kept ? k / kept.k : 1, o0 = scr(0, 0, R), ox = kept ? o0.x - kept.o.x * scale : 0, oy = kept ? o0.y - kept.o.y * scale : 0;
+      const covered = kept && ox - mx * scale <= 0 && ox + (W + mx) * scale >= W && oy - my * scale <= 0 && oy + (H + my) * scale >= H;
+      const wait = kept && kept.key !== key && phone && covered && (drag || tween || now - CP.seenAt < 180);
       if (kept && (kept.key === key || wait)) kept.P.forEach((v, id) => P.set(id, v));
       else {
-        const px = [Math.round(W * dpr), Math.round(H * dpr)], cv2 = CP.city && CP.city.canvas.width === px[0] && CP.city.canvas.height === px[1] ? CP.city.canvas : Object.assign(document.createElement("canvas"), { width: px[0], height: px[1] });
-        const main = ctx; ctx = cv2.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1;
-        backdrop(); ctx.imageSmoothingEnabled = false;
+        const px = [Math.round((W + 2 * mx) * ld), Math.round((H + 2 * my) * ld)], cv2 = CP.city && CP.city.canvas.width === px[0] && CP.city.canvas.height === px[1] ? CP.city.canvas : Object.assign(document.createElement("canvas"), { width: px[0], height: px[1] });
+        const main = ctx; ctx = cv2.getContext("2d"); ctx.setTransform(ld, 0, 0, ld, ld * mx, ld * my); ctx.globalAlpha = 1;
+        backdrop(mx, my); ctx.imageSmoothingEnabled = false;
         // the parts that move, each found here so a frame needn't walk the city; one a nearer tower stands in front of isn't added
         const rects = [], flicks = [], beacons = [], tips = [];
         let row = -1; const finishRow = r => { if (r < 0) return;
-          ctx.fillStyle = "rgba(38,10,60,.2)"; ctx.fillRect(0, 0, W, H);   // the haze: everything further away has passed under this once more
+          ctx.fillStyle = "rgba(38,10,60,.2)"; ctx.fillRect(-mx, -my, W + 2 * mx, H + 2 * my);   // the haze: everything further away has passed under this once more
           // the street: wet asphalt, with the district's neon smeared into it
           D.districts.forEach(d => { if (d.row !== r) return; const p = at(d.x0 - 30, d.base, d.row), wpx = CP.DW * k * depthOf(d.row), hpx = CP.STREET * k * depthOf(d.row); if (!onScreen(p.x, wpx)) return; const wet = ctx.createLinearGradient(0, p.y, 0, p.y + hpx); wet.addColorStop(0, hexMix(d.neon, "#0b0716", 0.72)); wet.addColorStop(1, "#07040f"); ctx.fillStyle = wet; ctx.fillRect(p.x, p.y, wpx, hpx);
             topicLabel(d.c, clip(shortName(d.c), 30), p.x + wpx / 2, p.y + hpx * 0.55, wpx * 0.9, hexMix(d.neon, "#ffffff", 0.5), "#07040f"); }); };
@@ -106,14 +111,14 @@
         if (st.selected && P.has(st.selected) && nb[st.selected]) { const a = P.get(st.selected); ctx.lineWidth = 1.5; ctx.strokeStyle = "#22d3ee"; ctx.shadowColor = "#22d3ee"; ctx.shadowBlur = 8; ctx.beginPath(); nb[st.selected].forEach(id => { const q = P.get(id); if (!q || q.r < 1) return; ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo((a.x + q.x) / 2, Math.min(a.y, q.y) - 80 * k - 20, q.x, q.y); }); ctx.stroke(); ctx.shadowBlur = 0; }
         // scanlines over the lot
         if (!CP.scan) { const c = document.createElement("canvas"); c.width = 2; c.height = 3; const g = c.getContext("2d"); g.fillStyle = "rgba(0,0,0,.2)"; g.fillRect(0, 2, 2, 1); CP.scan = c; }
-        ctx.fillStyle = ctx.createPattern(CP.scan, "repeat"); ctx.fillRect(0, 0, W, H); ctx.imageSmoothingEnabled = true;
+        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = ctx.createPattern(CP.scan, "repeat"); ctx.fillRect(0, 0, px[0], px[1]); ctx.imageSmoothingEnabled = true;   // in the layer's own pixels, so the lines stay even
         const seen = i => { const cx = i.x + (i.w || 0) / 2, cy = i.y + (i.h || 0) / 2; for (let j = i.own + 1; j < rects.length; j++) { const r = rects[j]; if (cx >= r[0] && cx <= r[2] && cy >= r[1] && cy <= r[3]) return false; } return true; };
-        CP.city = { key, size, map: D, canvas: cv2, since: 0, k, o: scr(0, 0, R), P: new Map(P), flicks: flicks.filter(seen), beacons: beacons.filter(seen), tips: tips.filter(seen) };
+        CP.city = { key, size, map: D, canvas: cv2, k, o: scr(0, 0, R), P: new Map(P), flicks: flicks.filter(seen), beacons: beacons.filter(seen), tips: tips.filter(seen) };
         const dark = D.blds.filter(b => b.kind === "tower" && shown(b.n) && litLevel(b.n) === 0).length; setSceneStat(`${plural(D.blds.filter(b => b.kind === "tower" && shown(b.n)).length, "tower")} · ${dark} dark`);
         ctx = main; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
       const C = CP.city, o = scr(0, 0, R), s = k / C.k, dx = o.x - C.o.x * s, dy = o.y - C.o.y * s, slid = s !== 1 || dx !== 0 || dy !== 0;
-      if (slid) { ctx.fillStyle = "#1a0533"; ctx.fillRect(0, 0, W, H); ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * dx, dpr * dy); ctx.drawImage(C.canvas, 0, 0, W, H); }
+      if (slid || phone) { if (slid) { ctx.fillStyle = "#1a0533"; ctx.fillRect(0, 0, W, H); } ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * dx, dpr * dy); ctx.drawImage(C.canvas, -mx, -my, W + 2 * mx, H + 2 * my); }
       else { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(C.canvas, 0, 0); ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * dx, dpr * dy); }
       // a stale tower's sign and roof flicker
       if (!reduced && C.flicks.length) { ctx.fillStyle = "rgba(5,5,16,.7)"; ctx.beginPath(); C.flicks.forEach(f => { if (Math.sin(t * 13 + f.off) > 0.72 || Math.sin(t * 2.1 + f.off) > 0.92) ctx.rect(f.x, f.y, f.w, f.h); }); ctx.fill(); }

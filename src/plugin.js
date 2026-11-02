@@ -36,6 +36,9 @@ const RULE_FIELDS = [
 // (topics, gaps, influence) are re-analysed in the background after this many seconds without an edit (desktop).
 // Not a setting any more: there is no "refresh" step for you to remember.
 const ANALYSE_AFTER_IDLE = 30;
+// and no more often than this. Each run rewrites about 1 MB that Sync keeps a version of, and Sync's limit counts those versions:
+// a run after every pause in editing filled 1 GB. The time comes from the synced file, so every PC shares it.
+const ANALYSE_EVERY_MS = 3 * 3600 * 1000;
 
 // Obsidian mobile's floating navigation bar sits over the bottom of the view: tell the renderer how much
 // to lift its bottom controls (dock, toasts, sheets) so nothing hides behind it.
@@ -949,7 +952,9 @@ module.exports = class VaultGraphPlugin extends Plugin {
     clearTimeout(this.autoTimer);
     this.autoTimer = setTimeout(async () => {
       if (this.refreshing) { this.scheduleAutoRefresh(); return; }
-      if (await this.editsSinceData()) this.refresh(true);
+      if (!(await this.editsSinceData())) return;
+      let wait = 0; try { wait = (await this.app.vault.adapter.stat(normalizePath(this.settings.dataPath))).mtime + ANALYSE_EVERY_MS - Date.now(); } catch (e) { /* no data file yet: run now */ }
+      if (wait > 0) this.scheduleAutoRefresh(Math.ceil(wait / 1000)); else this.refresh(true);
     }, (delaySeconds ?? ANALYSE_AFTER_IDLE) * 1000);
   }
 
@@ -2200,7 +2205,7 @@ class VaultGraphSettings extends PluginSettingTab {
       .addText(t => t.setPlaceholder(placeholder).setValue(this.plugin.settings[key])
         .onChange(async v => { this.plugin.settings[key] = v.trim() || DEFAULTS[key]; await this.plugin.saveSettings(); }));
     text("Graph data file", "JSON written by vault_graph.py, relative to the vault.", "dataPath", DEFAULTS.dataPath);
-    text("Analysis script", `Runs ${ANALYSE_AFTER_IDLE} seconds after your last edit (desktop only).`, "script", DEFAULTS.script);
+    text("Analysis script", `Runs after a pause in editing, at most every ${ANALYSE_EVERY_MS / 3600000} hours (desktop only). Re-analyse now runs it at once.`, "script", DEFAULTS.script);
     text("Python command", "Leave empty for python (Windows) / python3 (Linux, macOS).", "python", "python");
     text("Rules file", "This vault's folder names and thresholds, relative to the vault.", "rulesPath", DEFAULTS.rulesPath);
   }
