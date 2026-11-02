@@ -44,10 +44,11 @@
     if (isCosmos()) { dirty = true; more = true; if (st.ship) shipStep(); }
     // Animated maps (radar sweep, ships, wind, twinkling, swaying plants, pulses) redrew only on input, so they
     // jumped. Like neural: a steady budget while visible, full rate while moving, 3 fps when Obsidian isn't focused.
-    // A phone gets less, and less again once it's left alone: it's held in the hand and runs on a battery. A game keeps its rate.
+    // A phone gets less, and less again once it's left alone: it's held in the hand and runs on a battery. A game keeps its rate;
+    // a scene with cheap frames says what it can afford (phoneFps, restFps).
     const animFps = mapView() && (!reducedMotion() || (SCENES[st.view] && SCENES[st.view].game)) ? ANIM_MAPS[st.view] || 0 : 0;
     if (animFps) {
-      const busy = morph || tween || drag, phone = MOBILE && !(SCENES[st.view] && SCENES[st.view].game), fps = busy ? 0 : !document.hasFocus() ? 3 : opts.compact ? Math.min(15, animFps) : phone ? Math.min(now - lastInteract > PHONE_REST_MS ? 10 : 20, animFps) : animFps;
+      const busy = morph || tween || drag, phone = MOBILE && !(SCENES[st.view] && SCENES[st.view].game), fps = busy ? 0 : !document.hasFocus() ? 3 : opts.compact ? Math.min(15, animFps) : phone ? Math.min(now - lastInteract > PHONE_REST_MS ? SCENES[st.view] && SCENES[st.view].restFps || 10 : SCENES[st.view] && SCENES[st.view].phoneFps || 20, animFps) : animFps;
       if (!fps || now - lastMapAnim >= 1000 / fps - 2) { lastMapAnim = now; dirty = true; }
       more = true;
     }
