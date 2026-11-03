@@ -8,7 +8,7 @@
     const out = big + section("Also in focus", inFocus) + section("Today's journal", tasks.filter(t => t !== next && !inFocus.includes(t))) + section(planFrom, plan.filter(t => t !== next && !inFocus.includes(t))) +
       section("Carried over", shown.filter(t => t !== next && !inFocus.includes(t)), carried.length ? `<div class="vg-hq-row"><button class="vg-hq-btn" data-go="sweep">Sweep them, oldest first</button>${carried.length > shown.length ? `<button class="vg-hq-btn vg-hq-btn-ghost" data-carried>Show all ${carried.length}</button>` : ""}</div>` : "", carried.length);
     return `<h1 class="vg-hq-h1">Today</h1>${captureBox()}${flow()}${journalWarning()}<p class="vg-hq-lede">${esc(new Date(day() + "T12:00:00").toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))} · ${plural(tasks.length + plan.length, "item")} planned · ${carried.length} carried over</p>` +
-      (out || empty(hq() ? "No open tasks in your journals or the plan." : "No journal or standup notes found for HQ.", nextSteps())) + putOffHtml();
+      (out || empty(hq() ? "No open tasks in your journals or the plan." : "No journal or standup notes found for HQ.", nextSteps())) + putOffHtml() + planDoneHtml();
   }
 
   // ---- Needs you: decisions only you can make

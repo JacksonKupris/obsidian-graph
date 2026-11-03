@@ -210,6 +210,26 @@ check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }
   check("hq: Later lasts the day; Done takes a plan item off", [has(task), has(carried), has(plan)], [false, true, false]);
   const g = Q.graph({ nodes: [], links: [], hq }, { review: { hq: marks } });
   check("hq: an item is done once the notes no longer hold it, or it's marked done", [Q.questDone({ ...task, key: "task|gone|x" }, g), Q.questDone(task, g), Q.questDone(plan, g)], [true, false, true]);
+  // A plan item stays done when a later standup repeats its words, for hq.plan_done_days; Bring back beats it, on later standups too
+  {
+    const P = (s, date, ...lines) => ({ path: `Sys/Standups/Daily Standup ${date}.md`, date, plan: lines.map((text, line) => ({ text, line })) });
+    const hq2 = { ...hq, standups: [P(0, "2026-10-23", "Fix the service-alarm steps.", "**Count** the stickers", "Brand new", "Ticked in a journal")], journals: [{ date: "2026-10-22", path: "j.md", tasks: [{ mark: "x", text: "Ticked in a journal ✅ 2026-10-22" }] }] };
+    const oldKey = text => `plan|Sys/Standups/Daily Standup 2026-10-20.md|0|${text}`;
+    const plans = (marks, d = day) => Q.todayList({ nodes: [], links: [], hq: hq2 }, { today: d, now, review: { hq: marks } }).filter(i => i.kind === "plan").map(i => i.title);
+    const doneOf = (marks, d = day) => Q.hqPlanDone({ hq: hq2 }, { today: d, review: { hq: marks } }).map(i => [i.title, i.doneOn]);
+    const m = { [oldKey("Fix the service alarm steps")]: "done:2026-10-21", [oldKey("Count the stickers")]: "done:2026-10-10" };
+    check("hq: the same words done on an older standup stay done; hyphens and bold don't matter; too long ago they come back", plans(m), ["Count the stickers", "Brand new"]);
+    check("hq: what the plan leaves out is listed, with its day", doneOf(m), [["Fix the service-alarm steps.", "2026-10-21"], ["Ticked in a journal", "2026-10-22"]]);
+    const k = Q.hqPlanDone({ hq: hq2 }, { today: day, review: { hq: m } })[0].key, back = { ...m, [k]: `open:${day}` };
+    check("hq: Bring back returns it to the plan and off the done list", [plans(back).includes("Fix the service-alarm steps."), doneOf(back).length], [true, 1]);
+    const next = { ...hq2, standups: [P(0, "2026-10-27", "Fix the service alarm steps"), ...hq2.standups] };
+    check("hq: brought back stays back when the next standup repeats it", Q.todayList({ nodes: [], links: [], hq: next }, { today: "2026-10-28", now, review: { hq: back } }).filter(i => i.kind === "plan").map(i => i.title), ["Fix the service alarm steps"]);
+    const again = { ...back, [`plan|${next.standups[0].path}|0|Fix the service alarm steps`]: "done:2026-10-28" };
+    check("hq: done again after Bring back is done", Q.todayList({ nodes: [], links: [], hq: next }, { today: "2026-10-29", now, review: { hq: again } }).filter(i => i.kind === "plan").length, 0);
+    check("hq: a done mark from the future or with no date doesn't hide anything", plans({ [oldKey("Brand new")]: "done:2026-12-01", [oldKey("Count the stickers")]: "done:" }).includes("Brand new"), true);
+    const withStale = "## 3. Work Expected\n\n1. Real one\n- Real two\n\n### Stale Items - need status update\n\nThese appeared:\n\n- Not the plan\n\n### Kiosk\n\n1. Under a subheading\n\n## 4. Next\n1. Not this\n";
+    check("hq: a skipped subheading's items aren't the plan; other subheadings' are", Q.itemsUnder(withStale, /Work Expected/i, /stale items/i).map(i => i.text), ["Real one", "Real two", "Under a subheading"]);
+  }
   // the marks live in the shared file: a mark from the other device is kept, one taken back here stays gone
   const m1 = Q.mergeShared({ review: { hq: { a: "later:x" } } }, { review: { hq: {} } }, { review: { hq: { a: "later:x", b: "done:y" } } });
   check("hq: marks merge across devices", m1.review.hq, { b: "done:y" });

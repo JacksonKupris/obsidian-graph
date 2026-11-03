@@ -565,12 +565,14 @@ const VGRules = (() => {
   // cancelled (its status tag is status/cancelled), null when it doesn't close it
   const closeMark = s => statusGroup(s) !== "closed" ? null : projectStatusTag(s) === "status/cancelled" ? "-" : "x";
   // the top-level items under the first heading matching rx (numbered or bulleted), until the next heading as big
-  function itemsUnder(text, rx) {
-    const lines = String(text).split(/\r?\n/), out = []; let level = 0;
+  // skip: subheadings under it whose items aren't its own (the rules file's hq.plan_skip: a standup's "Stale Items" repeats plan lines in other words)
+  function itemsUnder(text, rx, skip) {
+    const lines = String(text).split(/\r?\n/), out = []; let level = 0, skipAt = 0;
     for (let i = 0; i < lines.length; i++) {
       const h = lines[i].match(/^(#{1,6})\s+(.*)/);
-      if (h) { if (level && h[1].length <= level) break; if (!level && rx.test(h[2])) level = h[1].length; continue; }
-      const m = level && lines[i].match(/^(?:\d+[.)]|[-*+])\s+(?!\[.\] )(.*\S)/);
+      if (h) { if (level && h[1].length <= level) break; if (!level && rx.test(h[2])) level = h[1].length;
+        else if (level) { if (skipAt && h[1].length <= skipAt) skipAt = 0; if (!skipAt && skip && skip.test(h[2])) skipAt = h[1].length; } continue; }
+      const m = level && !skipAt && lines[i].match(/^(?:\d+[.)]|[-*+])\s+(?!\[.\] )(.*\S)/);
       if (m) out.push({ line: i, text: m[1] });
     }
     return out;
@@ -621,7 +623,7 @@ const VGRules = (() => {
       if (f.json) { Object.entries(f.json || {}).forEach(([name, run]) => { if (run && (!hq.runs[name] || String(run.last_run) > String(hq.runs[name].last_run))) hq.runs[name] = run; }); continue; }
       const fm = f.fm || frontOf(f.text), kind = hqKind(f.path, fm, day, OPEN_TASK.test(f.text || "")), name = stemCase(f.path);
       if (kind === "journal") hq.journals.push({ path: f.path, date: dateIn(HQ_JOURNAL, f.path), tasks: tasksIn(f.text, { loose: true }) });
-      else if (kind === "standup") hq.standups.push({ path: f.path, date: dateIn(HQ_STANDUP, f.path), plan: HQ_PLAN ? itemsUnder(f.text, HQ_PLAN) : [],
+      else if (kind === "standup") hq.standups.push({ path: f.path, date: dateIn(HQ_STANDUP, f.path), plan: HQ_PLAN ? itemsUnder(f.text, HQ_PLAN, H.plan_skip ? new RegExp(H.plan_skip, "i") : null) : [],
         deviation: Number(fm.deviation_hours) || 0, projects: [].concat(fm["related-projects"] || []).map(plainTask).filter(Boolean) });
       else if (kind === "project") {
         const tasks = openTaskLines(f.text).map(t => ({ ...t, title: plainTask(t.text),
@@ -701,6 +703,31 @@ const VGRules = (() => {
   // Which part of HQ shows an item: today (work), needs (only you can decide it) or upkeep (the vault itself)
   const TODAY_GROUP = { task: "today", plan: "today", carried: "today", approval: "needs", review: "needs", job: "needs", backlog: "needs", report: "needs", inbox: "needs" };
   const todayGroup = kind => TODAY_GROUP[kind] || "upkeep";
+  // A task's words alone, to compare two lines: "service-alarm" and "service alarm" are the same, a stamp isn't part of it
+  const taskWords = t => plainTask(t).replace(/\s*(?:✅|\[completion::).*$/, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const completedOn = t => (String(t).match(/(?:✅ |\[completion:: ?)(\d{4}-\d{2}-\d{2})/) || [])[1] || (/^\w+$/.test(H.completion_field || "") ? (String(t).match(new RegExp(`\\[${H.completion_field}:: ?(\\d{4}-\\d{2}-\\d{2})`)) || [])[1] : "") || "";
+  // The plan: the last standup before today's. A plan item's mark is keyed to its standup, and the next standup copies
+  // what looks unfinished, so "done" also goes by the words: marked done on any standup, or ticked in a journal, within
+  // hq.plan_done_days. Bring back (open:<day>) beats any done mark before that day, for later standups too.
+  const lastPlan = (hq, day) => hq.standups.find(s => s.date < day);
+  const planKey = (plan, p, i) => `plan|${plan.path}|${i}|${p.text}`;
+  const planMarkText = k => k.split("|").slice(3).join("|");
+  function planDoneWords(hq, marks, day) {
+    const days = H.plan_done_days ?? 7, done = new Map(), opened = new Map(), latest = (map, text, d) => { const w = taskWords(text); if (w && d && d <= day && !(map.get(w) >= d)) map.set(w, d); };
+    const recent = d => d && daysBetween(d, day) <= days;
+    Object.entries(marks).forEach(([k, v]) => { if (!k.startsWith("plan|")) return; const [how, d] = String(v).split(":"); if (how === "open") latest(opened, planMarkText(k), d); else if (how === "done" && recent(d)) latest(done, planMarkText(k), d); });
+    (hq.journals || []).forEach(j => (j.tasks || []).forEach(t => { if (String(t.mark).toLowerCase() === "x") { const d = completedOn(t.text); if (recent(d)) latest(done, t.text, d); } }));
+    opened.forEach((d, w) => { if (done.get(w) <= d) done.delete(w); });
+    return done;
+  }
+  // when this plan item was done: its own mark (kept for as long as its standup is the plan), else the same words elsewhere
+  const planDoneOn = (key, text, marks, words) => { const own = String(marks[key] || ""); return own.startsWith("done:") ? own.slice(5) : own.startsWith("open:") ? "" : words.get(taskWords(text)) || ""; };
+  // what the plan's list leaves out as done, still in sight, with a way back
+  function hqPlanDone(data, o = {}) {
+    const hq = data.hq; if (!hq) return []; const day = o.today || hq.date || today(), marks = (o.review || {}).hq || {}, plan = lastPlan(hq, day); if (!plan) return [];
+    const words = planDoneWords(hq, marks, day);
+    return plan.plan.map((p, i) => ({ key: planKey(plan, p, i), kind: "plan", title: plainTask(p.text) || "(untitled task)", doneOn: planDoneOn(planKey(plan, p, i), p.text, marks, words) })).filter(it => it.doneOn);
+  }
   // the HQ items of todayList (see below), from data.hq
   function hqItems(data, o, add) {
     const hq = data.hq; if (!hq) return;
@@ -714,8 +741,8 @@ const VGRules = (() => {
     const todayJournal = canonicalJournal(hq, day);
     (todayJournal ? [todayJournal] : []).forEach(j => j.tasks.filter(t => t.mark === " " && !t.loose).forEach((t, i) =>
       put({ key: `task|${j.path}|${t.text}`, kind: "task", path: j.path, line: t.line, text: t.text, ...fieldsOf(t.text), ids: [j.path], title: label(t.text), why: t.section || "Today's journal", score: 20 - i * 0.01 })));
-    const plan = hq.standups.find(s => s.date < day);
-    if (plan) plan.plan.forEach((p, i) => put({ key: `plan|${plan.path}|${i}|${p.text}`, kind: "plan", path: plan.path, line: p.line, text: p.text, ids: [plan.path], title: label(p.text), why: `Planned in ${stemCase(plan.path)}`, score: 15 - i * 0.01 }));
+    const plan = lastPlan(hq, day), planWords = plan ? planDoneWords(hq, marks, day) : null;
+    if (plan) plan.plan.forEach((p, i) => planDoneOn(planKey(plan, p, i), p.text, marks, planWords) || put({ key: planKey(plan, p, i), kind: "plan", path: plan.path, line: p.line, text: p.text, ids: [plan.path], title: label(p.text), why: `Planned in ${stemCase(plan.path)}`, score: 15 - i * 0.01 }));
     hq.projects.filter(s => s.group === "waiting").forEach(s => { const waited = s.updated ? daysBetween(s.updated, day) : 0;
       put({ key: `approval|${s.path}`, kind: "approval", path: s.path, ids: [s.path], title: s.title, why: `${statusWords(s.status)}${waited > 0 ? ` for ${waited} day${waited === 1 ? "" : "s"}` : ""}`, waited, score: waited > (H.approval_overdue_days || 3) ? 21 : 12 }); });
     const reportNames = new Map(); hq.reviews.forEach(r => { if (r.reviewOnly) reportNames.set(reportTitle(r.name), (reportNames.get(reportTitle(r.name)) || 0) + 1); });
@@ -789,7 +816,7 @@ const VGRules = (() => {
   function doneToday(data, review, day) {
     const hq = data.hq || {}, out = [], seen = new Set(), add = (text, path) => { const t = plainTask(text).replace(/\s*✅.*$/, "").trim(); if (t && !seen.has(t.toLowerCase())) { seen.add(t.toLowerCase()); out.push({ text: t, path }); } };
     (hq.journals || []).forEach(j => (j.tasks || []).forEach(t => { if (t.mark && t.mark.toLowerCase() === "x" && String(t.text).includes(`✅ ${day}`)) add(t.text, j.path); }));
-    Object.entries((review || {}).hq || {}).forEach(([k, v]) => { if (v === `done:${day}` && k.startsWith("plan|")) add(k.split("|").slice(3).join("|"), k.split("|")[1]); });
+    Object.entries((review || {}).hq || {}).forEach(([k, v]) => { if (v === `done:${day}` && k.startsWith("plan|")) add(planMarkText(k), k.split("|")[1]); });
     return out;
   }
   // The calendar: a month of work, one row per day, from the same doneToday every other surface uses. lead: blank cells
@@ -1322,6 +1349,7 @@ const VGRules = (() => {
   // What's new, newest first: since is the first version with it; to is where it lives (a screen, a view, or a report). A release that adds
   // something a person should know adds a line. Compared by number, so 0.6.100 comes after 0.6.99.
   const NEWS = [
+    { since: "0.6.44", text: "Plan items you finished stay finished when the next standup repeats them, listed under the plan with a way back", to: { screen: "today" } },
     { since: "0.6.43", text: "Views: lenses, scenes and maps are one menu now, grouped by what you want to know", to: { graph: {} } },
     { since: "0.6.43", text: "Vitals says what's piling up, which notes name an old version, and how full Sync is", to: { screen: "home" } },
     { since: "0.6.43", text: "Recent changes: every change you can still undo, even after a restart", to: { screen: "changes" } },
@@ -1353,7 +1381,7 @@ const VGRules = (() => {
   }
   // a task and the open subtasks that go with it, as rows for a status change
   const taskRowsOf = it => [{ path: it.path, line: it.line, text: it.text }, ...(it.subs || []).map(s => ({ path: it.path, line: s.line, text: s.text }))];
-  return { NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
