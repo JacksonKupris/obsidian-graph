@@ -97,7 +97,7 @@
     else if (d.sweepby) { sweepBy = d.sweepby; render(); }
     else if (d.graphlens) { if (opts.openGraph) opts.openGraph({ lens: d.graphlens }); }
     else if (d.graphview) { if (opts.openGraph) opts.openGraph({ view: d.graphview }); }
-    else if (d.vitalCurrent) { const id = d.vitalCurrent, name = d.vitalName; VGActions.run({ label: () => "Still current", title: () => name, run: async (_, c) => { await c.api.stampReviewed(id); return `Marked ${name} still current`; } }, null, ctx()); }
+    else if (d.vitalCurrent) { const n = (DATA.nodes || []).find(x => x.id === d.vitalCurrent) || { id: d.vitalCurrent, name: d.vitalName, age: 0 }; VGActions.run("current", n, ctx()); }
     else if (d.row) tickRow(+d.rline, d.row, b);
     else if (d.go) { if (d.needsTo) needFilter = d.needsTo; setScreen(d.go); }
     else if (d.open !== undefined) { if (api.openNote) api.openNote(d.open); }

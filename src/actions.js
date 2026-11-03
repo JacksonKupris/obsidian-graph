@@ -147,8 +147,7 @@ const VGActions = (() => {
     write: { label: "Create note", when: c => !!c.api.writeNote,
       ask: it => ["Create note", `Create “${it.name}” in ${VGRules.folders.inbox}? ${plural(it.refs.length, "note")} already link to it.`, "Create"],
       run: async (it, c) => { const path = `${VGRules.folders.inbox}/${VGRules.safeName(it.name)}.md`;
-        const from = it.refs.slice(0, 5).map(r => c.api.linkText ? c.api.linkText(r, path) : `[[${nameOf(r)}]]`).join(", ");
-        await c.api.writeNote(path, `---\ncreated: ${VGRules.today()}\n---\n# ${it.name}\n\n> Created from Vault Graph: linked from ${from}.\n\n`, { mode: "create", open: true });
+        await c.api.writeNote(path, `---\ncreated: ${VGRules.today()}\n---\n# ${it.name}\n\n${VGRules.createdFromLine(it.refs.slice(0, 5).map(nameOf))}\n\n`, { mode: "create", open: true });
         return `Added ${it.name} to ${VGRules.folders.inbox}`; } },
     hub: { label: "Still current", when: c => !!c.api.stampReviewed,
       ask: it => ["Still current?", `Mark ${it.name} reviewed today? This stamps reviewed: in its frontmatter; nothing else changes.`, "Still current"],
@@ -160,7 +159,7 @@ const VGActions = (() => {
       ask: it => ["Rename the map", `Rename ${it.from} Hub to ${it.name} Hub? Links to it follow; its list of notes is made again.`, "Rename"],
       run: async (it, c) => { await c.api.renameMap(it.m, it.c); return `Renamed ${it.from} Hub to ${it.name} Hub`; } },
     adopt: { label: "Link to…", when: c => !!c.api.linkNotes && !!c.pick,
-      run: (it, c, e) => BY_KEY.link.run({ id: it.id, name: it.name }, c, e) },
+      run: async (it, c, e) => { if (it.up && c.api.setParents) { await c.api.setParents([{ path: it.id, hub: it.up }]); return `Linked ${it.name} up to ${it.up}`; } return BY_KEY.link.run({ id: it.id, name: it.name }, c, e); } },
     // HQ items (VGRules.hqItems): work from the vault's own notes
     task: { label: "Done", when: c => !!c.api.setTaskStatus, run: (it, c) => doneWork(it, c) },
     carried: { label: "Done", when: c => !!c.api.setTaskStatus, run: (it, c) => doneWork(it, c) },
@@ -186,7 +185,7 @@ const VGActions = (() => {
     return `Done: ${short(it.title)}${logged ? ", added to today's standup" : ""}`;
   }
   const todayWhen = (it, c) => it.reviewOnly ? !!c.api.openNote : !!TODAY[it.kind] && TODAY[it.kind].when(c);
-  const todayLabel = it => it.reviewOnly ? "Open for review" : (TODAY[it.kind] || {}).label || "";
+  const todayLabel = it => it.reviewOnly ? "Open for review" : it.kind === "adopt" && it.up ? "Add parent" : (TODAY[it.kind] || {}).label || "";
   function runToday(it, c, e) {
     if (it.reviewOnly) { c.api.openNote(it.path); return Promise.resolve(false); }
     const t = TODAY[it.kind]; if (!t || !t.when(c)) return Promise.resolve(false);

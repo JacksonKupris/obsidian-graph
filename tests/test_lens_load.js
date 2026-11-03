@@ -70,10 +70,17 @@ if (env.rules.hq && env.rules.hq.journal) {
     await tab.ev(`${D}.openLens("spof")`); const slow = await tab.ev(`${D}.lensFps(30)`); check(slow > 0 && slow <= 12, `30 fps behind a lens became ${slow}`);
     check((await tab.ev(`${D}.lensFps(0)`)) === 0, "moving the picture behind a lens lost its full rate");
     await tab.ev(`${D}.closeLens()`);
+    // Two-way links on a real pair from the page's data: it shows, suggests the softer side, and Drop reaches the host once
+    await tab.ev(`(() => { const ls = DATA.links.filter(l => l.kind === "link"), w = {}; ls.forEach(l => { (w[l.source] = w[l.source] || {})[l.target] = 1; (w[l.target] = w[l.target] || {})[l.source] = 1; }); window.__written = w; })()`); await tab.ev(`${D}.renewLinks()`);
+    await tab.ev(`${D}.openLens("twoway")`); check(await tab.waitFor(finished(), 20000), "Two-way links never finished");
+    const tw = await tab.ev(`document.querySelector(".vg-lens-body").textContent`);
+    check(/two-way pairs/.test(tw) && /Suggested side to drop/.test(tw) && /How to read this/.test(tw), `Two-way links: ${tw.slice(0, 200)}`); check(!/NaN|undefined/.test(tw), "Two-way links shows a broken number");
+    await tab.ev(`${D}.closeLens()`); await tab.ev(`void (window.__written = null)`); await tab.ev(`${D}.renewLinks()`);
     // Knowledge debt and Blast radius follow the written links: with none, nothing rests on anything
     await tab.ev(`void (window.__written = Object.fromEntries(${JSON.stringify(Object.keys(out).slice(0, 1))}.map(k => [k, {}])))`); await tab.ev(`${D}.renewLinks()`);
     await tab.ev(`${D}.openLens("debt")`); await sleep(300); const debt = await tab.ev(`document.querySelector(".vg-lens-body").textContent`);
-    check(/No stale note has anything resting on it/.test(debt), "Knowledge debt still counts links that aren't written");
+    check(/notes haven't changed/.test(debt), `The old Knowledge debt key doesn't open Stale notes: ${debt.slice(0, 120)}`); check(!/note-years owed/.test(debt), "Stale notes still counts links that aren't written");
+    check(!(await tab.ev(`${D}.lenses()`)).some(k => k === "debt" || k === "stale"), "a merged lens is still listed");
   } catch (e) { fails.push(e.message); }
   await tab.close();
   if (fails.length) { console.error(fails.map(f => `  - ${f}`).join("\n")); process.exit(1); }

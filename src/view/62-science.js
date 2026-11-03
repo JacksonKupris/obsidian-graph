@@ -170,21 +170,56 @@
       ${sciRead("A cumulative flow chart. The height of each line is a running total, and a steeper line means a faster rate. The gap between them is the new work still open from this period: a widening gap means work is arriving faster than it finishes.")}
       <p class="vg-muted vg-lens-note">Little's law: average open = arrival rate × average time open. ${F.L.toFixed(1)} = ${F.lambda.toFixed(2)} a day × ${F.W.toFixed(1)} days. It holds for any queue, so to shorten how long tasks wait you have to take on fewer or finish more. Tasks done with no date and cancelled tasks aren't counted, so the real finish rate is higher than this. A task counts once however many journals repeat it, and subtasks aren't counted, so Sweep in Vault HQ lists more.</p>`;
   }
-  // ---- Knowledge debt: what a stale note costs goes up with what rests on it and with how long it's been left
-  function lensDebt() {
-    const g = spreadGraph(), notes = g.ids.map(id => byId[id]), rows = VGScience.debtRanks(g, notes.map(n => ({ age: n.age, stale: staleFor(n, Q.stale_days) }))).map(r => ({ ...r, n: notes[r.i] }));
-    if (!rows.length) return emptyNext("No stale note has anything resting on it.", "search");
-    const total = rows.reduce((s, r) => s + r.cost, 0), top = rows[0].cost, staleCount = notes.filter(n => staleFor(n, Q.stale_days)).length, c = VGScience.concentration(rows.map(r => r.cost)), five = rows.slice(0, 5).reduce((s, r) => s + r.cost, 0) / total;
-    return `${sciFacts([[String(rows.length), "notes in debt", `Stale notes (${Q.stale_days}+ days without an edit) that other notes rest on. ${staleCount} are stale in all.`], [Math.round(total).toLocaleString(), "note-years owed", "For each one, how much rests on it times the years it's been left, added up."], [pct(five), "held by the top 5", "How much of the debt the five worst notes hold. High means a few reviews would clear most of it."], [c.effective.toFixed(0), "effective notes", "As concentrated as if this many notes held the debt equally."]])}
+  // ---- Two-way links: what blurs the Food web most. The softer side of each pair is the one to drop; if they're alike, the specific
+  // note keeps its link up to the note more others link to. Obsidian's backlinks still show a dropped link's return.
+  const twDropped = new Set(), upDone = new Set(); let twRows = [], upRows = [];
+  async function loadTwoWay() {
+    const g = directedNotes(), S = VGScience; if (!g) return emptyNext("Hierarchy needs Obsidian's link directions, which this page doesn't have.", "search");
+    // notes with no written link at all: a dated record and the inbox don't need one
+    const written = linkOut() || {}, names = new Set(nodes.filter(n => !n.ghost).map(n => n.name)), noUp = sciNotes().filter(n => !VGRules.isRecord(n) && !n.id.startsWith(`${FOLDERS.inbox}/`) && !Object.keys(written[n.id] || {}).length && !upDone.has(n.id)), hasNote = nm => names.has(nm) || (opts.noteExists ? opts.noteExists(nm) : false);
+    upRows = noUp.map(n => ({ n, up: VGRules.wayUp(n, hasNote) })).filter(r => r.up);
+    const upHtml = !noUp.length ? "" : `<div class="vg-list-h">No way up <span class="vg-count">${noUp.length}</span></div>${sciRead(`These notes link to nothing, so only generated Related lines connect them. A parent line gives each one a place. ${upRows.length} have a suggestion from their tag or folder.`)}
+      ${upRows.length && opts.setParents ? `<div class="vg-row"><button class="vg-btn vg-btn-sm" data-upall>Add ${plural(upRows.length, "parent")}</button></div>` : ""}
+      ${upRows.slice(0, 40).map((r, i) => `<div class="vg-sugg">${noteRow(r.n.id, `up to ${r.up.hub} · ${r.up.why}`)}<span class="vg-sugg-acts">${opts.setParents ? `<button class="vg-btn vg-btn-sm" data-upone="${i}">Add</button>` : ""}</span></div>`).join("")}`;
+    const pairs = S.twoWayPairs(g).filter(([a, b]) => !twDropped.has(`${g.ids[a]}|${g.ids[b]}`) && !twDropped.has(`${g.ids[b]}|${g.ids[a]}`)); if (!pairs.length) return upHtml || emptyNext("No two notes link to each other, and every note has a way up.", "search");
+    const how = opts.linkHow ? await opts.linkHow(pairs.flatMap(([a, b]) => [[g.ids[a], g.ids[b]], [g.ids[b], g.ids[a]]])) : [], at = new Map(how.map(h => [`${h.from}|${h.to}`, h])), inDeg = new Int32Array(g.n), rank = k => VGRules.LINK_KINDS.indexOf(k); g.edges.forEach(([, b]) => inDeg[b]++);
+    const of = (a, b) => at.get(`${g.ids[a]}|${g.ids[b]}`) || { kind: "sentence" };
+    twRows = pairs.map(([a, b]) => { const ha = of(a, b), hb = of(b, a), dropA = rank(ha.kind) !== rank(hb.kind) ? rank(ha.kind) > rank(hb.kind) : inDeg[a] >= inDeg[b], from = dropA ? a : b, to = dropA ? b : a, h = dropA ? ha : hb, keep = dropA ? hb : ha; return { from, to, id: g.ids[from], toId: g.ids[to], kind: h.kind, keepKind: keep.kind, line: h.line, text: h.text }; }).sort((x, y) => (y.line != null) - (x.line != null) || rank(y.kind) - rank(x.kind));
+    const can = twRows.filter(r => r.line != null), now = S.trophic(g.adj).incoherence, all = S.incoherenceWithout(g, twRows.map(r => [r.from, r.to])), some = S.incoherenceWithout(g, can.map(r => [r.from, r.to]));
+    const word = { sentence: "in a sentence", list: "a list line", frontmatter: "in frontmatter", "see also": "in See Also" };
+    return `${sciFacts([[String(pairs.length), "two-way pairs", `Pairs of notes that each link to the other, ${pct(pairs.length * 2 / g.edges.length)} of your written links.`], [now.toFixed(2), "incoherence now", "How consistently links run one way. 0 is a strict hierarchy, 1 is no direction."], [all.toFixed(2), "with one side of each gone", "The same measure if every pair below lost its suggested side."], [some.toFixed(2), `with the ${can.length} list lines gone`, "The same, dropping only the links that are one list line."]])}
+      ${upHtml}
+      ${sciRead("A hierarchy reads one way: a note leans on what it links to. Two notes linking to each other say both lean on both, which is what blurs the Food web most. One side is usually enough, since Obsidian's backlinks still show the other. A vault doesn't need 0: drop what adds nothing and keep what you use.")}
+      ${can.length && opts.dropLinkLines ? `<div class="vg-row"><button class="vg-btn vg-btn-sm" data-twall>Drop all ${plural(can.length, "list line")}</button></div>` : ""}
+      <div class="vg-list-h">Suggested side to drop <span class="vg-count">${twRows.length}</span></div>
+      ${twRows.slice(0, 60).map((r, i) => `<div class="vg-sugg">${noteRow(r.id, `links to ${byId[r.toId].name} ${word[r.kind]} · the other way is ${word[r.keepKind]}`)}<span class="vg-sugg-acts">${r.line != null && opts.dropLinkLines ? `<button class="vg-btn vg-btn-sm" data-twdrop="${i}">Drop</button>` : ""}${opts.openNote ? `<button class="vg-btn vg-btn-sm" data-twopen="${esc(r.id)}">Open</button>` : ""}</span></div>`).join("")}`;
+  }
+  function upAdd(rows, e) {
+    const done = VGActions.run({ label: () => "Add parent", title: () => rows.length === 1 ? rows[0].n.name : plural(rows.length, "note"), run: async () => { const n = await opts.setParents(rows.map(r => ({ path: r.n.id, hub: r.up.hub }))); rows.forEach(r => upDone.add(r.n.id)); return `Added ${plural(n, "parent")}`; }, undo: async () => { rows.forEach(r => upDone.delete(r.n.id)); } }, null, actionCtx(), e);
+    return Promise.resolve(done).then(ok => { if (ok) refreshLens(); return ok; });
+  }
+  function twDrop(rows, e) {
+    const done = VGActions.run({ label: () => "Drop", title: () => rows.length === 1 ? `${byId[rows[0].id].name} → ${byId[rows[0].toId].name}` : plural(rows.length, "list line"), run: async () => { const n = await opts.dropLinkLines(rows.map(r => ({ path: r.id, line: r.line, text: r.text }))); rows.forEach(r => twDropped.add(`${r.id}|${r.toId}`)); return `Dropped ${plural(n, "link")}`; }, undo: async () => { rows.forEach(r => twDropped.delete(`${r.id}|${r.toId}`)); } }, null, actionCtx(), e);
+    return Promise.resolve(done).then(ok => { if (ok) refreshLens(); return ok; });
+  }
+  // ---- Debt: what a stale note costs goes up with what rests on it and with how long it's been left. For Stale notes.
+  function debtOf() {
+    const g = spreadGraph(), notes = g.ids.map(id => byId[id]), rows = VGScience.debtRanks(g, notes.map(n => ({ age: n.age, stale: staleFor(n, Q.stale_days) }))).map(r => ({ ...r, n: notes[r.i] })), known = !!g.directed;
+    if (!rows.length) return { rows, known, facts: "" };
+    const total = rows.reduce((s, r) => s + r.cost, 0), c = VGScience.concentration(rows.map(r => r.cost)), five = rows.slice(0, 5).reduce((s, r) => s + r.cost, 0) / total;
+    return { rows, known, facts: `${sciFacts([[String(rows.length), "notes in debt", `Stale notes (${Q.stale_days}+ days without an edit) that other notes rest on.`], [Math.round(total).toLocaleString(), "note-years owed", "For each one, how much rests on it times the years it's been left, added up."], [pct(five), "held by the top 5", "How much of the debt the five worst notes hold. High means a few reviews would clear most of it."], [c.effective.toFixed(0), "effective notes", "As concentrated as if this many notes held the debt equally."]])}
       ${sciRead("Debt here is a way of ranking, not a measure of money or of error: a note isn't wrong for being old. It says which old notes would cost most if they had gone out of date. Reviewing one clears all of its debt, so start at the top.")}
-      <p class="vg-muted vg-lens-note">Cost = how much rests on it × years since it was edited. A note linking to it directly counts 1, two links away a half, three a quarter, since through enough links nearly everything reaches everything. ${g.directed ? "Resting on means linking to it. Links in Related sections and similar-meaning lines don't count: only links written into a note do." : "This page has no link direction, so links count both ways."}</p>
-      <div class="vg-list-h">Worth reviewing first <span class="vg-count">${rows.length}</span></div>
-      ${rows.slice(0, 20).map(r => `<div class="vg-sugg">${noteRow(r.n.id, `${Math.round(r.cost)} note-years · ${r.direct} link to it directly, ${r.reach} through others · ${(r.age / 365).toFixed(1)} years since an edit`)}<span class="vg-sci-bar" aria-hidden="true"><i style="width:${Math.max(2, Math.round(r.cost / top * 100))}%"></i></span><span class="vg-sugg-acts">${opts.stampReviewed ? actBtn("data-reviewed", r.n.id, "Still current") : ""}</span></div>`).join("")}`;
+      <p class="vg-muted vg-lens-note">Cost = how much rests on it × years since it was edited. A note linking to it directly counts 1, two links away a half, three a quarter, since through enough links nearly everything reaches everything. ${known ? "Resting on means linking to it. Links in Related sections and similar-meaning lines don't count: only links written into a note do." : "This page has no link direction, so links count both ways."}</p>` };
   }
   function wireScience(body) {
     const again = () => { const y = body.scrollTop; body.innerHTML = lensKey === "survival" ? renderSurvival() : lensKey === "flowlens" ? renderFlow() : LENSES[lensKey].render(); wireLens(body); body.scrollTop = y; };
     body.querySelectorAll("[data-blast-t]").forEach(d => { d.oninput = () => { const o = d.parentElement.querySelector("b"); if (o) o.textContent = (+d.value).toFixed(2); }; d.onchange = () => { blastT = +d.value; again(); }; });
     body.querySelectorAll("[data-blast-seed]").forEach(d => d.onclick = e => { e.stopPropagation(); blastSeed = d.dataset.blastSeed; again(); });
     body.querySelectorAll("[data-blast-show]").forEach(d => d.onclick = e => { e.stopPropagation(); blastShow(d.dataset.blastShow); });
+    body.querySelectorAll("[data-upone]").forEach(d => d.onclick = e => { e.stopPropagation(); d.disabled = true; upAdd([upRows[+d.dataset.upone]], e).then(ok => { if (!ok) d.disabled = false; }); });
+    body.querySelectorAll("[data-upall]").forEach(d => d.onclick = e => { e.stopPropagation(); d.disabled = true; upAdd(upRows, e).then(ok => { if (!ok) d.disabled = false; }); });
+    body.querySelectorAll("[data-twdrop]").forEach(d => d.onclick = e => { e.stopPropagation(); d.disabled = true; twDrop([twRows[+d.dataset.twdrop]], e).then(ok => { if (!ok) d.disabled = false; }); });
+    body.querySelectorAll("[data-twall]").forEach(d => d.onclick = e => { e.stopPropagation(); d.disabled = true; twDrop(twRows.filter(r => r.line != null), e).then(ok => { if (!ok) d.disabled = false; }); });
+    body.querySelectorAll("[data-twopen]").forEach(d => d.onclick = e => { e.stopPropagation(); opts.openNote(d.dataset.twopen, e.ctrlKey || e.metaKey); });
     body.querySelectorAll("[data-survival-split]").forEach(d => d.onclick = e => { e.stopPropagation(); survivalSplit = d.dataset.survivalSplit; again(); });
   }

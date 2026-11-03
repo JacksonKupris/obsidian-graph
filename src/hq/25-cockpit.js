@@ -49,7 +49,7 @@
     const h = hq() || {}, days = Array.from({ length: 7 }, (_, i) => { const d = new Date(now()); d.setDate(d.getDate() - i); return VGRules.localDay(d); }).reverse();
     const perDay = days.map(d => ({ d, n: VGRules.doneToday(DATA, STATE.review, d).length })), total = perDay.reduce((s, x) => s + x.n, 0), peak = Math.max(1, ...perDay.map(x => x.n));
     const inbox = ofKind("inbox"), carried = ofKind("carried"), stuck = VGRules.hqProjects(DATA).filter(p => p.group === "active" && Array.isArray(p.days) && !p.days.slice(-14).some(Boolean));
-    const stale = (DATA.nodes || []).filter(n => !n.person && !n.ghost && !n.moc && !n.isolated && VGRules.isStale(n, (DATA.quality || {}).stale_days)).sort((a, b) => (b.bc || 0) - (a.bc || 0)).slice(0, 5);
+    const stale = vitals ? vitals.debt.list || [] : (DATA.nodes || []).filter(n => !n.person && !n.ghost && !n.moc && !n.isolated && VGRules.isStale(n, (DATA.quality || {}).stale_days)).sort((a, b) => (b.bc || 0) - (a.bc || 0)).slice(0, 5);
     const ups = (h.standups || []).filter(s => days.includes(s.date)), step = (n, title, fact, action) => `<section class="vg-hq-reviewstep"><i>${n}</i><div><b>${esc(title)}</b><p>${fact}</p>${action || ""}</div></section>`;
     const focused = days.reduce((sum, d) => sum + VGRules.sessionMinutes(STATE.review, d), 0);
     return `<h1 class="vg-hq-h1">Weekly review</h1><p class="vg-hq-lede">${plural(total, "thing")} done in 7 days${focused ? ` · ${VGRules.minutesWords(focused)} focused` : ""} · ${plural(ups.length, "standup")}.</p>

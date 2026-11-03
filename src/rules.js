@@ -473,12 +473,24 @@ const VGRules = (() => {
     }
     return fm;
   }
-  const dateIn = (rx, path) => { const m = rx && String(path).match(rx); return m ? m[1] : null; };
+  const dateIn = (re, path) => { const m = re && String(path).match(re); if (!m) return null; const g = m.groups; return g && g.y && g.m && g.d ? `${g.y}-${g.m.padStart(2, "0")}-${g.d.padStart(2, "0")}` : m[1]; };
   const hqJournalDate = path => dateIn(HQ_JOURNAL, path);
+  // Moment-style daily note formats, as Obsidian's settings hold them: YYYY, MM, M, MMMM, DD, D, dddd and [words].
+  const dateTokens = /\[([^\]]*)\]|YYYY|MMMM|MM|M|DD|D|dddd/g;
+  const formatDate = (format, d) => String(format).replace(dateTokens, (t, lit) => lit !== undefined ? lit : t === "YYYY" ? d.getFullYear() : t === "MMMM" ? d.toLocaleString("en-US", { month: "long" }) : t === "MM" ? String(d.getMonth() + 1).padStart(2, "0") : t === "M" ? d.getMonth() + 1 : t === "DD" ? String(d.getDate()).padStart(2, "0") : t === "D" ? d.getDate() : d.toLocaleString("en-US", { weekday: "long" }));
+  // the same format as a pattern that reads the date back, in any order: named groups y, m, d (dateIn puts them together)
+  function formatPattern(format) {
+    const seen = new Set(), esc = s => s.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&"), group = (k, re) => { if (seen.has(k)) return `\\k<${k}>`; seen.add(k); return `(?<${k}>${re})`; }; let out = "", at = 0;
+    for (const m of String(format).matchAll(dateTokens)) { out += esc(String(format).slice(at, m.index)); at = m.index + m[0].length; const t = m[0];
+      out += m[1] !== undefined ? esc(m[1]) : t === "YYYY" ? group("y", "[0-9]{4}") : t === "MM" ? group("m", "[0-9]{2}") : t === "M" ? group("m", "[0-9]{1,2}") : t === "DD" ? group("d", "[0-9]{2}") : t === "D" ? group("d", "[0-9]{1,2}") : "[A-Za-z]+"; }
+    return `(?:^|/)${out}${esc(String(format).slice(at))}[.]md$`;
+  }
+  const standupsInUse = hq => H.standups !== "if_any" || !!((hq && hq.standups) || []).length;
   const dailyNotePath = (date, kind = "journal") => {
     if (!["journal", "standup"].includes(kind) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Invalid daily note date or kind");
     const d = new Date(`${date}T12:00:00`);
     if (isNaN(d) || localDay(d) !== date) throw new Error("Invalid daily note date");
+    if (H.journal_format) return `${H.journal_folder ? `${H.journal_folder}/` : ""}${kind === "standup" ? `Daily Standup ${date}` : formatDate(H.journal_format, d)}.md`;
     const [year, month] = date.split("-");
     const folder = `${R.folders.daily}/${year}/${month}-${d.toLocaleString("en-US", { month: "long" })}`;
     return `${folder}/${kind === "standup" ? `Standups/Daily Standup ${date}` : `Journal/${date}`}.md`;
@@ -494,14 +506,14 @@ const VGRules = (() => {
     return hasYear && hasMonth ? 3 : hasYear ? 2 : 1;
   };
   const canonicalDailyPath = (paths, date, kind = "journal") => (paths || []).map(x => typeof x === "string" ? x : x.path)
-    .filter(p => p.startsWith(R.folders.daily + "/") && dateIn(kind === "standup" ? HQ_STANDUP : HQ_JOURNAL, p) === date)
+    .filter(p => inDaily(p) && dateIn(kind === "standup" ? HQ_STANDUP : HQ_JOURNAL, p) === date)
     .sort((a, b) => journalRank(b, date) - journalRank(a, date) || a.localeCompare(b))[0] || null;
   const canonicalJournalPath = (paths, date) => canonicalDailyPath(paths, date);
   const canonicalJournal = (hq, date) => {
     const journals = (hq && hq.journals) || [], path = canonicalJournalPath(journals, date);
     return journals.find(j => j.path === path) || null;
   };
-  const inDaily = path => String(path).startsWith(R.folders.daily + "/");
+  const inDaily = path => !R.folders.daily || String(path).startsWith(R.folders.daily + "/");
   const reportPrefix = path => String(path).startsWith(R.folders.reports + "/") ? (H.reports || []).find(p => stemCase(path).startsWith(p + " ")) : null;
   const automationReport = path => String(path).startsWith(R.folders.reports + "/") ? (H.automations || []).find(a => a.report && stemCase(path).startsWith(a.report)) : null;
   const OPEN_TASK = /^\s*[-*+] \[ \]/m;
@@ -899,7 +911,7 @@ const VGRules = (() => {
         add({ key: `rename|${m.id}|${now}`, kind: "rename", m: m.id, c: m.clusters[0], from: m.title, name: now, ids: [m.id],
           title: `Rename ${m.title} Hub to ${now} Hub`, why: "Its topic is called that now", score: 2.2 }); });
     nodes.filter(n => plain(n) && n.isolated).sort((a, b) => (b.words || 0) - (a.words || 0)).slice(0, 5).forEach(n =>
-      add({ key: `adopt|${n.id}`, kind: "adopt", id: n.id, name: n.name, ids: [n.id], title: `Link ${n.name} to its topic`, why: "Nothing links it to a topic note yet", score: 1.2 }));
+      { const up = wayUp(n, nm => nodes.some(x => x.name === nm)); add({ key: `adopt|${n.id}`, kind: "adopt", id: n.id, name: n.name, ids: [n.id], up: up && up.hub, title: up ? `Link ${n.name} up to ${up.hub}` : `Link ${n.name} to its topic`, why: "Nothing links it to a topic note yet", score: 1.2 }); });
     // best first; ties in a different order each day (seeded by the date), the same order all day
     const seed = fnv(day);
     out.forEach(it => { const n = reactionNudge(review, it.kind); if (n) it.score = (it.score || 0) + n; });
@@ -1252,7 +1264,7 @@ const VGRules = (() => {
     const { list = [], review, day, hour = 12, done = 0, standup = false, session = null } = o, focus = hqFocusItems(list, review, day), today = list.filter(i => i.group === "today"), needs = list.filter(i => i.group === "needs");
     if (session) return { key: "session", label: `Back to: ${session.title}`, screen: "session", target: ".vg-hq-session-acts [data-act='main']" };
     const job = needs.find(i => i.kind === "job"); if (job) return { key: "job", label: `Check ${job.title}`, screen: "needs", target: `.vg-hq-item[data-key^='job|']` };
-    if (hour >= STANDUP_HOUR && done > 0 && !standup) return { key: "standup", label: "Start today's standup", screen: "wrap", target: "[data-makestandup]" };
+    if (hour >= STANDUP_HOUR && done > 0 && !standup && H.standups !== "if_any") return { key: "standup", label: "Start today's standup", screen: "wrap", target: "[data-makestandup]" };
     if (focus.length) return { key: "do", label: `Focus on: ${focus[0].title}`, screen: "today", target: ".vg-hq-next [data-session]" };
     if (hour >= STANDUP_HOUR && done > 0) return { key: "wrap", label: "Wrap up today", screen: "wrap", target: "[data-makestandup]" };
     if (today.length) return { key: "plan", label: "Pick today's focus", screen: "today", target: ".vg-hq-next .vg-hq-star" };
@@ -1305,9 +1317,25 @@ const VGRules = (() => {
   }
   // what stays out of a standup and a copied update (the rules file's hq.standup_skip): work on the notes themselves, say
   const forStandup = text => !(H.standup_skip && new RegExp(H.standup_skip, "i").test(String(text)));
+  // the line a note made from a wanted link starts with. Plain names, not links: nobody wrote these as reliance, and backlinks already show them.
+  const createdFromLine = names => `> Created from Vault Graph: linked from ${names.join(", ")}.`;
+  // a line that's only a link in a list (with at most a few words after it): it can go without breaking a sentence
+  const bareLinkLine = l => /^\s*[-*+]\s+(?:\[[ x-]\]\s+)?\[\[[^\]]+\]\]\s*(?:[—–:-].{0,80})?$/.test(String(l));
+  // how a link is written, softest last: which side of a two-way pair to drop
+  const LINK_KINDS = ["sentence", "list", "frontmatter", "see also"];
+  const linkKindOf = (line, heading) => !bareLinkLine(line) ? "sentence" : /^(see also|references?|links?)\b/i.test(String(heading || "").trim()) ? "see also" : "list";
+  // The note a note should link up to (the rules file's hierarchy): the hub for its first matching tag, else its system's map, from
+  // its folder under system_root. hasNote(name): that note exists. Null when nothing fits.
+  function wayUp(n, hasNote) {
+    const H2 = R.hierarchy || {}, tags = n.tags || [], name = n.name || stemCase(n.id);
+    for (const [tag, hub] of Object.entries(H2.tag_hubs || {})) if (tags.includes(tag) && hub !== name && hasNote(hub)) return { hub, why: tag };
+    const m = H2.system_root && String(n.id).startsWith(`${H2.system_root}/`) ? String(n.id).slice(H2.system_root.length + 1).split("/") : null;
+    if (m && m.length > 1 && m[0] !== name && hasNote(m[0])) return { hub: m[0], why: `in ${m[0]}` };
+    return null;
+  }
   // a task and the open subtasks that go with it, as rows for a status change
   const taskRowsOf = it => [{ path: it.path, line: it.line, text: it.text }, ...(it.subs || []).map(s => ({ path: it.path, line: s.line, text: s.text }))];
-  return { forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

@@ -1,5 +1,7 @@
 # Working on Vault Graph
 
+Before adding a feature, read [FEATURES.md](FEATURES.md): extend the one that owns the job, and merge two that do the same job.
+
 How code gets from your editor to `main`, the same on every computer, with or without an AI helper. Releasing what's
 on `main` is in [RELEASING.md](RELEASING.md).
 

@@ -21,7 +21,7 @@ const steps = [["main.js", ["--check", path.join(dir, "main.js")]], ["rules.js",
   ["test_hq_navigation.js", [path.join(__dirname, "test_hq_navigation.js"), ...env.args]],
   ["test_hq_improvements.js", [path.join(__dirname, "test_hq_improvements.js"), ...env.args]],
   ["test_hq_usability.js", [path.join(__dirname, "test_hq_usability.js"), ...env.args]],
-  ["test_lens_load.js", [path.join(__dirname, "test_lens_load.js"), ...env.args]], ["test_sweep_vitals.js", [path.join(__dirname, "test_sweep_vitals.js"), ...env.args]],
+  ["test_other_vault.js", [path.join(__dirname, "test_other_vault.js")]], ["test_lens_load.js", [path.join(__dirname, "test_lens_load.js"), ...env.args]], ["test_sweep_vitals.js", [path.join(__dirname, "test_sweep_vitals.js"), ...env.args]],
   ["smoke_page.js", [path.join(__dirname, "smoke_page.js"), ...env.args]]];
 let failed = 0, skipped = 0;
 // the repo's manifest.json (what BRAT reads) is the one the build makes: same id, same version as package.json
