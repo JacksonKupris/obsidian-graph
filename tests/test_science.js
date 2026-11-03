@@ -151,4 +151,6 @@ const again = S.outbreakStats(K5, 1, 0.4, 100, 5), twice = S.outbreakStats(K5, 1
 { const c = S.chao1([1, 1, 1, 1, 2, 2, 5]); assert.strictEqual(c.S, 7); assert.strictEqual(c.unseen, 4, "16 / 4"); assert.strictEqual(c.total, 11); assert.strictEqual(S.chao1([1, 1, 1, 3]).unseen, 3, "no doubletons"); }
 // location quotient: in step is 1; twice its share is 2; nothing finished has no answer
 { near(S.locationQuotient(10, 100, 20, 200), 1, 1e-9, "in step"); near(S.locationQuotient(6, 100, 1, 33.33), 2, 0.01, "twice its share"); assert.strictEqual(S.locationQuotient(5, 10, 0, 10), null); }
+// days to a limit: 70 up in 7 days is 10 a day, so 300 left is 30 days; no old sample, or not growing, no answer
+{ const h = { "2026-10-26": { sync: 630 }, "2026-11-01": { sync: 699 } }; near(S.daysToLimit(h, "2026-11-02", "sync", 700, 1000), 30, 1e-9, "days to the limit"); assert.strictEqual(S.daysToLimit({ "2026-11-01": { sync: 1 } }, "2026-11-02", "sync", 700, 1000), null); assert.strictEqual(S.daysToLimit({ "2026-10-20": { sync: 800 } }, "2026-11-02", "sync", 700, 1000), null, "shrinking"); }
 console.log("ok - science: Kaplan-Meier and log-rank on the 6-MP trial, SIR and its threshold, cut points, percolation, the neuron's closed form, anatomy");

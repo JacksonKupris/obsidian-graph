@@ -1489,6 +1489,14 @@ module.exports = class VaultGraphPlugin extends Plugin {
       await this.ioProcess(file, data => { const nl = data.includes("\r\n") ? "\r\n" : "\n", lines = data.split(/\r?\n/); list.slice().sort((a, b) => b.line - a.line).forEach(r => { if (lines[r.line] === r.text && VGRules.bareLinkLine(r.text)) { lines.splice(r.line, 1); n++; } }); return lines.join(nl); }); }
     return n;
   }
+  // How much of the Sync limit the vault's history uses, asked at most hourly and never held up for: its limit counts version history, so a
+  // big file rewritten often fills it. Obsidian's own, not a published interface, so anything unexpected means no figure rather than a wrong one.
+  async syncStorage() {
+    const now = Date.now(); if (this.syncSize && now - this.syncSize.t < 3600000) return this.syncSize.v;
+    try { const s = this.app.internalPlugins && this.app.internalPlugins.plugins && this.app.internalPlugins.plugins.sync, i = s && s.enabled && s.instance; if (!i || !i.size) return null;
+      const r = await Promise.race([i.size(), new Promise(res => setTimeout(() => res(null), 4000))]); const v = r && r.size > 0 && r.limit > 0 ? { used: r.size, limit: r.limit } : null; this.syncSize = { t: now, v }; return v; }
+    catch (e) { this.syncSize = { t: now, v: null }; return null; }
+  }
   // HQ's vitals, from the same methods and links as the lenses. Kept briefly, since HQ asks after every update; a task or review
   // changed clears it. One sample a day goes in the shared state (small, and capped), for the trend.
   async vitals() {
@@ -1500,6 +1508,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       notes: data.nodes.filter(n => !n.person && !n.ghost && !n.moc).map(n => ({ id: n.id, name: n.name, age: n.age || 0, stale: VGRules.isStale(n, staleDays) })) });
     // what's open is what HQ lists, so the two can't disagree; came in and finished stay the Flow lens's own count
     const sh = await this.loadShared(), carried = VGRules.todayList(data, { review: sh && sh.review, hidden: sh && sh.cosmos && sh.cosmos.hidden, today: day }).filter(i => i.kind === "carried");
+    v.sync = await this.syncStorage();
     v.pile.open = carried.length; v.pile.old = carried.filter(i => i.age > 30).length;
     v.web.noWayUp = data.nodes.filter(n => !n.person && !n.ghost && !n.moc && !VGRules.isRecord(n) && !n.id.startsWith(inbox) && !Object.keys(out[n.id] || {}).length).length;
     this.vitalsMemo = { t: now, v };
