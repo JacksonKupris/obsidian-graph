@@ -1,7 +1,7 @@
 // plugin.js - Obsidian plugin shell for the Vault Graph.
 // Bundled with the rules, engine and view into main.js by `npm run build` (build.js); releases ship it (RELEASING.md).
 // Edit here, never a generated main.js.
-const { Plugin, ItemView, Notice, PluginSettingTab, Setting, Platform, TFile, normalizePath, MarkdownRenderChild, parseYaml, moment } = require("obsidian");
+const { Plugin, ItemView, MarkdownView, Notice, PluginSettingTab, Setting, Platform, TFile, normalizePath, MarkdownRenderChild, parseYaml, moment, editorInfoField } = require("obsidian");
 
 const VIEW_TYPE = "vault-graph";
 const LOCAL_TYPE = "vault-graph-local";
@@ -561,6 +561,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     // Every change the plugin writes refreshes the open views, even ones the live signature can't see
     // (a task checked off, a note reviewed twice in a day): without this they kept the old state until the next analysis
     this.wrapWriteActions();
+    this.registerDoneDates();
     await this.loadDismissed();   // dismissed pairs stop showing at once (the analysis drops them at its next run)
     CONTENT.log = {};
     for (const p of [CONTENT.path, VGRules.files.content_backup]) {   // the backup when a reinstall removed the plugin folder
@@ -1411,6 +1412,36 @@ module.exports = class VaultGraphPlugin extends Plugin {
 
   // Tasks, from any view or the sidebar. status: "x" complete, "-" cancelled (the vault's convention: left out of
   // Carried Over), " " reopen. Only if the line is still the one we showed (the note may have changed since).
+  // A tick made in the editor gets its done date the same way HQ's Done does (VGRules.taskEdit), in the same edit, so one Undo
+  // takes back both. A transaction filter, because a checkbox click, the keyboard toggle and a typed x all arrive as editor changes.
+  // A click in reading view skips the editor and changes the view's text, so that's compared before and after the click.
+  registerDoneDates() {
+    this.registerDomEvent(document, "click", e => {
+      const box = e.target; if (!box || !box.matches || !box.matches("input.task-list-item-checkbox")) return;
+      const leaf = this.app.workspace.getLeavesOfType("markdown").find(l => l.view.containerEl.contains(box)), view = leaf && leaf.view;
+      if (!(view instanceof MarkdownView) || view.getMode() !== "preview" || !view.file) return;
+      const before = view.data, file = view.file;
+      setTimeout(async () => {
+        const stamp = VGRules.stampsDone(file.path); if (VGRules.noteTaskEdits(before, view.data, today(), stamp) == null) return;
+        await view.save();   // the click's change is on disk first, so the date goes on top of it
+        await this.ioProcess(file, text => VGRules.noteTaskEdits(before, text, today(), stamp) ?? text);
+      }, 0);
+    }, { capture: true });
+    let State; try { State = require("@codemirror/state"); } catch (e) { return; }   // not inside Obsidian (the tests)
+    this.registerEditorExtension(State.EditorState.transactionFilter.of(tr => {
+      if (!tr.docChanged) return tr;
+      const info = tr.startState.field(editorInfoField, false), path = info && info.file && info.file.path; if (!path) return tr;
+      const before = tr.startState.doc, after = tr.newDoc, changes = [], seen = new Set();
+      tr.changes.iterChangedRanges((fromA, toA, fromB, toB) => {
+        const a = before.lineAt(fromA), b = after.lineAt(fromB);
+        if (toA > a.to || toB > b.to || seen.has(b.number)) return; seen.add(b.number);
+        const next = VGRules.taskEdit(a.text, b.text, today(), VGRules.stampsDone(path)); if (next == null) return;
+        let i = 0; while (i < next.length && i < b.text.length && next[i] === b.text[i]) i++;   // only what differs, so the cursor stays put
+        changes.push({ from: b.from + i, to: b.to, insert: next.slice(i) });
+      });
+      return changes.length ? [tr, { changes, sequential: true }] : tr;
+    }));
+  }
   async setTaskStatus(notePath, line, text, status = "x") {
     const file = this.app.vault.getAbstractFileByPath(normalizePath(notePath));
     if (!(file instanceof TFile)) throw new Error("missing note");

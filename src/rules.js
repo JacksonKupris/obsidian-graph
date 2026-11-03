@@ -416,8 +416,25 @@ const VGRules = (() => {
   // ticks are instructions (stamp false: a report row the gardener applies)
   function taskLine(line, mark, day, stamp = true) {
     const m = String(line).match(TASK_LINE); if (!m) return line;
-    const add = stamp && H.completion_field && mark === "x" && !hasCompletion(m[4]) ? " " + completionStamp(day || today()) : "";
+    if (isDoneMark(m[2]) && !isDoneMark(mark)) return m[1] + mark + m[3] + withoutCompletion(m[4]);   // no longer done: its date goes too
+    const add = stamp && H.completion_field && isDoneMark(mark) && !hasCompletion(m[4]) ? " " + completionStamp(day || today()) : "";
     return m[1] + mark + m[3] + (add ? m[4].replace(/\s+$/, "") + add : m[4]);
+  }
+  const isDoneMark = c => c === "x" || c === "X";
+  const withoutCompletion = text => text.replace(/\s*(?:✅ \d{4}-\d{2}-\d{2}|\[completion:: ?[\d-]+\])/g, "").replace(/\s+$/, "");
+  // A task line edited by hand (a checkbox click, Toggle checkbox status). What the line should become when only its mark
+  // changed and that moved it in or out of done, else null: an undo, a retyped task and any other edit are left alone.
+  function taskEdit(before, after, day, stamp = true) {
+    const a = String(before).match(TASK_LINE), b = String(after).match(TASK_LINE);
+    if (!a || !b || a[1] !== b[1] || a[4] !== b[4] || isDoneMark(a[2]) === isDoneMark(b[2])) return null;
+    const next = taskLine(before, b[2], day, stamp);
+    return next === after ? null : next;
+  }
+  // The same for a whole note, when all that's known is its text before and after a click (reading view). Null when nothing needs writing.
+  function noteTaskEdits(before, after, day, stamp = true) {
+    const a = String(before).split(/\r?\n/), nl = String(after).includes("\r\n") ? "\r\n" : "\n", b = String(after).split(/\r?\n/); if (a.length !== b.length) return null;
+    let changed = false; b.forEach((l, i) => { if (l === a[i]) return; const next = taskEdit(a[i], l, day, stamp); if (next != null) { b[i] = next; changed = true; } });
+    return changed ? b.join(nl) : null;
   }
   // does ticking a task in this note stamp the day? Not in a report: its rows are read back by the gardener
   const stampsDone = path => !reportPrefix(path) && !automationReport(path);
@@ -1349,6 +1366,7 @@ const VGRules = (() => {
   // What's new, newest first: since is the first version with it; to is where it lives (a screen, a view, or a report). A release that adds
   // something a person should know adds a line. Compared by number, so 0.6.100 comes after 0.6.99.
   const NEWS = [
+    { since: "0.6.45", text: "Ticking a todo in a note adds today's date, and unticking it takes the date off", to: { screen: "today" } },
     { since: "0.6.44", text: "Plan items you finished stay finished when the next standup repeats them, listed under the plan with a way back", to: { screen: "today" } },
     { since: "0.6.43", text: "Views: lenses, scenes and maps are one menu now, grouped by what you want to know", to: { graph: {} } },
     { since: "0.6.43", text: "Vitals says what's piling up, which notes name an old version, and how full Sync is", to: { screen: "home" } },
@@ -1381,7 +1399,7 @@ const VGRules = (() => {
   }
   // a task and the open subtasks that go with it, as rows for a status change
   const taskRowsOf = it => [{ path: it.path, line: it.line, text: it.text }, ...(it.subs || []).map(s => ({ path: it.path, line: s.line, text: s.text }))];
-  return { NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
