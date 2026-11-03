@@ -159,7 +159,7 @@ const VGActions = (() => {
       ask: it => ["Rename the map", `Rename ${it.from} Hub to ${it.name} Hub? Links to it follow; its list of notes is made again.`, "Rename"],
       run: async (it, c) => { await c.api.renameMap(it.m, it.c); return `Renamed ${it.from} Hub to ${it.name} Hub`; } },
     adopt: { label: "Link to…", when: c => !!c.api.linkNotes && !!c.pick,
-      run: (it, c, e) => BY_KEY.link.run({ id: it.id, name: it.name }, c, e) },
+      run: async (it, c, e) => { if (it.up && c.api.setParents) { await c.api.setParents([{ path: it.id, hub: it.up }]); return `Linked ${it.name} up to ${it.up}`; } return BY_KEY.link.run({ id: it.id, name: it.name }, c, e); } },
     // HQ items (VGRules.hqItems): work from the vault's own notes
     task: { label: "Done", when: c => !!c.api.setTaskStatus, run: (it, c) => doneWork(it, c) },
     carried: { label: "Done", when: c => !!c.api.setTaskStatus, run: (it, c) => doneWork(it, c) },

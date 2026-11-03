@@ -341,6 +341,7 @@
     },
     "rollup_pattern": "(Weekly|Monthly|Quarterly|Yearly) Standups/"
   },
+  "hierarchy": { "system_root": "", "tag_hubs": {} },
   "generated_link_sections": "^(related\\b|merged from\\b|also in this topic\\b)",
   "hq": {
     "urgent_pattern": "\\b(outage|data loss|critical bug)\\b",

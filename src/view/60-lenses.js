@@ -60,7 +60,7 @@
     spof: { name: "Single points of failure", hint: "Reliability engineering: the notes that hold the vault together, and how it breaks when they go", render: lensSpof },
     netlens: { name: "As a neural net", hint: "Reservoir computing: wire a recurrent network the way your notes link, and measure what it can do against random wiring", render: () => "", load: loadNetLens },
     flowlens: { name: "Flow", hint: "Lean manufacturing and queueing theory: how much work is open, whether it's growing, and how long it takes", render: () => "", load: loadFlow },
-    twoway: { name: "Two-way links", hint: "Ecology: pairs of notes that link to each other, which blur which way your notes lean", render: () => "", load: loadTwoWay },
+    twoway: { name: "Hierarchy", hint: "Ecology: what blurs which way your notes lean, and the notes with no way up", render: () => "", load: loadTwoWay },
     debt: { name: "Knowledge debt", hint: "Finance: stale notes that the most other notes rest on, where the cost keeps growing", render: lensDebt },
     adjacent: { name: "Adjacent possible", hint: "Notes one step past what you're working on, and strange pairs to combine", render: lensAdjacent },
     ...(opts.mocReport ? { mocalign: { name: "MOC alignment", hint: "Tick the report's rows here; apply when ready", render: () => "", load: lensMocAlign } } : {}),
@@ -564,7 +564,7 @@
         quiet.map(x => `<button class="vg-item" data-cl="${x.c.id}"><span class="vg-dot" style="background:${colorOf(x.c.id)}"></span><span class="vg-item-main"><span>${esc(clusterName(x.c.id))}</span><span class="vg-item-sub">${x.size} notes · newest edit ${x.age}d ago</span></span></button>`).join(""), "Every topic came up recently.") +
       sec("Topics no map covers", unmapped.length, "Without a map, these are only reachable by search or by luck.",
         unmapped.map(c => `<div class="vg-sugg"><button class="vg-item" data-cl="${c.id}"><span class="vg-dot" style="background:${colorOf(c.id)}"></span><span class="vg-item-main"><span>${esc(clusterName(c.id))}</span><span class="vg-item-sub">${c.size} notes</span></span></button>${opts.writeNote ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-draftmap="${c.id}">${icon("plus", 12)} Draft a map</button></span>` : ""}</div>`).join(""), "Every sizeable topic has a map.") +
-      sec("Islands", islands.length, "Real notes (not stubs) with no links in or out: written once, never found again.",
+      sec("Islands", islands.length, "Real notes (not stubs) with no links in or out: written once, never found again. The Hierarchy lens suggests a parent for each.",
         islands.slice(0, 15).map(n => `<div class="vg-sugg">${noteRow(n.id, `${n.words} words · ${n.age}d since edit`)}${fixSlot(n.id, "orphan")}</div>`).join(""), "No unconnected notes.") +
       sec("Dead ends", deadEnds.length, "Notes that point at others but nothing points back at them: you can only arrive here by accident.",
         deadEnds.slice(0, 15).map(n => `<div class="vg-sugg">${noteRow(n.id, `${n.outlinks} links out · 0 in`)}${fixSlot(n.id, "orphan")}</div>`).join(""), "Everything that links out is linked to.");

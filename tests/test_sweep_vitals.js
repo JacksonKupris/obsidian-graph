@@ -56,6 +56,14 @@ const text = [
 for (const [line, yes] of [["- [[Note]]", true], ["  * [[Note|text]] — why it matters", true], ["- [ ] [[Note]]", true], ["See [[Note]] for more.", false], ["- Read [[Note]] first", false], ["- [[A]] and [[B]]", false]]) assert.strictEqual(R.bareLinkLine(line), yes, line);
 assert.strictEqual(R.linkKindOf("- [[N]]", "See Also"), "see also"); assert.strictEqual(R.linkKindOf("- [[N]]", "Process"), "list"); assert.strictEqual(R.linkKindOf("Read [[N]] now", "See Also"), "sentence");
 assert.ok(!R.createdFromLine(["A", "B"]).includes("[["), "a stub line links back"); assert.ok(R.createdFromLine(["A", "B"]).includes("A, B"));
+// ---- a way up: the first matching tag, else the system's map, never the note itself
+{ const Q = new Function(`${require("../build").rulesSource({ ...env.rules, hierarchy: { system_root: "02-Systems", tag_hubs: { "technology/sql": "SQL", "technology/x": "Missing" } } })}; return VGRules;`)(), has = n => ["SQL", "Kiosk"].includes(n);
+  assert.deepStrictEqual(Q.wayUp({ id: "02-Systems/Kiosk/Guides/A.md", name: "A", tags: ["technology/sql"] }, has), { hub: "SQL", why: "technology/sql" });
+  assert.deepStrictEqual(Q.wayUp({ id: "02-Systems/Kiosk/Guides/A.md", name: "A", tags: [] }, has), { hub: "Kiosk", why: "in Kiosk" }, "its system's map");
+  assert.strictEqual(Q.wayUp({ id: "02-Systems/Kiosk/Kiosk.md", name: "Kiosk", tags: [] }, has), null, "a map isn't its own parent"); assert.strictEqual(Q.wayUp({ id: "x/SQL.md", name: "SQL", tags: ["technology/sql"] }, has), null, "a hub isn't its own parent"); assert.strictEqual(Q.wayUp({ id: "x/B.md", name: "B", tags: ["technology/x"] }, has), null, "a hub that isn't there"); }
+// ---- Today's adopt uses the same suggestion, and Vitals' Still current is the shared action
+{ const hqSrc = require("fs").readFileSync(require("path").join(__dirname, "..", "src", "hq", "70-frame.js"), "utf8"); assert.ok(/VGActions\.run\("current"/.test(hqSrc), "Vitals' Still current has its own copy of the action");
+  const act = require("fs").readFileSync(require("path").join(__dirname, "..", "src", "actions.js"), "utf8"); assert.ok(/it\.up && c\.api\.setParents/.test(act), "adopt doesn't use the parent suggestion"); }
 // ---- moving: the text a project note gets
 { const out = R.addProjectTask("# Note\n\n## Tasks\n\n- [ ] Was here\n", "Moved (from [[2026-03-24]])", ["Child one", "Grandchild"]);
   assert.ok(out.includes("- [ ] Was here\n- [ ] Moved (from [[2026-03-24]])\n    - [ ] Child one\n    - [ ] Grandchild"), `moved text: ${out}`);
@@ -102,6 +110,11 @@ assert.ok(!R.createdFromLine(["A", "B"]).includes("[["), "a stub line links back
       const n2 = await p.dropLinkLines([{ path: "Links.md", line: 1, text: "- [[One]]" }, { path: "Links.md", line: 3, text: "- [[Three]]" }, { path: "Links.md", line: 4, text: "- [[Changed]]" }, { path: "Links.md", line: 2, text: "A sentence with [[Two]]." }]);
       assert.strictEqual(n2, 2, "two lines dropped; a changed line and a sentence stay"); assert.strictEqual(files.get("Links.md").text, "# L\nA sentence with [[Two]].\n- [[Four]]\n");
       if (p.undoLog) { const entry = p.undoLog[p.undoLog.length - 1]; await p.undo(entry.id); assert.strictEqual(files.get("Links.md").text, was, "Undo left the note changed"); } }
+    // setting a parent through the plugin: added once, an existing parent kept, Undo takes it out
+    { mk("Up.md", "---\ntags:\n  - x\n---\n# Up\n"); mk("Has.md", "---\nparent: Other\n---\n# Has\n"); const was = files.get("Up.md").text;
+      app.fileManager = { processFrontMatter: async (f, fn) => { const e = files.get(f.path), fm = R.frontOf(e.text); fn(fm); const y = Object.entries(fm).map(([k, v]) => (Array.isArray(v) ? [`${k}:`, ...v.map(x => `  - ${x}`)].join("\n") : `${k}: ${v}`)).join("\n"); e.text = e.text.replace(/^---\n[\s\S]*?\n---/, `---\n${y}\n---`); } };
+      const n3 = await p.setParents([{ path: "Up.md", hub: "SQL" }, { path: "Has.md", hub: "SQL" }]); assert.strictEqual(n3, 1, "only the note with no parent"); assert.ok(files.get("Up.md").text.includes("parent: [[SQL]]"), files.get("Up.md").text); assert.ok(files.get("Has.md").text.includes("parent: Other"), "an existing parent was replaced");
+      if (p.undoLog) { const entry = p.undoLog[p.undoLog.length - 1]; await p.undo(entry.id); assert.strictEqual(files.get("Up.md").text, was, "Undo left the parent"); } }
     // changed since it was shown: left where it is, and not copied
     const gone = await a.moveTasks([{ ...item, text: "Not the line any more", subs: [] }], PROJ); assert.strictEqual(gone, 0); assert.ok(!files.get(PROJ).text.includes("Not the line"), "a changed line was copied");
   }

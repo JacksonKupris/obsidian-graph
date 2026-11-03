@@ -127,6 +127,7 @@ class VaultGraphView extends ItemView {
       writtenLinks: () => this.plugin.writtenLinks(),
       linkHow: rows => this.plugin.linkHow(rows),
       dropLinkLines: rows => this.plugin.dropLinkLines(rows),
+      setParents: rows => this.plugin.setParents(rows),
       mocReport: { load: () => this.plugin.loadMocReport(), tick: (line, on) => this.plugin.tickMocRow(line, on),
                    apply: Platform.isDesktopApp ? () => this.plugin.applyMocReport() : undefined },
       saveBinary: (notePath, buf) => this.plugin.saveBinary(notePath, buf),
@@ -524,7 +525,7 @@ class VaultGraphSuggestView extends ItemView {
 const { today, localDay } = VGRules;   // the shared date rules (this device's calendar day)
 // Every plugin method that writes to the vault. onload wraps each so it announces the change when done (every open
 // surface redraws); viewActions hands the same methods to every graph surface. A new write action goes in this list.
-const WRITE_ACTIONS = ["dropLinkLines", "moveTasks", "planLine", "capture", "openDaily", "linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
+const WRITE_ACTIONS = ["setParents", "dropLinkLines", "moveTasks", "planLine", "capture", "openDaily", "linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
   "addReference", "tickMocRow", "saveBinary", "stateSnapshots", "undo"];
 // The only methods that touch the vault for a write action. Each notes what it's about to change in the open undo
 // entry, so every action can be undone from the message that confirms it. tests/test_rules.js fails on a vault write
@@ -1274,6 +1275,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       logWork: text => this.logWork(text),
       setTasksStatus: (rows, status) => this.setTasksStatus(rows, status),
       moveTasks: (items, to) => this.moveTasks(items, to),
+      setParents: rows => this.setParents(rows),
       vitals: () => this.vitals(),
       setNoteStatus: (notePath, status, reason) => this.setNoteStatus(notePath, status, reason),
       setProjectStatus: (notePath, status, closeTasks) => this.setProjectStatus(notePath, status, closeTasks),
@@ -1420,6 +1422,12 @@ module.exports = class VaultGraphPlugin extends Plugin {
     return n;
   }
   writtenLinks() { const mc = this.app.metadataCache; return VGRules.writtenLinks(mc.resolvedLinks, p => mc.getCache(p), (l, from) => { const f = mc.getFirstLinkpathDest(l.split("#")[0], from); return f && f.path; }); }
+  // Give notes a way up: parent: "[[Hub]]" in the frontmatter, as one action. A note that already has a parent keeps it. Rows: { path, hub }.
+  async setParents(rows) {
+    this.vitalsMemo = null; let n = 0;
+    for (const r of rows) { const file = this.fileAt(r.path); if (!file) continue; await this.ioFrontMatter(file, fm => { if (fm.parent == null || fm.parent === "") { fm.parent = `[[${r.hub}]]`; n++; } }); }
+    return n;
+  }
   // How each [from, to] link is written, from Obsidian's index and the note's text: { kind, line, text }, with line only when the
   // link is one list line that can go without breaking a sentence. A link in generated sections doesn't count.
   async linkHow(rows) {
@@ -1448,13 +1456,14 @@ module.exports = class VaultGraphPlugin extends Plugin {
   async vitals() {
     const now = Date.now(); if (this.vitalsMemo && now - this.vitalsMemo.t < 60000) return this.vitalsMemo.v;
     const data = await this.graphData(); if (!data || !data.nodes) return null;
-    const out = this.writtenLinks(), pairs = [], day = today(), staleDays = (data.quality || {}).stale_days;
+    const out = this.writtenLinks(), pairs = [], day = today(), staleDays = (data.quality || {}).stale_days, inbox = `${VGRules.folders.inbox}/`;
     for (const l of data.links || []) { if (l.kind !== "link") continue; if (out[l.source] && out[l.source][l.target]) pairs.push([l.source, l.target]); if (out[l.target] && out[l.target][l.source]) pairs.push([l.target, l.source]); }
     const v = VGScience.vitals({ rows: VGScience.taskLives(await this.taskHistory(), day).rows, today: day, pairs,
       notes: data.nodes.filter(n => !n.person && !n.ghost && !n.moc).map(n => ({ id: n.id, name: n.name, age: n.age || 0, stale: VGRules.isStale(n, staleDays) })) });
     // what's open is what HQ lists, so the two can't disagree; came in and finished stay the Flow lens's own count
     const sh = await this.loadShared(), carried = VGRules.todayList(data, { review: sh && sh.review, hidden: sh && sh.cosmos && sh.cosmos.hidden, today: day }).filter(i => i.kind === "carried");
     v.pile.open = carried.length; v.pile.old = carried.filter(i => i.age > 30).length;
+    v.web.noWayUp = data.nodes.filter(n => !n.person && !n.ghost && !n.moc && !VGRules.isRecord(n) && !n.id.startsWith(inbox) && !Object.keys(out[n.id] || {}).length).length;
     this.vitalsMemo = { t: now, v };
     if (!(sh && sh.review && sh.review.vitals && sh.review.vitals[day])) await this.updateShared(s => { s.review = s.review || {}; const h = s.review.vitals = { ...(s.review.vitals || {}), [day]: VGScience.vitalsSample(v) }; Object.keys(h).sort().slice(0, -180).forEach(d => delete h[d]); return s; });
     return v;
