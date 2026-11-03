@@ -55,6 +55,10 @@
     path: { name: "Reading path", hint: "An ordered reading list for getting up to speed on a topic", render: lensPath },
     triage: { name: "Stale triage", hint: "Old notes sorted by what to do: relied on, holding tasks, unconnected, the rest", render: lensTriage },
     blind: { name: "Blind spots", hint: "What you name but never link, topics gone quiet, islands and dead ends", render: lensBlind },
+    blast: { name: "Blast radius", hint: "Epidemiology: if a note is wrong, how far does the mistake travel, and where's the tipping point?", render: lensBlast },
+    survival: { name: "Task survival", hint: "Clinical trials: how long tasks stay open, counting the ones still open, and what makes them finish", render: () => "", load: loadSurvival },
+    spof: { name: "Single points of failure", hint: "Reliability engineering: the notes that hold the vault together, and how it breaks when they go", render: lensSpof },
+    netlens: { name: "As a neural net", hint: "Reservoir computing: wire a recurrent network the way your notes link, and measure what it can do against random wiring", render: () => "", load: loadNetLens },
     adjacent: { name: "Adjacent possible", hint: "Notes one step past what you're working on, and strange pairs to combine", render: lensAdjacent },
     ...(opts.mocReport ? { mocalign: { name: "MOC alignment", hint: "Tick the report's rows here; apply when ready", render: () => "", load: lensMocAlign } } : {}),
   };
@@ -81,7 +85,7 @@
       acts.insertAdjacentHTML("beforeend", btn);
     });
     wireFixes(body); wireMore(body);
-    wireLensExtras(body);
+    wireLensExtras(body); wireScience(body);
     wireNext(body);
     body.querySelectorAll("[data-id]").forEach(d => d.onclick = () => { if (!lensBeside()) closeLens(); reveal(d.dataset.id); });
     body.querySelectorAll("[data-cl]").forEach(d => d.onclick = () => { if (!lensBeside()) closeLens(); focusClusters(d.dataset.cl.split(",").map(Number)); });

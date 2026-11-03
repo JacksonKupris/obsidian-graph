@@ -30,7 +30,7 @@
     const body = projectBoard ? boardHtml(all) : list.length ? `<div class="vg-hq-grid${compactProjects ? " is-compact" : ""}">${list.map(card).join("")}</div>`     : every.length
     ? empty("No projects match the current filters.", [["Reset filters", 'data-clearsearch'], ["All systems", 'data-system="all"']])
     : empty(`No projects yet (notes with type: ${Object.keys(VGRules.PROJECT_TYPES).join(", ") || "scope-of-work"}).`, nextSteps().filter(s => s[1] !== 'data-go="projects"'));
-    return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">Every project, newest first.</p>${focusChart(every)}
+    return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">Every project, newest first. Ticks on a card are the days your dailies named it, over the last 30.</p>${focusChart(every)}
     <div class="vg-hq-project-filters">${filters}<span class="vg-hq-seg vg-hq-compacttoggle" role="group" aria-label="View"><button class="vg-hq-filter${projectBoard ? " is-on" : ""}" data-board aria-pressed="${projectBoard}">Board</button>${projectBoard ? "" : `<button class="vg-hq-filter" data-compact aria-pressed="${compactProjects}">${compactProjects ? "Card view" : "Compact list"}</button>`}</span></div>${body}${drawerHtml(every)}`;
   }
   // focus time per project: one measure, so bars from a shared zero, the biggest first. Each row is its project's name, its time

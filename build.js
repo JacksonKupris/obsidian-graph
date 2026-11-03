@@ -22,7 +22,7 @@ const rulesSource = rules => { const src = read("rules.js");
 // the rulebook, then the shared note actions (they use the rules)
 // Vault HQ in parts (src/hq/*.js), one closure joined in name order, like the renderer
 const hqJs = () => fs.readdirSync(path.join(SRC, "hq")).filter(f => f.endsWith(".js")).sort().map(f => fs.readFileSync(path.join(SRC, "hq", f), "utf8")).join("");
-const rulesJs = rules => rulesSource(rules) + "\n" + read("actions.js") + "\n" + read("tour.js");
+const rulesJs = rules => rulesSource(rules) + "\n" + read("actions.js") + "\n" + read("tour.js") + "\n" + read("science.js");
 
 // [[name, text]] for each part of the renderer, in the order they join (tests check them one by one)
 const viewParts = () => fs.readdirSync(path.join(SRC, "view")).filter(f => f.endsWith(".js")).sort()

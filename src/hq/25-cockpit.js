@@ -15,7 +15,7 @@
     const th = threads().find(t => t.items.includes(it)), who = VGRules.hqPeople(DATA, [it]).filter(p => p.items.length), src = it.path || (it.ids || [])[0];
     const project = th && th.project, decisions = project ? (project.decisions || []).slice(0, 3) : [];
     const echoesHero = !BY_KEY.get(selKey) && HAS_HERO.has(cur) && it === doNext();   // the title and buttons are right beside it
-    return `${echoesHero ? "" : `<div class="vg-hq-eyebrow">${esc(VGRules.kindWords(it.kind))}</div><h2 class="vg-hq-railtitle">${esc(it.title)}</h2>${it.why ? `<p class="vg-hq-railwhy">${esc(it.why)}</p>` : ""}
+    return `${echoesHero ? "" : `<div class="vg-hq-eyebrow">${esc(VGRules.kindWords(it.kind))}</div><h2 class="vg-hq-railtitle">${esc(it.title)}</h2>${it.why ? `<p class="vg-hq-railwhy">${esc(VGRules.whyWords(it.why))}</p>` : ""}
       <div class="vg-hq-row">${starButton(it)}${buttons(it, false, true)}${sessionButton(it)}</div>`}
       ${project ? `<div class="vg-hq-railblock"><div class="vg-hq-eyebrow">Thread</div><button class="vg-hq-link" data-proj="${esc(project.path)}">${esc(project.title)}<small>${esc(statusWord(project))} · ${plural(th.items.length, "open item")}</small></button></div>` : ""}
       ${who.length ? `<div class="vg-hq-railblock"><div class="vg-hq-eyebrow">People</div><div class="vg-hq-row">${who.map(p => `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(p.id)}">${esc(p.name)}</button>`).join("")}</div></div>` : ""}

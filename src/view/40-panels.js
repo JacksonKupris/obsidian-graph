@@ -46,7 +46,7 @@
   function pinReview(id) { review.pinned = [...new Set([...(review.pinned || []), id])]; persistSoon(); renderTodayList(); toast(`${byId[id].name} added to Today`, "ok"); }
   function todayRow(it, pick) {
     const done = !!(pick && pick.done), can = !done && VGActions.todayWhen(it, actionCtx());
-    return `<div class="vg-td ${done ? "is-done" : ""}" data-tkey="${esc(it.key)}"><div class="vg-td-main"><b class="vg-rv-title">${pick ? (done ? "✓ " : "○ ") : ""}${esc(it.title)}</b>${it.why && !done ? `<span class="vg-item-sub">${esc(it.why)}</span>` : ""}</div>` +
+    return `<div class="vg-td ${done ? "is-done" : ""}" data-tkey="${esc(it.key)}"><div class="vg-td-main"><b class="vg-rv-title">${pick ? (done ? "✓ " : "○ ") : ""}${esc(it.title)}</b>${it.why && !done ? `<span class="vg-item-sub">${esc(VGRules.whyWords(it.why))}</span>` : ""}</div>` +
       (done ? "" : `<div class="vg-ins-actions vg-wrap">${can ? `<button class="vg-btn vg-btn-sm vg-btn-primary" data-tdo>${esc(VGActions.todayLabel(it))}</button>` : ""}<button class="vg-btn vg-btn-sm" data-tshow>Show</button>` +
         `${it.kind === "link" && opts.dismissPair ? `<button class="vg-btn vg-btn-sm vg-btn-ghost" data-tno>Not related</button>` : ""}<button class="vg-btn vg-btn-sm vg-btn-ghost" data-tskip title="Hide for ${UI.time.skipDays} days">Skip</button></div>`) + `</div>`;
   }
@@ -162,7 +162,7 @@
     const stat = (v, l, cls, go, title) => `<button class="vg-stat ${cls || ""}" data-stat="${go}" title="${title}"><b>${v}</b><span>${l}</span></button>`;
     const html =
       `<div class="vg-stats">${stat(linked, "linked notes", "", "all", "Fit the whole graph")}${stat(DATA.clusters.length, "topic clusters", "", "topics", "List the topics")}` +
-      `${stat(DATA.gaps.length, "cluster gaps", DATA.gaps.length ? "is-accent" : "", "gaps", "Topic pairs that barely link")}${stat(iso, "unlinked notes", iso > linked * 0.25 ? "is-warn" : "", "unlinked", "Show the notes with no links")}</div>` +
+      `${stat(DATA.gaps.length, "cluster gaps", DATA.gaps.length ? "is-accent" : "", "gaps", "Topic pairs that barely link")}${stat(iso, "unlinked notes", iso > linked * 0.25 ? "is-warn" : "", "unlinked", "Show the notes with no links")}</div><p class="vg-muted vg-lens-note">A topic cluster is a group found from how your notes link. A gap is two topics that share tags or mentions but barely link. Bigger notes on the graph have more routes between other notes running through them.</p>` +
       `<div class="vg-review"></div>` + renderChanges() + renderMaps() +
       card("Biggest gaps", opts.writeNote ? "related topics that barely link · draft a bridge note" : "related topics that barely link",
         DATA.gaps.slice(0, 5).map(gapRow).join("") || `<div class="vg-empty">No gaps found.</div>`) +
@@ -173,7 +173,7 @@
       (ghosts.length ? card("Notes to write", "linked from your notes but never created",
         ghosts.slice(0, 6).map(g => noteRow(g.id, `linked from ${plural(g.from.length, "note")}`)).join("")) : "") +
       (coolingHubs.length ? card("Cooling hubs", DATA.has_usage ? "influential, not opened or mentioned lately" : "influential, not mentioned lately",
-        coolingHubs.slice(0, 6).map(n => noteRow(n.id, `#${rankOf[n.id]} influence · quiet ${DATA.recent_days}+ days`)).join("")) : "") +
+        coolingHubs.slice(0, 6).map(n => noteRow(n.id, `#${rankOf[n.id]} most connecting · quiet ${DATA.recent_days}+ days`)).join("")) : "") +
       `<p class="vg-muted vg-foot">Data from ${esc(DATA.date)} · ${DATA.dailies_used || "?"} daily notes since ${esc(DATA.since || "the start")}</p>`;
     const panel = $('[data-panel="insights"]');
     panel.innerHTML = html;
@@ -203,7 +203,7 @@
             <span class="vg-dot" style="background:${colorOf(c.id)}"></span>
             <span class="vg-item-main"><span><b>${esc(clusterName(c.id))}</b> <span class="vg-muted">C${c.id}</span></span>
             <span class="vg-bar"><i style="width:${Math.max(4, 100 * c.size / max)}%;background:${colorOf(c.id)}"></i></span>
-            <span class="vg-item-sub">${plural(c.size, "note")} · ${healthy}% healthy${c.keywords ? ` · <i>${esc(c.keywords)}</i>` : ""} · ${c.core.map(esc).join(", ")}</span></span></button>
+            <span class="vg-item-sub">${plural(c.size, "note")} · ${healthy}% healthy (not a stub or stale, no broken links)${c.keywords ? ` · <i>${esc(c.keywords)}</i>` : ""} · ${c.core.map(esc).join(", ")}</span></span></button>
           <div class="vg-cl-acts">
             ${opts.writeNote ? `<button class="vg-ibtn vg-cl-hub" data-c="${c.id}" title="Create or refresh a hub note for this cluster" aria-label="Hub note for ${esc(c.name)}">${icon("hub", 15)}</button>` : ""}
             <button class="vg-ibtn vg-cl-eye" data-c="${c.id}" aria-pressed="${!off}" aria-label="${off ? "Show" : "Hide"} ${esc(c.name)}" title="${off ? "Show" : "Hide"} cluster">${icon(off ? "eyeOff" : "eye", 15)}</button>
@@ -445,7 +445,7 @@
         ${canAddToMap() && miss.length ? `<button class="vg-btn" data-act="addall">${icon("plus", 14)} Add top ${Math.min(10, miss.length)}</button>` : ""}</div>
       <div class="vg-ins-sec"><div class="vg-ins-h">Maps</div>${m.clusters.map(c => `<button class="vg-chip is-btn" data-c="${c}" style="--c:${colorOf(c)}">${esc((clusterById[c] || { name: "?" }).name)} · ${(clusterById[c] || { size: 0 }).size - (m.missing[c] || []).length}/${(clusterById[c] || { size: 0 }).size}</button>`).join(" ")}</div>
       <div class="vg-ins-sec"><div class="vg-ins-h">In the topic, not in the map <span class="vg-count">${miss.length}</span></div>
-      ${miss.slice(0, 40).map(i => `<div class="vg-sugg">${noteRow(i, `#${rankOf[i] || "—"} influence`)}${canAddToMap() ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-addmap="${esc(n.id)}" data-note="${esc(i)}">${icon("plus", 12)} Add</button></span>` : ""}</div>`).join("") || `<div class="vg-empty">Everything in this topic is listed.</div>`}</div>`;
+      ${miss.slice(0, 40).map(i => `<div class="vg-sugg">${noteRow(i, `#${rankOf[i] || "—"} most connecting`)}${canAddToMap() ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-addmap="${esc(n.id)}" data-note="${esc(i)}">${icon("plus", 12)} Add</button></span>` : ""}</div>`).join("") || `<div class="vg-empty">Everything in this topic is listed.</div>`}</div>`;
     box.querySelector(".vg-ins-close").onclick = () => select(null);
     noteActions(n, box.querySelector(".vg-noteacts"), ["open", "copy", "current", "archive"]);
     box.querySelector('[data-act="missing"]').onclick = () => showMocMissing(n.id);
@@ -463,7 +463,7 @@
     const pas = mine && theirs ? `<div class="vg-pass"><div><span class="vg-ev-day">${esc(byId[id].name)}${mine[0] ? " § " + esc(mine[0]) : ""}</span><span class="vg-ev-line">${esc(mine[1])}</span></div>` +
       `<div><span class="vg-ev-day">${esc(byId[o].name)}${theirs[0] ? " § " + esc(theirs[0]) : ""}</span><span class="vg-ev-line">${esc(theirs[1])}</span></div></div>` : "";
     return `<div class="vg-sugg-wrap"><div class="vg-sugg"><button class="vg-item" data-id="${esc(o)}"><span class="vg-dot" style="background:${colorOf(byId[o].cluster)}"></span>
-      <span class="vg-item-main">${label(o)}<span class="vg-item-sub">${esc(l.why)}</span></span></button>${acts}</div>` +
+      <span class="vg-item-main">${label(o)}<span class="vg-item-sub">${esc(VGRules.whyWords(l.why))}</span></span></button>${acts}</div>` +
       (ev ? `<details class="vg-evs"><summary>Evidence from your dailies</summary>${ev}</details>` : "") +
       (pas ? `<details class="vg-evs"><summary>Where they meet (shared words)</summary>${pas}</details>` : "") + `</div>`;
   }

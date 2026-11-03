@@ -63,7 +63,7 @@
         lastNeural = now; dirty = true;
       }
       more = true;
-      if (st.selected && dirty && (now | 0) % 6 === 0) renderHud();
+      if ((st.selected || (st.three && glOn())) && dirty && (now | 0) % 6 === 0) renderHud();
     }
     if (dirty && W) { const t0 = performance.now(); draw(now); drawMs = drawMs * 0.9 + (performance.now() - t0) * 0.1; dirty = false; }
     if (bursts.length && W) { if (drawBursts(now)) { more = true; dirty = true; } }
@@ -266,6 +266,8 @@
     if (SCENES[st.view] && SCENES[st.view].wheel && !opts.embed) { e.preventDefault(); SCENES[st.view].wheel(e); return; }
     if (opts.embed && !e.ctrlKey && !e.metaKey) return;   // let the note scroll
     e.preventDefault(); tween = null; lastInteract = performance.now();
+    if (glOn()) {   // in the 3D scenes the wheel flies: things come towards you and past you, and what's nearer moves more
+      const room = UI.size.focal - cam.d; cam.d = Math.max(glHome - 1800, Math.min(UI.size.focal + 1400, cam.d - e.deltaY * 0.0016 * Math.max(90, Math.abs(room)))); cam.userMoved = true; dirty = true; kick(); return; }
     const [mx, my] = local(e), k = Math.min(12, Math.max(0.03, cam.k * Math.exp(-e.deltaY * 0.0015))), r = k / cam.k;
     cam.tx = (mx - W / 2) - ((mx - W / 2) - cam.tx) * r; cam.ty = (my - H / 2) - ((my - H / 2) - cam.ty) * r;
     cam.k = k; cam.userMoved = true; dirty = true; kick();
@@ -557,7 +559,7 @@
         : item(`<i class="vg-lg-bld"></i>`, "height = relied on") + item(`<i class="vg-lg-win"></i>`, "lit = recent activity") + item(`<i class="vg-lg-bld is-stale"></i>`, "grey = stale") + item(`<i class="vg-lg-lot"></i>`, "empty lot = not written") + item("<b style='color:#ef4444'>•</b>", "beacon = open tasks") + item("🏛", "town hall = the topic's map");
       return;
     }
-    const sizeWord = { bc: "influence", recent: "daily mentions", opens90: "opens · 90 days", opens: "opens" }[st.sizeBy];
+    const sizeWord = { bc: "routes through it", recent: "daily mentions", opens90: "opens · 90 days", opens: "opens" }[st.sizeBy];
     const colour = neural() && st.vision === "thermal" ? `<span class="vg-lg-item"><span class="vg-lg-grad is-thermal"></span>activity · ${DATA.recent_days}d</span>`
       : st.colorBy === "cluster" ? `<span class="vg-lg-item"><span class="vg-lg-dots">${(neural() ? NEON : PALETTE).slice(0, 5).map(c => `<i style="background:${c}"></i>`).join("")}</span>topic</span>`
       : `<span class="vg-lg-item"><span class="vg-lg-grad"></span>${st.colorBy === "opens90" ? "opens · 90d" : "mentions · 30d"}</span>`;
@@ -592,8 +594,9 @@
   function renderHud() {
     if (!neural()) return;
     const n = st.selected && byId[st.selected];
+    { const b = $(".vg-neurobtn"), on = st.three && glOn(); b.hidden = !on; if (!on) { $(".vg-neurocard").hidden = true; b.setAttribute("aria-expanded", "false"); } }
     $(".vg-hud-title").innerHTML = `<b>VAULT // NEURAL MAP</b><span>${esc(DATA.vault || "").toUpperCase()} · ${esc(DATA.date)} · ${st.vision.toUpperCase()}</span>` +
-      `<span>NODES ${active.length} · LINKS ${visLinks.filter(l => l.kind === "link").length} · LOBES ${DATA.clusters.length} · MAPS ${mocs.length} · BRIDGES ${nodes.filter(n => n.bridge).length}</span>`;
+      `<span>NODES ${active.length} · LINKS ${visLinks.filter(l => l.kind === "link").length} · LOBES ${DATA.clusters.length} · MAPS ${mocs.length} · BRIDGES ${nodes.filter(n => n.bridge).length}</span>` + (st.three && glOn() ? `<span>LIF NETWORK · 80/20 E/I · ${neuroRate().toFixed(1)} HZ · ×1/${NEURO_SLOW} SPEED</span>` : "");
     const p = n && P.get(n.id);
     $(".vg-hud-tele").innerHTML = n ? `<b>TARGET ▸ ${esc(n.name.toUpperCase())}</b>` +
       `<span>LOBE ${esc(clusterName(n.cluster).toUpperCase())}</span>` +

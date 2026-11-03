@@ -41,6 +41,7 @@
     return r;
   }
   function drawView(now) {
+    GL.show(glOn());
     if (neural()) return drawNeural(now);
     if (isCosmos()) return drawCosmos(now);
     if (st.view === "subway") return drawSubway(now);
@@ -49,11 +50,15 @@
     if (SCENES[st.view]) return SCENES[st.view].draw(now);
     const dpr = screenDpr();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, W, H); ctx.fillStyle = css("--vg-bg"); ctx.fillRect(0, 0, W, H);   // clear first: the theme background can be see-through
+    const gl3 = glOn();
+    ctx.clearRect(0, 0, W, H); if (!gl3) { ctx.fillStyle = css("--vg-bg"); ctx.fillRect(0, 0, W, H); }   // clear first: the theme background can be see-through
     project();
     const litSet = lit(), fd = st.focusDist;
     const fg = css("--vg-fg"), muted = css("--vg-muted"), bg = css("--vg-bg"), accent = css("--vg-accent");
     const font = css("--vg-font") || "system-ui, sans-serif";
+    let order, badges = [];
+    if (gl3) ({ order, badges } = drawGraphGL(litSet, fd, accent));
+    else {
     // edges, batched by style
     const groups = new Map();
     for (const l of visLinks) {
@@ -79,8 +84,8 @@
     ctx.setLineDash([]); ctx.globalAlpha = 1;
     if (st.path) drawPath(accent);
     // nodes, far to near
-    const order = active.filter(n => P.has(n.id)).sort((a, b) => P.get(b.id).depth - P.get(a.id).depth);
-    const spheres = st.three && !(MOBILE && active.length > 350), badges = [];   // drawn after the labels, which steer round them
+    order = active.filter(n => P.has(n.id)).sort((a, b) => P.get(b.id).depth - P.get(a.id).depth);
+    const spheres = st.three && !(MOBILE && active.length > 350);   // the badges are drawn after the labels, which steer round them
     for (const n of order) {
       // zoom grows nodes sub-linearly (like 2D); in 3D, perspective (s/k) scales near/far on top
       const p = P.get(n.id), rel = st.three ? Math.pow(p.s / cam.k, 1.3) * 1.2 : 1;
@@ -119,10 +124,12 @@
       if (st.layers.tasks && n.tasks > 0 && a > 0.3) { if (cam.k > 1.6 || st.selected === n.id || st.hover === n.id) badges.push([p.x + r * 0.8, p.y - r * 0.8, n.tasks]); else { ctx.globalAlpha = 0.9; ctx.fillStyle = css("--vg-task"); ctx.beginPath(); ctx.arc(p.x + r * 0.75, p.y - r * 0.75, 2.2, 0, 2 * Math.PI); ctx.fill(); } }
       p.r = r; p.a = a;
     }
+    }
+    if (gl3 && st.path) drawPath(accent);
     ctx.globalAlpha = 1;
     labelRects = badges.map(([x, y, c]) => { const w = badgeW(c, font); return [x - w / 2, y - 6, w, 12]; });
     // cluster names at their centroid
-    if (cam.k < 2.4 && !fd) {
+    if (zoomNow() < 2.4 && !fd) {
       const sum = clusterCentroids(litSet);
       ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `600 14px ${font}`;
       for (const [c, g] of Object.entries(sum).sort((a, b) => b[1].c - a[1].c)) {
@@ -181,10 +188,10 @@
     if (st.selected) want.push(st.selected);
     if (st.hover) want.push(st.hover);
     if (litSet && litSet.size <= 60) want.push(...litSet);
-    labelled.slice(0, hud && !fd ? (cam.k < 1.4 ? 5 : 10) : cam.k < 1 && !fd ? 6 : UI.size.labelTop).forEach(id => want.push(id));
+    labelled.slice(0, hud && !fd ? (zoomNow() < 1.4 ? 5 : 10) : zoomNow() < 1 && !fd ? 6 : UI.size.labelTop).forEach(id => want.push(id));
     if (st.layers.mocs) active.filter(n => n.moc).forEach(n => want.push(n.id));
     if (st.layers.wanted && !hud) active.filter(n => n.ghost && n.from.length >= 3).forEach(n => want.push(n.id));
-    if (cam.k > 2.4 || fd) for (let i = order.length - 1; i >= 0; i--) want.push(order[i].id);
+    if (zoomNow() > 2.4 || fd) for (let i = order.length - 1; i >= 0; i--) want.push(order[i].id);
     const done = new Set(isCosmos() ? cos.bodies.flatMap(b => b.type === "star" ? [b.target] : b.type === "binary" ? (b.target || []) : []) : []);   // bodies carry their own labels
     let tried = 0, drawn = 0;
     for (const id of want) {
@@ -206,6 +213,8 @@
     }
   }
   const textW = new Map();
+  // how close things look: the zoom, plus how far the camera has flown in
+  const zoomNow = () => cam.k * UI.size.focal / Math.max(80, UI.size.focal - (cam.d || 0));
 
   // ---------------------------------------------------------------- neural renderer
   const pulses = [];
@@ -304,16 +313,21 @@
     ctx.restore();
   }
   function drawNeural(now) {
-    const dpr = screenDpr();
+    const dpr = screenDpr(), gl3 = glOn();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (gl3) ctx.clearRect(0, 0, W, H); else {
     // deep-space backdrop with a vignette
     const bgG = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.75);
     if (st.vision === "nv") { bgG.addColorStop(0, "#03140a"); bgG.addColorStop(1, "#000502"); }
     else if (st.vision === "thermal") { bgG.addColorStop(0, "#0b0820"); bgG.addColorStop(1, "#020108"); }
     else { bgG.addColorStop(0, "#081a33"); bgG.addColorStop(1, "#01040b"); }
     ctx.fillStyle = bgG; ctx.fillRect(0, 0, W, H);
+    }
     project();
     const R = rot(), litSet = lit(), fd = st.focusDist, font = css("--vg-font"), hudCol = st.vision === "nv" ? "#4ade80" : "#38bdf8";
+    let order;
+    if (gl3) { order = drawBrainGL(now, litSet, fd); ctx.globalCompositeOperation = "lighter"; drawWaveLinks(now, visLinks, l => { const b = [0, 0, 0]; tractBend(l.s, l.t, b); return proj(b[0], b[1], b[2], R); }, fillOf); for (const n of order) { const p = P.get(n.id); if (p.r) waveFlash(n, p, p.r, fillOf, now); } ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1; }
+    else {
     // wireframe "globe": faint meridians and parallels of the cortex shell
     ctx.globalAlpha = 0.07; ctx.strokeStyle = hudCol; ctx.lineWidth = 1;
     const shellPt = (lat, lon) => proj(Math.cos(lat) * Math.cos(lon) * BRAIN_R * 1.18, Math.sin(lat) * BRAIN_R * 0.86, Math.cos(lat) * Math.sin(lon) * BRAIN_R * 0.98, R);
@@ -331,7 +345,7 @@
     // lobe glow: a lobe you've been working in glows; one that's gone quiet stays dark
     if (!fd) for (const c in lobeStats) {
       const d = lobeDir[c], g = lobeStats[c]; if (!d || g.notes < 3) continue;
-      const L = Math.hypot(d[0], d[1], d[2]) || 1, p = proj(d[0] / L * BRAIN_R * 1.18, d[1] / L * BRAIN_R * 0.86, d[2] / L * BRAIN_R * 0.98, R);
+      const q = onCortex(d), p = proj(q[0], q[1], q[2], R);
       if (!p) continue;
       const rad = BRAIN_R * (0.18 + 0.22 * Math.sqrt(g.notes / 110)) * p.s, back = Math.max(0.25, Math.min(1, 0.7 - p.depth / 500));
       const halo = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rad), col = st.vision === "std" ? neonOf(+c) : hudCol;
@@ -361,7 +375,7 @@
     drawPulses(now, visLinks, visSet, litSet, ctl, fillOf);
     drawWaveLinks(now, visLinks, ctl, fillOf);
     // nodes: glowing cores with halos
-    const order = active.filter(n => P.has(n.id)).sort((a, b) => P.get(b.id).depth - P.get(a.id).depth);
+    order = active.filter(n => P.has(n.id)).sort((a, b) => P.get(b.id).depth - P.get(a.id).depth);
     for (const n of order) {
       const p = P.get(n.id), rel = Math.pow(p.s / cam.k, 1.3);
       const r = Math.max(1.4, worldRadius(n) * 0.7 * Math.pow(cam.k, 0.8) * rel);
@@ -388,6 +402,7 @@
       p.r = r; p.a = a;
     }
     ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1;
+    }
     drawReticle(now, hudCol);
     if (st.path) drawPath(hudCol);
     labelRects = []; lobeSpots = [];
@@ -398,8 +413,8 @@
       const sum = clusterCentroids(litSet);
       ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `600 10.5px ${css("--vg-mono")}`;
       const lobes = Object.entries(sum).filter(([c, g]) => g.c >= 5 && lobeDir[c]).map(([c, g]) => {
-        const d = lobeDir[c], L = Math.hypot(d[0], d[1], d[2]) || 1;
-        return [c, g, proj(d[0] / L * BRAIN_R * 1.18 * 1.14, d[1] / L * BRAIN_R * 0.86 * 1.14, d[2] / L * BRAIN_R * 0.98 * 1.14, R)];
+        const q = onCortex(lobeDir[c], 1.16);
+        return [c, g, proj(q[0], q[1], q[2], R)];
       }).filter(x => x[2]).sort((a, b) => a[2].depth - b[2].depth);
       // under each name, the lobe's health: notes, how many were touched this week, how many have gone stale.
       // A quiet lobe's label dims. Hover a label for the full picture, click it to focus the topic.

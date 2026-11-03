@@ -23,6 +23,19 @@ assert(!JSON.stringify(R.recallChunks(noted)).includes("secret"), "search indexe
 assert(JSON.stringify(R.recallChunks(noted)).includes("kept"), "search lost a real code block");
 const pv = R.notePreview(noted); assert(!JSON.stringify(pv).includes("secret"), "Peek shows a script"); assert.deepStrictEqual(pv.blocks.filter(b => b.kind === "code").map(b => b.text), ["const kept = 2;"]);
 assert(!JSON.stringify(R.notePreview("```dataview\nopen").blocks).includes("open"), "an unclosed script shows");
+// what's urgent comes first, even old; Later still means later; what's put off stays in sight
+{ const day = "2026-11-04", J = d => `${R.folders.daily}/2026/11-November/Journal/${d}.md`, H0 = env.rules.hq, Q = R;
+  Q.configure({ ...env.rules, hq: { ...H0, urgent_pattern: "\\bcritical alert\\b" } });
+  const data = { nodes: [], links: [], hq: { date: day, journals: [{ path: J(day), date: day, tasks: [{ mark: " ", text: "Plain today", line: 1 }] }, { path: J("2026-10-20"), date: "2026-10-20", tasks: [{ mark: " ", text: "A critical alert from long ago", line: 1 }, { mark: " ", text: "An old plain one", line: 2 }] }], standups: [], projects: [], backlog: [], reports: [], reviews: [], decisions: [], runs: {}, runlog: [], inbox: [] } };
+  const today = (review = {}) => Q.todayList(data, { review, today: day, now: new Date(day + "T10:00:00") }).filter(i => i.group === "today");
+  const first = today()[0]; assert(/critical alert/.test(first.title), "an old urgent task should lead the list: " + first.title); assert.strictEqual(first.urgent, true); assert(/^Urgent/.test(first.why), first.why); assert(!today().find(i => i.title === "An old plain one").urgent, "a plain task was called urgent");
+  const later = { hq: { [first.key]: `later:${day}` } }; assert(!today(later).some(i => i.key === first.key), "Later must still take it off the list");
+  const held = Q.hqPutOff(data, { review: later, today: day, now: new Date(day + "T10:00:00") }); assert.deepStrictEqual(held.map(i => i.key), [first.key], "it should be listed as put off"); assert.strictEqual(held[0].urgent, true); assert.deepStrictEqual(Q.hqPutOff(data, { review: {}, today: day }), [], "nothing put off, nothing listed");
+  assert.deepStrictEqual(Q.hqPutOff(data, { review: { hq: { [first.key]: "later:2026-11-03" } }, today: day }), [], "yesterday's Later has run out");
+  const until = Q.hqPutOff(data, { review: { hq: { [first.key]: "until:2026-11-09" } }, today: day }); assert.strictEqual(until[0].until, "2026-11-09", "Next week says when");
+  Q.configure(env.rules); assert(!today()[0].urgent, "with no pattern nothing is urgent"); }
+// reasons and figures in words, with the stored wording left alone (it goes in the note when a suggestion is accepted)
+assert.strictEqual(R.whyWords("similar meaning (0.812)"), "similar meaning: 81% alike"); assert.strictEqual(R.whyWords("3× together in daily notes"), "3× together in daily notes"); assert.strictEqual(R.whyWords(""), "");
 // words
 assert.strictEqual(R.statusWords("in-progress"), "in progress"); assert.strictEqual(R.statusWords("pending-approval"), "pending approval"); assert.strictEqual(R.statusWords(""), "");
 assert.strictEqual(R.codeNameWords("JK_LiveDriveTimes"), "Live Drive Times"); assert.strictEqual(R.codeNameWords("FIX-JK_TwilioResponse"), "Twilio Response");
@@ -77,8 +90,16 @@ assert.strictEqual(R.hqNextStep({ list: [{ key: "j", group: "needs", kind: "job"
     // the calendar uses the width it has
     await tab.ev(`window.vaultHQ.setScreen("calendar")`); await sleep(100);
     check(await tab.ev(`(() => { const p = document.querySelector(".vg-hq-calpanel").getBoundingClientRect(), c = document.querySelector(".vg-hq-col").getBoundingClientRect(); return c.right - p.right < 40; })()`), "the calendar leaves the right of the screen empty");
+    check(await tab.ev(`!!document.querySelector(".vg-hq-calkey")`), "the calendar should say what its shades and dots mean");
+    // what's put off shows on Today, and Bring back returns it
+    { const it = await tab.ev(`(() => { const i = window.vaultHQ.items().find(x => x.group === "today"); return i ? i.key : null; })()`);
+      if (it) { await tab.ev(`(() => { window.vaultHQ.destroy(); window.__marks = []; const key = ${JSON.stringify(it)}, day = new Date(); window.__o = { state: { review: { hq: { [key]: "later:" + day.getFullYear() + "-" + String(day.getMonth() + 1).padStart(2, "0") + "-" + String(day.getDate()).padStart(2, "0") } } }, api: { hqMark: async (k, m) => window.__marks.push([k, m]), hqFocus: async () => {}, openNote() {}, capture: async () => {} } }; window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, window.__o); window.vaultHQ.setScreen("today"); })()`); await sleep(150);
+        check(await tab.ev(`!window.vaultHQ.items().some(i => i.key === ${JSON.stringify(it)})`), "a Later item should leave the list"); check(await tab.ev(`!!document.querySelector(".vg-hq-putoff [data-bringback]")`), "a put-off item should stay in sight on Today");
+        await tab.ev(`(() => { const d = document.querySelector(".vg-hq-putoff"); d.open = true; d.querySelector("[data-bringback]").click(); })()`); await sleep(100);
+        check(await tab.ev(`window.vaultHQ.items().some(i => i.key === ${JSON.stringify(it)})`), "Bring back should return it to the list"); check(await tab.ev(`window.__marks.length === 1 && window.__marks[0][1] === null`), "Bring back should clear the mark through hqMark"); check(await tab.ev(`!document.querySelector(".vg-hq-putoff")`), "nothing left to bring back: the section goes"); } }
     // nothing raw on the projects
     await tab.ev(`window.vaultHQ.setScreen("projects")`); await sleep(100);
+    check(await tab.ev(`document.querySelector(".vg-hq-lede").textContent.includes("Ticks")`), "the ticks on project cards should say what they are");
     const raw = await tab.ev(`[...document.querySelectorAll(".vg-hq-pill")].map(p => p.textContent).filter(t => /-/.test(t))`); check(!raw.length, `raw statuses: ${[...new Set(raw)].join(", ")}`);
     // the graph: a tile's number sits over its label, and the status says what the total holds
     const g = await cdp.open({ html: env.page(), port: 9392 });

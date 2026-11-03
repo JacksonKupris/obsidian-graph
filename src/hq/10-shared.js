@@ -90,7 +90,7 @@
   }
   function row(it) {
     return `<div class="vg-hq-item${selected() === it && railOn() ? " is-sel" : ""}${picked.has(it.key) ? " is-picked" : ""}${(it.age || 0) >= 14 ? " is-old" : ""}" data-key="${esc(it.key)}">${pickBox(it)}<span class="vg-hq-kind">${icon(KIND_ICON[it.kind] || "graph", 16)}</span>` +
-      `<div class="vg-hq-txt"><b>${esc(it.title)}</b>${it.why ? `<small>${esc(it.why)}${it.delegated ? ` · delegated to ${esc(it.delegated)}` : ""}</small>` : ""}</div>` +
+      `<div class="vg-hq-txt"><b>${esc(it.title)}</b>${it.why ? `<small>${esc(VGRules.whyWords(it.why))}${it.delegated ? ` · delegated to ${esc(it.delegated)}` : ""}</small>` : ""}</div>` +
       `<div class="vg-hq-acts">${starButton(it)}${railOn() ? "" : ctxButton(it)}${buttons(it)}${reactButtons(it)}</div>${railOn() ? "" : contextPanel(it)}</div>`;
   }
   // ---- what your notes already know about an item: the second brain's main trick. Opens from any row (the arrow, or Enter
@@ -114,6 +114,13 @@
   // worded: on Do next, where it's what the day's Plan step asks for; a row keeps just the star
   const starButton = (it, worded) => api.hqFocus && it.group === "today" ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-star${isFocus(it) ? " is-on" : ""}" data-star="${esc(it.key)}" aria-pressed="${isFocus(it)}" aria-label="Today's focus" title="${isFocus(it) ? "Take out of today's focus" : "Add to today's focus"} (f)">${isFocus(it) ? "★" : "☆"}${worded ? ` ${isFocus(it) ? "Starred" : "Star"}` : ""}</button>` : "";
   const statusWord = p => VGRules.statusWords(p && p.status) || "no status";
+  // what Later and Next week have taken off the list, still in sight, with a way back. Open by itself if something urgent is in it.
+  function putOffHtml() {
+    const held = VGRules.hqPutOff(DATA, { review: STATE.review, hidden: STATE.hidden, today: day(), now: now() }); if (!held.length || !api.hqMark) return "";
+    const urgent = held.filter(it => it.urgent).length;
+    return `<details class="vg-hq-sec vg-hq-putoff"${urgent ? " open" : ""}><summary><span>Put off${urgent ? ` · <b class="vg-hq-jobbad">${urgent} urgent</b>` : ""}</span><span>${held.length}</span></summary>${held.map(it => `<div class="vg-hq-item${it.urgent ? " is-old" : ""}"><span class="vg-hq-kind">${icon(KIND_ICON[it.kind] || "clock", 16)}</span><div class="vg-hq-txt"><b>${esc(it.title)}</b><small>${esc(it.until ? `Back on ${shortDate(it.until)}` : "Back tomorrow")} · ${esc(it.why || "")}</small></div><div class="vg-hq-acts vg-hq-keepacts"><button class="vg-hq-btn vg-hq-btn-sm" data-bringback="${esc(it.key)}">Bring back</button></div></div>`).join("")}</details>`;
+  }
+  async function bringBack(key) { const marks = { ...((STATE.review || {}).hq || {}) }; delete marks[key]; STATE = { ...STATE, review: { ...(STATE.review || {}), hq: marks } }; gone.delete(key); relist(); render(); await api.hqMark(key, null); }
   async function toggleFocus(key) {
     const keys = VGRules.focusKeys(STATE.review, day()), on = keys.includes(key);
     if (!on && keys.length >= VGRules.FOCUS_MAX) { toast(`Today's focus holds ${VGRules.FOCUS_MAX}. Take one out first.`, null, true); return; }
