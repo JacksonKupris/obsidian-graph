@@ -3,7 +3,7 @@
 //   Survival: Kaplan & Meier 1958, Greenwood 1926, Mantel 1966. Spreading: Kermack & McKendrick 1927, on a network as bond
 //   percolation (Newman 2002). Robustness: Tarjan 1972, Molloy & Reed 1995, Newman & Ziff 2000, Schneider et al. 2011.
 //   Neurons: Lapicque's leaky integrate-and-fire, with Brunel's balanced 80/20 network (2000).
-const VGScience = (() => {
+const VGScienceMake = () => {
   // ---- random numbers that repeat: the same vault gives the same answer
   function rng(seed = 1) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   // ---- a graph as arrays: edges are undirected pairs of names; repeats and self-links are dropped
@@ -290,7 +290,51 @@ const VGScience = (() => {
   // how much rests on each note when reliance fades with distance: a note directly on it counts 1, two links away a half, three a quarter.
   // Through enough hops nearly everything reaches everything, so a plain count tells notes apart hardly at all. Also the direct count.
   function reliance(g, fade = 0.5) { const dist = new Int32Array(g.n); return g.adj.map((a, s) => { dist.fill(-1); dist[s] = 0; const q = [s]; let score = 0; for (let h = 0; h < q.length; h++) for (const j of g.adj[q[h]]) if (dist[j] < 0) { dist[j] = dist[q[h]] + 1; score += Math.pow(fade, dist[j] - 1); q.push(j); } return { score, direct: a.length, reach: q.length - 1 }; }); }
+  // the debt ranking: a stale note's cost is what rests on it times the years it's been left. notes: { age (days), stale }, in g's order.
+  function debtRanks(g, notes) { const rely = reliance(g); return notes.map((n, i) => ({ i, ...rely[i], age: n.age || 0, stale: n.stale })).filter(r => r.stale && r.score > 0).map(r => ({ ...r, cost: r.score * (r.age / 365) })).sort((a, b) => b.cost - a.cost); }
   // the same network with direction kept, for what travels one way: pairs are [from, to]
   function directedGraph(ids, pairs) { const at = new Map(ids.map((id, i) => [id, i])), adj = ids.map(() => []), seen = new Set(), edges = []; for (const [a, b] of pairs) { const i = at.get(a), j = at.get(b); if (i == null || j == null || i === j) continue; const key = i * ids.length + j; if (seen.has(key)) continue; seen.add(key); adj[i].push(j); edges.push([i, j]); } return { ids, at, adj, edges, n: ids.length, directed: true }; }
-  return { flow, reachCounts, reliance, trophic, surfaceWind, WIND_INFLOW, directedGraph, largestAbsEigen, reservoir, ridge, r2, memoryCapacity, narma, narmaError, clustering, meanPath, rewired, randomGraph, smallWorld, rng, graphOf, moments, spectralRadius, outbreak, outbreakStats, epidemic, sweep, kaplanMeier, survivalAt, medianOf, conditional, restrictedMean, logRank, erfc, taskLives, components, cutPoints, cutDamage, percolationCurve, randomOrder, attackOrder, robustnessR, robustness, concentration, busFactor, LIF, lifRate, lifNetwork, BRAIN, lobeOf, gyri, cortexAt, CEREBELLUM, STEM, LOBE_SHARE, assignLobes, lobeSpots };
-})();
+  // ---- the "As a neural net" study: reservoir tests on the vault's wiring, a rewired copy and a random one. Steps, so it can pause
+  // between runs when it has to share a thread; a worker just runs them straight through.
+  const NET_RHOS = [0.5, 0.8, 0.95, 1.1, 1.3], NET_SEEDS = 4;
+  function* netStudySteps(g) {
+    const kinds = { yours: () => g, rewired: s => rewired(g, s), random: s => randomGraph(g.n, g.edges.length, s) }, runs = {};
+    for (const [name, make] of Object.entries(kinds)) { runs[name] = []; for (const rho of NET_RHOS) { const mc = [], na = []; for (let s = 1; s <= NET_SEEDS; s++) { const G = make(s); mc.push(memoryCapacity(G, { rho, seed: s * 7 + 1, steps: 1200 }).mc); yield; na.push(narmaError(G, { rho, seed: s * 11 + 1, steps: 1600 })); yield; } runs[name].push({ rho, mc, na }); } }
+    const sw = smallWorld(g, 6); yield;
+    return { runs, sw, sizes: components(g), n: g.n, m: g.edges.length };
+  }
+  function netStudyNow(g) { const it = netStudySteps(g); let r = it.next(); while (!r.done) r = it.next(); return r.value; }
+  // what identifies a network, so a refresh that changes no link keeps every result worked out from it
+  function graphKey(g) { return g.key || (g.key = `${g.directed ? "d" : "u"}|${g.ids.join("\n")}|${g.edges.map(e => `${e[0]},${e[1]}`).join(";")}`); }
+  // Runs in a worker so the app stays free (it takes seconds), and one result is kept per network for the whole app: another tab, the
+  // self-test or a reopened lens reuses it. If a worker can't start, the steps run here with a pause between them.
+  const netMemo = new Map(), netStats = { runs: 0, via: null };
+  function inWorker(g) {
+    return new Promise((resolve, reject) => {
+      const source = `const VGScienceMake = ${VGScienceMake.toString()};\nconst S = VGScienceMake();\nonmessage = e => { const { ids, edges } = e.data; postMessage(S.netStudyNow(S.graphOf(ids, edges.map(x => [ids[x[0]], ids[x[1]]])))); };`;
+      const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" })), w = new Worker(url), end = () => { w.terminate(); URL.revokeObjectURL(url); };
+      w.onmessage = e => { end(); resolve(e.data); }; w.onerror = e => { end(); reject(new Error(e.message || "worker failed")); };
+      w.postMessage({ ids: g.ids, edges: g.edges });
+    });
+  }
+  async function netHere(g) { const it = netStudySteps(g); let r = it.next(); while (!r.done) { await new Promise(go => setTimeout(go)); r = it.next(); } return r.value; }
+  function netStudy(g) {
+    const key = graphKey(g); if (netMemo.has(key)) return netMemo.get(key);
+    netStats.runs++; while (netMemo.size >= 2) netMemo.delete(netMemo.keys().next().value);
+    const p = (async () => { if (typeof Worker === "function" && typeof Blob === "function" && typeof URL === "function" && URL.createObjectURL) { try { const r = await inWorker(g); netStats.via = "worker"; return r; } catch (e) { console.warn("Vault Graph: the network tests are running on the main thread:", e.message); } } netStats.via = "here"; return netHere(g); })();
+    netMemo.set(key, p); return p;
+  }
+  // ---- vitals: the findings worth acting on, each from the method its lens uses. rows: taskLives' rows; notes: { id, name, age, stale };
+  // pairs: [from, to] for links written into a note. A daily sample of these numbers is what shows whether acting on them worked.
+  function vitals(o) {
+    const g = directedGraph(o.notes.map(n => n.id), o.pairs), spread = directedGraph(g.ids, g.edges.map(([a, b]) => [g.ids[b], g.ids[a]]));
+    const F = flow(o.rows.map(r => ({ born: r.born, done: r.event ? r.done : null })), o.today, 90), old = o.rows.filter(r => !r.event && r.t > 30).length;
+    const ranks = debtRanks(spread, o.notes), total = ranks.reduce((s, r) => s + r.cost, 0), top = ranks[0], web = g.edges.length ? trophic(g.adj) : null;
+    return { pile: { open: F.openNow, came: F.cumIn[F.days], left: F.cumOut[F.days], net: F.net, old, wip: F.wip }, debt: { total, count: ranks.length, top: top ? { id: g.ids[top.i], name: o.notes[top.i].name, cost: top.cost, direct: top.direct, reach: top.reach, years: top.age / 365 } : null }, web: { incoherence: web ? web.incoherence : null, links: g.edges.length } };
+  }
+  const vitalsSample = v => ({ open: v.pile.open, debt: Math.round(v.debt.total), incoherence: v.web.incoherence == null ? null : +v.web.incoherence.toFixed(2) });
+  // the change in one sample's number against the latest sample a week or more old, or null when there isn't one yet
+  function vitalsDelta(history, day, key, now) { const edge = Date.parse(`${day}T12:00:00Z`) - 7 * 864e5, past = Object.keys(history || {}).filter(d => Date.parse(`${d}T12:00:00Z`) <= edge && history[d][key] != null).sort().pop(); return past == null || now == null ? null : now - history[past][key]; }
+  return { debtRanks, vitals, vitalsSample, vitalsDelta, NET_RHOS, NET_SEEDS, netStudySteps, netStudyNow, netStudy, netStats, graphKey, flow, reachCounts, reliance, trophic, surfaceWind, WIND_INFLOW, directedGraph, largestAbsEigen, reservoir, ridge, r2, memoryCapacity, narma, narmaError, clustering, meanPath, rewired, randomGraph, smallWorld, rng, graphOf, moments, spectralRadius, outbreak, outbreakStats, epidemic, sweep, kaplanMeier, survivalAt, medianOf, conditional, restrictedMean, logRank, erfc, taskLives, components, cutPoints, cutDamage, percolationCurve, randomOrder, attackOrder, robustnessR, robustness, concentration, busFactor, LIF, lifRate, lifNetwork, BRAIN, lobeOf, gyri, cortexAt, CEREBELLUM, STEM, LOBE_SHARE, assignLobes, lobeSpots };
+};
+const VGScience = VGScienceMake();

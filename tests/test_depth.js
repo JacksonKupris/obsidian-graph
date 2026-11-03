@@ -8,7 +8,7 @@ const fs = require("fs"), path = require("path"), sleep = ms => new Promise(r =>
   // a task history for the survival lens: the page has no plugin to read journals with, so 80 tasks: half finished over time, half still open
   const history = Array.from({ length: 80 }, (_, i) => { const d = String(1 + i % 28).padStart(2, "0"), done = String(Math.min(28, 2 + i % 28 + (i % 9))).padStart(2, "0"); return { date: `2026-08-${d}`, path: "j.md", tasks: [{ mark: i % 2 ? " " : "x", text: `Task ${i}${i % 4 === 0 ? " with [[A link]]" : ""}${i % 2 ? "" : ` ✅ 2026-08-${done}`}` }] }; });
   const links = env.data().links.filter(l => l.kind === "link"), out = {}; links.forEach(l => { (out[l.source] = out[l.source] || {})[l.target] = 1; });   // the page has no Obsidian index, so direction comes from the data's own order: enough to run the real path
-  const tab = await cdp.open({ html: env.pageWith(`taskHistory: async () => ${JSON.stringify(history)}, outLinks: () => (window.__noDir ? null : ${JSON.stringify(out)}),`), port: 9393 });
+  const tab = await cdp.open({ html: env.pageWith(`taskHistory: async () => ${JSON.stringify(history)}, writtenLinks: () => (window.__noDir ? null : ${JSON.stringify(out)}),`), port: 9393 });
   if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
   const fails = [], check = (ok, what) => { if (!ok) fails.push(what); }, shot = async name => { if (!SHOTS) return; fs.mkdirSync(SHOTS, { recursive: true }); const r = await tab.send("Page.captureScreenshot", { format: "png" }); fs.writeFileSync(path.join(SHOTS, name + ".png"), Buffer.from(r.result.data, "base64")); };
   try {

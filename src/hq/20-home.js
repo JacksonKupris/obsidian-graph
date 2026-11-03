@@ -26,6 +26,25 @@
       cards.push({ id: "runlog", eyebrow: "Latest agent run", title: parts[3] || last, sub: parts.slice(0, 3).join(" · ") }); }
     return cards;
   }
+  // ---- Vitals: what the numbers say, each with what to do about it and whether it's moving
+  let vitals = null, vitalsBusy = false;
+  function loadVitals() {
+    if (!api.vitals || vitalsBusy) return; vitalsBusy = true;
+    api.vitals().then(v => { vitalsBusy = false; const same = JSON.stringify(v) === JSON.stringify(vitals); vitals = v; if (!same && (cur === "home" || cur === "review") && !destroyedHq()) render(); }).catch(e => { vitalsBusy = false; console.error("Vault Graph: vitals not worked out", e); });
+  }
+  const destroyedHq = () => !el.isConnected;
+  const sparkLine = (a, label) => { if (!a || a.length < 2) return ""; const lo = Math.min(...a), hi = Math.max(...a), W = 120, H = 28, x = i => (i / (a.length - 1) * W).toFixed(1), y = v => (hi === lo ? H / 2 : H - 2 - (v - lo) / (hi - lo) * (H - 4)).toFixed(1); return `<svg class="vg-hq-vitalspark" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}"><polyline points="${a.map((v, i) => `${x(i)},${y(v)}`).join(" ")}"/></svg>`; };
+  function vitalsHtml() {
+    if (!vitals) return "";
+    const { pile, debt, web } = vitals, h = (STATE.review || {}).vitals || {}, week = (key, now, fmt = v => v) => { const d = VGScience.vitalsDelta(h, day(), key, now); return d == null ? "" : d === 0 ? " · no change in a week" : ` · ${d > 0 ? "up" : "down"} ${fmt(Math.abs(d))} in a week`; };
+    const lensBtn = (k, words) => opts.openGraph ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-graphlens="${k}">${esc(words)}</button>` : "";
+    const row = (title, sub, acts, spark) => `<div class="vg-hq-vital"><div class="vg-hq-txt"><b>${esc(title)}</b><small>${esc(sub)}</small></div>${spark || ""}<div class="vg-hq-acts">${acts}</div></div>`;
+    const pileWords = pile.net > 0 ? `The pile grew by ${pile.net} in 90 days` : pile.net < 0 ? `The pile shrank by ${-pile.net} in 90 days` : "The pile held level over 90 days";
+    return `<section class="vg-hq-sec vg-hq-vitals"><h3>Vitals</h3><div class="vg-hq-vitalrows">` +
+      (!pile.came && !pile.open ? "" : row(pileWords, `${pile.came} came in, ${pile.left} finished · ${pile.open} open from earlier days, ${pile.old} older than 30 days${week("open", pile.open)}`, `${ofKind("carried").length ? '<button class="vg-hq-btn vg-hq-btn-sm" data-go="sweep">Sweep</button>' : ""}${lensBtn("flowlens", "Flow")}`, sparkLine(pile.wip, `Tasks open over 90 days, from ${pile.wip[0]} to ${pile.wip[pile.wip.length - 1]}`))) +
+      (debt.top ? row(`Review ${debt.top.name} first`, `${debt.top.direct} linked directly, ${debt.top.reach} through others · ${debt.top.years.toFixed(1)} years since an edit · ${plural(debt.count, "note")} in debt${week("debt", Math.round(debt.total))}`, `${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(debt.top.id)}">Open</button>` : ""}${api.stampReviewed ? `<button class="vg-hq-btn vg-hq-btn-sm" data-vital-current="${esc(debt.top.id)}" data-vital-name="${esc(debt.top.name)}">Still current</button>` : ""}${lensBtn("debt", "Knowledge debt")}`) : row("No stale note has anything resting on it", `Counting ${plural(web.links, "written link")}`, "")) +
+      (web.incoherence != null ? row(web.incoherence < 0.3 ? "Your links mostly run one way" : web.incoherence < 0.6 ? "Your links run partly one way" : "Your links run in many directions", `Incoherence ${web.incoherence.toFixed(2)}: 0 is a strict hierarchy, 1 is no direction · ${plural(web.links, "written link")}${week("incoherence", +web.incoherence.toFixed(2), v => v.toFixed(2))}`, opts.openGraph ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-graphview="foodweb">Food web</button>` : "") : "") + `</div></section>`;
+  }
   function home() {
     const cards = feedCards(); feedAt = Math.min(feedAt, Math.max(0, cards.length - 1));
     const card = (c, i) => `<article class="vg-hq-feedcard" data-i="${i}" aria-roledescription="slide" aria-label="${i + 1} of ${cards.length}">${hills(c.id)}
@@ -45,11 +64,11 @@
     const status = `<p class="vg-hq-status">${plural(nodes0(), "note")} · ${plural((DATA.clusters || []).length, "topic")}${DATA.date ? ` · analysed ${esc(shortDate(DATA.date))}` : ""}${opts.openGraph ? ' · <button class="vg-hq-linkbtn" data-graph>Open the graph</button>' : ""}</p>`;
     const off = new Set((STATE.review || {}).hqHome || []), on = k => !off.has(k);
     if (isNewVault()) return `<h1 class="vg-hq-h1">Welcome</h1>${welcomeHtml()}`;
-    return `<h1 class="vg-hq-h1">${greeting()}</h1>${on("brief") ? briefHtml() : ""}${captureBox()}${on("loop") ? flow() : ""}${journalWarning()}${hiddenKindsLine()}${on("cards") ? tiles : ""}${on("momentum") ? momentumHtml() : ""}${on("threads") ? threadsHtml(6) : ""}${on("feed") ? feed : ""}` +
+    return `<h1 class="vg-hq-h1">${greeting()}</h1>${on("brief") ? briefHtml() : ""}${captureBox()}${on("loop") ? flow() : ""}${journalWarning()}${hiddenKindsLine()}${on("cards") ? tiles : ""}${on("vitals") ? vitalsHtml() : ""}${on("momentum") ? momentumHtml() : ""}${on("threads") ? threadsHtml(6) : ""}${on("feed") ? feed : ""}` +
       (on("upkeep") && upkeep.length ? section("Vault upkeep", upkeep) : "") + status + customizeHtml(off);
   }
   // Home's parts, each one yours to turn off
-  const HOME_PARTS = [["brief", "Morning brief"], ["loop", "Plan, Do, Wrap up"], ["cards", "Do next, Needs you, Projects"], ["momentum", "Momentum"], ["threads", "Threads"], ["feed", "On this day and more"], ["upkeep", "Vault upkeep"]];
+  const HOME_PARTS = [["brief", "Morning brief"], ["loop", "Plan, Do, Wrap up"], ["cards", "Do next, Needs you, Projects"], ["vitals", "Vitals"], ["momentum", "Momentum"], ["threads", "Threads"], ["feed", "On this day and more"], ["upkeep", "Vault upkeep"]];
   let customizing = false;
   const customizeHtml = off => !api.hqHome ? "" : customizing ? `<section class="vg-hq-sec vg-hq-customize"><h3>Show on Home</h3><div class="vg-hq-filters" role="group" aria-label="Show on Home">${HOME_PARTS.map(([k, label]) => `<button class="vg-hq-filter${off.has(k) ? "" : " is-on"}" data-homepart="${k}" aria-pressed="${!off.has(k)}">${esc(label)}</button>`).join("")}</div><div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-customize>Done</button></div></section>` : `<div class="vg-hq-row"><button class="vg-hq-linkbtn vg-hq-customizebtn" data-customize>Customize Home</button></div>`;
   function toggleHomePart(k) { const off = new Set((STATE.review || {}).hqHome || []); if (off.has(k)) off.delete(k); else off.add(k); const list = [...off]; STATE = { ...STATE, review: { ...(STATE.review || {}), hqHome: list } }; render(); api.hqHome(list); }

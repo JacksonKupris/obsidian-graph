@@ -612,6 +612,7 @@
       return true;
     },
     applyLive,
+    setView, openLens,
     hasView: v => !!(GRAPH_INFO[v] || MAPS[v]),   // a scene from a note exists once its block is in the state
     async snapshot() { const blob = await new Promise(res => cv.toBlob(res, "image/png")); return blob.arrayBuffer(); },   // the canvas as PNG (State of the vault)
     _debug: { gl: {
@@ -624,7 +625,7 @@
       },
       neuro() { const N = neuro; if (!N) return { spikes: 0, ok: false }; const P = N.net.P; let ok = true; for (const v of N.net.V) if (!isFinite(v) || v > P.threshold + 40 || v < -200) ok = false; return { spikes: N.net.total(), hz: neuroRate(), ok, n: N.list.length, time: N.net.time(), morph: !!morph, vMax: Math.max(...N.net.V), vMean: N.net.V.reduce((x, y) => x + y, 0) / N.net.V.length, shown: neuroSpikes.length }; },
       drawNow() { if (!W) return null; const t0 = performance.now(); draw(performance.now()); dirty = false; return performance.now() - t0; },   // tests: a frame now, its ms
-      views: () => [...Object.keys(GRAPH_INFO), ...Object.keys(MAPS)], lenses: () => Object.keys(LENSES), openLens, st, cam, active: () => active, P, alpha: () => alpha, layouts, setView, scenes: () => SCENES, drawMs: () => drawMs, maps: () => mapCache, cos: () => cos, nodes, nb, replay: () => replay, visible, rules: VGRules },
+      views: () => [...Object.keys(GRAPH_INFO), ...Object.keys(MAPS)], lenses: () => Object.keys(LENSES), openLens, closeLens, lensFps, noteGraph, renewLinks: () => { linkGen++; }, dropLink: () => { const at = links.findIndex(l => l.kind === "link"), l = links[at]; links.splice(at, 1); return () => links.splice(at, 0, l); }, st, cam, active: () => active, P, alpha: () => alpha, layouts, setView, scenes: () => SCENES, drawMs: () => drawMs, maps: () => mapCache, cos: () => cos, nodes, nb, replay: () => replay, visible, rules: VGRules },
     syncNext: syncNextBtn,
     destroy() { persistNow(); destroyed = true; GL.destroy(); clearTimeout(persistTimer); 
       if (RM && RM.removeEventListener) RM.removeEventListener("change", onReduced);

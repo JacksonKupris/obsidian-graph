@@ -572,7 +572,7 @@
     DATA.nodes.forEach(n => { const f = fresh.get(n.id); for (const k in f) if (!LAYOUT_KEYS.has(k)) n[k] = f[k]; });
     saidUnlinked.length = 0; (D.said_unlinked || []).filter(([id]) => byId[id]).forEach(x => saidUnlinked.push(x));
     DATA.said_unlinked = D.said_unlinked; DATA.near_dupes = D.near_dupes;
-    links.length = 0;
+    links.length = 0; linkGen++;
     D.links.forEach(l => { const s = byId[l.source], t = byId[l.target]; if (s && t) links.push({ ...l, s, t }); });
     nodes.forEach(n => nb[n.id].clear());
     links.forEach(l => { if (l.kind === "link") { nb[l.s.id].add(l.t.id); nb[l.t.id].add(l.s.id); } });

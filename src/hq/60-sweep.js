@@ -1,28 +1,40 @@
   // ---- Sweep: the carried-over tasks a day at a time, oldest first: Done (finished some time ago, so it doesn't go in
   // today's standup), Cancel, or Keep (stays open; gone from the sweep until you come back to it)
   const SWEEP_OLD = 14;   // days: a day this old is marked
+  let sweepBy = "day";   // or "section": the journal heading it's under
+  const subsHtml = it => it.subs ? `<details class="vg-hq-subs"><summary>${plural(it.subs.length, "subtask")}</summary><ul>${it.subs.map(x => `<li>${esc(VGRules.plainTask(x.text))}</li>`).join("")}</ul></details>` : "";
+  const sectionOf = it => VGRules.plainTask(it.section || "") || "No heading";
   function sweepScreen() {
-    const items = ofKind("carried").filter(it => !kept.has(it.key)), days = [...new Set(items.map(it => it.date))].sort();
+    const all = ofKind("carried").filter(it => !kept.has(it.key)), left = all.filter(it => it.underDone), items = all.filter(it => !it.underDone), days = [...new Set(items.map(it => it.date))].sort();
     const head = `<button class="vg-hq-btn vg-hq-btn-ghost" data-go="today">${icon("left", 14)} Today</button><h1 class="vg-hq-h1">Sweep carried over</h1>`;
-    if (!items.length) return head + empty(kept.size ? `Swept. ${plural(kept.size, "task")} kept open.` : "No tasks carried over.", [["Today", 'data-go="today"'], ["Home", 'data-go="home"']]);
-    const group = d => { const its = items.filter(it => it.date === d), age = its[0].age;
-      return `<section class="vg-hq-sec vg-hq-sweep" data-day="${esc(d)}"><h3><span>${esc(new Date(d + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }))} · ${plural(its.length, "task")} · ${plural(age, "day")} ago${age >= SWEEP_OLD ? ' <em class="vg-hq-old">2+ weeks</em>' : ""}</span>
-        <span class="vg-hq-acts"><button class="vg-hq-btn vg-hq-btn-sm" data-batch="x" data-day="${esc(d)}">Done all</button><button class="vg-hq-btn vg-hq-btn-sm" data-batch="-" data-day="${esc(d)}">Cancel all</button><button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-batch="keep" data-day="${esc(d)}">Keep all</button></span></h3>` +
-        its.map(it => `<div class="vg-hq-item" data-key="${esc(it.key)}"><div class="vg-hq-txt"><b>${esc(it.title)}</b>${it.delegated ? `<small>delegated to ${esc(it.delegated)}</small>` : ""}</div><div class="vg-hq-acts">
-          <button class="vg-hq-btn vg-hq-btn-sm" data-one="x" data-key="${esc(it.key)}">Done</button><button class="vg-hq-btn vg-hq-btn-sm" data-one="-" data-key="${esc(it.key)}">Cancel</button>
-          <button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-one="keep" data-key="${esc(it.key)}">Keep</button>${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-open="${esc(it.path)}">Open</button>` : ""}</div></div>`).join("") + `</section>`; };
+    if (needsWalk && all.length) return head + walkHtml(all.slice().sort((a, b) => b.age - a.age), it => `<button class="vg-hq-btn vg-hq-btn-primary" data-one="x" data-key="${esc(it.key)}">Done</button><button class="vg-hq-btn" data-one="-" data-key="${esc(it.key)}">Cancel</button>${api.moveTasks ? `<button class="vg-hq-btn" data-one="move" data-key="${esc(it.key)}">Move…</button>` : ""}<button class="vg-hq-btn" data-one="keep" data-key="${esc(it.key)}">Keep</button>${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-ghost" data-open="${esc(it.path)}">Open</button>` : ""}`);
+    if (!all.length) return head + empty(kept.size ? `Swept. ${plural(kept.size, "task")} kept open.` : "No tasks carried over.", [["Today", 'data-go="today"'], ["Home", 'data-go="home"']]);
+    const moveBtn = (small, attrs) => api.moveTasks ? `<button class="vg-hq-btn vg-hq-btn-sm${small}" ${attrs}>Move…</button>` : "";
+    const row = it => `<div class="vg-hq-item" data-key="${esc(it.key)}"><div class="vg-hq-txt"><b>${esc(it.title)}</b>${it.under ? `<small>Under ${esc(it.under)}</small>` : ""}${it.delegated ? `<small>delegated to ${esc(it.delegated)}</small>` : ""}${sweepBy === "section" || it.underDone ? `<small>${esc(it.date)} · ${plural(it.age, "day")} ago</small>` : ""}${subsHtml(it)}</div><div class="vg-hq-acts">
+          <button class="vg-hq-btn vg-hq-btn-sm" data-one="x" data-key="${esc(it.key)}">Done</button><button class="vg-hq-btn vg-hq-btn-sm" data-one="-" data-key="${esc(it.key)}">Cancel</button>${moveBtn("", `data-one="move" data-key="${esc(it.key)}"`)}
+          <button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-one="keep" data-key="${esc(it.key)}">Keep</button>${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-open="${esc(it.path)}">Open</button>` : ""}</div></div>`;
+    const group = (its, label, attr, old) => `<section class="vg-hq-sec vg-hq-sweep" ${attr}><h3><span>${label} · ${plural(its.length, "task")}${old ? ' <em class="vg-hq-old">2+ weeks</em>' : ""}</span>
+        <span class="vg-hq-acts"><button class="vg-hq-btn vg-hq-btn-sm" data-batch="x" ${attr}>Done all</button><button class="vg-hq-btn vg-hq-btn-sm" data-batch="-" ${attr}>Cancel all</button>${moveBtn("", `data-batch="move" ${attr}`)}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-batch="keep" ${attr}>Keep all</button></span></h3>` + its.map(row).join("") + `</section>`;
+    const byDay = d => { const its = items.filter(it => it.date === d), age = its[0].age; return group(its, `${esc(new Date(d + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }))} · ${plural(age, "day")} ago`, `data-day="${esc(d)}"`, age >= SWEEP_OLD); };
+    const sections = [...new Set(items.map(sectionOf))].map(sec => { const its = items.filter(it => sectionOf(it) === sec).sort((x, y) => y.age - x.age); return { sec, its }; }).sort((x, y) => y.its.length - x.its.length);
+    const bySection = ({ sec, its }) => group(its, esc(sec), `data-section="${esc(sec)}"`, its[0].age >= SWEEP_OLD);
+    const leftGroup = left.length ? group(left.slice().sort((x, y) => y.age - x.age), "Left open under a finished task", 'data-leftover="1"', false) : "";
+    const old = all.filter(it => it.age > 30).length, subs = all.reduce((n, it) => n + (it.subs || []).length, 0);
+    const by = (k, words) => `<button class="vg-hq-filter${sweepBy === k ? " is-on" : ""}" data-sweepby="${k}" aria-pressed="${sweepBy === k}">${words}</button>`;
     const repeats = new Map();
     items.forEach(it => { const key = duplicateKey(it); if (!repeats.has(key)) repeats.set(key, []); repeats.get(key).push(it); });
     const duplicates = [...repeats.values()].filter(g => g.length > 1);
     const review = duplicates.length ? `<details class="vg-hq-duplicates"><summary>Review ${plural(duplicates.length, "repeated wording group")} · no tasks merged</summary>${duplicates.map(g =>
       `<div class="vg-hq-txt"><b>${esc(g[0].title)}</b>${g.map(it => `<p>${api.openNote ? `<button class="vg-hq-inline-link" data-open="${esc(it.path)}">${esc(it.path)}</button>` : esc(it.path)} · line ${it.line + 1}</p>`).join("")}</div>`).join("")}</details>` : "";
-    return head + `<p class="vg-hq-lede">${plural(items.length, "task")} from ${plural(days.length, "day")}, oldest first.</p>${review}` + days.map(group).join("");
+    return head + `<p class="vg-hq-lede">${plural(all.length, "task")}, ${old} older than 30 days.${subs ? ` ${plural(subs, "subtask")} go with their tasks.` : ""}</p><div class="vg-hq-filters" role="group" aria-label="Group by">${by("day", "By day, oldest first")}${by("section", "By heading, largest first")}<button class="vg-hq-filter" data-walk="on">One at a time</button></div>${review}${leftGroup}` + (sweepBy === "day" ? days.map(byDay) : sections.map(bySection)).join("");
   }
   async function sweep(how, list, btn, from) {
     if (!list.length) return;
     if (how === "keep") { list.forEach(it => kept.add(it.key)); render(); return; }
+    let to = null, title = "";
+    if (how === "move") { const projects = projectsToAdd(); to = await chooseFrom(`Move ${plural(list.length, "task")} to which project?`, "Filter projects", "No project matches.", projects.map(p => ({ value: p.path, label: p.title, sub: VGRules.statusWords(p.status) }))); if (to === null) return; title = (projects.find(p => p.path === to) || {}).title || to; }
     if (btn) btn.disabled = true;
-    const ok = await VGActions.runBatch(list, how, ctx(), from);
+    const ok = await (how === "move" ? VGActions.runMove(list, to, title, ctx()) : VGActions.runBatch(list, how, ctx(), from));
     if (ok) { list.forEach(it => gone.add(it.key)); relist(); render(); } else if (btn && btn.isConnected) btn.disabled = false;
   }
 

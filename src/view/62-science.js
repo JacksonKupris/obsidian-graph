@@ -6,19 +6,22 @@
   let sciGraph = null, sciGraphFor = null;
   // the notes as a network: cached until the links change. Links are stored without a direction, so anything spreading goes both ways.
   function noteGraph() {
-    if (sciGraph && sciGraphFor === links) return sciGraph;
-    const ids = sciNotes().map(n => n.id); sciGraphFor = links;
-    return sciGraph = VGScience.graphOf(ids, links.filter(l => l.kind === "link").map(l => [l.s.id, l.t.id]));
+    if (sciGraph && sciGraphFor === linkGen) return sciGraph;
+    const ids = sciNotes().map(n => n.id); sciGraphFor = linkGen;
+    // a refresh hands over new link objects: keep the same graph unless a link really changed, so results worked out from it stay
+    const g = VGScience.graphOf(ids, links.filter(l => l.kind === "link").map(l => [l.s.id, l.t.id]));
+    return sciGraph = sciGraph && VGScience.graphKey(sciGraph) === VGScience.graphKey(g) ? sciGraph : g;
   }
-  // which way each link points, from the host (Obsidian's index). The graph data stores links without a direction, so with no host
-  // (the test page) this is null and whatever needs direction says it doesn't have it.
-  function linkOut() { const raw = opts.outLinks && opts.outLinks(); return raw && Object.keys(raw).length ? raw : null; }
+  // which way each link points, from the host (Obsidian's index, less the links in generated sections: VGRules.writtenLinks). The graph
+  // data stores links without a direction, so with no host (the test page) this is null and whatever needs direction says it doesn't have it.
+  function linkOut() { const raw = opts.writtenLinks && opts.writtenLinks(); return raw && Object.keys(raw).length ? raw : null; }
   let sciDir = null, sciDirFor = null;
   // notes as a one-way network, only links the graph itself draws: [from, to] where from links to to
   function directedNotes() {
-    const raw = linkOut(); if (!raw) return null; if (sciDir && sciDirFor === links) return sciDir;
+    if (sciDirFor === linkGen) return sciDir;
+    const raw = linkOut(); sciDirFor = linkGen; if (!raw) return sciDir = null;
     const ids = sciNotes().map(n => n.id), pairs = []; for (const l of links) { if (l.kind !== "link") continue; const a = l.s.id, b = l.t.id, ab = raw[a] && raw[a][b], ba = raw[b] && raw[b][a]; if (ab) pairs.push([a, b]); if (ba) pairs.push([b, a]); }
-    sciDirFor = links; return sciDir = VGScience.directedGraph(ids, pairs);
+    const d = VGScience.directedGraph(ids, pairs); return sciDir = sciDir && VGScience.graphKey(sciDir) === VGScience.graphKey(d) ? sciDir : d;
   }
   // a mistake travels the other way from a link: to the notes that link to the wrong one, which lean on it
   function spreadGraph() { const d = directedNotes(); if (!d) return noteGraph(); if (d.spread) return d.spread; return d.spread = VGScience.directedGraph(d.ids, d.edges.map(([a, b]) => [d.ids[b], d.ids[a]])); }
@@ -57,7 +60,7 @@
       ${sciChart({ label: "Share of the vault an outbreak reaches, against T", xmax: BLAST_MAX, xticks: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], xfmt: v => v.toFixed(1), xlabel: "transmissibility T", series: [{ pts: blastSweep.map(s => [s.T, s.mean]), cls: "is-a" }, { pts: blastSweep.map(s => [s.T, s.pBig]), cls: "is-b" }], marks: [{ x: E.Tc, label: "T꜀", cls: "is-warn" }, { x: T, label: "you are here" }] })}
       <p class="vg-sci-key"><i class="is-a"></i>share of notes reached <i class="is-b"></i>chance of a large outbreak (10%+ of notes)</p>
       ${sciRead("The solid line is how much of the vault one mistake reaches as T rises. It stays low, then climbs at the threshold, where each wrong note starts passing the mistake to more than one other. The dashed line is how likely a large outbreak is. Move T to match how much your notes copy from each other.")}
-      <p class="vg-muted vg-lens-note">${esc(verdict)} Method: SIR as bond percolation, ${BLAST_RUNS} runs per note, seeded so the answer repeats. T is your judgement of how far a mistake gets copied, not something the vault can measure. ${oneWay ? "A mistake travels from a note to the notes that link to it, since those are the ones leaning on it." : "This page has no link direction, so a mistake travels both ways here."} R₀ assumes an unclustered network.</p>
+      <p class="vg-muted vg-lens-note">${esc(verdict)} Method: SIR as bond percolation, ${BLAST_RUNS} runs per note, seeded so the answer repeats. T is your judgement of how far a mistake gets copied, not something the vault can measure. ${oneWay ? "A mistake travels from a note to the notes that link to it, since those are the ones leaning on it. Links in Related sections and similar-meaning lines don't count: only links written into a note do." : "This page has no link direction, so a mistake travels both ways here."} R₀ assumes an unclustered network.</p>
       <div class="vg-list-h">Largest blast radius, of the ${BLAST_SEEDS} most linked <span class="vg-count">${res.length}</span></div>
       ${res.slice(0, 14).map(r => `<div class="vg-sugg${r === sel ? " is-on" : ""}">${noteRow(g.ids[r.i], `reaches ${r.mean.toFixed(1)} notes on average · 1 in 10 runs ${r.p90}+ · ${plural(r.deg, "link")}${hidden(r) ? " · more than its links suggest" : ""}`)}<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-blast-seed="${esc(g.ids[r.i])}">Trace</button></span></div>`).join("")}
       <div class="vg-list-h">If ${esc(byId[g.ids[sel.i]].name)} is wrong, check these first <span class="vg-count">${recheck.length}</span></div>
@@ -130,18 +133,11 @@
   }
   // ---- As a neural net: your links as the wiring of a recurrent network, tested the way real connectomes are. The answer is worked
   // out from the runs, so it can come out either way, and changes with the vault.
-  const NET_RHOS = [0.5, 0.8, 0.95, 1.1, 1.3], NET_SEEDS = 4;
-  let netResult = null, netFor = null;
+  const { NET_RHOS, NET_SEEDS } = VGScience;
   const netMean = a => a.reduce((x, y) => x + y, 0) / a.length, netSd = a => { const m = netMean(a); return Math.sqrt(a.reduce((s, x) => s + (x - m) ** 2, 0) / Math.max(1, a.length - 1)); };
   // Welch's t, with the seeds as the sample: a difference this size is unlikely to be the luck of the random strengths at about 3 and up
   const netDiffers = (a, b) => { const v = (netSd(a) ** 2 + netSd(b) ** 2) / a.length; return v ? Math.abs(netMean(a) - netMean(b)) / Math.sqrt(v) : 0; };
-  async function runNet() {
-    const g = noteGraph(), S = VGScience; if (netFor === g && netResult) return netResult;
-    const pause = () => new Promise(r => setTimeout(r)), kinds = { yours: () => g, rewired: s => S.rewired(g, s), random: s => S.randomGraph(g.n, g.edges.length, s) }, runs = {};
-    for (const [name, make] of Object.entries(kinds)) { runs[name] = []; for (const rho of NET_RHOS) { const mc = [], na = []; for (let s = 1; s <= NET_SEEDS; s++) { const G = make(s); mc.push(S.memoryCapacity(G, { rho, seed: s * 7 + 1, steps: 1200 }).mc); na.push(S.narmaError(G, { rho, seed: s * 11 + 1, steps: 1600 })); await pause(); } runs[name].push({ rho, mc, na }); } }
-    netFor = g; return netResult = { runs, sw: S.smallWorld(g, 6), sizes: S.components(g), n: g.n, m: g.edges.length };
-  }
-  async function loadNetLens() { const g = noteGraph(); if (g.n < 20 || g.edges.length < 20) return emptyNext("This needs at least 20 linked notes to test as a network.", "search"); return renderNet(await runNet()); }
+  async function loadNetLens() { const g = noteGraph(); if (g.n < 20 || g.edges.length < 20) return emptyNext("This needs at least 20 linked notes to test as a network.", "search"); return renderNet(await VGScience.netStudy(g)); }
   function renderNet({ runs, sw, sizes, n, m }) {
     const best = (name, key, pick) => runs[name].reduce((b, r) => (pick(netMean(r[key]), netMean(b[key])) ? r : b)), hi = (a, b) => a > b, lo = (a, b) => a < b, yMc = best("yours", "mc", hi), rMc = best("random", "mc", hi), yNa = best("yours", "na", lo), rNa = best("random", "na", lo);
     const line = (name, key) => runs[name].map(r => [r.rho, netMean(r[key])]), top = Math.ceil(Math.max(...Object.values(runs).flat().map(r => netMean(r.mc))) / 2) * 2 || 2;
@@ -172,16 +168,16 @@
       ${sciChart({ label: "Tasks in and out over time", xmax: F.days, xticks: [0, Math.round(F.days / 3), Math.round(2 * F.days / 3), F.days], xfmt: v => (v === F.days ? "today" : `${F.days - v}d ago`), xlabel: "", ymax: span, yticks: [0, span / 2, span], yfmt: v => v.toFixed(0), series: [{ pts: line(F.cumIn), cls: "is-a" }, { pts: line(F.cumOut), cls: "is-b" }] })}
       <p class="vg-sci-key"><i class="is-a"></i>tasks written down, added up <i class="is-b"></i>tasks finished, added up</p>
       ${sciRead("A cumulative flow chart. The height of each line is a running total, and a steeper line means a faster rate. The gap between them is the new work still open from this period: a widening gap means work is arriving faster than it finishes.")}
-      <p class="vg-muted vg-lens-note">Little's law: average open = arrival rate × average time open. ${F.L.toFixed(1)} = ${F.lambda.toFixed(2)} a day × ${F.W.toFixed(1)} days. It holds for any queue, so to shorten how long tasks wait you have to take on fewer or finish more. Tasks done with no date and cancelled tasks aren't counted, so the real finish rate is higher than this.</p>`;
+      <p class="vg-muted vg-lens-note">Little's law: average open = arrival rate × average time open. ${F.L.toFixed(1)} = ${F.lambda.toFixed(2)} a day × ${F.W.toFixed(1)} days. It holds for any queue, so to shorten how long tasks wait you have to take on fewer or finish more. Tasks done with no date and cancelled tasks aren't counted, so the real finish rate is higher than this. A task counts once however many journals repeat it, and subtasks aren't counted, so Sweep in Vault HQ lists more.</p>`;
   }
   // ---- Knowledge debt: what a stale note costs goes up with what rests on it and with how long it's been left
   function lensDebt() {
-    const g = spreadGraph(), notes = g.ids.map(id => byId[id]), rely = VGScience.reliance(g), rows = notes.map((n, i) => ({ n, ...rely[i], age: n.age || 0, stale: staleFor(n, Q.stale_days) })).filter(r => r.stale && r.score > 0).map(r => ({ ...r, cost: r.score * (r.age / 365) })).sort((a, b) => b.cost - a.cost);
+    const g = spreadGraph(), notes = g.ids.map(id => byId[id]), rows = VGScience.debtRanks(g, notes.map(n => ({ age: n.age, stale: staleFor(n, Q.stale_days) }))).map(r => ({ ...r, n: notes[r.i] }));
     if (!rows.length) return emptyNext("No stale note has anything resting on it.", "search");
     const total = rows.reduce((s, r) => s + r.cost, 0), top = rows[0].cost, staleCount = notes.filter(n => staleFor(n, Q.stale_days)).length, c = VGScience.concentration(rows.map(r => r.cost)), five = rows.slice(0, 5).reduce((s, r) => s + r.cost, 0) / total;
     return `${sciFacts([[String(rows.length), "notes in debt", `Stale notes (${Q.stale_days}+ days without an edit) that other notes rest on. ${staleCount} are stale in all.`], [Math.round(total).toLocaleString(), "note-years owed", "For each one, how much rests on it times the years it's been left, added up."], [pct(five), "held by the top 5", "How much of the debt the five worst notes hold. High means a few reviews would clear most of it."], [c.effective.toFixed(0), "effective notes", "As concentrated as if this many notes held the debt equally."]])}
       ${sciRead("Debt here is a way of ranking, not a measure of money or of error: a note isn't wrong for being old. It says which old notes would cost most if they had gone out of date. Reviewing one clears all of its debt, so start at the top.")}
-      <p class="vg-muted vg-lens-note">Cost = how much rests on it × years since it was edited. A note linking to it directly counts 1, two links away a half, three a quarter, since through enough links nearly everything reaches everything. ${g.directed ? "Resting on means linking to it." : "This page has no link direction, so links count both ways."}</p>
+      <p class="vg-muted vg-lens-note">Cost = how much rests on it × years since it was edited. A note linking to it directly counts 1, two links away a half, three a quarter, since through enough links nearly everything reaches everything. ${g.directed ? "Resting on means linking to it. Links in Related sections and similar-meaning lines don't count: only links written into a note do." : "This page has no link direction, so links count both ways."}</p>
       <div class="vg-list-h">Worth reviewing first <span class="vg-count">${rows.length}</span></div>
       ${rows.slice(0, 20).map(r => `<div class="vg-sugg">${noteRow(r.n.id, `${Math.round(r.cost)} note-years · ${r.direct} link to it directly, ${r.reach} through others · ${(r.age / 365).toFixed(1)} years since an edit`)}<span class="vg-sci-bar" aria-hidden="true"><i style="width:${Math.max(2, Math.round(r.cost / top * 100))}%"></i></span><span class="vg-sugg-acts">${opts.stampReviewed ? actBtn("data-reviewed", r.n.id, "Still current") : ""}</span></div>`).join("")}`;
   }

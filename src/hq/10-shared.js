@@ -100,7 +100,7 @@
   const ctxButton = it => api.searchNotes ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-ctxbtn" data-ctx="${esc(it.key)}" aria-expanded="${ctxOpen === it.key}" title="What your notes know about this (Enter)" aria-label="What your notes know about this">${icon("down", 14)}</button>` : "";
   function loadContext(it) {
     if (!api.searchNotes || ctxCache.has(it.key)) return; ctxCache.set(it.key, null);
-    Promise.resolve(api.searchNotes(ctxQuery(it), 8)).then(hits => { const own = it.path; ctxCache.set(it.key, (Array.isArray(hits) ? hits : []).filter(h => h.path !== own).filter((h, i, a) => a.findIndex(x => x.path === h.path) === i).slice(0, 4)); if (railOn()) updateRail(); else render(); }, () => { ctxCache.set(it.key, []); if (railOn()) updateRail(); else render(); });
+    Promise.resolve(api.searchNotes(ctxQuery(it), 8)).then(hits => { const own = it.path; ctxCache.set(it.key, (Array.isArray(hits) ? hits : []).filter(h => h.path !== own && !String(h.path).startsWith(`${VGRules.folders.system}/`)).filter((h, i, a) => a.findIndex(x => x.path === h.path) === i).slice(0, 4)); if (railOn()) updateRail(); else render(); }, () => { ctxCache.set(it.key, []); if (railOn()) updateRail(); else render(); });
   }
   function contextPanel(it, always) {
     if (!api.searchNotes || (!always && ctxOpen !== it.key)) return "";
@@ -149,20 +149,22 @@
   function flow() {
     if (!api.hqFocus) return ""; const f = focus(), nextKey = nextStep().key, done = VGRules.doneToday(DATA, STATE.review, day()), h = hq() || {}, standup = (h.standups || []).find(s => s.date === day());
     const step = (go, on, n, title, sub) => `<button class="vg-hq-step${on ? " is-on" : ""}" data-go="${go}"><i>${n}</i><span><b>${esc(title)}</b><small>${esc(sub)}</small></span></button>`;
-    return `<nav class="vg-hq-flow" aria-label="Today's loop">${step("today", nextKey === "plan", "1", "Plan", f.length ? `${f.length} of ${VGRules.FOCUS_MAX} picked` : `Star up to ${VGRules.FOCUS_MAX} for today`)}${step("session", nextKey === "do" || nextKey === "session", "2", "Do", session ? `${session.since ? "On" : "Paused"} · ${sessionClock()}` : f.length ? `Next: ${f[0].title.slice(0, 44)}` : "Start a focus session")}${step("wrap", nextKey === "standup" || cur === "wrap", "3", "Wrap up", `${plural(done.length, "thing")} done · ${standup ? "standup started" : "no standup yet"}`)}</nav>`;
+    return `<nav class="vg-hq-flow" aria-label="Today's loop">${step("today", nextKey === "plan", "1", "Plan", f.length ? `${f.length} of ${VGRules.FOCUS_MAX} picked` : `Star up to ${VGRules.FOCUS_MAX} for today`)}${step("session", nextKey === "do" || nextKey === "session", "2", "Do", session ? `${session.since ? "On" : "Paused"} · ${sessionClock()}` : f.length ? `Next: ${f[0].title.slice(0, 44)}` : "Start a focus session")}${step("wrap", nextKey === "standup" || nextKey === "wrap" || cur === "wrap", "3", "Wrap up", `${plural(done.length, "thing")} done · ${standup ? "standup started" : "no standup yet"}`)}</nav>`;
   }
   // ---- Wrap up: what got done goes in the standup, what didn't goes in tomorrow's plan
   function wrapScreen() {
     const done = VGRules.doneToday(DATA, STATE.review, day()), h = hq() || {}, standup = (h.standups || []).find(s => s.date === day()), left = focus();
-    const doneRows = done.map(d => `<div class="vg-hq-item"><span class="vg-hq-kind">${icon("check", 16)}</span><div class="vg-hq-txt"><b>${esc(d.text)}</b></div></div>`).join("");
+    const doneRow = d => `<div class="vg-hq-item"><span class="vg-hq-kind">${icon("check", 16)}</span><div class="vg-hq-txt"><b>${esc(d.text)}</b></div></div>`, forIt = done.filter(d => VGRules.forStandup(d.text)), notForIt = done.filter(d => !VGRules.forStandup(d.text));
+    const doneRows = forIt.map(doneRow).join("");
     const leftRows = left.map(it => `<div class="vg-hq-item"><span class="vg-hq-kind">${icon("clock", 16)}</span><div class="vg-hq-txt"><b>${esc(it.title)}</b></div><div class="vg-hq-acts">${standup && api.planLine ? `<button class="vg-hq-btn vg-hq-btn-sm" data-plan="${esc(it.key)}">Plan for tomorrow</button>` : ""}${buttons(it)}</div></div>`).join("");
     const focused = VGRules.sessionMinutes(STATE.review, day());
     return `<h1 class="vg-hq-h1">Wrap up</h1>${flow()}<p class="vg-hq-lede">${plural(done.length, "thing")} done today${focused ? ` · ${VGRules.minutesWords(focused)} focused` : ""}${left.length ? ` · ${left.length} still in focus` : ""}.</p>
-      <div class="vg-hq-row vg-hq-wrapacts">${standup ? `${done.length && api.logWork ? '<button class="vg-hq-btn vg-hq-btn-primary" data-logall>Add all to the standup</button>' : ""}${api.openNote ? `<button class="vg-hq-btn" data-open="${esc(standup.path)}">Open the standup</button>` : ""}` : api.openStandup ? `<button class="vg-hq-btn vg-hq-btn-primary" data-makestandup>Start today's standup</button>` : ""}</div>
-      ${doneRows ? `<section class="vg-hq-sec"><h3>Done today<span>${done.length}</span></h3>${doneRows}</section>` : empty("Nothing marked done today yet.", [["Today", 'data-go="today"']])}
+      <div class="vg-hq-row vg-hq-wrapacts">${standup ? `${forIt.length && api.logWork ? `<button class="vg-hq-btn vg-hq-btn-primary" data-logall>Add ${plural(forIt.length, "line")} to the standup</button>` : ""}${api.openNote ? `<button class="vg-hq-btn" data-open="${esc(standup.path)}">Open the standup</button>` : ""}` : api.openStandup ? `<button class="vg-hq-btn vg-hq-btn-primary" data-makestandup>Start today's standup</button>` : ""}</div>
+      ${doneRows ? `<section class="vg-hq-sec"><h3>Done today<span>${forIt.length}</span></h3>${doneRows}</section>` : !notForIt.length ? empty("Nothing marked done today yet.", [["Today", 'data-go="today"']]) : ""}
+      ${notForIt.length ? `<section class="vg-hq-sec"><h3>Left out of the standup<span>${notForIt.length}</span></h3>${notForIt.map(doneRow).join("")}</section>` : ""}
       ${leftRows ? `<section class="vg-hq-sec"><h3>Still in focus<span>${left.length}</span></h3>${leftRows}</section>` : ""}`;
   }
-  async function logAll(btn) { btn.disabled = true; let n = 0; for (const d of VGRules.doneToday(DATA, STATE.review, day())) { if (await api.logWork(d.text)) n++; } toast(n ? `${plural(n, "line")} added to the standup` : "The standup already has them"); if (btn.isConnected) btn.disabled = false; }
+  async function logAll(btn) { btn.disabled = true; let n = 0; for (const d of VGRules.doneToday(DATA, STATE.review, day()).filter(x => VGRules.forStandup(x.text))) { if (await api.logWork(d.text)) n++; } toast(n ? `${plural(n, "line")} added to the standup` : "The standup already has them"); if (btn.isConnected) btn.disabled = false; }
   const reactButtons = it => api.hqReact ? `<span class="vg-hq-react" role="group" aria-label="More or less like this"><button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-react="more" data-kind="${esc(it.kind)}" aria-label="More like this" title="More ${esc(VGRules.kindWords(it.kind))}">▲</button><button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-react="less" data-kind="${esc(it.kind)}" aria-label="Less like this" title="Fewer ${esc(VGRules.kindWords(it.kind))}">▼</button></span>` : "";
   async function react(how, kind) {
     const words = VGRules.kindWords(kind), was = (((STATE.review || {}).reactions || {})[kind] || {}).less || 0;

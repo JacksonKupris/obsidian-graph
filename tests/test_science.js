@@ -134,4 +134,9 @@ const again = S.outbreakStats(K5, 1, 0.4, 100, 5), twice = S.outbreakStats(K5, 1
   const hi = S.surfaceWind(-1, 0); assert(hi[0] > 0, 'east of a high, it spills outward'); }
 // ---- one way: excess degree for a directed graph, in a case by hand
 { const d = S.directedGraph(['a', 'b', 'c'], [['a', 'b'], ['b', 'c'], ['b', 'c'], ['a', 'a']]); assert.strictEqual(d.edges.length, 2, 'repeats and self-links dropped'); assert.deepStrictEqual(d.adj, [[1], [2], []]); near(S.epidemic(d).excess, 0.5, 1e-9, 'of 2 links, one leads to a note with 1 way out, one to a dead end'); const s = S.outbreakStats(d, 0, 1, 10); assert.strictEqual(s.mean, 3, 'it reaches down the chain'); assert.strictEqual(S.outbreakStats(d, 2, 1, 10).mean, 1, 'and never back up it'); }
+// the network study: the same answer however it runs, with no worker to hand it runs here, and one result per network
+{ const ids = Array.from({ length: 24 }, (_, i) => `n${i}`), pairs = ids.flatMap((id, i) => [[id, ids[(i + 1) % 24]], [id, ids[(i + 5) % 24]]]), g = S.graphOf(ids, pairs), g2 = S.graphOf(ids, pairs), g3 = S.graphOf(ids, pairs.slice(1));
+  assert.strictEqual(S.graphKey(g), S.graphKey(g2), "the same links gave a different network key"); assert.notStrictEqual(S.graphKey(g), S.graphKey(g3), "a dropped link kept the network key");
+  const first = S.netStudy(g), again = S.netStudy(g2); assert.strictEqual(first, again, "the same network was worked out twice"); assert.strictEqual(S.netStats.runs, 1);
+  first.then(r => { assert.strictEqual(S.netStats.via, "here"); assert.deepStrictEqual(JSON.stringify(r), JSON.stringify(S.netStudyNow(S.graphOf(ids, pairs))), "stepping changed the answer"); assert.strictEqual(r.runs.yours.length, S.NET_RHOS.length); }).catch(e => { console.error(e); process.exit(1); }); }
 console.log("ok - science: Kaplan-Meier and log-rank on the 6-MP trial, SIR and its threshold, cut points, percolation, the neuron's closed form, anatomy");

@@ -57,6 +57,7 @@
     { sel: ".vg-hq-captureinput", before: () => setScreen("today"), title: "Capture", text: "Enter adds a task to today's journal. Ctrl Enter picks a project. Shift Enter saves a note." },
     { sel: ".vg-hq-next .vg-hq-star", title: "Today's focus", text: `Star up to ${VGRules.FOCUS_MAX} things for the day. Focus runs a timer on one.` },
     { sel: '.vg-hq-dockbtn[data-go="needs"]', title: "Needs you", text: "Decisions only you can make. Tick several to put them off, or go through them one at a time." },
+    { sel: ".vg-hq-vitals", before: () => setScreen("home"), title: "Vitals", text: "What your notes and tasks add up to, what to do about it, and the change over a week." },
     { sel: '.vg-hq-dockbtn[data-go="calendar"]', title: "Calendar", text: "What got done each day. Copy a day or a week for an update." },
     { sel: ".vg-hq-global-search", title: "Search", text: "Press / to search here, or Ctrl K to find or do anything from one box." },
   ];
