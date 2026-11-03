@@ -1655,7 +1655,9 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const rows = [], lensRows = [];
     let handle = null;
     try {
-      handle = mountVaultGraph(host.createDiv(), structuredClone(data), { mobile: Platform.isMobile, alwaysOn: true, layoutSeed: () => this.layoutSeed() });
+      handle = mountVaultGraph(host.createDiv(), structuredClone(data), { mobile: Platform.isMobile, alwaysOn: true, layoutSeed: () => this.layoutSeed(),
+        // what reads the real vault, so a view that needs it is really tested; nothing that writes
+        taskHistory: () => this.taskHistory(), writtenLinks: () => this.writtenLinks(), linkHow: rows => this.linkHow(rows), wantedCounts: () => this.wantedCounts(), driftScan: () => this.driftScan() });
       await sleep(1500);
       const D = handle._debug, q = s => host.querySelector(s);
       for (const w of D.views()) {
@@ -1665,7 +1667,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       }
       const keys = D.lenses();
       for (const k of keys) {
-        const e0 = errors.length; D.openLens(k); await sleep(400);
+        const e0 = errors.length; D.openLens(k); await sleep(400); for (let i = 0; i < 100 && /^Loading/.test(q(".vg-lens-body").textContent.trim()); i++) await sleep(200);   // a view that loads has to finish
         const body = q(".vg-lens-body"); lensRows.push(`| ${k} | ${errors.length - e0 ? "❌" : "✅"} | ${body.textContent.length} chars | ${(body.querySelector(".vg-empty") || {}).textContent || ""} |`);
       }
     } catch (e) { errors.push("self-test stopped: " + e.message); }
