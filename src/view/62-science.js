@@ -112,7 +112,7 @@
   // ---- Single points of failure: which notes hold the vault together, and how it breaks
   let spofCache = null, spofFor = null;
   function lensSpof() {
-    const g = noteGraph(), S = VGScience; if (g.n < 3 || !g.edges.length) return emptyNext("This lens needs notes that link to each other.", "search");
+    const g = noteGraph(), S = VGScience; if (g.n < 3 || !g.edges.length) return emptyNext("This needs notes that link to each other.", "search");
     if (spofFor !== g) { const cuts = S.cutPoints(g), damage = S.cutDamage(g, cuts.cut.slice().sort((a, b) => g.adj[b].length - g.adj[a].length).slice(0, 120)); spofCache = { cuts, damage, rob: S.robustness(g), size: S.components(g) }; spofFor = g; }
     const { cuts, damage, rob, size } = spofCache, n = g.n, q = rob.attack.findIndex(v => v < 0.5 * rob.attack[0]), xs = a => a.map((v, i) => [i / n, v]);
     const everyN = Math.max(1, Math.floor(n / 200)), thin = a => a.filter((_, i) => i % everyN === 0 || i === a.length - 1);
@@ -198,6 +198,7 @@
     const can = twRows.filter(r => r.line != null), now = S.trophic(g.adj).incoherence, all = S.incoherenceWithout(g, twRows.map(r => [r.from, r.to])), some = S.incoherenceWithout(g, can.map(r => [r.from, r.to]));
     const word = { sentence: "in a sentence", list: "a list line", frontmatter: "in frontmatter", "see also": "in See Also" };
     return `${sciFacts([[String(pairs.length), "two-way pairs", `Pairs of notes that each link to the other, ${pct(pairs.length * 2 / g.edges.length)} of your written links.`], [now.toFixed(2), "incoherence now", "How consistently links run one way. 0 is a strict hierarchy, 1 is no direction."], [all.toFixed(2), "with one side of each gone", "The same measure if every pair below lost its suggested side."], [some.toFixed(2), `with the ${can.length} list lines gone`, "The same, dropping only the links that are one list line."]])}
+      <div class="vg-row"><button class="vg-btn vg-btn-sm" data-toview="foodweb">See it as the Food web</button></div>
       ${upHtml}
       ${sciRead("A hierarchy reads one way: a note leans on what it links to. Two notes linking to each other say both lean on both, which is what blurs the Food web most. One side is usually enough, since Obsidian's backlinks still show the other. A vault doesn't need 0: drop what adds nothing and keep what you use.")}
       ${can.length && opts.dropLinkLines ? `<div class="vg-row"><button class="vg-btn vg-btn-sm" data-twall>Drop all ${plural(can.length, "list line")}</button></div>` : ""}
@@ -275,6 +276,7 @@
     body.querySelectorAll("[data-blast-t]").forEach(d => { d.oninput = () => { const o = d.parentElement.querySelector("b"); if (o) o.textContent = (+d.value).toFixed(2); }; d.onchange = () => { blastT = +d.value; again(); }; });
     body.querySelectorAll("[data-blast-seed]").forEach(d => d.onclick = e => { e.stopPropagation(); blastSeed = d.dataset.blastSeed; again(); });
     body.querySelectorAll("[data-blast-show]").forEach(d => d.onclick = e => { e.stopPropagation(); blastShow(d.dataset.blastShow); });
+    body.querySelectorAll("[data-toview]").forEach(d => d.onclick = e => { e.stopPropagation(); if (!lensBeside()) closeLens(); setView(d.dataset.toview); });
     body.querySelectorAll("[data-control]").forEach(d => d.onclick = e => { e.stopPropagation(); controlKind = d.dataset.control; again(); });
     body.querySelectorAll("[data-upone]").forEach(d => d.onclick = e => { e.stopPropagation(); d.disabled = true; upAdd([upRows[+d.dataset.upone]], e).then(ok => { if (!ok) d.disabled = false; }); });
     body.querySelectorAll("[data-upall]").forEach(d => d.onclick = e => { e.stopPropagation(); d.disabled = true; upAdd(upRows, e).then(ok => { if (!ok) d.disabled = false; }); });

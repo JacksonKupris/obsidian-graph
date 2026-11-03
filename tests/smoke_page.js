@@ -76,9 +76,9 @@ setTimeout(async () => {
         }
         // with the plugin's hooks the picker offers New scene, and its form opens and cancels
         if (keep) { document.querySelector(".vg-lens:not([hidden]) .vg-lens-close")?.click(); document.querySelector(".vg-pickbtn").click(); await sleep(100);
-          document.querySelector('.vg-picker-tab[data-tab="scenes"]')?.click(); await sleep(50);   // the Scenes gallery holds it
-          const tile = [...document.querySelectorAll(".vg-tile")].find(t => /New scene/.test(t.textContent));
-          if (!tile) __errs.push("New scene: no tile in the picker");
+          document.querySelector('.vg-picker-tab[data-tab="views"]')?.click(); await sleep(50);   // the Scenes gallery holds it
+          const tile = [...document.querySelectorAll(".vg-tile")].find(t => t.dataset.k === "newscene");
+          if (!tile) __errs.push("New view: no tile in the picker");
           else { tile.click(); await sleep(100); const f = document.querySelector(".vg-confirm .vg-form");
             if (!f || f.querySelectorAll("select").length < 8) __errs.push("New scene: the form didn't open with its choices");
             document.querySelector('.vg-confirm [data-c="no"]')?.click(); await sleep(50);

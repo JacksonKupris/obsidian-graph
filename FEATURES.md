@@ -1,6 +1,6 @@
 # Features
 
-What Vault Graph already does, and where. Read this before adding anything: extend the feature that owns a job instead of adding a second one. When two features do one job, merge them. Keep it to one line each.
+What Vault Graph already does, and where. "Lens" and "scene" below are code words: a person sees one kind of thing, a view (see ARCHITECTURE.md). Read this before adding anything: extend the feature that owns a job instead of adding a second one. When two features do one job, merge them. Keep it to one line each.
 
 ## The jobs, and who owns each
 

@@ -575,7 +575,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     if (!this.settings.homeV2) { this.settings.homeV2 = 1; this.settings.homeView = "foodweb"; this.saveSettings(); }   // once: the card had been left on Subway, which is crowded small
     // after each plugin update, test every view and lens once in the background (desktop); a notice only if something broke
     this.app.workspace.onLayoutReady(() => { if (Platform.isDesktopApp) setTimeout(async () => { const sig = await this.buildSig(); if (sig && (this.settings.lastSelfTest || {}).sig !== sig) this.selfTest(true); }, 45000); });
-    this.addCommand({ id: "self-test", name: "Run self-test (every view and lens, in the background; writes a report to the reports folder)", callback: () => this.selfTest(false) });
+    this.addCommand({ id: "self-test", name: "Run self-test (every view, in the background; writes a report to the reports folder)", callback: () => this.selfTest(false) });
     this.addCommand({ id: "state-snapshots", name: "Add map snapshots to the latest State of the vault note", callback: () => this.stateSnapshots() });
     this.registerView(SUGGEST_TYPE, leaf => new VaultGraphSuggestView(leaf, this));
     this.registerView(HQ_TYPE, leaf => new VaultHQView(leaf, this));

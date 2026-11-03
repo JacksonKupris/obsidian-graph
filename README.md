@@ -8,9 +8,7 @@ An Obsidian plugin that maps your vault: it finds the topics your notes form, th
 - **Vitals**: what your tasks and notes add up to, in plain sentences, each with what to do about it and the change over a week.
 - **Sweep**: every open task from earlier days, with its subtasks. Finish, cancel, keep or move it to a project, one at a time or by day or heading. Subtasks left open under a finished task get their own group.
 - **Today**: one list of next steps, with today's three at the top. Link two notes that belong together, add a note to its topic's map, write a note other notes already link to, check that a note you rely on is still current, give a topic a map, link a note nothing points to. Each has its button and Undo. It's in the graph's Insights tab, its Today panel (the flag button, or G) and the sidebar.
-- **Map**: the graph itself in 2D or 3D, coloured by topic, with the bridge notes and the gaps between topics.
-- **Scenes**: the same notes as pictures (a neon city, a food web, weather, a radar of open tasks, a heat clock, and a first-person shooter where every note is an enemy), every one in 2D or 3D, with a time-lapse of how your vault grew, and scenes you write yourself in a note.
-- **Lenses**: questions you can ask (what's important but stale, what to write next, which notes are duplicates, what a folder mixes).
+- **Views**: every way of looking at the vault, in one menu, grouped by what you want to know. **See the vault** draws it: 2D, 3D, a brain, a neon city, weather. **Tasks** asks how the work flows and whether a week is really different. **Notes that need you** finds what's stale, out of date or has no place. **Topics and structure** shows where your attention goes and how things connect. **Play** turns your notes into games. Many use real methods: survival curves, control charts, food webs, epidemic models.
 - **Search**: finds what you half remember: misspellings, "last week", a person's name, "near" a note.
 - **Cosmos**: every body offers notes at a distance (black hole 0; a binary's or planet's notes 1; a star's rings 1-3, up to three links away) and each note goes to the nearest. Ties go to black hole, then binary, planet, star, then target-path order, independent of placement order. Saved stars must target existing notes after vault reorganizations.
 
@@ -41,7 +39,7 @@ Vault HQ reads your daily notes from where Obsidian's Daily notes or Periodic No
 
 - **Smart Connections**: if that plugin has indexed your vault, Vault Graph uses its note similarity too, for topics and for "these two notes mean the same thing" suggestions.
 - **The analysis** (`analysis/`, Python 3 with PyYAML, desktop only): adds what Obsidian's index alone can't give, mostly from daily notes: which notes you mention together, timelines, follow-through on plans. Without it the plugin still finds the topics and suggestions itself.
-- **Your own scenes**: a ```` ```vault-graph-scene ```` block in any note becomes a view. The **New scene** tile in Scenes writes one for you.
+- **Your own views**: a ```` ```vault-graph-scene ```` block in any note becomes a view. The **New view** tile writes one for you.
 
 ## Develop
 
