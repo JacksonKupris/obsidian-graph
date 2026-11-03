@@ -1299,6 +1299,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
       setTasksStatus: (rows, status) => this.setTasksStatus(rows, status),
       moveTasks: (items, to) => this.moveTasks(items, to),
       recentChanges: () => this.recentChanges(),
+      version: () => this.manifest.version,
+      hqNewsSeen: version => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.hqNewsSeen = version; return sh; }),
       labelUndo: (id, label) => this.labelUndo(id, label),
       setParents: rows => this.setParents(rows),
       vitals: () => this.vitals(),

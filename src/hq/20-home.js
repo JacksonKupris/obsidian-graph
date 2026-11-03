@@ -52,6 +52,13 @@
       (debt.top ? row(`Review ${debt.top.name} first`, `${debt.top.direct} linked directly, ${debt.top.reach} through others · ${debt.top.years.toFixed(1)} years since an edit · ${plural(debt.count, "note")} in debt${week("debt", Math.round(debt.total))}`, `${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(debt.top.id)}">Open</button>` : ""}${api.stampReviewed ? `<button class="vg-hq-btn vg-hq-btn-sm" data-vital-current="${esc(debt.top.id)}" data-vital-name="${esc(debt.top.name)}">Still current</button>` : ""}${lensBtn("triage", "Stale notes")}`) : row("No stale note has anything resting on it", `Counting ${plural(web.links, "written link")}`, "")) +
       (web.incoherence != null ? row(web.incoherence < 0.3 ? "Your links mostly run one way" : web.incoherence < 0.6 ? "Your links run partly one way" : "Your links run in many directions", `Incoherence ${web.incoherence.toFixed(2)}: 0 is a strict hierarchy, 1 is no direction · ${plural(web.links, "written link")}${web.twoWay ? `, ${web.twoWay} two-way pairs` : ""}${web.noWayUp ? ` · ${web.noWayUp} notes with no way up` : ""}${week("incoherence", +web.incoherence.toFixed(2), v => v.toFixed(2))}`, opts.openGraph ? `${web.twoWay || web.noWayUp ? lensBtn("twoway", "Hierarchy") : ""}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-graphview="foodweb">Food web</button>` : "") : "") + (vitals.drift ? row(`${plural(vitals.drift, "note")} name a version you don't run`, "Some are history. The rest send someone to the wrong instructions", lensBtn("drift", "Version drift")) : "") + (() => { const y = syncWords(); return y && (y.share >= 0.7 || y.soon) ? row(y.title, `${y.sub} · purge it in Settings, Sync, Vault size`, "") : ""; })() + `</div></section>`;
   }
+  // What's new since you last said Got it. A first install has nothing to catch up on, so the tour covers it instead.
+  let newsSeenNow = null;
+  function newsHtml() {
+    if (!api.version || !api.hqNewsSeen) return ""; const seen = newsSeenNow || (STATE.review || {}).hqNewsSeen, tourDone = !!(STATE.review || {}).hqTour; if (!tourDone) return "";
+    const list = VGRules.newsSince(seen).slice(0, 8); if (!list.length) return "";
+    return `<section class="vg-hq-sec vg-hq-news"><h3>New <span>${list.length}</span></h3>${list.map((n, i) => `<button class="vg-hq-newsrow" data-news="${VGRules.NEWS.indexOf(n)}"><span>${esc(n.text)}</span></button>`).join("")}<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-sm" data-newsok>Got it</button></div></section>`;
+  }
   function home() {
     const cards = feedCards(); feedAt = Math.min(feedAt, Math.max(0, cards.length - 1));
     const card = (c, i) => `<article class="vg-hq-feedcard" data-i="${i}" aria-roledescription="slide" aria-label="${i + 1} of ${cards.length}">${hills(c.id)}
@@ -71,7 +78,7 @@
     const status = `<p class="vg-hq-status">${plural(nodes0(), "note")} · ${plural((DATA.clusters || []).length, "topic")}${DATA.date ? ` · analysed ${esc(shortDate(DATA.date))}` : ""}${api.recentChanges ? ' · <button class="vg-hq-linkbtn" data-go="changes">Recent changes</button>' : ""}${opts.openGraph ? ' · <button class="vg-hq-linkbtn" data-graph>Open the graph</button>' : ""}</p>`;
     const off = new Set((STATE.review || {}).hqHome || []), on = k => !off.has(k);
     if (isNewVault()) return `<h1 class="vg-hq-h1">Welcome</h1>${welcomeHtml()}`;
-    return `<h1 class="vg-hq-h1">${greeting()}</h1>${on("brief") ? briefHtml() : ""}${captureBox()}${on("loop") ? flow() : ""}${journalWarning()}${hiddenKindsLine()}${on("cards") ? tiles : ""}${on("vitals") ? vitalsHtml() : ""}${on("momentum") ? momentumHtml() : ""}${on("threads") ? threadsHtml(6) : ""}${on("feed") ? feed : ""}` +
+    return `<h1 class="vg-hq-h1">${greeting()}</h1>${on("brief") ? briefHtml() : ""}${captureBox()}${on("loop") ? flow() : ""}${journalWarning()}${hiddenKindsLine()}${newsHtml()}${on("cards") ? tiles : ""}${on("vitals") ? vitalsHtml() : ""}${on("momentum") ? momentumHtml() : ""}${on("threads") ? threadsHtml(6) : ""}${on("feed") ? feed : ""}` +
       (on("upkeep") && upkeep.length ? section("Vault upkeep", upkeep) : "") + status + customizeHtml(off);
   }
   // Home's parts, each one yours to turn off

@@ -460,3 +460,6 @@
 .vg-hq .vg-hq-vitalspark { flex: 0 0 120px; width: 120px; height: 28px; } .vg-hq .vg-hq-vitalspark polyline { fill: none; stroke: var(--hq-accent); stroke-width: 1.5; }
 .vg-hq .vg-hq-subs { margin-top: 4px; font-size: var(--font-ui-smaller, 12px); } .vg-hq .vg-hq-subs summary { cursor: pointer; color: var(--hq-mute, inherit); } .vg-hq .vg-hq-subs ul { margin: 4px 0 0; padding-left: 18px; }
 .vg-hq .vg-hq-linkbtn { min-width: 24px; }
+/* what's new: a line goes where the thing is */
+.vg-hq .vg-hq-newsrow { display: block; width: 100%; height: auto; min-height: 32px; padding: 6px 8px; border: 0; border-radius: var(--ds-r-2xs, 4px); background: none; box-shadow: none; color: var(--hq-text); font: inherit; text-align: left; white-space: normal; cursor: pointer; }
+.vg-hq .vg-hq-newsrow:hover, .vg-hq .vg-hq-newsrow:focus-visible { background: color-mix(in srgb, var(--hq-accent) 12%, transparent); }

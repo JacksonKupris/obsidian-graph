@@ -35,6 +35,9 @@ What Vault Graph already does, and where. "Lens" and "scene" below are code word
 | What got done when | Calendar | `src/hq/27-calendar.js` |
 | Find anything | Search and the palette | `src/hq/50-search.js`, `src/hq/65-palette.js` |
 | Say what a note knows | From your notes (rail), Peek | `src/hq/10-shared.js`, `src/hq/45-peek.js` |
+| What changed in an update | `VGRules.NEWS`, shown on Home until Got it | `src/rules.js`, `src/hq/20-home.js` |
+| Undo after the message has gone | Recent changes | `src/hq/60-sweep.js`, `src/plugin.js` |
+| Sync's limit | `syncStorage`, on Automations and in Vitals | `src/plugin.js`, `src/hq/20-home.js` |
 | Long jobs without blocking | A worker from `VGScienceMake` | `src/science.js` |
 | The notes as pictures | Scenes and map views | `src/scenes/`, `src/view/` |
 

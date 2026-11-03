@@ -94,6 +94,8 @@
     else if (d.showkind) api.hqReact(d.showkind, "show");
     else if (d.one) { const it = BY_KEY.get(d.key); if (it) sweep(d.one, [it], b); }
     else if (d.batch) { const its = ofKind("carried").filter(it => !kept.has(it.key) && (d.leftover ? it.underDone : !it.underDone && (d.section !== undefined ? sectionOf(it) === d.section : it.date === d.day))); sweep(d.batch, its, b, d.leftover ? "under finished tasks" : d.section !== undefined ? d.section : d.day); }
+    else if (d.news !== undefined) { const n = VGRules.NEWS[+d.news]; if (n && n.to.screen) setScreen(n.to.screen); else if (n && n.to.graph && opts.openGraph) opts.openGraph(n.to.graph); }
+    else if (d.newsok !== undefined) { newsSeenNow = api.version(); api.hqNewsSeen(newsSeenNow); render(); }
     else if (d.sweepby) { sweepBy = d.sweepby; render(); }
     else if (d.changeundo) undoChange(+d.changeundo, b);
     else if (d.graphlens) { if (opts.openGraph) opts.openGraph({ lens: d.graphlens }); }
