@@ -565,10 +565,10 @@
       <h2 class="vg-ins-title">${esc(bodyName(b))}</h2><div class="vg-muted vg-ins-path">${esc(BODY[b.type].hint)}</div>
       <div class="vg-field"><span class="vg-flabel">Name</span><input class="vg-input" data-b="name" value="${esc(b.name || "")}" placeholder="${esc(bodyName(b))}"></div>
       ${cfg}
-      ${cos.auto.motion && b.rx != null ? `<div class="vg-physline">${esc(orbitText(b))}</div>` : ""}
-      ${gmOf(b) ? `<div class="vg-physline">GM ${Math.round(gmOf(b))} · ${b.type === "blackhole" ? `r<sub>s</sub> ${rsOf(b)} · ISCO ${3 * rsOf(b)}` : b.type === "binary" ? `binary period ${Math.round(2 * Math.PI / Math.sqrt(2 * gmOf(b) / Math.pow(BIN_SEP, 3)) / 60)} s` : `orbit 1 link out: ${periodSec(b, 85).toFixed(1)} s · 3 links: ${periodSec(b, 195).toFixed(1)} s`} <span class="vg-muted">(Kepler: T = 2π√(r³/GM))</span></div>` : ""}
+      ${cos.auto.motion && b.rx != null ? `<div class="vg-physline">${esc(orbitText(b))}</div><div class="vg-muted vg-lens-note">a is its average distance. e is its orbit's shape: 0 is a circle, near 1 a long ellipse. Retrograde means it runs against the others.</div>` : ""}
+      ${gmOf(b) ? `<div class="vg-physline">GM ${Math.round(gmOf(b))} · ${b.type === "blackhole" ? `r<sub>s</sub> ${rsOf(b)} · ISCO ${3 * rsOf(b)}` : b.type === "binary" ? `binary period ${Math.round(2 * Math.PI / Math.sqrt(2 * gmOf(b) / Math.pow(BIN_SEP, 3)) / 60)} s` : `orbit 1 link out: ${periodSec(b, 85).toFixed(1)} s · 3 links: ${periodSec(b, 195).toFixed(1)} s`} <span class="vg-muted">(Kepler: T = 2π√(r³/GM))</span></div><div class="vg-muted vg-lens-note">GM is how hard it pulls, set by Gravity below.${b.type === "blackhole" ? " r<sub>s</sub> is the event horizon, and ISCO the closest orbit that stays stable." : " T is the time for one lap: further out takes longer."}</div>` : ""}
       <div class="vg-field"><label class="vg-flabel">Gravity <b class="vg-mass-val">${(b.mass || 1).toFixed(1)}×</b></label><input type="range" class="vg-range" data-b="mass" min="0.3" max="3" step="0.1" value="${b.mass || 1}" aria-label="Gravity"></div>
-      ${hp != null ? `<div class="vg-kvs"><div class="vg-kv"><b>${got.length}</b><span>in orbit</span></div><div class="vg-kv"><b>${hp}%</b><span>healthy</span></div><div class="vg-kv"><b>${got.filter(i => inMoc(i) === false).length}</b><span>not in a map</span></div></div>` : ""}
+      ${hp != null ? `<div class="vg-kvs"><div class="vg-kv"><b>${got.length}</b><span>in orbit</span></div><div class="vg-kv"><b>${hp}%</b><span>healthy</span></div><div class="vg-kv"><b>${got.filter(i => inMoc(i) === false).length}</b><span>not in a map</span></div></div><div class="vg-muted vg-lens-note">Healthy averages three things across its notes: being on a map, having at least two links, and being edited recently.</div>` : ""}
       <div class="vg-ins-actions vg-wrap"><button class="vg-btn" data-b="light">${icon("target", 14)} Light up</button><button class="vg-btn vg-btn-ghost" data-b="del">Remove body</button></div>
       <div class="vg-ins-sec"><div class="vg-ins-h">${b.type === "blackhole" ? "Review queue" : "Captured"} <span class="vg-count">${got.length}</span></div>
         ${got.sort((x, y) => byId[y].bc - byId[x].bc).slice(0, 40).map(i => b.type === "blackhole"
@@ -723,7 +723,7 @@
     box.innerHTML = `<button class="vg-ms-head" aria-expanded="${!box.classList.contains("is-collapsed")}"><b>TODAY</b><span>${sk ? `🔥${sk} · ` : ""}${rankOfXp(cos.xp).toUpperCase()} · ${cos.xp} XP</span></button>
       <div class="vg-ms-rank"><i style="width:${pct}%"></i></div>
       <div class="vg-ms-body">
-        <div class="vg-ms-stats"><span><b>${vaultHealth()}</b> vault health</span><span><b>${sk}</b>-day streak</span><span>${next ? `<b>${next[0] - cos.xp}</b> XP to ${next[1]}` : "<b>MAX</b> rank"}</span></div>
+        <div class="vg-ms-stats"><span><b>${vaultHealth()}</b> vault health</span><span><b>${sk}</b>-day streak</span><span>${next ? `<b>${next[0] - cos.xp}</b> XP to ${next[1]}` : "<b>MAX</b> rank"}</span></div><div class="vg-ms-note">Vault health, 0 to 100: 40% from notes that link to something, 35% from topics covered by a map, 25% from notes edited recently.</div>
         <div class="vg-ms-sec">TODAY ${cos.daily.bonus ? "· ✓ +25 BONUS" : "· +8 EACH OF THE THREE, +25 FOR ALL"}</div>
         <div class="vg-ms-today">${todayHtml(4)}</div>
         <div class="vg-ms-sec">WEEKLY · LINK 10 NOTES ${cos.weekly && cos.weekly.claimed ? "· ✓ +50" : "· +50"}</div>

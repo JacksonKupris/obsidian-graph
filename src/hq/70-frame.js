@@ -56,7 +56,8 @@
     const box = e.target.closest("[data-pick]"); if (box) { togglePick(box.dataset.pick, e.shiftKey); return; }
     const b = e.target.closest("button, [data-closedrawer], [data-peekclose]"); if (!b || !el.contains(b) || b.disabled) return;
     const d = b.dataset;
-    if (d.nextstep !== undefined) goNext();
+    if (d.bringback) bringBack(d.bringback);
+    else if (d.nextstep !== undefined) goNext();
     else if (d.peek) peekOpen(d.peek);
     else if (d.peeklink) peekOpen(d.peeklink, [...peek.back, peek.path]);
     else if (d.peekback !== undefined) { const back = peek.back.slice(), to = back.pop(); peekOpen(to, back); }

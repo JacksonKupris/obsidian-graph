@@ -123,6 +123,7 @@ class VaultGraphView extends ItemView {
         event, source: VIEW_TYPE, hoverParent: this, targetEl: this.contentEl, linktext: notePath,
       }),
       sharedStore: this.plugin.sharedStore(),
+      taskHistory: () => this.plugin.taskHistory(),
       mocReport: { load: () => this.plugin.loadMocReport(), tick: (line, on) => this.plugin.tickMocRow(line, on),
                    apply: Platform.isDesktopApp ? () => this.plugin.applyMocReport() : undefined },
       saveBinary: (notePath, buf) => this.plugin.saveBinary(notePath, buf),
@@ -420,7 +421,7 @@ class VaultGraphSuggestView extends ItemView {
       if (moc && inMap === false && !(said && moc)) items.push({ icon: "hexagon", title: `Not listed in its topic's map`, sub: moc.title, btn: "Add to map", run: () => run("map") });
       data.links.filter(l => VGRules.isSuggestion(l) && (l.source === n.id || l.target === n.id)).forEach(l => {
         const other = byId.get(l.source === n.id ? l.target : l.source); if (!other) return;
-        items.push({ icon: "link", title: `Link ${other.name}`, sub: l.why, btn: "Link", ghost: "Dismiss", open: other.id,
+        items.push({ icon: "link", title: `Link ${other.name}`, sub: VGRules.whyWords(l.why), btn: "Link", ghost: "Dismiss", open: other.id,
           run: async () => {
             // the Related line goes in the staler note: linking it is a touch, so it stops being stale
             const intoOther = (other.age || 0) > (n.age || 0);
@@ -496,7 +497,7 @@ class VaultGraphSuggestView extends ItemView {
       x.onclick = async () => { this.hidden.add(it.key); c.remove(); await this.plugin.hideGameItem(it.key); this.renderSoon(); };
       const t = c.createDiv({ cls: "vg-s-txt" });
       t.createDiv({ text: `${pick ? (done ? "✓ " : "○ ") : ""}${it.title}`, cls: "vg-s-t" });
-      if (it.why && !done) t.createDiv({ text: it.why, cls: "vg-s-muted" });
+      if (it.why && !done) t.createDiv({ text: VGRules.whyWords(it.why), cls: "vg-s-muted" });
       if (done) return;
       const acts = c.createDiv({ cls: "vg-s-acts" }), actions = [];
       if (VGActions.todayWhen(it, ctx)) actions.push([VGActions.todayLabel(it), async () => { if (await VGActions.runToday(it, ctx) && pick) await this.plugin.markQuestDone(it.key); }]);
@@ -653,6 +654,17 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // Recall: the places you dealt with something before, inside notes, from whatever you half-remember (words, when,
   // who, what kind of thing, where): VGRules.recallSearch, the same engine as _System/vault_recall.py and the MCP's
   // recall tool. Each note's chunks and date are cached and re-read only when it changed; people come from the people folder.
+  // every journal's tasks, for Task survival: read when that lens opens, and re-read only for a note that changed
+  async taskHistory() {
+    const cache = this.journalCache = this.journalCache || new Map(), out = [];
+    for (const f of this.app.vault.getMarkdownFiles()) {
+      if (!f.path.startsWith(VGRules.folders.daily + "/")) continue;
+      let c = cache.get(f.path);
+      if (!c || c.mtime !== f.stat.mtime) { cache.set(f.path, c = { mtime: f.stat.mtime, j: VGRules.journalOf(f.path, await this.app.vault.cachedRead(f)) }); }
+      if (c.j) out.push(c.j);
+    }
+    return out;
+  }
   async recall(query, n = 8) {
     const cache = this.recallCache = this.recallCache || new Map(), notes = [], skip = [VGRules.folders.reports + "/", VGRules.folders.templates + "/", ...EXCLUDE_PREFIXES];
     const people = this.app.vault.getMarkdownFiles().filter(f => f.path.startsWith(VGRules.folders.people + "/") && f.basename !== "People").map(f => f.basename.split(" ")[0].toLowerCase());

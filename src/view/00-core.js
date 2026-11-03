@@ -246,6 +246,17 @@ function mountVaultGraph(root, DATA, opts) {
       <canvas class="vg-cv" role="img" aria-labelledby="vg-cv-label-${root.dataset.vgId}"></canvas>
       <div class="vg-hud" aria-hidden="true"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
         <div class="vg-hud-title"></div><div class="vg-hud-tele"></div><div class="vg-scan"></div></div>
+      <button class="vg-neurobtn" hidden aria-expanded="false">How to read this</button>
+      <div class="vg-neurocard" hidden role="note"><dl>
+        <dt>Nodes, links, lobes, maps, bridges</dt><dd>What's on screen: notes, people and notes to write; the links between notes; your topics; your map notes; and notes that join two topics.</dd>
+        <dt>Hz</dt><dd>The firing rate, measured live: spikes per note, per simulated second. Real cortex runs at a few hertz. A note you've worked on lately gets more input, so it fires more.</dd>
+        <dt>LIF network</dt><dd>Each note is a model neuron and each link a synapse. A neuron charges up, fires at a threshold, then resets (leaky integrate-and-fire). The spikes come from that model, not from your edits one by one.</dd>
+        <dt>80/20 E/I</dt><dd>80% of cells excite the cells they link to and 20% inhibit them, as in real cortex. Spikes in a note's colour excite. Pale blue spikes inhibit.</dd>
+        <dt>×1/25 speed</dt><dd>Slowed 25 times so you can follow a spike along a link. Long links carry faster, as long nerve fibres do.</dd>
+        <dt>Shape</dt><dd>Proportions and lobes are a real brain's, and lobes hold topics in their real shares of cortex. Which lobe a topic lands in means nothing about the topic. The notes in the centre, in the thalamus, are the ones that connect most. Notes with no topic sit in the cerebellum.</dd>
+        <dt>Links</dt><dd>Curves under the surface. Links between the two halves cross in the middle, at the corpus callosum.</dd>
+        <dt>Under each topic</dt><dd>Its notes, how many you touched this week, and the share gone stale.</dd>
+      </dl></div>
       <div class="vg-lasso" hidden></div>
       <div class="vg-today" hidden><span class="vg-today-text"></span><button class="vg-btn vg-btn-sm vg-today-act"></button><button class="vg-ibtn vg-today-x" aria-label="Hide" title="Hide for this view">${icon("close", 12)}</button></div>
       <div class="vg-triage" hidden><span class="vg-triage-text"></span><button class="vg-btn vg-btn-sm vg-triage-prev" aria-label="Previous">‹</button><button class="vg-btn vg-btn-sm vg-triage-next">Next ›</button><button class="vg-btn vg-btn-sm vg-btn-ghost vg-triage-stop">Done</button></div>
@@ -390,7 +401,7 @@ function mountVaultGraph(root, DATA, opts) {
     selected: null, hover: null, highlight: null, highlightLabel: null, preset: "explore", tab: "insights", path: null,
     cohesion: true, layers: { wanted: false, people: false, tasks: false, mocs: true }, multi: null, lasso: false, quietFocus: false,
   };
-  const cam = { k: 1, tx: 0, ty: 0, yaw: 0.6, pitch: -0.35, cx: 0, cy: 0, cz: 0, spin: null };
+  const cam = { k: 1, tx: 0, ty: 0, yaw: 0.6, pitch: -0.35, cx: 0, cy: 0, cz: 0, d: 0, spin: null };   // d: how far the camera has flown in, in world units
   let W = 0, H = 0, alpha = 1, dirty = true, tween = null, raf = 0, destroyed = false, fitted = false;
   let persistTimer = 0;   // declared before anything that can save during mount
   let morph = null, lastInteract = 0;
@@ -579,19 +590,23 @@ function mountVaultGraph(root, DATA, opts) {
   // Clusters become lobes on an ellipsoid "cortex" (left/right hemispheres alternate); the most
   // influential bridge notes sit in an inner core, so connections between lobes arc through it.
   const BRAIN_R = 260;
+  const BRAIN_SIZE = 320;   // the long half-axis: a brain's front-to-back, in world units
+  let neuralLobes = {};     // topic -> which lobe, by number (the shell's tint reads it)
+  const LOBE_NUM = { frontal: 0, parietal: 1, temporal: 2, occipital: 3 };
+  // a direction, out to the folded surface of the cerebrum
+  const onCortex = (d, scale = 1) => { const L = Math.hypot(d[0], d[1], d[2]) || 1, c = VGScience.cortexAt(d[0], d[1], d[2]), r = c.r * BRAIN_SIZE * scale; return [d[0] / L * r, d[1] / L * r, d[2] / L * r]; };
   let lobeDir = {};   // cluster id -> unit direction of its lobe on the shell
   function brainLayout(animate) {
     const R = BRAIN_R, bridgeNotes = nodes.filter(n => n.bridge && !special(n)).map(n => n.id);
     const core = new Set([...bridgeNotes, ...ranked].slice(0, Math.max(18, bridgeNotes.length)));
-    const cl = topicOrder(), N = cl.length, centre = {};
-    cl.forEach((c, i) => {   // fibonacci points over the shell, pushed off the midline into a hemisphere
-      const y = 1 - (i + 0.5) / N * 2, rr = Math.sqrt(1 - y * y), th = i * 2.399963;
-      let x = Math.cos(th) * rr; const z = Math.sin(th) * rr, side = i % 2 ? 1 : -1;
-      x = side * (0.18 + Math.abs(x) * 0.82);
-      centre[c.id] = [x, y * 0.82, z];
-    });
+    const cl = topicOrder(), centre = {};
+    // topics go to lobes in the lobes' real shares of cortex, spread apart within each, on both hemispheres
+    const noteCount = {}; active.forEach(n => { if (!special(n) && n.cluster >= 0) noteCount[n.cluster] = (noteCount[n.cluster] || 0) + 1; });
+    const inLobe = VGScience.assignLobes(cl.map(c => ({ id: c.id, size: noteCount[c.id] || 1 }))), perLobe = {}; neuralLobes = {};
+    cl.forEach(c => { const lobe = inLobe[c.id]; (perLobe[lobe] = perLobe[lobe] || []).push(c.id); neuralLobes[c.id] = LOBE_NUM[lobe]; });
+    Object.entries(perLobe).forEach(([lobe, ids]) => { const spots = VGScience.lobeSpots(lobe, ids.length); ids.forEach((id, i) => { centre[id] = spots[i]; }); });
     lobeDir = centre;
-    const shell = (d, scale) => { const L = Math.hypot(d[0], d[1], d[2]) || 1; return [d[0] / L * R * 1.18 * scale, d[1] / L * R * 0.86 * scale, d[2] / L * R * 0.98 * scale]; };
+    const shell = onCortex;
     const members = {};
     active.forEach(n => { if (!core.has(n.id) && !special(n) && n.cluster >= 0 && centre[n.cluster]) (members[n.cluster] = members[n.cluster] || []).push(n); });
     Object.entries(members).forEach(([c, ms]) => {
@@ -604,18 +619,24 @@ function mountVaultGraph(root, DATA, opts) {
       ms.forEach((n, j) => {   // golden-angle spiral on the tangent plane around the lobe centre
         const rad = spread * Math.sqrt((j + 0.5) / ms.length), ang = j * 2.399963;
         const d = [0, 1, 2].map(k => cdir[k] + u[k] * Math.cos(ang) * rad + v[k] * Math.sin(ang) * rad);
-        const depth = 0.94 + 0.08 * ((hash(n.id) % 100) / 100);
+        // a cell in the cortical sheet, on the near side of the fissure: the two hemispheres don't share grey matter
+        if (Math.sign(d[0]) !== Math.sign(cdir[0]) || Math.abs(d[0]) < 0.1) d[0] = Math.sign(cdir[0] || 1) * Math.max(0.1, Math.abs(d[0]));
+        const depth = 0.965 + 0.05 * ((hash(n.id) % 100) / 100);
         [n.bx, n.by, n.bz] = shell(d, depth);
       });
     });
     let ci = 0;
     active.forEach(n => {
       if (core.has(n.id)) {   // inner core: a small sphere of bridge notes
-        const k = ci++, y = 1 - (k + 0.5) / core.size * 2, rr = Math.sqrt(1 - y * y), th = k * 2.399963;
-        n.bx = Math.cos(th) * rr * R * 0.3; n.by = y * R * 0.26; n.bz = Math.sin(th) * rr * R * 0.3;
+        // the notes everything passes through: the thalamus, the brain's relay, a pair of ovals either side of the midline
+        const k = ci++, y = 1 - (k + 0.5) / core.size * 2, rr = Math.sqrt(1 - y * y), th = k * 2.399963, side = k % 2 ? 1 : -1;
+        n.bx = side * BRAIN_SIZE * 0.1 + Math.cos(th) * rr * BRAIN_SIZE * 0.085; n.by = BRAIN_SIZE * 0.04 + y * BRAIN_SIZE * 0.08; n.bz = -BRAIN_SIZE * 0.06 + Math.sin(th) * rr * BRAIN_SIZE * 0.14;
       } else if (n.moc && centre[n.cluster]) {   // a map hovers just outside the lobe it maps
         [n.bx, n.by, n.bz] = shell(centre[n.cluster], 1.24);
-      } else if (n.bx == null || n.cluster < 0 || !centre[n.cluster] || special(n)) {   // unclustered, people, ghosts: an outer halo
+      } else if (!special(n) && (n.cluster < 0 || !centre[n.cluster])) {   // notes with no topic: the cerebellum, under and behind
+        const h = hash(n.id), C = VGScience.CEREBELLUM, a = (h % 6283) / 1000, b = ((h >>> 12) % 3141) / 1000 - 1.57;
+        n.bx = (C.cx + Math.cos(a) * Math.cos(b) * C.rx) * BRAIN_SIZE; n.by = (C.cy + Math.sin(b) * C.ry) * BRAIN_SIZE; n.bz = (C.cz + Math.sin(a) * Math.cos(b) * C.rz) * BRAIN_SIZE;
+      } else if (n.bx == null || special(n)) {   // people and notes to write: a halo outside the skull, since neither is a cell of this brain
         const h = hash(n.id), a = (h % 6283) / 1000, b = ((h >>> 12) % 3141) / 1000 - 1.57;
         const s = n.person ? 1.42 : n.ghost ? 1.3 : 1.22;
         [n.bx, n.by, n.bz] = shell([Math.cos(a) * Math.cos(b), Math.sin(b), Math.sin(a) * Math.cos(b)], s);
@@ -639,7 +660,7 @@ function mountVaultGraph(root, DATA, opts) {
     x -= cam.cx; y -= cam.cy; let s = 1, depth = 0;
     if (st.three) {
       z -= cam.cz;
-      const [cy, sy, cp, sp] = R, x1 = x * cy + z * sy, z1 = -x * sy + z * cy, y2 = y * cp - z1 * sp, z2 = y * sp + z1 * cp;
+      const [cy, sy, cp, sp] = R, x1 = x * cy + z * sy, z1 = -x * sy + z * cy, y2 = y * cp - z1 * sp, z2 = y * sp + z1 * cp - cam.d;
       if (UI.size.focal + z2 < UI.size.near) return null;
       s = UI.size.focal / (UI.size.focal + z2); x = x1 * s; y = y2 * s; depth = z2;
     } else if (cam.turn) { const t = x; x = -y; y = t; }   // 2D in a tall pane: the picture turned a quarter, to fill it
@@ -661,7 +682,7 @@ function mountVaultGraph(root, DATA, opts) {
     const core = W < 520 && pick.length > 40, span = vs => { if (!core) return [Math.min(...vs), Math.max(...vs)]; const o = vs.slice().sort((p, q) => p - q); return [o[Math.floor(o.length * 0.03)], o[Math.ceil(o.length * 0.97) - 1]]; };
     { const [a, b] = span(pick.map(n => n.x)), [c, d] = span(pick.map(n => n.y));
       cam.turn = st.view === "2d" && !st.three && H > W * 1.2 && (b - a) > (d - c) * 1.2 ? 1 : 0; }
-    const saved = { k: cam.k, tx: cam.tx, ty: cam.ty, cx: cam.cx, cy: cam.cy, cz: cam.cz };
+    const saved = { k: cam.k, tx: cam.tx, ty: cam.ty, cx: cam.cx, cy: cam.cy, cz: cam.cz, d: cam.d }; cam.d = 0;   // framed from the home position, and the camera flies back to it
     // In 3D / neural, rotation turns the world around the pivot (cx, cy, cz). Put the pivot at the centre of the
     // notes being framed, so rotating spins them in place instead of swinging them round a far-off point.
     let pivot = null;
@@ -671,6 +692,9 @@ function mountVaultGraph(root, DATA, opts) {
       pivot = { cx: sx / pick.length, cy: sy / pick.length, cz: sz / pick.length };
       Object.assign(cam, pivot);
     }
+    // real perspective needs room: stand back until the nearest note is still well in front of the camera, or it fills the screen
+    let homeD = 0; if (pivot && glOn()) { let rad = 0; for (const n of pick) rad = Math.max(rad, Math.hypot((n.x || 0) - pivot.cx, (n.y || 0) - pivot.cy, (n.z || 0) - pivot.cz)); homeD = -Math.max(0, rad * 1.1 - UI.size.focal * 0.62); }
+    cam.d = homeD; glHome = homeD;
     cam.k = 1; cam.tx = 0; cam.ty = 0;
     project();
     const onScreen = pick.map(n => P.get(n.id)).filter(Boolean);
@@ -702,7 +726,7 @@ function mountVaultGraph(root, DATA, opts) {
     // what sits over the canvas is off limits too: the Cosmos dock along the bottom, the Today panel down the side
     const padB = isCosmos() && !opts.compact ? 96 : pad, padR = root.classList.contains("show-missions") && W >= 760 ? 330 : pad;
     const k = Math.min(opts.compact ? 1.8 : 4, Math.max(0.05, Math.min((W - pad - padR) / Math.max(x1 - x0, 1), (H - padTop - padB) / Math.max(y1 - y0, 1))));
-    animateTo({ k, tx: -((x0 + x1) / 2 - W / 2) * k - (padR - pad) / 2, ty: -((y0 + y1) / 2 - H / 2) * k + (padTop - padB) / 2, ...(pivot || {}) }, ms == null ? 500 : ms);
+    animateTo({ k, tx: -((x0 + x1) / 2 - W / 2) * k - (padR - pad) / 2, ty: -((y0 + y1) / 2 - H / 2) * k + (padTop - padB) / 2, ...(pivot || {}), d: homeD }, ms == null ? 500 : ms);
   }
   // the part of the canvas no panel covers, as its centre: the inspector (a bottom sheet in a narrow pane, a side panel
   // in a wide one) and a lens sitting beside the view
@@ -728,10 +752,11 @@ function mountVaultGraph(root, DATA, opts) {
   }
   const nearAngle = (from, to) => from + ((((to - from) % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI);
   function zoomBy(f) {
+    if (glOn()) { cam.userMoved = true; animateTo({ d: Math.max(glHome - 1800, Math.min(UI.size.focal + 1400, cam.d + Math.log(f) * 0.9 * Math.max(90, Math.abs(UI.size.focal - cam.d)))) }, 240); return; }
     const k = Math.min(12, Math.max(0.03, cam.k * f)), r = k / cam.k;
     cam.userMoved = true; animateTo({ k, tx: cam.tx * r, ty: cam.ty * r }, 200);
   }
-  const TWEEN_KEYS = ["k", "tx", "ty", "cx", "cy", "cz", "yaw", "pitch"];
+  const TWEEN_KEYS = ["k", "tx", "ty", "cx", "cy", "cz", "yaw", "pitch", "d"];
   function animateTo(target, ms) {
     if (reducedMotion()) ms = 1;
     const from = {}; TWEEN_KEYS.forEach(k => from[k] = cam[k]);

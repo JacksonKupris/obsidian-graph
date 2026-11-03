@@ -1004,3 +1004,37 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
   mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent), linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent); mask-composite: intersect; }
 @media (prefers-reduced-motion: no-preference) { .vg-cv { transition: transform var(--ds-slow) var(--ds-ease); } }
 .vg-canvas { overflow: hidden; }
+
+/* the science lenses: one chart, its key, and the facts above it */
+.vg-sci-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 4px 0 10px; }
+.vg-sci-facts > div { display: flex; flex-direction: column; padding: 8px 10px; border: 1px solid var(--vg-line); border-radius: var(--vg-r-sm); background: var(--vg-raised); }
+.vg-sci-facts b { font-size: var(--vg-fs-xl); font-weight: 650; font-variant-numeric: tabular-nums; }
+.vg-sci-facts span { font-size: var(--vg-fs-xs); color: var(--vg-muted); }
+.vg-sci-hazard { grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); }
+.vg-sci-chart { display: block; width: 100%; height: auto; }
+.vg-sci-grid { stroke: var(--vg-line); stroke-width: 1; opacity: .6; }
+.vg-sci-line { fill: none; stroke: var(--vg-fg); stroke-width: 2; stroke-linejoin: round; }
+.vg-sci-line.is-a { stroke: var(--vg-accent); } .vg-sci-line.is-b { stroke: var(--vg-muted); stroke-dasharray: 5 4; } .vg-sci-line.is-all { stroke: var(--vg-fg); stroke-width: 1.5; }
+.vg-sci-band { fill: var(--vg-fg); opacity: .1; stroke: none; }
+.vg-sci-censor { stroke: var(--vg-muted); stroke-width: 1; } .vg-sci-censor.is-a { stroke: var(--vg-accent); }
+.vg-sci-mark { stroke: var(--vg-fg); stroke-width: 1; stroke-dasharray: 2 3; } .vg-sci-mark.is-warn { stroke: var(--vg-warn); }
+.vg-sci-marktext { fill: var(--vg-fg); }
+.vg-sci-key { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 4px 0; font-size: var(--vg-fs-xs); color: var(--vg-muted); }
+.vg-sci-key i { display: inline-block; width: 14px; height: 2px; background: var(--vg-fg); } .vg-sci-key i.is-a { background: var(--vg-accent); } .vg-sci-key i.is-b { background: var(--vg-muted); }
+.vg-sci-slider { display: grid; gap: 4px; margin: 8px 0; font-size: var(--vg-fs-xs); color: var(--vg-muted); } .vg-sci-slider b { color: var(--vg-fg); font-variant-numeric: tabular-nums; } .vg-sci-slider input { width: 100%; accent-color: var(--vg-accent); }
+.vg-sci-split { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 2px; }
+.vg-root .vg-sugg.is-on { background: color-mix(in srgb, var(--vg-accent) 10%, transparent); }
+
+/* the WebGL layer, under the 2D canvas: it takes no pointer events, since clicks go through the same hit test as ever */
+.vg-gl { position: absolute; inset: 0; display: block; pointer-events: none; } .vg-gl[hidden] { display: none; }
+.vg-sci-verdict { margin: 8px 0 12px; padding: 10px 12px; border-left: 2px solid var(--vg-accent); background: var(--vg-raised); border-radius: var(--vg-r-sm); font-size: var(--vg-fs-sm); line-height: 1.45; }
+.vg-root .vg-sci-split .vg-btn.is-on { border-color: var(--vg-accent); color: var(--vg-accent-text); }
+.vg-sci-facts small { margin-top: 4px; font-size: var(--vg-fs-xs); line-height: 1.35; color: var(--vg-muted); }
+.vg-sci-read { margin: 6px 0 10px; font-size: var(--vg-fs-xs); line-height: 1.45; color: var(--vg-fg); } .vg-sci-read b { font-weight: 650; margin-right: 4px; }
+/* the neural view's readouts, explained: only in the 3D brain */
+.vg-neurobtn, .vg-neurocard { display: none; }
+.vg-root.is-neural .vg-neurobtn:not([hidden]) { display: block; position: absolute; z-index: 3; top: 146px; left: 12px; min-height: 28px; padding: 3px 10px; font: 600 var(--ds-fs-xs) var(--vg-mono); color: var(--vg-hud-text); background: var(--vg-hud-panel); border: 1px solid var(--vg-hud-line); border-radius: var(--ds-r-sm); }
+.vg-root.is-neural .vg-neurocard:not([hidden]) { display: block; position: absolute; z-index: 3; top: 180px; left: 12px; width: min(380px, calc(100% - 24px)); max-height: calc(100% - 240px); overflow: auto; padding: 10px 12px; color: var(--vg-hud-text); background: var(--vg-hud-panel); border: 1px solid var(--vg-hud-line); border-radius: var(--ds-r-md); backdrop-filter: blur(10px); font-size: var(--ds-fs-xs); line-height: 1.45; }
+.vg-neurocard dl { margin: 0; } .vg-neurocard dt { font-weight: 700; margin-top: 8px; } .vg-neurocard dt:first-child { margin-top: 0; } .vg-neurocard dd { margin: 1px 0 0; opacity: .9; }
+@container (max-width: 760px) { .vg-root.is-neural .vg-neurobtn:not([hidden]) { top: var(--vg-under-bar); } .vg-root.is-neural .vg-neurocard:not([hidden]) { top: calc(var(--vg-under-bar) + 34px); } }
+.vg-ms-note { margin-top: 6px; font-size: var(--ds-fs-2xs); line-height: 1.4; opacity: .8; }

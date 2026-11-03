@@ -1,0 +1,106 @@
+#!/usr/bin/env node
+// The maths behind the science views and lenses, against answers known from outside this code: published worked examples,
+// closed forms and small graphs you can check by hand. If a view claims to be a method, this is where it's held to it.
+//   node tests/test_science.js        exit 0 = pass
+const fs = require("fs"), path = require("path"), assert = require("assert");
+const S = new Function(`${fs.readFileSync(path.join(__dirname, "..", "src", "science.js"), "utf8")}; return VGScience;`)();
+const near = (a, b, tol, what) => assert(Math.abs(a - b) <= tol, `${what}: got ${a}, want ${b} +/- ${tol}`);
+
+// ---- Kaplan-Meier: Freireich's 6-MP leukaemia trial (1963), the textbook's worked example (Kleinbaum & Klein, Survival Analysis)
+const sixMP = [[6, 1], [6, 1], [6, 1], [6, 0], [7, 1], [9, 0], [10, 1], [10, 0], [11, 0], [13, 1], [16, 1], [17, 0], [19, 0], [20, 0], [22, 1], [23, 1], [25, 0], [32, 0], [32, 0], [34, 0], [35, 0]].map(([t, e]) => ({ t, event: !!e }));
+const placebo = [1, 1, 2, 2, 3, 4, 4, 5, 5, 8, 8, 8, 8, 11, 11, 12, 12, 15, 17, 22, 23].map(t => ({ t, event: true }));
+const km = S.kaplanMeier(sixMP);
+for (const [t, want] of [[6, 0.857], [7, 0.807], [10, 0.753], [13, 0.690], [16, 0.627], [22, 0.538], [23, 0.448]]) near(S.survivalAt(km, t), want, 0.001, `6-MP S(${t})`);
+assert.strictEqual(S.medianOf(km), 23, "6-MP's median is 23 weeks");
+assert.strictEqual(S.medianOf(S.kaplanMeier(placebo)), 8, "placebo's median is 8 weeks");
+// Greenwood at t=6: S=.857, se=.076 (the published figure); the log-log 95% interval is .620 to .952
+const at6 = km.steps.find(x => x.t === 6); near(at6.lo, 0.620, 0.002, "6-MP interval low at 6"); near(at6.hi, 0.952, 0.002, "6-MP interval high at 6");
+assert(km.steps.every(x => x.lo <= x.s + 1e-9 && x.hi >= x.s - 1e-9 && x.lo >= 0 && x.hi <= 1), "an interval leaves the curve or the 0-1 range");
+for (let i = 1; i < km.steps.length; i++) assert(km.steps[i].s <= km.steps[i - 1].s, "a survival curve went up");
+assert.strictEqual(S.survivalAt(S.kaplanMeier([{ t: 5, event: false }, { t: 9, event: false }]), 100), 1, "censoring alone must not lower the curve");
+near(S.conditional(km, 6, 17), 1 - 0.448 / 0.857, 0.001, "conditional survival is S(t+w)/S(t)");
+near(S.restrictedMean(S.kaplanMeier([{ t: 10, event: true }]), 20), 10, 1e-9, "one event at 10: 10 days open");
+// ---- the log-rank test, same trial: chi-square 16.79 on one degree of freedom, p about 4e-5 (Kleinbaum & Klein, 16.793)
+const lr = S.logRank(placebo, sixMP); near(lr.chi2, 16.793, 0.01, "log-rank chi-square"); assert(lr.p < 1e-4 && lr.p > 1e-5, `log-rank p ${lr.p}`); near(lr.observed, 21, 0, "placebo's observed"); near(lr.expected, 10.75, 0.01, "placebo's expected");
+near(S.logRank(sixMP, sixMP).chi2, 0, 1e-9, "a group against itself"); near(S.erfc(0), 1, 1e-6, "erfc(0)"); near(S.erfc(1), 0.157299, 1e-5, "erfc(1)");
+// ---- tasks' lives
+{ const j = [{ date: "2026-10-01", path: "a", tasks: [{ mark: " ", text: "Ship it" }, { mark: " ", text: "Still open" }, { mark: "x", text: "No date" }, { mark: "-", text: "Dropped" }] }, { date: "2026-10-05", path: "b", tasks: [{ mark: "x", text: "Ship it ✅ 2026-10-06" }, { mark: " ", text: "still OPEN!" }] }];
+  const { rows, skipped } = S.taskLives(j, "2026-10-11"), by = Object.fromEntries(rows.map(r => [r.text.slice(0, 5), r]));
+  assert.strictEqual(rows.length, 2, "the same words in a later journal are the same task"); assert.deepStrictEqual([by["Ship "].t, by["Ship "].event], [5, true], "from the first journal to its date"); assert.deepStrictEqual([by["Still"].t, by["Still"].event], [10, false], "still open is censored at today");
+  assert.deepStrictEqual(skipped, { undated: 1, cancelled: 1 }, "no known end: counted, not guessed"); }
+
+// ---- graphs you can check by hand
+const line = S.graphOf(["a", "b", "c", "d", "e"], [["a", "b"], ["b", "c"], ["c", "d"], ["d", "e"]]);
+const cycle = S.graphOf(["a", "b", "c", "d"], [["a", "b"], ["b", "c"], ["c", "d"], ["d", "a"]]);
+const K5ids = ["1", "2", "3", "4", "5"], K5 = S.graphOf(K5ids, K5ids.flatMap((a, i) => K5ids.slice(i + 1).map(b => [a, b])));
+const star = S.graphOf(["h", "a", "b", "c", "d"], [["h", "a"], ["h", "b"], ["h", "c"], ["h", "d"]]);
+assert.strictEqual(S.graphOf(["a", "b"], [["a", "b"], ["b", "a"], ["a", "a"], ["a", "x"]]).edges.length, 1, "repeats, self-links and strangers are dropped");
+near(S.spectralRadius(K5), 4, 1e-4, "K5's largest eigenvalue is n-1"); near(S.spectralRadius(star), 2, 1e-4, "a star's is sqrt(leaves)"); near(S.spectralRadius(cycle), 2, 1e-4, "a cycle's is 2 (bipartite: plain power iteration wouldn't settle)");
+assert.deepStrictEqual(S.cutPoints(line).cut.map(i => line.ids[i]).sort(), ["b", "c", "d"], "a line's middle vertices"); assert.strictEqual(S.cutPoints(line).bridges.length, 4, "a line is all bridges");
+assert.deepStrictEqual(S.cutPoints(cycle), { cut: [], bridges: [] }, "a cycle has no cut vertex or bridge"); assert.deepStrictEqual(S.cutPoints(K5).cut, [], "nor has K5"); assert.deepStrictEqual(S.cutPoints(star).cut.map(i => star.ids[i]), ["h"], "a star's hub");
+// two triangles joined at one vertex, and a long chain (the recursion a recursive version would overflow on)
+{ const bow = S.graphOf(["a", "b", "c", "d", "e"], [["a", "b"], ["b", "c"], ["c", "a"], ["c", "d"], ["d", "e"], ["e", "c"]]); assert.deepStrictEqual(S.cutPoints(bow).cut.map(i => bow.ids[i]), ["c"], "a bowtie's knot"); assert.strictEqual(S.cutPoints(bow).bridges.length, 0, "a bowtie has no bridge");
+  const n = 200000, long = { n, adj: Array.from({ length: n }, (_, i) => [...(i ? [i - 1] : []), ...(i < n - 1 ? [i + 1] : [])]) }; assert.strictEqual(S.cutPoints(long).cut.length, n - 2, "a long chain"); }
+assert.deepStrictEqual(S.cutDamage(line, [2])[0], { i: 2, stranded: 2, parts: 2 }, "the middle of five strands two");
+// percolation against brute force, and its ends
+{ const order = [2, 0, 1, 3, 4], fast = S.percolationCurve(line, order); order.forEach((_, q) => { const gone = new Set(order.slice(0, q)), big = S.components(line, gone)[0] || 0; near(fast[q], big / 5, 1e-9, `S[${q}] by union-find against a plain count`); }); assert.strictEqual(fast[5], 0, "nothing left"); }
+{ const rk = S.robustness(star, 60); assert.strictEqual(S.attackOrder(star)[0], 0, "the attack takes the hub first"); assert(rk.Rattack < rk.Rrandom, "losing the hub first must hurt more than losing notes at random"); assert(S.robustnessR([1, 0.8, 0.6, 0.4, 0.2, 0]) > 0.39 && S.robustnessR([1, 0.8, 0.6, 0.4, 0.2, 0]) <= 0.5, "R of a straight line is about 0.4"); }
+// Molloy-Reed: a random 3-regular graph has kappa 3 and collapses at f_c = 1/2
+{ const ids = Array.from({ length: 8 }, (_, i) => String(i)), cube = S.graphOf(ids, [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]].map(([a, b]) => [String(a), String(b)])), r = S.robustness(cube, 5); near(r.kappa, 3, 1e-9, "kappa"); near(r.fc, 0.5, 1e-9, "f_c"); }
+{ const c = S.concentration([1, 1, 1, 1]); near(c.effective, 4, 1e-9, "four equal shares: four effective"); near(S.concentration([9, 1]).hhi, 0.82, 1e-9, "HHI"); assert.strictEqual(S.concentration([]).effective, 0); assert.strictEqual(S.busFactor(star), 1, "a star falls with its hub"); assert.strictEqual(S.busFactor(K5), 3, "K5 keeps half until three are gone"); }
+// ---- SIR
+{ const a = S.outbreakStats(K5, 0, 0, 50), b = S.outbreakStats(K5, 0, 1, 50); assert.strictEqual(a.mean, 1, "nothing spreads at T=0"); assert.strictEqual(b.mean, 5, "everything reached at T=1");
+  near(S.outbreakStats(S.graphOf(["a", "b"], [["a", "b"]]), 0, 0.3, 20000).mean, 1.3, 0.02, "one link at T=.3: 1.3 on average");
+  // a path from its end: P(reach the k-th) = T^k, in closed form
+  const p = S.outbreakStats(line, 0, 0.5, 40000); near(p.hit[1], 0.5, 0.02, "T"); near(p.hit[2], 0.25, 0.02, "T^2"); near(p.hit[4], 0.0625, 0.01, "T^4");
+  const e = S.epidemic(K5); near(e.excess, 4 - 1 + 0 + 0, 1e-9, "excess degree of K5"); near(e.Tc, 1 / 3, 1e-9, "T_c = 1/3 on a regular graph of degree 4"); near(e.TcSpectral, 0.25, 1e-3, "1/lambda1"); near(e.R0(0.5), 1.5, 1e-9, "R0");
+  // the transition itself: on a big random graph a large outbreak is rare well below T_c and common well above it
+  const n = 2000, rand = S.rng(9), ids = Array.from({ length: n }, (_, i) => String(i)), pairs = []; for (let i = 0; i < n * 3; i++) pairs.push([String(Math.floor(rand() * n)), String(Math.floor(rand() * n))]); const er = S.graphOf(ids, pairs), T0 = S.epidemic(er).Tc;
+  near(T0, 1 / 6, 0.02, "an ER graph with mean degree 6 has T_c = 1/6"); const [lo, hi] = S.sweep(er, [T0 * 0.5, T0 * 2.5], 200); assert(lo.pBig < 0.02, `below threshold: ${lo.pBig}`); assert(hi.pBig > 0.4, `above threshold: ${hi.pBig}`); }
+const again = S.outbreakStats(K5, 1, 0.4, 100, 5), twice = S.outbreakStats(K5, 1, 0.4, 100, 5); assert.strictEqual(again.mean, twice.mean, "the same vault must give the same answer");
+// ---- the neuron, against its closed form
+{ const P = S.LIF, one = S.graphOf(["a"], []);
+  // no input: stays at rest and never fires
+  { const net = S.lifNetwork(one, { inhibitory: 0 }); net.setDrive(0, 0); for (let i = 0; i < 40000; i++) assert(!net.step(0.5).length, "a resting neuron fired"); near(net.V[0], P.rest, 1e-6, "relaxes to rest"); }
+  // below threshold never fires, however long; above it fires at the textbook rate
+  { const net = S.lifNetwork(one, { inhibitory: 0 }); net.setDrive(0, 14.9); let n = 0; for (let i = 0; i < 20000; i++) n += net.step(0.5).length; assert.ok(n <= 1, "subthreshold input kept firing"); assert.strictEqual(S.lifRate(14.9), 0); }
+  for (const mv of [18, 25, 40]) { const net = S.lifNetwork(one, { inhibitory: 0 }); net.setDrive(0, mv); const dt = 0.02, ms = 10000; let n = 0; for (let t = 0; t < ms; t += dt) n += net.step(dt).length; near(n / (ms / 1000), S.lifRate(mv), S.lifRate(mv) * 0.03 + 0.5, `rate at ${mv} mV`); }
+  // refractory: two spikes are never closer than the period, even driven very hard
+  { const net = S.lifNetwork(one, { inhibitory: 0 }); net.setDrive(0, 500); const times = []; for (let t = 0; t < 200; t += 0.05) net.step(0.05).forEach(f => times.push(f.t)); for (let i = 1; i < times.length; i++) assert(times[i] - times[i - 1] >= P.refractory - 1e-9, "a spike inside the refractory period"); assert(times.length > 20); }
+  // a spike arrives after the axon's delay, not before; excitation raises the target and inhibition lowers it
+  const pair = S.graphOf(["a", "b"], [["a", "b"]]);
+  for (const [inhib, sign] of [[0, 1], [1, -1]]) { const net = S.lifNetwork(pair, { inhibitory: inhib, delay: () => 8 }); net.V[0] = P.threshold + 1; net.V[1] = P.rest; let first; for (let t = 0; t < 4; t += 0.5) { const s = net.step(0.5); if (s.length && !first) first = s.find(f => f.i === 0); } assert(first, "the first cell should fire"); near(net.V[1], P.rest, 1e-9, "arrived before the axon's delay");
+    for (let t = 4; t < 9; t += 0.5) net.step(0.5); assert(sign > 0 ? net.V[1] > P.rest + 0.5 : net.V[1] < P.rest - 2, `the post-synaptic change should have sign ${sign}, V is ${net.V[1]}`); }
+  // a balanced network stays alive and irregular instead of seizing: the same drive with no inhibition fires far more
+  const run = inh => { const n = 400, rand = S.rng(4), ids = Array.from({ length: n }, (_, i) => String(i)), ps = []; for (let i = 0; i < n * 6; i++) ps.push([String(Math.floor(rand() * n)), String(Math.floor(rand() * n))]); const net = S.lifNetwork(S.graphOf(ids, ps), { inhibitory: inh }); let c = 0; for (let t = 0; t < 1000; t++) c += net.step(1, () => 0.55).length; return c / n; };
+  const balanced = run(0.2), runaway = run(0); assert(balanced > 0.5 && balanced < 40, `a balanced network's rate is ${balanced} Hz`); assert(runaway > balanced * 1.5, `inhibition should hold it down: ${runaway} against ${balanced}`); }
+// ---- anatomy
+{ const B = S.BRAIN; assert(B.z > B.x && B.x > B.y, "a brain is longest front to back, then wide, then high");
+  // the surface itself, measured: an adult cerebrum is about 167 mm long, 140 wide and 93 high, and the folds and temporal poles mustn't spoil that
+  { let ex = 0, ez = 0, y0 = 0, y1 = 0; for (let i = 0; i < 40000; i++) { const y = 1 - (i + 0.5) / 40000 * 2, rr = Math.sqrt(1 - y * y), th = i * 2.399963, x = Math.cos(th) * rr, z = Math.sin(th) * rr, r = S.cortexAt(x, y, z).r; ex = Math.max(ex, Math.abs(x * r)); ez = Math.max(ez, Math.abs(z * r)); y0 = Math.min(y0, y * r); y1 = Math.max(y1, y * r); } near(ex / ez * 167, 140, 8, "width in mm at a 167 mm length"); near((y1 - y0) / (2 * ez) * 167, 93, 10, "height in mm at a 167 mm length"); }
+  const top = S.cortexAt(0.25, -1, 0).r, mid = S.cortexAt(0.005, -1, 0).r; assert(mid < top * 0.8, `the longitudinal fissure should cut in on top: ${mid} against ${top}`);
+  assert.strictEqual(S.lobeOf(0.3, -0.3, 0.9), "frontal"); assert.strictEqual(S.lobeOf(0.3, -0.7, -0.45), "parietal"); assert.strictEqual(S.lobeOf(0.3, 0, -0.95), "occipital"); assert.strictEqual(S.lobeOf(0.8, 0.5, 0.1), "temporal");
+  // over the sphere's directions, the lobes hold roughly their real shares of the surface
+  const area = {}; let total = 0; for (let i = 0; i < 20000; i++) { const y = 1 - (i + 0.5) / 20000 * 2, rr = Math.sqrt(1 - y * y), th = i * 2.399963, x = Math.cos(th) * rr, z = Math.sin(th) * rr, c = S.cortexAt(x, y, z), w = c.r * c.r; if (y > 0.75) continue; area[c.lobe] = (area[c.lobe] || 0) + w; total += w; }
+  for (const [k, want] of Object.entries(S.LOBE_SHARE)) near(area[k] / total, want, 0.1, `${k}'s share of the surface`);
+  const sizes = Array.from({ length: 19 }, (_, i) => ({ id: i, size: 60 - i * 3 })), got = S.assignLobes(sizes), sum = {}; sizes.forEach(c => sum[got[c.id]] = (sum[got[c.id]] || 0) + c.size); const all = sizes.reduce((s, c) => s + c.size, 0); for (const [k, want] of Object.entries(S.LOBE_SHARE)) near(sum[k] / all, want, 0.05, `${k}'s share of the notes`);
+  const spots = S.lobeSpots("frontal", 6); assert.strictEqual(spots.length, 6); assert(spots.every(p => S.lobeOf(...p) === "frontal"), "a spot left its lobe"); }
+// ---- as a computer: reservoirs, against what's known
+{ const ring = n => { const ids = Array.from({ length: n }, (_, i) => String(i)), ps = []; for (let i = 0; i < n; i++) for (const d of [1, 2]) ps.push([String(i), String((i + d) % n)]); return S.graphOf(ids, ps); };
+  // by hand: a triangle's clustering is 1, a square's 0, a 4-regular ring's 1/2 (Watts & Strogatz's lattice, 3(k-2)/4(k-1))
+  near(S.clustering(S.graphOf(["a", "b", "c"], [["a", "b"], ["b", "c"], ["c", "a"]])), 1, 1e-9, "a triangle's clustering"); near(S.clustering(cycle), 0, 1e-9, "a square's clustering"); near(S.clustering(ring(30)), 0.5, 1e-9, "a k=4 ring's clustering");
+  near(S.meanPath(line, 1000), 2, 1e-9, "a path of 5: mean distance 2"); near(S.meanPath(K5, 1000), 1, 1e-9, "K5: 1");
+  { const r = ring(60), q = S.rewired(r, 3); assert.deepStrictEqual(q.adj.map(a => a.length), r.adj.map(a => a.length), "a rewire changed someone's degree"); assert.strictEqual(q.edges.length, r.edges.length); assert(S.clustering(q) < 0.25, `rewiring should destroy a lattice's clustering: ${S.clustering(q)}`); }
+  // the textbook picture: a lattice with a few long links is small-world, a random graph isn't
+  { const n = 200, base = ring(n), ids = base.ids, ps = base.edges.map(([a, b]) => [ids[a], ids[b]]), rand = S.rng(8); for (let i = 0; i < 12; i++) ps.push([ids[Math.floor(rand() * n)], ids[Math.floor(rand() * n)]]); const sw = S.smallWorld(S.graphOf(ids, ps), 4), er = S.smallWorld(S.randomGraph(n, 400, 2), 4); assert(sw.sigma > 3, `small-world sigma ${sw.sigma}`); assert(er.sigma < 1.6, `a random graph's sigma ${er.sigma}`); }
+  // the echo state: scaled to the radius asked for, and a stable reservoir's echo of an input fades
+  { const g = S.randomGraph(60, 180, 4), r = S.reservoir(g, { rho: 0.9 }); near(S.largestAbsEigen(g, r.w, 400), 0.9, 0.02, "the spectral radius it was scaled to"); const rows = S.reservoir(g, { rho: 0.9, input: 0.5 }).run([...Array(200).fill(1), ...Array(300).fill(0)], 60, 0); assert(rows[rows.length - 1].slice(0, 60).every(v => Math.abs(v) < 0.01), "an input's echo should fade: the echo state property"); }
+  // ridge recovers a known linear map
+  { const rand = S.rng(2), rows = Array.from({ length: 300 }, () => Float64Array.from([rand(), rand(), 1])), w = S.ridge(rows, 1e-10)(rows.map(r => 2 * r[0] - 3 * r[1] + 0.5)); near(w[0], 2, 1e-3, "ridge w0"); near(w[1], -3, 1e-3, "ridge w1"); near(w[2], 0.5, 1e-3, "ridge w2"); }
+  // Jaeger: capacity can't pass the readings and is well above zero on a healthy reservoir; with no links nothing is held past the input
+  { const g = S.randomGraph(80, 240, 6), m = S.memoryCapacity(g, { read: 80, rho: 0.9, inputShare: 0.5 }); assert(m.mc <= 80 + 1e-9 && m.mc > 5, `memory capacity ${m.mc}`); assert(m.curve[0] > 0.5, `one step back should be easy: ${m.curve[0]}`); assert(m.curve[0] > m.curve[m.curve.length - 1], "recall should fade with delay");
+    const none = S.memoryCapacity(S.randomGraph(80, 0, 6), { read: 80, inputShare: 0.5 }); assert(none.mc < 1.5, `with no links there's no memory: ${none.mc}`); }
+  // NARMA-10: a fair reservoir clearly beats guessing the mean; a linkless one has no ten steps of memory to do it with
+  { const y = S.narma(2000, S.rng(3)).y.slice(50); assert(y.every(v => isFinite(v)), "NARMA diverged"); const good = S.narmaError(S.randomGraph(150, 600, 5), { read: 150, inputShare: 0.5, rho: 0.95 }), none = S.narmaError(S.randomGraph(150, 0, 5), { read: 150, inputShare: 0.5 }); assert(good < 0.85, `NARMA-10 on a random reservoir: ${good}`); assert(good < none, `links should help: ${good} against ${none}`); }
+}
+console.log("ok - science: Kaplan-Meier and log-rank on the 6-MP trial, SIR and its threshold, cut points, percolation, the neuron's closed form, anatomy");

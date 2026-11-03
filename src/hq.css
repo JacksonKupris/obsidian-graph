@@ -441,3 +441,8 @@
 .vg-hq .vg-hq-keys { margin: 10px 0; border-collapse: collapse; width: 100%; } .vg-hq .vg-hq-keys td { padding: 4px 8px; } .vg-hq .vg-hq-keys td:first-child { white-space: nowrap; width: 1%; }
 .vg-hq .vg-hq-keys kbd { padding: 1px 6px; border: 1px solid var(--hq-line); border-radius: var(--ds-r-xs); background: var(--hq-surface); font: inherit; font-size: var(--ds-fs-sm); }
 .vg-hq .vg-hq-customizebtn { margin-top: 10px; color: var(--hq-faint); font-size: var(--ds-fs-sm); }
+
+/* what's been put off: quiet, and out of the way of the list above it */
+.vg-hq .vg-hq-putoff > summary { display: flex; justify-content: space-between; padding: 6px 8px; color: var(--hq-muted); font-size: var(--ds-fs-sm); cursor: pointer; }
+.vg-hq .vg-hq-putoff .vg-hq-keepacts { position: static; background: none; padding-left: 0; }
+.vg-hq .vg-hq-calkey { margin: 10px 0 0; color: var(--hq-muted); font-size: var(--ds-fs-sm); }

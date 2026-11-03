@@ -329,6 +329,8 @@
   // ---------------------------------------------------------------- views + controls
   // a view explains itself the first time on this device; after that its legend is enough
   function introduce(view, text) { let seen = {}; try { seen = JSON.parse(localStorage.getItem("vg-intros") || "{}"); } catch (e) { /* first time, then */ } if (seen[view] || !text) return; seen[view] = 1; try { localStorage.setItem("vg-intros", JSON.stringify(seen)); } catch (e) { /* it shows again next time */ } toast(text); }
+  // run this once the notes have got where they're going. A plain timer can't know: the morph moves with the frames, which slow right down when the window isn't focused, and framing a half-finished move leaves the view framed wrong for good.
+  const afterMorph = (fn, ms) => { const go = () => { if (destroyed) return; if (morph) { setTimeout(go, 60); return; } fn(); }; setTimeout(go, ms); };
   function setView(view) {
     if (!GRAPH_INFO[view] && !MAPS[view]) view = "2d";   // a link or setting may name a view since retired
     if (view === st.view) return;
@@ -353,7 +355,7 @@
       st.three = false; cv.style.cursor = "default"; cam.spin = null;
       applyMapLayout(true);
       animateTo({ cx: 0, cy: 0, cz: 0, yaw: 0, pitch: 0 }, 600);
-      fitted = false; setTimeout(() => { fitted = true; fit(mapFitPred(), 700); }, 1000);
+      fitted = false; afterMorph(() => { fitted = true; fit(mapFitPred(), 700); }, 1000);
       introduce(view, SCENES[view] ? SCENES[view].toast : { subway: "Subway — each topic is a line; black-ringed stations connect topics",
         weather: "Weather — L is a topic busier than usual in your dailies, H a quiet one; storms are this week's bursts, fronts join topics that come up together",
         foodweb: "Food web — producers (relied on, rarely link out) at the bottom, logs and plans at the top; red rings are relied-on notes gone stale",
@@ -364,7 +366,7 @@
       brainLayout(true);
       animateTo({ k: Math.min(cam.k, 1), tx: 0, ty: 0, cx: 0, cy: 0, cz: 0, pitch: st.angles.neural === "flat" ? 0 : -0.25, yaw: 0 }, 1400);
       layNeural();
-      fitted = false; setTimeout(() => { fitted = true; fit(n => !special(n), 900); }, 1500);
+      fitted = false; afterMorph(() => { fitted = true; fit(n => !special(n), 900); }, 1500);
       toast("Neural view — lobes are topics, the core holds your bridge notes");
     } else {
       st.three = view === "3d"; cv.style.cursor = st.three ? "grab" : "default";
@@ -373,7 +375,7 @@
         const spot = n => L[n.id] || [...nb[n.id]].map(id => L[id]).find(Boolean) || (n.ghost && n.from.map(id => L[id]).find(Boolean)) || (n.person && links.filter(l => l.kind === "person" && l.s === n).map(l => L[l.t.id]).find(Boolean));
         morphTo(n => { const q = spot(n), j = L[n.id] ? 0 : (hash(n.id) % 41) - 20; return q ? [q[0] + j, q[1] + j * 0.7, st.three ? (q[2] ?? n.z0 * 0.6) : 0] : [n.x * 0.5, n.y * 0.5, st.three ? n.z : 0]; }, 1200);
         animateTo({ cx: 0, cy: 0, cz: 0 }, 900);
-        fitted = false; setTimeout(() => { fitted = true; fit(null, 700); alpha = known ? (active.some(n => !L[n.id]) ? 0.3 : 0.04) : 0.6; }, 1250);
+        fitted = false; afterMorph(() => { fitted = true; fit(null, 700); alpha = known ? (active.some(n => !L[n.id]) ? 0.3 : 0.04) : 0.6; }, 1250);
       } else {
         const ok = applyLayout();
         if (!ok) nodes.forEach(n => { n.z = st.three ? n.z0 * 0.6 : 0; n.vz = 0; });
@@ -383,7 +385,7 @@
       if (view === "cosmos") {
         if (!cos.bodies.length) seedCosmos();
         cosmosCapture(); updateGame(false); alpha = 0.7; cam.cx = cam.cy = cam.cz = 0;
-        fitted = false; setTimeout(() => { fitted = true; fit(n => !n.ghost && !n.isolated, 900); }, 1600);
+        fitted = false; afterMorph(() => { fitted = true; fit(n => !n.ghost && !n.isolated, 900); }, 1600);
         toast("Cosmos — your maps are stars; drop bodies from the dock to reorganise the graph");
       }
     }
@@ -611,7 +613,14 @@
     applyLive,
     hasView: v => !!(GRAPH_INFO[v] || MAPS[v]),   // a scene from a note exists once its block is in the state
     async snapshot() { const blob = await new Promise(res => cv.toBlob(res, "image/png")); return blob.arrayBuffer(); },   // the canvas as PNG (State of the vault)
-    _debug: { drawNow() { if (!W) return null; const t0 = performance.now(); draw(performance.now()); dirty = false; return performance.now() - t0; },   // tests: a frame now, its ms
+    _debug: { gl: {
+        info: () => GL.info(),
+        // two spheres at one spot, in both drawing orders: the depth buffer decides, so the near (red) one must show either way. Pixels are read in the same task, before the page composites.
+        depthCheck() { if (!GL.ok()) return null; const put = (a, b) => { GL.begin([0, 0, 0], 1); glSn = 0; for (const [d, c] of [a, b]) putSprite(W / 2, H / 2, d, 60, c, 1, 0, 0); GL.sprites("lit", glS, glSn, { light: [0, 0, -1], dark: true }); glSn = 0; return GL.pixel(W / 2, H / 2); }, near = [0.3, [1, 0, 0]], far = [0.35, [0, 0, 1]], out = { nearLast: put(far, near), nearFirst: put(near, far) }; dirty = true; kick(); return out; },
+        shadeCheck() { if (!GL.ok()) return null; GL.begin([0, 0, 0], 1); glSn = 0; putSprite(W / 2, H / 2, 0.3, 100, [0.8, 0.8, 0.8], 1, 0, 0); GL.sprites("lit", glS, glSn, { light: [-0.5, -0.8, -0.4], dark: false }); glSn = 0; const lit = GL.pixel(W / 2 - 40, H / 2 - 60), away = GL.pixel(W / 2 + 40, H / 2 + 60); dirty = true; kick(); return { lit: lit[0], away: away[0] }; },
+      },
+      neuro() { const N = neuro; if (!N) return { spikes: 0, ok: false }; const P = N.net.P; let ok = true; for (const v of N.net.V) if (!isFinite(v) || v > P.threshold + 40 || v < -200) ok = false; return { spikes: N.net.total(), hz: neuroRate(), ok, n: N.list.length, time: N.net.time(), morph: !!morph, vMax: Math.max(...N.net.V), vMean: N.net.V.reduce((x, y) => x + y, 0) / N.net.V.length, shown: neuroSpikes.length }; },
+      drawNow() { if (!W) return null; const t0 = performance.now(); draw(performance.now()); dirty = false; return performance.now() - t0; },   // tests: a frame now, its ms
       views: () => [...Object.keys(GRAPH_INFO), ...Object.keys(MAPS)], lenses: () => Object.keys(LENSES), openLens, st, cam, active: () => active, P, alpha: () => alpha, layouts, setView, scenes: () => SCENES, drawMs: () => drawMs, maps: () => mapCache, cos: () => cos, nodes, nb, replay: () => replay, visible, rules: VGRules },
     syncNext: syncNextBtn,
     destroy() { persistNow(); destroyed = true; clearTimeout(persistTimer); 
