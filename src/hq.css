@@ -36,7 +36,7 @@
 /* top line and week strip */
 .vg-hq-top { position: relative; z-index: 7; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 24px 10px var(--hq-gutter); border-bottom: 1px solid var(--hq-line); }
 .vg-hq .vg-hq-crumb { color: var(--hq-muted); } .vg-hq .vg-hq-crumb b { color: var(--hq-text); }
-@container (min-width: 761px) { .vg-hq .vg-hq-crumb { flex: none; min-width: 11.5em; white-space: nowrap; } }   /* the chip and the search stay put from screen to screen */
+@container (min-width: 761px) { .vg-hq .vg-hq-crumb { flex: 0 0 14em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }   /* the chip and the search stay put from screen to screen */
 .vg-hq .vg-hq-clock { color: var(--hq-muted); font-size: var(--ds-fs-md); white-space: nowrap; } .vg-hq .vg-hq-clock b { color: var(--hq-text); font-size: var(--ds-fs-lg); font-variant-numeric: tabular-nums; margin-right: 4px; }
 .vg-hq .vg-hq-global-tools { display: flex; align-items: end; gap: 8px; flex: 1; min-width: 180px; max-width: 520px; }
 .vg-hq .vg-hq-global-searchlabel { display: grid; flex: 1; min-width: 0; gap: 4px; color: var(--hq-muted); font-size: var(--ds-fs-xs); }

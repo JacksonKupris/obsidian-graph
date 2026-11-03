@@ -16,7 +16,7 @@ npm run release              # 0.6.14 -> 0.6.15.  npm run release -- minor  for 
 
 It syncs with GitHub first, so it always releases what's merged.
 
-It takes 3-5 minutes and prints each step. It ends with:
+It takes about 10 minutes (the tests here, then the same tests and the publish on GitHub) and prints each step. It ends with:
 
 ```
 Released 0.6.15: https://github.com/JacksonKupris/obsidian-graph/releases/tag/0.6.15

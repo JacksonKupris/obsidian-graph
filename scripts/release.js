@@ -73,7 +73,7 @@ async function api(p) {
 }
 (async () => {
   const end = Date.now() + 20 * 60e3, actions = `https://github.com/${slug}/actions`;
-  console.log(`Waiting for GitHub to test and publish ${version} (usually 3-5 minutes)...`);
+  console.log(`Waiting for GitHub to test and publish ${version} (usually 5-6 minutes)...`);
   for (let latest = null; ; ) {
     const runs = await api(`actions/runs?event=push&branch=${version}&per_page=1`);
     latest = runs && (runs.workflow_runs || [])[0] || null;
