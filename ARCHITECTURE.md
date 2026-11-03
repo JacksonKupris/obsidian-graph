@@ -1,5 +1,7 @@
 # How Vault Graph is built
 
+**Words.** To a person, everything they open is a **view**, grouped by what they want to know. In the code a view is a graph view or map (`GRAPH_INFO`, `MAPS`), a scene (`src/scenes/`, or a block in a note), or a lens (`LENSES`, a report beside the picture). Use "view" in anything a person reads.
+
 One system, not bolted-on parts: one state, shared rules, one action path, shared helpers. Tests enforce most of what follows (`tests/test_rules.js`), so a change that breaks a rule fails the build instead of drifting.
 
 ## Layout

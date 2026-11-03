@@ -38,6 +38,14 @@
     if (ok) { list.forEach(it => gone.add(it.key)); relist(); render(); } else if (btn && btn.isConnected) btn.disabled = false;
   }
 
+  // ---- Recent changes: everything the plugin changed that can still be undone, newest first. The message's Undo goes in seconds; this stays.
+  const whenWords = t => { if (!t) return ""; const d = new Date(t), same = VGRules.localDay(d) === day(); return same ? d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : d.toLocaleDateString(undefined, { month: "short", day: "numeric" }); };
+  function changesScreen() {
+    const list = api.recentChanges ? api.recentChanges() : [], head = `<h1 class="vg-hq-h1">Recent changes</h1>`;
+    if (!list.length) return head + empty("Nothing to undo.", [["Today", 'data-go="today"'], ["Home", 'data-go="home"']]);
+    return `${head}<p class="vg-hq-lede">The last ${plural(list.length, "change")}, newest first. A note edited by hand since can't be undone from here.</p><section class="vg-hq-sec">${list.map(c => `<div class="vg-hq-item"><div class="vg-hq-txt"><b>${esc(c.label || `Changed ${c.files.map(nameOf).slice(0, 2).join(", ")}`)}</b><small>${esc(whenWords(c.when))} · ${c.files.slice(0, 3).map(f => esc(nameOf(f))).join(", ")}${c.files.length > 3 ? ` and ${c.files.length - 3} more` : ""}</small></div><div class="vg-hq-acts"><button class="vg-hq-btn vg-hq-btn-sm" data-changeundo="${c.id}">Undo</button></div></div>`).join("")}</section>`;
+  }
+  async function undoChange(id, btn) { btn.disabled = true; try { await api.undo(id); toast("Undone"); relist(); render(); } catch (err) { btn.disabled = false; toast(`Couldn't undo: ${(err && err.message) || err}`, null, true); } }
   // ---- Report rows: each row of the report to tick (apply) or skip, in the report itself
   const rowKey = r => `${r.path}|${r.line}`;
   function rowsScreen() {

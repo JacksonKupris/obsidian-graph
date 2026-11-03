@@ -128,6 +128,8 @@ class VaultGraphView extends ItemView {
       linkHow: rows => this.plugin.linkHow(rows),
       dropLinkLines: rows => this.plugin.dropLinkLines(rows),
       setParents: rows => this.plugin.setParents(rows),
+      wantedCounts: () => this.plugin.wantedCounts(),
+      driftScan: () => this.plugin.driftScan(),
       mocReport: { load: () => this.plugin.loadMocReport(), tick: (line, on) => this.plugin.tickMocRow(line, on),
                    apply: Platform.isDesktopApp ? () => this.plugin.applyMocReport() : undefined },
       saveBinary: (notePath, buf) => this.plugin.saveBinary(notePath, buf),
@@ -531,7 +533,8 @@ const WRITE_ACTIONS = ["setParents", "dropLinkLines", "moveTasks", "planLine", "
 // entry, so every action can be undone from the message that confirms it. tests/test_rules.js fails on a vault write
 // anywhere else (outside STATE_WRITERS).
 const WRITE_PRIMITIVES = ["ioProcess", "ioModify", "ioFrontMatter", "ioCreate", "ioCreateBinary", "ioRename", "ioFolder", "ioTrash", "ioData"];
-const UNDO_KEEP = 20;   // actions that can still be undone (this session)
+const UNDO_KEEP = 20;   // actions that can still be undone
+const UNDO_FILE_MAX = 5 * 1024 * 1024;
 // The plugin's own state files (game/shared state, content log), written outside WRITE_ACTIONS: their file watcher
 // redraws the sidebar. tests/test_rules.js fails if a vault write appears anywhere else.
 const STATE_WRITERS = ["saveContentSoon", "writeShared", "recordLedger", "writeLiveDiag", "setRule"];
@@ -573,11 +576,12 @@ module.exports = class VaultGraphPlugin extends Plugin {
     if (!this.settings.homeV2) { this.settings.homeV2 = 1; this.settings.homeView = "foodweb"; this.saveSettings(); }   // once: the card had been left on Subway, which is crowded small
     // after each plugin update, test every view and lens once in the background (desktop); a notice only if something broke
     this.app.workspace.onLayoutReady(() => { if (Platform.isDesktopApp) setTimeout(async () => { const sig = await this.buildSig(); if (sig && (this.settings.lastSelfTest || {}).sig !== sig) this.selfTest(true); }, 45000); });
-    this.addCommand({ id: "self-test", name: "Run self-test (every view and lens, in the background; writes a report to the reports folder)", callback: () => this.selfTest(false) });
+    this.addCommand({ id: "self-test", name: "Run self-test (every view, in the background; writes a report to the reports folder)", callback: () => this.selfTest(false) });
     this.addCommand({ id: "state-snapshots", name: "Add map snapshots to the latest State of the vault note", callback: () => this.stateSnapshots() });
     this.registerView(SUGGEST_TYPE, leaf => new VaultGraphSuggestView(leaf, this));
     this.registerView(HQ_TYPE, leaf => new VaultHQView(leaf, this));
     this.addCommand({ id: "open-hq", name: "Open Vault HQ", callback: () => this.openHQ() });
+    this.addCommand({ id: "recent-changes", name: "Recent changes", callback: async () => { const leaf = await this.openHQ(); if (leaf.view.handle) leaf.view.handle.setScreen("changes"); } });
     // from anywhere in Obsidian, without leaving the note you're in; give them a hotkey
     const captureFrom = kind => async () => { const text = await inputModal(this.app, kind === "note" ? "Capture a note" : "Capture a task", kind === "note" ? "It goes in the capture folder." : "It goes in today's journal.", kind === "note" ? "An idea…" : "Something to do…"); if (!text || !text.trim()) return; try { await this.capture(text, kind); new Notice(kind === "note" ? "Note saved" : "Added to today"); } catch (e) { new Notice(`Couldn't save that: ${e.message}`, 8000); } };
     this.addCommand({ id: "capture-task", name: "Capture a task", callback: captureFrom("task") });
@@ -744,6 +748,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
 
   wrapWriteActions() {
     this.undoLog = []; this.undoSeq = 0;
+    this.loadUndoLog();
     // every vault write counts, so an action that wrote nothing (a preview, a check) neither waits for the index nor redraws
     WRITE_PRIMITIVES.forEach(k => { const g = this[k].bind(this); this[k] = (...a) => { this.writes = (this.writes || 0) + 1; return g(...a); }; });
     WRITE_ACTIONS.forEach(k => {
@@ -778,15 +783,33 @@ module.exports = class VaultGraphPlugin extends Plugin {
       const f = this.fileAt(renamedTo(i, o.path));
       o.after = f && !o.binary ? await this.app.vault.read(f) : null;
     }
-    e.id = ++this.undoSeq;
+    e.id = ++this.undoSeq; e.when = Date.now();
     this.undoLog = [...this.undoLog, e].slice(-UNDO_KEEP);
+    await this.saveUndoLog();
   }
+  // The undo list outlives a restart: kept in the cache folder, which Obsidian Sync leaves out, since it holds what a note looked like on this PC.
+  // Oldest entries go first if it grows past the limit; a change it can't keep can still be rolled back from the vault's own history.
+  undoLogPath() { return normalizePath(`${VGRules.folders.cache}/undo-log.json`); }
+  async saveUndoLog() {
+    try { const io = this.app.vault.adapter, dir = normalizePath(VGRules.folders.cache); let keep = this.undoLog, text = JSON.stringify({ seq: this.undoSeq, log: keep });
+      while (text.length > UNDO_FILE_MAX && keep.length) { keep = keep.slice(1); text = JSON.stringify({ seq: this.undoSeq, log: keep }); }
+      if (io.mkdir && !await io.exists(dir)) await io.mkdir(dir); await io.write(this.undoLogPath(), text); }
+    catch (err) { console.error("Vault Graph: the undo list wasn't saved", err); }
+  }
+  async loadUndoLog() {
+    try { const d = JSON.parse(await this.app.vault.adapter.read(this.undoLogPath())); if (Array.isArray(d.log)) { this.undoLog = d.log; this.undoSeq = Math.max(d.seq || 0, ...d.log.map(e => e.id || 0)); } }
+    catch (err) { /* no list yet */ }
+  }
+  // What the message said, so Recent changes reads the same
+  labelUndo(id, label) { const e = this.undoLog.find(x => x.id === id); if (e) { e.label = label; this.saveUndoLog(); } }
+  recentChanges() { return this.undoLog.slice().reverse().map(e => ({ id: e.id, label: e.label || "", when: e.when || 0, files: [...new Set(e.ops.map(o => o.path || o.to).filter(Boolean))] })); }
   lastUndo() { const e = this.undoLog[this.undoLog.length - 1]; return e ? e.id : 0; }
   // Put back what one action changed, its last change first. Nothing is undone if any of its files changed since.
   async undo(id) {
     this.vitalsMemo = null;
     const e = this.undoLog.find(x => x.id === id);
     if (!e) throw new Error("it's no longer in the undo list");
+    if (this.undoCur) this.undoCur.label = `Undid: ${e.label || "a change"}`;
     const renamedTo = (i, p) => e.ops.slice(i + 1).reduce((q, o) => (o.kind === "rename" && o.from === q ? o.to : q), p);
     for (const [i, o] of e.ops.entries()) {
       const p = o.kind === "rename" ? renamedTo(i, o.to) : renamedTo(i, o.path), f = this.fileAt(p);
@@ -798,7 +821,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       else if (o.kind === "create") await this.ioTrash(this.fileAt(o.path));
       else if (o.kind === "rename") await this.ioRename(this.fileAt(o.to), o.from);
     }
-    this.undoLog = this.undoLog.filter(x => x !== e);
+    this.undoLog = this.undoLog.filter(x => x !== e); await this.saveUndoLog();
   }
   // After a write: resolve on Obsidian's next "resolved" (its index has caught up), or after 1.5 s if the write
   // changed nothing it indexes (a JSON file, "Already in…"). Registered before the write so the event can't be missed.
@@ -840,7 +863,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       const data = structuredClone(this.base);
       try { liveMerge(this.app, data, this.dataMtime()); } catch (e) { console.error("Vault Graph: live merge failed", e); }
       data.scenes = await this.sceneBlocks();
-      try { data.hq = await this.hqData(); } catch (e) { console.error("Vault Graph: HQ notes not read", e); data.hq = null; }
+      try { data.hq = await this.hqData(); data.hqError = null; } catch (e) { console.error("Vault Graph: HQ notes not read", e); data.hq = null; data.hqError = (e && e.message) || String(e); }
       this.version = (this.version || 0) + 1;
       if (data.live && data.live.indexNotReady) this.mergeWhenIndexed();
       this.writeLiveDiag(data);
@@ -1275,6 +1298,10 @@ module.exports = class VaultGraphPlugin extends Plugin {
       logWork: text => this.logWork(text),
       setTasksStatus: (rows, status) => this.setTasksStatus(rows, status),
       moveTasks: (items, to) => this.moveTasks(items, to),
+      recentChanges: () => this.recentChanges(),
+      version: () => this.manifest.version,
+      hqNewsSeen: version => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.hqNewsSeen = version; return sh; }),
+      labelUndo: (id, label) => this.labelUndo(id, label),
       setParents: rows => this.setParents(rows),
       vitals: () => this.vitals(),
       setNoteStatus: (notePath, status, reason) => this.setNoteStatus(notePath, status, reason),
@@ -1422,6 +1449,19 @@ module.exports = class VaultGraphPlugin extends Plugin {
     return n;
   }
   writtenLinks() { const mc = this.app.metadataCache; return VGRules.writtenLinks(mc.resolvedLinks, p => mc.getCache(p), (l, from) => { const f = mc.getFirstLinkpathDest(l.split("#")[0], from); return f && f.path; }); }
+  // How many notes link to each note that doesn't exist, the whole list (the graph data keeps only the top ones). Dailies and reports don't count.
+  wantedCounts() {
+    const un = this.app.metadataCache.unresolvedLinks || {}, by = new Map(); for (const [from, targets] of Object.entries(un)) { if (VGRules.inDaily(from) || from.startsWith(`${VGRules.folders.reports}/`) || EXCLUDE_PREFIXES.some(x => from.startsWith(x))) continue; for (const t of Object.keys(targets)) by.set(t, (by.get(t) || 0) + 1); }
+    return [...by.values()];
+  }
+  // Notes naming a version other than the one you run (the rules file's drift: name, pattern with the version as its first group, current). Code blocks count: a pinned command drifts too.
+  async driftScan() {
+    const rules = VGRules.RULES.drift || [], out = []; if (!rules.length) return out;
+    const skip = [VGRules.folders.reports + "/", VGRules.folders.templates + "/", VGRules.folders.archive + "/", VGRules.folders.system + "/", ...EXCLUDE_PREFIXES], res = rules.map(r => ({ ...r, re: new RegExp(r.pattern, "gi") }));
+    for (const f of this.app.vault.getMarkdownFiles()) { if (VGRules.inDaily(f.path) || skip.some(x => f.path.startsWith(x)) || /\d{4}-\d{2}-\d{2}/.test(f.basename) || VGRules.isRecord({ id: f.path, name: f.basename, tags: [] })) continue;
+      const lines = (await this.app.vault.cachedRead(f)).split(/\r?\n/); for (const r of res) { let hit = null; for (const l of lines) { r.re.lastIndex = 0; for (const m of l.matchAll(r.re)) if (m[1] && !String(m[1]).startsWith(r.current)) { hit = { found: m[1], text: l.trim() }; break; } if (hit) break; } if (hit) out.push({ path: f.path, name: r.name, current: r.current, ...hit }); } }
+    return out;
+  }
   // Give notes a way up: parent: "[[Hub]]" in the frontmatter, as one action. A note that already has a parent keeps it. Rows: { path, hub }.
   async setParents(rows) {
     this.vitalsMemo = null; let n = 0;
@@ -1451,6 +1491,14 @@ module.exports = class VaultGraphPlugin extends Plugin {
       await this.ioProcess(file, data => { const nl = data.includes("\r\n") ? "\r\n" : "\n", lines = data.split(/\r?\n/); list.slice().sort((a, b) => b.line - a.line).forEach(r => { if (lines[r.line] === r.text && VGRules.bareLinkLine(r.text)) { lines.splice(r.line, 1); n++; } }); return lines.join(nl); }); }
     return n;
   }
+  // How much of the Sync limit the vault's history uses, asked at most hourly and never held up for: its limit counts version history, so a
+  // big file rewritten often fills it. Obsidian's own, not a published interface, so anything unexpected means no figure rather than a wrong one.
+  async syncStorage() {
+    const now = Date.now(); if (this.syncSize && now - this.syncSize.t < 3600000) return this.syncSize.v;
+    try { const s = this.app.internalPlugins && this.app.internalPlugins.plugins && this.app.internalPlugins.plugins.sync, i = s && s.enabled && s.instance; if (!i || !i.size) return null;
+      const r = await Promise.race([i.size(), new Promise(res => setTimeout(() => res(null), 4000))]); const v = r && r.size > 0 && r.limit > 0 ? { used: r.size, limit: r.limit } : null; this.syncSize = { t: now, v }; return v; }
+    catch (e) { this.syncSize = { t: now, v: null }; return null; }
+  }
   // HQ's vitals, from the same methods and links as the lenses. Kept briefly, since HQ asks after every update; a task or review
   // changed clears it. One sample a day goes in the shared state (small, and capped), for the trend.
   async vitals() {
@@ -1458,10 +1506,12 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const data = await this.graphData(); if (!data || !data.nodes) return null;
     const out = this.writtenLinks(), pairs = [], day = today(), staleDays = (data.quality || {}).stale_days, inbox = `${VGRules.folders.inbox}/`;
     for (const l of data.links || []) { if (l.kind !== "link") continue; if (out[l.source] && out[l.source][l.target]) pairs.push([l.source, l.target]); if (out[l.target] && out[l.target][l.source]) pairs.push([l.target, l.source]); }
-    const v = VGScience.vitals({ rows: VGScience.taskLives(await this.taskHistory(), day).rows, today: day, pairs,
+    const v = VGScience.vitals({ rows: VGScience.taskLives(await this.taskHistory(), day).rows, today: day, pairs, areaOf: t => VGRules.areaOfText(VGRules.plainTask(t)),
       notes: data.nodes.filter(n => !n.person && !n.ghost && !n.moc).map(n => ({ id: n.id, name: n.name, age: n.age || 0, stale: VGRules.isStale(n, staleDays) })) });
     // what's open is what HQ lists, so the two can't disagree; came in and finished stay the Flow lens's own count
     const sh = await this.loadShared(), carried = VGRules.todayList(data, { review: sh && sh.review, hidden: sh && sh.cosmos && sh.cosmos.hidden, today: day }).filter(i => i.kind === "carried");
+    v.sync = await this.syncStorage();
+    try { v.drift = (await this.driftScan()).length; } catch (e) { v.drift = 0; }
     v.pile.open = carried.length; v.pile.old = carried.filter(i => i.age > 30).length;
     v.web.noWayUp = data.nodes.filter(n => !n.person && !n.ghost && !n.moc && !VGRules.isRecord(n) && !n.id.startsWith(inbox) && !Object.keys(out[n.id] || {}).length).length;
     this.vitalsMemo = { t: now, v };
@@ -1605,17 +1655,19 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const rows = [], lensRows = [];
     let handle = null;
     try {
-      handle = mountVaultGraph(host.createDiv(), structuredClone(data), { mobile: Platform.isMobile, alwaysOn: true, layoutSeed: () => this.layoutSeed() });
+      handle = mountVaultGraph(host.createDiv(), structuredClone(data), { mobile: Platform.isMobile, alwaysOn: true, layoutSeed: () => this.layoutSeed(),
+        // what reads the real vault, so a view that needs it is really tested; nothing that writes
+        taskHistory: () => this.taskHistory(), writtenLinks: () => this.writtenLinks(), linkHow: rows => this.linkHow(rows), wantedCounts: () => this.wantedCounts(), driftScan: () => this.driftScan() });
       await sleep(1500);
       const D = handle._debug, q = s => host.querySelector(s);
       for (const w of D.views()) {
         const e0 = errors.length, t0 = performance.now(); D.setView(w); const sw = performance.now() - t0; await sleep(1500);
         const today = q(".vg-today");
-        rows.push(`| ${w} | ${errors.length - e0 ? "❌ " + (errors.length - e0) + " error(s)" : "✅"} | ${Math.round(sw)} ms | ${D.drawMs().toFixed(1)} ms | ${D.P.size} | ${today && !today.hidden ? q(".vg-today-text").textContent.replace(/\|/g, "/") : ""} |`);
+        rows.push(`| ${w} | ${errors.length - e0 ? "❌ " + (errors.length - e0) + " error(s)" : "✅"} | ${Math.round(sw)} ms | ${document.hidden ? "not drawn: window hidden" : `${D.drawMs().toFixed(1)} ms`} | ${D.P.size} | ${today && !today.hidden ? q(".vg-today-text").textContent.replace(/\|/g, "/") : ""} |`);
       }
       const keys = D.lenses();
       for (const k of keys) {
-        const e0 = errors.length; D.openLens(k); await sleep(400);
+        const e0 = errors.length; D.openLens(k); await sleep(400); for (let i = 0; i < 100 && /^Loading/.test(q(".vg-lens-body").textContent.trim()); i++) await sleep(200);   // a view that loads has to finish
         const body = q(".vg-lens-body"); lensRows.push(`| ${k} | ${errors.length - e0 ? "❌" : "✅"} | ${body.textContent.length} chars | ${(body.querySelector(".vg-empty") || {}).textContent || ""} |`);
       }
     } catch (e) { errors.push("self-test stopped: " + e.message); }

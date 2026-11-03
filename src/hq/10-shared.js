@@ -189,7 +189,7 @@
   // an empty screen says what's true and where to go next
   const empty = (fact, next) => `<div class="vg-hq-empty"><p>${esc(fact)}</p><div class="vg-hq-row">${next.map(([label, attr]) => `<button class="vg-hq-btn" ${attr}>${esc(label)}</button>`).join("")}</div></div>`;
   const nextSteps = () => [...(api.openDaily ? [["Open today's journal", "data-daily"]] : []), ...(opts.openGraph ? [["Open the graph", "data-graph"]] : []), ["Projects", 'data-go="projects"']];
-  const journalWarning = () => ((hq() || {}).journalDuplicates || []).length
+  const journalWarning = () => DATA.hqError ? `<aside class="vg-hq-warning" role="alert"><b>Vault HQ couldn't read your notes.</b><p>${esc(DATA.hqError)}. Today and Needs you may be missing work.</p></aside>` : ((hq() || {}).journalDuplicates || []).length
     ? `<aside class="vg-hq-warning" role="status"><b>Journals with the same date in two places.</b>
       ${hq().journalDuplicates.map(d => `<p>${esc(d.date)} · using <code>${esc(d.canonical)}</code></p><div class="vg-hq-row">${(d.paths || []).map(path => api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(path)}">Open ${esc(path)}</button>` : `<code>${esc(path)}</code>`).join("")}</div>`).join("")}</aside>` : "";
 

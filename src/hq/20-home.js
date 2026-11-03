@@ -34,6 +34,12 @@
   }
   const destroyedHq = () => !el.isConnected;
   const sparkLine = (a, label) => { if (!a || a.length < 2) return ""; const lo = Math.min(...a), hi = Math.max(...a), W = 120, H = 28, x = i => (i / (a.length - 1) * W).toFixed(1), y = v => (hi === lo ? H / 2 : H - 2 - (v - lo) / (hi - lo) * (H - 4)).toFixed(1); return `<svg class="vg-hq-vitalspark" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}"><polyline points="${a.map((v, i) => `${x(i)},${y(v)}`).join(" ")}"/></svg>`; };
+  const bytesWords = b => (b >= 1e9 ? `${(b / 1073741824).toFixed(1)} GB` : `${Math.round(b / 1048576)} MB`);
+  // Sync's limit, in words: what's used, how fast, and when it fills at that rate
+  function syncWords() {
+    const y = vitals && vitals.sync; if (!y) return null; const h = (STATE.review || {}).vitals || {}, d = VGScience.vitalsDelta(h, day(), "sync", y.used), left = VGScience.daysToLimit(h, day(), "sync", y.used, y.limit), share = y.used / y.limit;
+    return { share, soon: left != null && left < 30, title: `${bytesWords(y.used)} of ${bytesWords(y.limit)} in Sync`, sub: `Sync's limit counts version history${d != null ? ` · ${d >= 0 ? "up" : "down"} ${bytesWords(Math.abs(d))} in a week` : ""}${left != null ? ` · full in about ${Math.round(left)} days at this rate` : ""}` };
+  }
   function vitalsHtml() {
     if (!vitals) return "";
     const { pile, debt, web } = vitals, h = (STATE.review || {}).vitals || {}, week = (key, now, fmt = v => v) => { const d = VGScience.vitalsDelta(h, day(), key, now); return d == null ? "" : d === 0 ? " · no change in a week" : ` · ${d > 0 ? "up" : "down"} ${fmt(Math.abs(d))} in a week`; };
@@ -42,8 +48,16 @@
     const pileWords = pile.net > 0 ? `The pile grew by ${pile.net} in 90 days` : pile.net < 0 ? `The pile shrank by ${-pile.net} in 90 days` : "The pile held level over 90 days";
     return `<section class="vg-hq-sec vg-hq-vitals"><h3>Vitals</h3><div class="vg-hq-vitalrows">` +
       (!pile.came && !pile.open ? "" : row(pileWords, `${pile.came} came in, ${pile.left} finished · ${pile.open} open from earlier days, ${pile.old} older than 30 days${week("open", pile.open)}`, `${ofKind("carried").length ? '<button class="vg-hq-btn vg-hq-btn-sm" data-go="sweep">Sweep</button>' : ""}${lensBtn("flowlens", "Flow")}`, sparkLine(pile.wip, `Tasks open over 90 days, from ${pile.wip[0]} to ${pile.wip[pile.wip.length - 1]}`))) +
+      (pile.piling ? row(`${pile.piling.area} is piling up`, `${pile.piling.open} open, ${pile.piling.done} finished in 90 days: open work is at least twice its share of what gets finished`, lensBtn("flowlens", "Where the pile is")) : "") +
       (debt.top ? row(`Review ${debt.top.name} first`, `${debt.top.direct} linked directly, ${debt.top.reach} through others · ${debt.top.years.toFixed(1)} years since an edit · ${plural(debt.count, "note")} in debt${week("debt", Math.round(debt.total))}`, `${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(debt.top.id)}">Open</button>` : ""}${api.stampReviewed ? `<button class="vg-hq-btn vg-hq-btn-sm" data-vital-current="${esc(debt.top.id)}" data-vital-name="${esc(debt.top.name)}">Still current</button>` : ""}${lensBtn("triage", "Stale notes")}`) : row("No stale note has anything resting on it", `Counting ${plural(web.links, "written link")}`, "")) +
-      (web.incoherence != null ? row(web.incoherence < 0.3 ? "Your links mostly run one way" : web.incoherence < 0.6 ? "Your links run partly one way" : "Your links run in many directions", `Incoherence ${web.incoherence.toFixed(2)}: 0 is a strict hierarchy, 1 is no direction · ${plural(web.links, "written link")}${web.twoWay ? `, ${web.twoWay} two-way pairs` : ""}${web.noWayUp ? ` · ${web.noWayUp} notes with no way up` : ""}${week("incoherence", +web.incoherence.toFixed(2), v => v.toFixed(2))}`, opts.openGraph ? `${web.twoWay || web.noWayUp ? lensBtn("twoway", "Hierarchy") : ""}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-graphview="foodweb">Food web</button>` : "") : "") + `</div></section>`;
+      (web.incoherence != null ? row(web.incoherence < 0.3 ? "Your links mostly run one way" : web.incoherence < 0.6 ? "Your links run partly one way" : "Your links run in many directions", `Incoherence ${web.incoherence.toFixed(2)}: 0 is a strict hierarchy, 1 is no direction · ${plural(web.links, "written link")}${web.twoWay ? `, ${web.twoWay} two-way pairs` : ""}${web.noWayUp ? ` · ${web.noWayUp} notes with no way up` : ""}${week("incoherence", +web.incoherence.toFixed(2), v => v.toFixed(2))}`, opts.openGraph ? `${web.twoWay || web.noWayUp ? lensBtn("twoway", "Hierarchy") : ""}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-graphview="foodweb">Food web</button>` : "") : "") + (vitals.drift ? row(`${plural(vitals.drift, "note")} name a version you don't run`, "Some are history. The rest send someone to the wrong instructions", lensBtn("drift", "Version drift")) : "") + (() => { const y = syncWords(); return y && (y.share >= 0.7 || y.soon) ? row(y.title, `${y.sub} · purge it in Settings, Sync, Vault size`, "") : ""; })() + `</div></section>`;
+  }
+  // What's new since you last said Got it. A first install has nothing to catch up on, so the tour covers it instead.
+  let newsSeenNow = null;
+  function newsHtml() {
+    if (!api.version || !api.hqNewsSeen) return ""; const seen = newsSeenNow || (STATE.review || {}).hqNewsSeen, tourDone = !!(STATE.review || {}).hqTour; if (!tourDone) return "";
+    const list = VGRules.newsSince(seen).slice(0, 8); if (!list.length) return "";
+    return `<section class="vg-hq-sec vg-hq-news"><h3>New <span>${list.length}</span></h3>${list.map((n, i) => `<button class="vg-hq-newsrow" data-news="${VGRules.NEWS.indexOf(n)}"><span>${esc(n.text)}</span></button>`).join("")}<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-sm" data-newsok>Got it</button></div></section>`;
   }
   function home() {
     const cards = feedCards(); feedAt = Math.min(feedAt, Math.max(0, cards.length - 1));
@@ -61,10 +75,10 @@
       <button class="vg-hq-tile" data-go="needs"><span class="vg-hq-eyebrow">Needs you</span><span class="vg-hq-big">${needs.length}</span><small>${esc(needsBy || "Nothing waiting on you")}</small></button>
       <button class="vg-hq-tile" data-go="projects"><span class="vg-hq-eyebrow">Projects</span><span class="vg-hq-big">${count("active")}</span><small>in progress · ${count("planned")} planned · ${count("waiting")} waiting</small></button></div>`;
     const upkeep = ofGroup("upkeep").slice(0, 3);
-    const status = `<p class="vg-hq-status">${plural(nodes0(), "note")} · ${plural((DATA.clusters || []).length, "topic")}${DATA.date ? ` · analysed ${esc(shortDate(DATA.date))}` : ""}${opts.openGraph ? ' · <button class="vg-hq-linkbtn" data-graph>Open the graph</button>' : ""}</p>`;
+    const status = `<p class="vg-hq-status">${plural(nodes0(), "note")} · ${plural((DATA.clusters || []).length, "topic")}${DATA.date ? ` · analysed ${esc(shortDate(DATA.date))}` : ""}${api.recentChanges ? ' · <button class="vg-hq-linkbtn" data-go="changes">Recent changes</button>' : ""}${opts.openGraph ? ' · <button class="vg-hq-linkbtn" data-graph>Open the graph</button>' : ""}</p>`;
     const off = new Set((STATE.review || {}).hqHome || []), on = k => !off.has(k);
     if (isNewVault()) return `<h1 class="vg-hq-h1">Welcome</h1>${welcomeHtml()}`;
-    return `<h1 class="vg-hq-h1">${greeting()}</h1>${on("brief") ? briefHtml() : ""}${captureBox()}${on("loop") ? flow() : ""}${journalWarning()}${hiddenKindsLine()}${on("cards") ? tiles : ""}${on("vitals") ? vitalsHtml() : ""}${on("momentum") ? momentumHtml() : ""}${on("threads") ? threadsHtml(6) : ""}${on("feed") ? feed : ""}` +
+    return `<h1 class="vg-hq-h1">${greeting()}</h1>${on("brief") ? briefHtml() : ""}${captureBox()}${on("loop") ? flow() : ""}${journalWarning()}${hiddenKindsLine()}${newsHtml()}${on("cards") ? tiles : ""}${on("vitals") ? vitalsHtml() : ""}${on("momentum") ? momentumHtml() : ""}${on("threads") ? threadsHtml(6) : ""}${on("feed") ? feed : ""}` +
       (on("upkeep") && upkeep.length ? section("Vault upkeep", upkeep) : "") + status + customizeHtml(off);
   }
   // Home's parts, each one yours to turn off

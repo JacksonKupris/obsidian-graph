@@ -21,7 +21,7 @@
         placeholder="Search projects, tasks, and notes  ( / )" aria-label="Search all HQ and vault notes"></label>
         ${globalQuery ? '<button class="vg-hq-btn vg-hq-btn-sm vg-hq-global-clear" data-clear-global aria-label="Clear HQ search">Clear</button>' : ""}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-keysbtn" data-keys aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</button></div>
       <span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}${(() => { const d = VGRules.doneToday(DATA, STATE.review, day()).length, m = VGRules.sessionMinutes(STATE.review, day()); return d || m ? ` · ${d} done${m ? ` · ${VGRules.minutesWords(m)}` : ""}` : ""; })()}</span></span></header>` +
-      strip() + `<main class="vg-hq-main" tabindex="-1"><div class="vg-hq-cols"><div class="vg-hq-col">${globalQuery.trim() ? searchScreen() : ({ home, session: sessionScreen, calendar: calendarScreen, threads: threadsScreen, review: reviewScreen, wrap: wrapScreen, today: todayScreen, needs: needsScreen, people: peopleScreen, projects: projectsScreen, automations: automationsScreen, sweep: sweepScreen, rows: rowsScreen })[cur]()}</div>${railAside()}</div></main>` + dock() + bulkBar() + peekHtml();
+      strip() + `<main class="vg-hq-main" tabindex="-1"><div class="vg-hq-cols"><div class="vg-hq-col">${globalQuery.trim() ? searchScreen() : ({ home, session: sessionScreen, calendar: calendarScreen, threads: threadsScreen, review: reviewScreen, wrap: wrapScreen, today: todayScreen, needs: needsScreen, people: peopleScreen, projects: projectsScreen, automations: automationsScreen, sweep: sweepScreen, changes: changesScreen, rows: rowsScreen })[cur]()}</div>${railAside()}</div></main>` + dock() + bulkBar() + peekHtml();
     el.appendChild(toastEl); el.appendChild(sayEl); overlays.forEach(o => el.appendChild(o)); markNext();
     const main = el.querySelector(".vg-hq-main"); if (main) { main.scrollTop = scroll; el.style.setProperty("--hq-panel-top", `${main.offsetTop}px`); }
     if (restoreSearch !== null) { const next = el.querySelector(".vg-hq-global-search"); if (next) { next.focus(); next.setSelectionRange(...restoreSearch); } }
@@ -94,7 +94,10 @@
     else if (d.showkind) api.hqReact(d.showkind, "show");
     else if (d.one) { const it = BY_KEY.get(d.key); if (it) sweep(d.one, [it], b); }
     else if (d.batch) { const its = ofKind("carried").filter(it => !kept.has(it.key) && (d.leftover ? it.underDone : !it.underDone && (d.section !== undefined ? sectionOf(it) === d.section : it.date === d.day))); sweep(d.batch, its, b, d.leftover ? "under finished tasks" : d.section !== undefined ? d.section : d.day); }
+    else if (d.news !== undefined) { const n = VGRules.NEWS[+d.news]; if (n && n.to.screen) setScreen(n.to.screen); else if (n && n.to.graph && opts.openGraph) opts.openGraph(n.to.graph); }
+    else if (d.newsok !== undefined) { newsSeenNow = api.version(); api.hqNewsSeen(newsSeenNow); render(); }
     else if (d.sweepby) { sweepBy = d.sweepby; render(); }
+    else if (d.changeundo) undoChange(+d.changeundo, b);
     else if (d.graphlens) { if (opts.openGraph) opts.openGraph({ lens: d.graphlens }); }
     else if (d.graphview) { if (opts.openGraph) opts.openGraph({ view: d.graphview }); }
     else if (d.vitalCurrent) { const n = (DATA.nodes || []).find(x => x.id === d.vitalCurrent) || { id: d.vitalCurrent, name: d.vitalName, age: 0 }; VGActions.run("current", n, ctx()); }

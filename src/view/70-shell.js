@@ -219,11 +219,10 @@
   // One button, one panel (a popover under the button on wide panes, a bottom sheet on phones): tabs, big tiles, a filter
   const GRAPH_INFO = { "2d": ["hub", "2D", "Force layout: topics, influence and gaps"], "3d": ["layers", "3D", "The same graph in depth; drag to turn it"],
     neural: ["brain", "Neural", "Topics as brain lobes, links firing between them"], cosmos: ["orbit", "Cosmos", "Maps become stars; place planets and fly between them"] };
-  // Map = the graph itself (2D, 3D), the main way in; Scenes = the gallery of picture views (neural, cosmos, the maps,
-  // the analysis pictures, the playful ones, your own scene blocks); Display = style presets + node size/colour,
+  // Everything you open is a view, grouped by what you want to know. A view draws on the canvas or opens a report beside it; that's how
+  // it's built, not something to choose between (in the code: a graph view or map, a scene, a lens). Display = style presets + node size/colour,
   // layers, saved views; Health = the overlays
-  const PICK_TABS = [["views", "Map"], ["scenes", "Scenes"], ["lenses", "Lenses"], ["style", "Display"], ["health", "Health"]];
-  const CORE_VIEWS = new Set(["2d", "3d"]);
+  const PICK_TABS = [["views", "Views"], ["style", "Display"], ["health", "Health"]];
   const PANEL_TABS = new Set(["style", "health"]);
   const PICK_TOOLS = [["vg-lassobtn", "lasso", "Lasso"], ["vg-savebtn", "star", "Save view"], ["vg-timebtn", "clock", "Time-lapse"],
     ["randomize", "sparkles", "Randomize layout"], ["resetlayout", "refresh", "Reset layout"]];
@@ -245,19 +244,20 @@
   let pickTab = null;
   function pickItems() {
     const out = [];
-    Object.entries(GRAPH_INFO).forEach(([k, [ic, name, hint]]) => { if (!(opts.compact && k === "cosmos")) out.push({ tab: CORE_VIEWS.has(k) ? "views" : "scenes", k, ic, name, hint, on: st.view === k, run: () => setView(k) }); });
-    Object.entries(MAPS).forEach(([k, name]) => out.push({ tab: "scenes", k, ic: MAP_INFO[k][0], name, hint: MAP_INFO[k][1], on: st.view === k, run: () => setView(k) }));
-    if (!opts.compact) Object.entries(LENSES).forEach(([k, l]) => out.push({ tab: "lenses", k, ic: "grid", name: l.name, hint: l.hint, on: lensKey === k, run: () => openLens(k) }));
+    Object.entries(GRAPH_INFO).forEach(([k, [ic, name, hint]]) => { if (!(opts.compact && k === "cosmos")) out.push({ tab: "views", k, ic, name, hint, on: st.view === k, run: () => setView(k) }); });
+    Object.entries(MAPS).forEach(([k, name]) => out.push({ tab: "views", k, ic: MAP_INFO[k][0], name, hint: MAP_INFO[k][1], on: st.view === k, run: () => setView(k) }));
+    if (!opts.compact) Object.entries(LENSES).forEach(([k, l]) => out.push({ tab: "views", k: `lens:${k}`, ic: "grid", name: l.name, hint: l.hint, on: lensKey === k, run: () => openLens(k) }));
     Object.entries(PRESETS).forEach(([k, p]) => out.push({ tab: "style", k, ic: "sparkles", name: p.name, hint: p.hint, on: st.preset === k, run: () => applyPreset(k) }));
     out.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));   // A–Z within every tab
-    if (opts.writeNote && !opts.compact) out.push({ tab: "scenes", k: "newscene", ic: "plus", name: "New scene", hint: "Your own view, written in a note", on: false, run: () => newScene() });
+    if (opts.writeNote && !opts.compact) out.push({ tab: "views", k: "newscene", ic: "plus", name: "New view", hint: "Your own view, written in a note", on: false, run: () => newScene() });
     return out;
   }
-  // The Scenes gallery in groups (a scene not named here lands in "More"); Recent first when there's history
+  // The views in groups by what you want to know (one not named here lands in "More"); Recent first when there's history
   const VIEW_GROUPS = [
-    ["Space", ["neural", "cosmos"]],
-    ["Maps", ["subway", "weather", "cyberpunk"]],
-    ["Analysis", ["foodweb", "clock", "radar"]],
+    ["See the vault", ["2d", "3d", "neural", "cosmos", "subway", "weather", "cyberpunk", "clock"]],
+    ["Tasks", ["lens:flowlens", "lens:control", "lens:survival", "radar", "lens:follow"]],
+    ["Notes that need you", ["lens:triage", "lens:twoway", "foodweb", "lens:drift", "lens:dupes", "lens:blind", "lens:write", "lens:blast", "lens:spof"]],
+    ["Topics and structure", ["lens:attention", "lens:river", "lens:timeline", "lens:matrix", "lens:folders", "lens:ring", "lens:maptree", "lens:mocalign", "lens:projects", "lens:people", "lens:code", "lens:path", "lens:adjacent", "lens:netlens"]],
     ["Play", ["triage", "wikirace", "survivors", "dungeon"]],
   ];
   function viewGroups(xs) {
@@ -266,7 +266,7 @@
     const recent = (st.recent || []).filter(k => k !== st.view && by.has(k)).slice(0, 3);
     if (recent.length) out.push(["Recent", recent.map(k => by.get(k))]);
     VIEW_GROUPS.forEach(([name, keys]) => take(name, keys));
-    take("Your scenes", [...xs.filter(i => i.k.startsWith("note-")).map(i => i.k), "newscene"]);
+    take("Your own", [...xs.filter(i => i.k.startsWith("note-")).map(i => i.k), "newscene"]);
     take("More", xs.filter(i => !used.has(i.k)).map(i => i.k));
     return out;
   }
@@ -281,7 +281,7 @@
     $$(".vg-ppanel").forEach(x => x.hidden = !!q || x.dataset.ppanel !== pickTab);
     $(".vg-picker-tiles").innerHTML = q
       ? tabs.map(([t, name]) => { const xs = items.filter(i => i.tab === t && hit(i)); return xs.length ? `<div class="vg-list-h">${name}</div><div class="vg-tiles">${xs.map(tile).join("")}</div>` : ""; }).join("") || emptyNext(`No view matches “${esc(q)}”.`, "search:" + q)
-      : pickTab === "scenes" ? viewGroups(items.filter(i => i.tab === "scenes")).map(([name, xs]) => `<div class="vg-list-h">${name}</div><div class="vg-tiles">${xs.map(tile).join("")}</div>`).join("")
+      : pickTab === "views" ? viewGroups(items.filter(i => i.tab === "views")).map(([name, xs]) => `<div class="vg-list-h">${name}</div><div class="vg-tiles">${xs.map(tile).join("")}</div>`).join("")
       : items.some(i => i.tab === pickTab) ? `${pickTab === "style" ? `<div class="vg-list-h">Styles</div>` : ""}<div class="vg-tiles">${items.filter(i => i.tab === pickTab).map(tile).join("")}</div>` : "";
     $$(".vg-picker-tab").forEach(b => b.onclick = () => { pickTab = b.dataset.tab; $(".vg-picker-q").value = ""; renderPicker(); });
     wireNext($(".vg-picker-tiles"));
@@ -289,7 +289,7 @@
   }
   function openPicker(tab) {
     const p = $(".vg-picker"), b = $(".vg-pickbtn");
-    pickTab = tab || (lensKey ? "lenses" : CORE_VIEWS.has(st.view) ? "views" : "scenes");
+    pickTab = PANEL_TABS.has(tab) ? tab : "views";
     $(".vg-picker-q").value = ""; renderPicker();
     $(".vg-picker-tools").innerHTML = tools().map(([c, ic, name]) => `<button class="vg-btn" data-tool="${c}">${icon(ic, 14)} ${name}</button>`).join("");
     $$(".vg-picker-tools [data-tool]").forEach(x => x.onclick = () => { closeMenu(); runTool(x.dataset.tool); });

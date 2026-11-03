@@ -58,6 +58,9 @@
     survival: { name: "Task survival", hint: "Clinical trials: how long tasks stay open, counting the ones still open, and what makes them finish", render: () => "", load: loadSurvival },
     spof: { name: "Single points of failure", hint: "Reliability engineering: the notes that hold the vault together, and how it breaks when they go", render: lensSpof },
     netlens: { name: "As a neural net", hint: "Reservoir computing: wire a recurrent network the way your notes link, and measure what it can do against random wiring", render: () => "", load: loadNetLens },
+    control: { name: "Control chart", hint: "Manufacturing: is this week really different, or the normal up and down of your work?", render: () => "", load: loadControl },
+    attention: { name: "Attention", hint: "Ecology: how many topics your week really went to, and whether you're focused or spread", render: lensAttention },
+    drift: { name: "Version drift", hint: "Notes and doc links that name a version other than the one you run", render: () => "", load: loadDrift },
     flowlens: { name: "Flow", hint: "Lean manufacturing and queueing theory: how much work is open, whether it's growing, and how long it takes", render: () => "", load: loadFlow },
     twoway: { name: "Hierarchy", hint: "Ecology: what blurs which way your notes lean, and the notes with no way up", render: () => "", load: loadTwoWay },
     adjacent: { name: "Adjacent possible", hint: "Notes one step past what you're working on, and strange pairs to combine", render: lensAdjacent },
@@ -75,7 +78,7 @@
     body.querySelectorAll("[data-id]").forEach(d => d.onclick = () => { if (!lensBeside()) closeLens(); reveal(d.dataset.id); });
     body.querySelectorAll("[data-cl]").forEach(d => d.onclick = () => { if (!lensBeside()) closeLens(); focusClusters(d.dataset.cl.split(",").map(Number)); });
     wireLens(body);
-    if (l.load && !none) { body.innerHTML = `<div class="vg-empty">Loading…</div>`; l.load().then(html => { if (lensKey === k) { body.innerHTML = html; wireLens(body); } }); }
+    if (l.load && !none) { body.innerHTML = `<div class="vg-empty">Loading…</div>`; l.load().then(html => { if (lensKey === k) { body.innerHTML = html; wireLens(body); } }).catch(err => { console.error(`Vault Graph: ${l.name} didn't load`, err); if (lensKey === k) body.innerHTML = `<div class="vg-empty">${esc(l.name)} didn't load: ${esc((err && err.message) || err)}.</div>`; }); }
   }
   function wireLens(body) {
     // every note row in a lens gets the shared actions behind "⋯", whatever buttons the lens adds itself
@@ -419,7 +422,8 @@
     const stubs = nodes.filter(n => !special(n) && !n.ghost && (n.words || 0) < Q.stub_words && (n.inlinks || 0) >= 2)
       .sort((a, b) => b.inlinks - a.inlinks || b.mentions - a.mentions);
     if (!wanted.length && !stubs.length) return emptyNext("Every link points at a real note, and no short note has several links in.", "new:note", "lens:triage");
-    return `<p class="vg-muted vg-lens-note">Notes other notes already point at, ranked by how many. Writing these fills the biggest holes first.</p>
+    const named = opts.wantedCounts ? opts.wantedCounts() : null, ch = named && named.length >= 10 ? VGScience.chao1(named) : null;
+    return `${ch ? `<div class="vg-sci-facts">${[[String(ch.S), "notes linked but not written", "Every link in the vault that points at a note that doesn't exist."], [`${ch.f1} / ${ch.f2}`, "linked once / twice", "Most wanted notes are named only once or twice, which is what the estimate reads."], [`${Math.round(ch.unseen)}+`, "never named yet", "Chao1's estimate: how many more you'd expect to find if you kept writing. A lower bound, from the way ecologists count species they haven't seen."]].map(([v, l, h]) => `<div><b>${esc(v)}</b><span>${esc(l)}</span><small>${esc(h)}</small></div>`).join("")}</div>` : ""}<p class="vg-muted vg-lens-note">Notes other notes already point at, ranked by how many. Writing these fills the biggest holes first.</p>
       <div class="vg-list-h">Linked but never written <span class="vg-count">${wanted.length}</span></div>
       ${wanted.slice(0, 30).map(n => `<div class="vg-sugg"><button class="vg-item" data-id="${esc(n.id)}"><span class="vg-dot is-ghost"></span><span class="vg-item-main"><span>${esc(n.name)}</span>
         <span class="vg-item-sub">linked from ${plural(n.from.length, "note")}: ${n.from.filter(id => byId[id]).slice(0, 3).map(id => esc(byId[id].name)).join(", ")}${n.from.length > 3 ? "…" : ""}</span></span></button>
@@ -560,7 +564,7 @@
         quiet.map(x => `<button class="vg-item" data-cl="${x.c.id}"><span class="vg-dot" style="background:${colorOf(x.c.id)}"></span><span class="vg-item-main"><span>${esc(clusterName(x.c.id))}</span><span class="vg-item-sub">${x.size} notes · newest edit ${x.age}d ago</span></span></button>`).join(""), "Every topic came up recently.") +
       sec("Topics no map covers", unmapped.length, "Without a map, these are only reachable by search or by luck.",
         unmapped.map(c => `<div class="vg-sugg"><button class="vg-item" data-cl="${c.id}"><span class="vg-dot" style="background:${colorOf(c.id)}"></span><span class="vg-item-main"><span>${esc(clusterName(c.id))}</span><span class="vg-item-sub">${c.size} notes</span></span></button>${opts.writeNote ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-draftmap="${c.id}">${icon("plus", 12)} Draft a map</button></span>` : ""}</div>`).join(""), "Every sizeable topic has a map.") +
-      sec("Islands", islands.length, "Real notes (not stubs) with no links in or out: written once, never found again. The Hierarchy lens suggests a parent for each.",
+      sec("Islands", islands.length, "Real notes (not stubs) with no links in or out: written once, never found again. Hierarchy suggests a parent for each.",
         islands.slice(0, 15).map(n => `<div class="vg-sugg">${noteRow(n.id, `${n.words} words · ${n.age}d since edit`)}${fixSlot(n.id, "orphan")}</div>`).join(""), "No unconnected notes.") +
       sec("Dead ends", deadEnds.length, "Notes that point at others but nothing points back at them: you can only arrive here by accident.",
         deadEnds.slice(0, 15).map(n => `<div class="vg-sugg">${noteRow(n.id, `${n.outlinks} links out · 0 in`)}${fixSlot(n.id, "orphan")}</div>`).join(""), "Everything that links out is linked to.");

@@ -281,7 +281,7 @@ function mountVaultGraph(root, DATA, opts) {
         <button class="vg-ibtn vg-reviewbtn" title="Today's review" aria-label="Today's review" hidden>${icon("sparkles")}<span class="vg-tlabel">Review</span><span class="vg-reviewcount">0</span></button>
         <button class="vg-searchbtn" aria-label="Search notes" title="Search (/ or Ctrl K)">${icon("search", 14)}<span>Search notes</span><kbd>/</kbd></button>
         <div class="vg-menuwrap">
-          <button class="vg-ibtn vg-pickbtn" aria-haspopup="dialog" aria-expanded="false" title="Views, lenses and styles (M)"><span class="vg-pickicon">${icon("hub", 16)}</span><span class="vg-pickname">Views</span><span class="vg-caret" aria-hidden="true">▾</span></button>
+          <button class="vg-ibtn vg-pickbtn" aria-haspopup="dialog" aria-expanded="false" title="Views and display (M)"><span class="vg-pickicon">${icon("hub", 16)}</span><span class="vg-pickname">Views</span><span class="vg-caret" aria-hidden="true">▾</span></button>
         </div>
         <div class="vg-seg vg-dimseg" role="group" aria-label="2D or 3D"><button class="vg-segbtn" data-dim="2d" aria-pressed="true" title="2D (3)">2D</button><button class="vg-segbtn" data-dim="3d" aria-pressed="false" title="3D (3)">3D</button></div>
         <button class="vg-nextbtn" hidden title="Go to it in Vault HQ"><i class="vg-nextdot" aria-hidden="true"></i><small>Next</small><b></b></button>

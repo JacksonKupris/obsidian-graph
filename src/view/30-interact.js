@@ -460,7 +460,7 @@
   // one short sentence per step, each about the control it points at
   const TOUR = [
     { sel: ".vg-nextbtn", title: "The next step", text: "The one thing to do now. It opens Vault HQ at that step." },
-    { sel: ".vg-pickbtn", title: "Views and lenses", text: "Draw the vault another way (2D, 3D, Neural, Cosmos…) or open a lens: a focused list with buttons that fix what it finds. Press M." },
+    { sel: ".vg-pickbtn", title: "Views", text: "Every way of looking at the vault, grouped by what you want to know: the map, your tasks, notes that need you, topics. Some draw a picture, some open a report beside it." },
     { sel: ".vg-searchbtn", title: "Search", text: "Jump to any note, topic or saved view. Press / or Ctrl K." },
     { sel: ".vg-reviewbtn", title: "Today's review", text: "One small improvement at a time: a link to add, a note to put on its map, a note to write." },
     { sel: ".vg-toggle", title: "Insights", text: "What changed since the last analysis, your topics and the gaps between them. Tap a count to see those notes." },
@@ -518,7 +518,7 @@
       { k: `a${i}`, label: "look like", type: "select", options: P.as, value: as },
       { k: `m${i}`, label: "and move", type: "select", options: P.motion, value: motion },
       { k: `c${i}`, label: "colour", type: "color", value: colour }];
-    const v = await formBox("New scene", [
+    const v = await formBox("New view", [
       [{ k: "name", label: "Name", required: true, hint: "Night market" }, { k: "blurb", label: "What it shows", hint: "Topics as stalls; busy ones glow" }],
       [{ k: "place", label: "Topics placed in a", type: "select", options: P.place, value: "grid" },
        { k: "angle", label: "Seen", type: "select", options: P.angle, value: "iso" },

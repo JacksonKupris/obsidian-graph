@@ -14,11 +14,11 @@
   // ---- Needs you: decisions only you can make
   function needsScreen() {
     const items = ofGroup("needs"), filters = [["all", "All"], ["approval", "Approvals"], ["review", "Drafts"], ["inbox", "Inbox"], ["job", "Automations"], ["report", "Reports"], ["backlog", "Vault decisions"]];
-    const shown = needFilter === "all" ? items : items.filter(i => i.kind === needFilter);
-    const chips = filters.map(([k, label]) => `<button class="vg-hq-filter${needFilter === k ? " is-on" : ""}" data-needfilter="${k}" aria-pressed="${needFilter === k}">${label} <span>${k === "all" ? items.length : items.filter(i => i.kind === k).length}</span></button>`).join("");
+    const allBacklog = ofKind("backlog"), shown = needFilter === "all" ? items : needFilter === "backlog" ? allBacklog : items.filter(i => i.kind === needFilter);
+    const chips = filters.map(([k, label]) => `<button class="vg-hq-filter${needFilter === k ? " is-on" : ""}" data-needfilter="${k}" aria-pressed="${needFilter === k}">${label} <span>${k === "all" ? items.length : k === "backlog" ? allBacklog.length : items.filter(i => i.kind === k).length}</span></button>`).join("");
     const out = section("Waiting on approval", shown.filter(i => i.kind === "approval")) + section("Drafts to review", shown.filter(i => i.kind === "review")) +
       section("Automations needing attention", shown.filter(i => i.kind === "job")) + section("Reports to review", shown.filter(i => i.kind === "report")) +
-      section("Inbox to file", shown.filter(i => i.kind === "inbox")) + section("Vault decisions", shown.filter(i => i.kind === "backlog"));
+      section("Inbox to file", shown.filter(i => i.kind === "inbox")) + section("Vault decisions", shown.filter(i => i.kind === "backlog"), needFilter === "all" && allBacklog.length > 1 ? `<div class="vg-hq-row"><button class="vg-hq-btn" data-needfilter="backlog">All ${allBacklog.length}</button></div>` : "", allBacklog.length);
     const head = `<h1 class="vg-hq-h1">Needs you</h1><p class="vg-hq-lede">${items.length ? `Decisions only you can make, ${items.length} in all.` : "Nothing waiting on you."}</p><div class="vg-hq-filters" role="group" aria-label="Filter Needs you">${chips}</div>`;
     if (needsWalk && shown.length) return head + walkHtml(shown);
     const tools = shown.length > 1 ? `<div class="vg-hq-row vg-hq-needtools"><button class="vg-hq-btn vg-hq-btn-sm" data-walk="on">One at a time</button>${api.hqMark ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-pickall>Select all ${shown.length}</button>` : ""}</div>` : "";
@@ -47,7 +47,7 @@
     const cards = jobs.map(j => `<div class="vg-hq-item"><span class="vg-hq-kind">${icon(bad(j) ? "alert" : "clock", 16)}</span><div class="vg-hq-txt"><b>${esc(j.name)} · <span${bad(j) ? ' class="vg-hq-jobbad"' : ""}>${esc(j.state === "late" && j.ok === false ? "Late · Failed" : labels[j.state])}</span></b>
       <small>${esc(j.where)}${j.when ? ` · ${esc(j.when)}` : ""}${j.every_hours ? ` · runs every ${j.every_hours === 1 ? "hour" : j.every_hours % 24 ? `${j.every_hours} hours` : j.every_hours === 24 ? "day" : `${j.every_hours / 24} days`}` : ""}</small><p>${esc(j.what)}</p>${j.state === "late" ? `<small>Late means no run in twice its usual time.</small>` : ""}<small>${j.last ? `Last recorded run: ${esc(new Date(j.last).toLocaleString())}` : "No run recorded"}${j.summary ? ` · ${esc(j.summary)}` : ""}${j.device ? ` · ${esc(j.device)}` : ""}</small></div>
       ${api.openNote && (j.report || VGRules.HQ.automations_note) ? `<div class="vg-hq-acts"><button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(j.report || VGRules.HQ.automations_note)}">${j.report ? "Open latest report" : "Details"}</button></div>` : ""}</div>`).join("");
-    return `<h1 class="vg-hq-h1">Automations</h1><p class="vg-hq-lede">${plural(jobs.length, "automation")}${jobs.filter(bad).length ? ` · ${jobs.filter(bad).length} need${jobs.filter(bad).length === 1 ? "s" : ""} a look` : ""}.</p>` +
+    return `<h1 class="vg-hq-h1">Automations</h1><p class="vg-hq-lede">${plural(jobs.length, "automation")}${jobs.filter(bad).length ? ` · ${jobs.filter(bad).length} need${jobs.filter(bad).length === 1 ? "s" : ""} a look` : ""}.</p>${(() => { const y = syncWords(); return y ? `<p class="vg-hq-status">${esc(y.title)} · ${esc(y.sub)}</p>` : ""; })()}` +
       (cards ? `<section class="vg-hq-sec">${cards}</section>` : empty("No automations configured.", [["Needs you", 'data-go="needs"'], ["Projects", 'data-go="projects"']]));
   }
 

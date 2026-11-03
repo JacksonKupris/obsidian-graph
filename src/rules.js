@@ -727,7 +727,8 @@ const VGRules = (() => {
       j.tasks.filter(t => t.mark === " ").forEach(t => put({ key: `carried|${j.path}|${t.text}`, kind: "carried", path: j.path, line: t.line, text: t.text, date: j.date, age, ...fieldsOf(t.text), ids: [j.path], section: t.section, subs: t.subs, under: t.under, underDone: t.underDone,
         title: label(t.text), why: `From ${j.date} · ${age} day${age === 1 ? "" : "s"} ago${t.under ? ` · under ${t.under}` : ""}`, score: Math.max(1, 9 - age * 0.25) })); });
     (hq.inbox || []).forEach(n => put({ key: `inbox|${n.path}`, kind: "inbox", path: n.path, ids: [n.path], title: n.title || n.name, why: "In the inbox", score: 3 }));
-    hq.backlog.forEach(b => put({ key: `backlog|${b.path}|${b.text}`, kind: "backlog", path: b.path, line: b.line, text: b.text, ids: [b.path], title: label(b.text), why: stemCase(b.path), score: 3 }));
+    // the rules file's backlog_shown: how many vault decisions count as needing you at once. The rest wait their turn, one filter away.
+    let backlogUp = 0; hq.backlog.forEach(b => put({ key: `backlog|${b.path}|${b.text}`, ...(H.backlog_shown && !skip(`backlog|${b.path}|${b.text}`) && ++backlogUp > H.backlog_shown ? { waiting: true } : {}), kind: "backlog", path: b.path, line: b.line, text: b.text, ids: [b.path], title: label(b.text), why: stemCase(b.path), score: 3 }));
     hq.reports.filter(r => r.open > 0 && !r.job).forEach(r => put({ key: `report|${r.path}`, kind: "report", path: r.path, ids: [r.path], title: `${r.name}: ${r.open} row${r.open === 1 ? "" : "s"} to tick`, why: "Tick the rows to apply", score: 2.8 }));
   }
 
@@ -813,6 +814,7 @@ const VGRules = (() => {
   // projects or many open items share say nothing. A wrong group is worse than none, so what fits nowhere comes last, with no
   // project. Work with no project of its own goes by the area it names (hq.thread_areas: the longest phrase wins, so "Odoo
   // console" isn't the Dispatch Console). Biggest thread first; closed projects aren't where open work goes.
+  const areaOfText = (text, areas = H.thread_areas || {}) => { let best = null, len = 0; for (const [area, list] of Object.entries(areas)) for (const p of list) if (p.length > len && new RegExp(`\\b${p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}s?\\b`, "i").test(text)) { best = area; len = p.length; } return best; };
   function hqThreads(items, projects, areas = H.thread_areas || {}) {
     const phrases = Object.entries(areas).flatMap(([area, list]) => list.map(p => ({ area, len: p.length, re: new RegExp(`\\b${p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}s?\\b`, "i") })));
     const areaOf = text => { let best = null; for (const p of phrases) if ((!best || p.len > best.len) && p.re.test(text)) best = p; return best && best.area; };
@@ -882,7 +884,7 @@ const VGRules = (() => {
     const skipped = k => !!(review.skipped && review.skipped[k]) && (Date.parse(day) - Date.parse(review.skipped[k])) / 864e5 < skipDays;
     const hidden = new Set(o.hidden || []), out = [], seen = new Set(), groups = o.groups ? new Set(o.groups) : null;
     const hiddenKinds = new Set(review.hiddenKinds || []);
-    const add = it => { if (seen.has(it.key) || hidden.has(it.key) || skipped(it.key) || (hiddenKinds.has(it.kind) && canHideKind(it.kind)) || (groups && !groups.has(todayGroup(it.kind)))) return; seen.add(it.key); out.push({ xp: TODAY_XP[it.kind] || 5, group: todayGroup(it.kind), ...it }); };
+    const add = it => { if (seen.has(it.key) || hidden.has(it.key) || skipped(it.key) || (hiddenKinds.has(it.kind) && canHideKind(it.kind)) || (groups && !groups.has(todayGroup(it.kind)))) return; seen.add(it.key); out.push({ xp: TODAY_XP[it.kind] || 5, group: it.waiting ? "waiting" : todayGroup(it.kind), ...it }); };
     hqItems(data, { ...o, today: day }, add);
     (data.links || []).forEach(l => {
       if (!isSuggestion(l) || !byId.get(l.source) || !byId.get(l.target)) return;
@@ -1317,6 +1319,22 @@ const VGRules = (() => {
   }
   // what stays out of a standup and a copied update (the rules file's hq.standup_skip): work on the notes themselves, say
   const forStandup = text => !(H.standup_skip && new RegExp(H.standup_skip, "i").test(String(text)));
+  // What's new, newest first: since is the first version with it; to is where it lives (a screen, a view, or a report). A release that adds
+  // something a person should know adds a line. Compared by number, so 0.6.100 comes after 0.6.99.
+  const NEWS = [
+    { since: "0.6.43", text: "Views: lenses, scenes and maps are one menu now, grouped by what you want to know", to: { graph: {} } },
+    { since: "0.6.43", text: "Vitals says what's piling up, which notes name an old version, and how full Sync is", to: { screen: "home" } },
+    { since: "0.6.43", text: "Recent changes: every change you can still undo, even after a restart", to: { screen: "changes" } },
+    { since: "0.6.43", text: "Control chart: is this week really different, or normal variation?", to: { graph: { lens: "control" } } },
+    { since: "0.6.43", text: "Attention: how many topics your week really went to", to: { graph: { lens: "attention" } } },
+    { since: "0.6.43", text: "Version drift: notes naming a version you don't run", to: { graph: { lens: "drift" } } },
+    { since: "0.6.43", text: "Flow: which open tasks are already unusually old", to: { graph: { lens: "flowlens" } } },
+    { since: "0.6.42", text: "Hierarchy: two-way links, and a parent for notes with no way up", to: { graph: { lens: "twoway" } } },
+    { since: "0.6.42", text: "Stale notes: one view for old notes, and which to review first", to: { graph: { lens: "triage" } } },
+    { since: "0.6.41", text: "Sweep: subtasks stay with their tasks, Move sends them to a project, leftovers get their own group", to: { screen: "sweep" } },
+  ];
+  const versionAfter = (a, b) => { const x = String(a).split(".").map(Number), y = String(b || "0").split(".").map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
+  const newsSince = seen => NEWS.filter(n => versionAfter(n.since, seen));
   // the line a note made from a wanted link starts with. Plain names, not links: nobody wrote these as reliance, and backlinks already show them.
   const createdFromLine = names => `> Created from Vault Graph: linked from ${names.join(", ")}.`;
   // a line that's only a link in a list (with at most a few words after it): it can go without breaking a sentence
@@ -1335,7 +1353,7 @@ const VGRules = (() => {
   }
   // a task and the open subtasks that go with it, as rows for a status change
   const taskRowsOf = it => [{ path: it.path, line: it.line, text: it.text }, ...(it.subs || []).map(s => ({ path: it.path, line: s.line, text: s.text }))];
-  return { inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
