@@ -37,7 +37,8 @@ const VGScience = (() => {
   }
   // Newman's threshold for an uncorrelated network: R0 = T(<k^2>-<k>)/<k>, a large outbreak possible once R0 > 1. Real graphs
   // cluster, so the mean-field 1/lambda1 is given beside it.
-  function epidemic(g) { const { k1, k2 } = moments(g), excess = k1 ? (k2 - k1) / k1 : 0, l = spectralRadius(g); return { k1, k2, excess, Tc: excess ? Math.min(1, 1 / excess) : 1, lambda1: l, TcSpectral: l ? Math.min(1, 1 / l) : 1, R0: T => T * excess }; }
+  function epidemic(g) { const { k1, k2 } = moments(g); let excess = k1 ? (k2 - k1) / k1 : 0; if (g.directed) { const inn = new Float64Array(g.n); for (const x of g.adj) for (const j of x) inn[j]++; let sum = 0, m = 0; g.adj.forEach((x, i) => { sum += inn[i] * x.length; m += x.length; }); excess = m ? sum / m : 0; }   // one way, what matters is what leaves a note a mistake just reached (Newman 2002)
+    const l = spectralRadius(g); return { k1, k2, excess, Tc: excess ? Math.min(1, 1 / excess) : 1, lambda1: l, TcSpectral: l ? Math.min(1, 1 / l) : 1, R0: T => T * excess }; }
   // final size against T, from random seeds: the phase transition
   function sweep(g, Ts, runs = 120, s = 11) { const rand = rng(s); return Ts.map(T => { let sum = 0, big = 0; const need = Math.max(3, g.n * 0.1); for (let r = 0; r < runs; r++) { const size = outbreak(g, Math.floor(rand() * g.n), T, rand).size; sum += size; if (size >= need) big++; } return { T, mean: sum / runs / (g.n || 1), pBig: big / runs }; }); }
 
@@ -247,5 +248,49 @@ const VGScience = (() => {
   function randomGraph(n, m, seed = 1) { const rand = rng(seed), ids = Array.from({ length: n }, (_, i) => String(i)), adj = ids.map(() => []), edges = [], has = new Set(); let tries = 0; while (edges.length < m && tries++ < m * 30) { const a = Math.floor(rand() * n), b = Math.floor(rand() * n), k = a < b ? a * n + b : b * n + a; if (a === b || has.has(k)) continue; has.add(k); adj[a].push(b); adj[b].push(a); edges.push([a, b]); } return { ids, adj, edges, n, at: new Map(ids.map((x, i) => [x, i])) }; }
   // Humphries & Gurney's sigma: over 1, more clustered than chance at about chance's path length
   function smallWorld(g, nulls = 8) { const C = clustering(g), L = meanPath(g); let Cr = 0, Lr = 0; for (let i = 0; i < nulls; i++) { const r = rewired(g, i + 1); Cr += clustering(r) / nulls; Lr += meanPath(r) / nulls; } const gamma = Cr ? C / Cr : 0, lambda = Lr ? L / Lr : 0; return { C, L, Cr, Lr, gamma, lambda, sigma: lambda ? gamma / lambda : 0 }; }
-  return { largestAbsEigen, reservoir, ridge, r2, memoryCapacity, narma, narmaError, clustering, meanPath, rewired, randomGraph, smallWorld, rng, graphOf, moments, spectralRadius, outbreak, outbreakStats, epidemic, sweep, kaplanMeier, survivalAt, medianOf, conditional, restrictedMean, logRank, erfc, taskLives, components, cutPoints, cutDamage, percolationCurve, randomOrder, attackOrder, robustnessR, robustness, concentration, busFactor, LIF, lifRate, lifNetwork, BRAIN, lobeOf, gyri, cortexAt, CEREBELLUM, STEM, LOBE_SHARE, assignLobes, lobeSpots };
+  // ---- ecology: trophic levels, by MacKay, Johnson & Sansom (2020). Levine's classic sum assumes food chains run mostly one way: on a
+  // network full of loops, as notes are, it can't settle on anything sensible (a real vault came out at level 302). This asks instead:
+  // give every note a height so that each link climbs by as close to 1 as it can. That's a least-squares problem, with one answer per
+  // connected part, whatever the loops. On a simple chain it's the same as Levine's. out[i]: what note i links to; i feeds on them.
+  // incoherence F0 is what's left over: 0 when every link climbs exactly 1, a true hierarchy; 1 when links show no direction at all.
+  function trophic(out) {
+    const n = out.length, into = Array.from({ length: n }, () => []); out.forEach((a, i) => a.forEach(j => into[j].push(i)));
+    const u = Array.from({ length: n }, (_, i) => out[i].length + into[i].length), v = Array.from({ length: n }, (_, i) => out[i].length - into[i].length);   // i eats j: energy goes j to i, so i's "in" is what it links to
+    // solve (diag(u) - A - A^T) h = v by conjugate gradients, one connected part at a time: the matrix is a graph Laplacian
+    const part = new Int32Array(n).fill(-1), parts = []; for (let s = 0; s < n; s++) { if (part[s] >= 0) continue; const c = [s]; part[s] = parts.length; for (let k = 0; k < c.length; k++) { for (const j of out[c[k]]) if (part[j] < 0) { part[j] = parts.length; c.push(j); } for (const j of into[c[k]]) if (part[j] < 0) { part[j] = parts.length; c.push(j); } } parts.push(c); }
+    const h = new Float64Array(n), mul = (x, y, c) => { for (const i of c) { let t = u[i] * x[i]; for (const j of out[i]) t -= x[j]; for (const j of into[i]) t -= x[j]; y[i] = t; } };
+    for (const c of parts) { if (c.length < 2) continue; const r = new Float64Array(n), d = new Float64Array(n), q = new Float64Array(n); let rs = 0; for (const i of c) { r[i] = v[i]; d[i] = r[i]; rs += r[i] * r[i]; }
+      for (let it = 0; it < c.length * 4 && rs > 1e-20; it++) { mul(d, q, c); let dq = 0; for (const i of c) dq += d[i] * q[i]; if (!dq) break; const al = rs / dq; let next = 0; for (const i of c) { h[i] += al * d[i]; r[i] -= al * q[i]; next += r[i] * r[i]; } const be = next / rs; rs = next; for (const i of c) d[i] = r[i] + be * d[i]; }
+      let low = Infinity; for (const i of c) low = Math.min(low, h[i]); for (const i of c) h[i] -= low; }
+    const level = Array.from(h, x => x + 1);
+    let waste = 0, links = 0; out.forEach((a, i) => a.forEach(j => { waste += (level[i] - level[j] - 1) ** 2; links++; }));
+    // omnivory (Christensen & Pauly 1992): the spread of the levels it feeds on. 0 feeds on one level; more means it eats across them
+    const omnivory = out.map((a, i) => { if (a.length < 2) return 0; const m = a.reduce((s, j) => s + level[j], 0) / a.length; return a.reduce((s, j) => s + (level[j] - m) ** 2, 0) / a.length; });
+    const consumers = level.filter((x, i) => out[i].length), mean = a => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+    return { level, omnivory, incoherence: links ? waste / links : 0, basal: out.filter(a => !a.length).length, top: into.filter((a, i) => !a.length && out[i].length).length, links, connectance: n ? links / (n * n) : 0, meanLevel: mean(consumers), maxLevel: n ? Math.max(...level) : 0, omnivores: omnivory.filter(x => x > 0.01).length };
+  }
+  // ---- weather: surface wind. Aloft, wind runs along the isobars, balanced between pressure and the Earth's turn (geostrophic). Near
+  // the ground friction turns it about 25 degrees in towards low pressure. In the northern hemisphere that takes it counter-clockwise
+  // round a low and clockwise round a high (Buys Ballot's law). gx, gy: the pressure gradient on screen, where y runs down.
+  const WIND_INFLOW = 25 * Math.PI / 180;
+  const surfaceWind = (gx, gy, inflow = WIND_INFLOW) => { const c = Math.cos(inflow), s = Math.sin(inflow); return [c * gy - s * gx, -c * gx - s * gy]; };
+
+  // ---- queues: Little's law (1961), L = lambda W. Over any stretch of time, the average number of things in a system equals the rate they
+  // arrive times the average time each spends there, whatever the arrivals and whatever the order. rows: { born, done } with dates, done
+  // null while open. The window is the last `days` days; time inside the window is what counts, so it balances exactly by construction.
+  function flow(rows, today, days = 90) {
+    const ms = 864e5, end = Date.parse(today + "T12:00:00Z"), start = end - days * ms, dayOf = d => Math.round((Date.parse(d + "T12:00:00Z") - start) / ms), wip = new Array(days + 1).fill(0), arrived = new Array(days + 1).fill(0), left = new Array(days + 1).fill(0); let inWindow = 0, total = 0, entered = 0;
+    for (const r of rows) { const a = dayOf(r.born), b = r.done ? dayOf(r.done) : Infinity; if (b <= 0 || a > days || b < a) continue; const from = Math.max(0, a), to = Math.min(days, b); for (let d = from; d < to; d++) { wip[d]++; total++; } if (to === days && b > days) wip[days]++; if (a >= 0) arrived[a]++; if (b <= days && b > 0) left[b]++; inWindow++; if (a >= 0 || a < 0) entered++; }
+    const cum = a => { let s = 0; return a.map(x => (s += x)); }, L = total / days, doneCount = left.reduce((x, y) => x + y, 0), arrivedCount = arrived.reduce((x, y) => x + y, 0), lambda = entered / days, W = entered ? total / entered : 0;
+    return { wip, cumIn: cum(arrived), cumOut: cum(left), L, lambda, W, throughput: doneCount / days, arrivals: arrivedCount / days, openNow: wip[days], days, net: arrivedCount - doneCount };
+  }
+  // ---- debt: a stale note costs in proportion to how much rests on it and how long it's been left. reach: how many notes depend on it,
+  // directly or through others, on the one-way graph where an edge means "leans on me".
+  function reachCounts(g) { return g.adj.map((_, s) => { const seen = new Uint8Array(g.n), q = [s]; seen[s] = 1; let c = 0; for (let h = 0; h < q.length; h++) for (const j of g.adj[q[h]]) if (!seen[j]) { seen[j] = 1; q.push(j); c++; } return c; }); }
+  // how much rests on each note when reliance fades with distance: a note directly on it counts 1, two links away a half, three a quarter.
+  // Through enough hops nearly everything reaches everything, so a plain count tells notes apart hardly at all. Also the direct count.
+  function reliance(g, fade = 0.5) { const dist = new Int32Array(g.n); return g.adj.map((a, s) => { dist.fill(-1); dist[s] = 0; const q = [s]; let score = 0; for (let h = 0; h < q.length; h++) for (const j of g.adj[q[h]]) if (dist[j] < 0) { dist[j] = dist[q[h]] + 1; score += Math.pow(fade, dist[j] - 1); q.push(j); } return { score, direct: a.length, reach: q.length - 1 }; }); }
+  // the same network with direction kept, for what travels one way: pairs are [from, to]
+  function directedGraph(ids, pairs) { const at = new Map(ids.map((id, i) => [id, i])), adj = ids.map(() => []), seen = new Set(), edges = []; for (const [a, b] of pairs) { const i = at.get(a), j = at.get(b); if (i == null || j == null || i === j) continue; const key = i * ids.length + j; if (seen.has(key)) continue; seen.add(key); adj[i].push(j); edges.push([i, j]); } return { ids, at, adj, edges, n: ids.length, directed: true }; }
+  return { flow, reachCounts, reliance, trophic, surfaceWind, WIND_INFLOW, directedGraph, largestAbsEigen, reservoir, ridge, r2, memoryCapacity, narma, narmaError, clustering, meanPath, rewired, randomGraph, smallWorld, rng, graphOf, moments, spectralRadius, outbreak, outbreakStats, epidemic, sweep, kaplanMeier, survivalAt, medianOf, conditional, restrictedMean, logRank, erfc, taskLives, components, cutPoints, cutDamage, percolationCurve, randomOrder, attackOrder, robustnessR, robustness, concentration, busFactor, LIF, lifRate, lifNetwork, BRAIN, lobeOf, gyri, cortexAt, CEREBELLUM, STEM, LOBE_SHARE, assignLobes, lobeSpots };
 })();

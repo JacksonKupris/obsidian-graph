@@ -246,17 +246,8 @@ function mountVaultGraph(root, DATA, opts) {
       <canvas class="vg-cv" role="img" aria-labelledby="vg-cv-label-${root.dataset.vgId}"></canvas>
       <div class="vg-hud" aria-hidden="true"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
         <div class="vg-hud-title"></div><div class="vg-hud-tele"></div><div class="vg-scan"></div></div>
-      <button class="vg-neurobtn" hidden aria-expanded="false">How to read this</button>
-      <div class="vg-neurocard" hidden role="note"><dl>
-        <dt>Nodes, links, lobes, maps, bridges</dt><dd>What's on screen: notes, people and notes to write; the links between notes; your topics; your map notes; and notes that join two topics.</dd>
-        <dt>Hz</dt><dd>The firing rate, measured live: spikes per note, per simulated second. Real cortex runs at a few hertz. A note you've worked on lately gets more input, so it fires more.</dd>
-        <dt>LIF network</dt><dd>Each note is a model neuron and each link a synapse. A neuron charges up, fires at a threshold, then resets (leaky integrate-and-fire). The spikes come from that model, not from your edits one by one.</dd>
-        <dt>80/20 E/I</dt><dd>80% of cells excite the cells they link to and 20% inhibit them, as in real cortex. Spikes in a note's colour excite. Pale blue spikes inhibit.</dd>
-        <dt>×1/25 speed</dt><dd>Slowed 25 times so you can follow a spike along a link. Long links carry faster, as long nerve fibres do.</dd>
-        <dt>Shape</dt><dd>Proportions and lobes are a real brain's, and lobes hold topics in their real shares of cortex. Which lobe a topic lands in means nothing about the topic. The notes in the centre, in the thalamus, are the ones that connect most. Notes with no topic sit in the cerebellum.</dd>
-        <dt>Links</dt><dd>Curves under the surface. Links between the two halves cross in the middle, at the corpus callosum.</dd>
-        <dt>Under each topic</dt><dd>Its notes, how many you touched this week, and the share gone stale.</dd>
-      </dl></div>
+      <button class="vg-viewhelp" hidden aria-expanded="false">How to read this</button>
+      <div class="vg-viewcard" hidden role="note"></div>
       <div class="vg-lasso" hidden></div>
       <div class="vg-today" hidden><span class="vg-today-text"></span><button class="vg-btn vg-btn-sm vg-today-act"></button><button class="vg-ibtn vg-today-x" aria-label="Hide" title="Hide for this view">${icon("close", 12)}</button></div>
       <div class="vg-triage" hidden><span class="vg-triage-text"></span><button class="vg-btn vg-btn-sm vg-triage-prev" aria-label="Previous">‹</button><button class="vg-btn vg-btn-sm vg-triage-next">Next ›</button><button class="vg-btn vg-btn-sm vg-btn-ghost vg-triage-stop">Done</button></div>

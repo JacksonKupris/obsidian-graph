@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 // The 3D layer and the science lenses in a real browser: a nearer thing really hides a farther one whatever order they're drawn in,
 // the camera flies, clicks land on what's drawn, the brain has its shape, its neurons fire, and each lens opens with real content.
-//   node tests/test_depth.js [--vault [dir]]        exit 0 = pass
+//   node tests/test_depth.js [--vault [dir]] [--shots dir]        exit 0 = pass; --shots saves what it checked as pictures
 const cdp = require("./cdp"), env = require("./env");
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fs = require("fs"), path = require("path"), sleep = ms => new Promise(r => setTimeout(r, ms)), shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
 (async () => {
   // a task history for the survival lens: the page has no plugin to read journals with, so 80 tasks: half finished over time, half still open
   const history = Array.from({ length: 80 }, (_, i) => { const d = String(1 + i % 28).padStart(2, "0"), done = String(Math.min(28, 2 + i % 28 + (i % 9))).padStart(2, "0"); return { date: `2026-08-${d}`, path: "j.md", tasks: [{ mark: i % 2 ? " " : "x", text: `Task ${i}${i % 4 === 0 ? " with [[A link]]" : ""}${i % 2 ? "" : ` ✅ 2026-08-${done}`}` }] }; });
-  const tab = await cdp.open({ html: env.pageWith(`taskHistory: async () => ${JSON.stringify(history)},`), port: 9393 });
+  const links = env.data().links.filter(l => l.kind === "link"), out = {}; links.forEach(l => { (out[l.source] = out[l.source] || {})[l.target] = 1; });   // the page has no Obsidian index, so direction comes from the data's own order: enough to run the real path
+  const tab = await cdp.open({ html: env.pageWith(`taskHistory: async () => ${JSON.stringify(history)}, outLinks: () => (window.__noDir ? null : ${JSON.stringify(out)}),`), port: 9393 });
   if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); }, shot = async name => { if (!SHOTS) return; fs.mkdirSync(SHOTS, { recursive: true }); const r = await tab.send("Page.captureScreenshot", { format: "png" }); fs.writeFileSync(path.join(SHOTS, name + ".png"), Buffer.from(r.result.data, "base64")); };
   try {
     if (!await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000)) throw new Error("the graph didn't mount");
     await tab.send("Emulation.setDeviceMetricsOverride", { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false }); await sleep(1000);
@@ -46,19 +47,41 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       if (shape.n > 40) {   // the sample vault has too few notes to fill the shape
         check(shape.gap === 0, `${shape.gap} cortical notes in the fissure between the hemispheres`); }
       // the Hz and everything else on the readout are explained, one click away, and the card goes away again
-      await tab.ev(`${D}.drawNow()`); await sleep(150); await tab.waitFor(`document.querySelector(".vg-neurobtn") && !document.querySelector(".vg-neurobtn").hidden ? 1 : 0`, 4000);
-      check(await tab.ev(`(() => { const b = document.querySelector(".vg-neurobtn"), r = b.getBoundingClientRect(); return !b.hidden && r.width > 0 && document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === b; })()`), "the neural view's help button should be there to press");
-      await tab.ev(`document.querySelector(".vg-neurobtn").click()`); const card = await tab.ev(`(() => { const c = document.querySelector(".vg-neurocard"); return !c.hidden && c.getBoundingClientRect().height > 40 ? c.textContent : ""; })()`); for (const w of ["Hz", "spikes per note", "80/20", "×1/25", "thalamus"]) check(card.includes(w), `the help card should explain ${w}`);
-      await tab.ev(`document.querySelector(".vg-neurobtn").click()`); check(await tab.ev(`document.querySelector(".vg-neurocard").hidden`), "the help card should close");
+      await tab.ev(`${D}.drawNow()`); await sleep(150);
+      check(await tab.ev(`(() => { const b = document.querySelector(".vg-viewhelp"), r = b.getBoundingClientRect(); return !b.hidden && r.width > 0 && document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === b; })()`), "the neural view's help button should be there to press");
+      await tab.ev(`document.querySelector(".vg-viewhelp").click()`); const card = await tab.ev(`(() => { const c = document.querySelector(".vg-viewcard"); return !c.hidden && c.getBoundingClientRect().height > 40 ? c.textContent : ""; })()`); for (const w of ["Hz", "spikes per note", "80/20", "×1/25", "thalamus"]) check(card.includes(w), `the help card should explain ${w}`);
+      await tab.ev(`document.querySelector(".vg-viewhelp").click()`); check(await tab.ev(`document.querySelector(".vg-viewcard").hidden`), "the help card should close");
       const before = await tab.ev(`${D}.neuro().spikes`); for (let i = 0; i < 40; i++) { await tab.ev(`${D}.drawNow(performance.now())`); await sleep(50); } const after = await tab.ev(`${D}.neuro()`);
       check(after.spikes > before, `the network should fire: ${before} then ${after.spikes}`); check(after.ok, `a neuron broke the model's limits: ${JSON.stringify(after)}`);
     }
+    // every picture of real results explains itself; a game doesn't need it
+    const pressed = () => tab.ev(`document.querySelector("[data-dim='3d']").getAttribute("aria-pressed")`);
+    await tab.ev(`${D}.setView("2d")`); await sleep(400); check(await tab.ev(`document.querySelector(".vg-viewhelp").hidden`), "the flat graph has nothing to explain");
+    if (hasGl) { await tab.ev(`${D}.setView("neural")`); await sleep(300); check(await pressed() === "true", "going from the 2D graph to the 3D brain, the toggle should say 3D"); }
+    for (const [v, word] of [["neural", "Hz"], ["foodweb", "trophic"], ["weather", "isobars"], ["cosmos", "Kepler"], ["subway", "Interchange"], ["clock", "dailies"], ["radar", "waited"], ["3d", "orbit"]]) { await tab.ev(`${D}.setView("${v}")`); await sleep(350);
+      check(await tab.ev(`!document.querySelector(".vg-viewhelp").hidden`), `${v}: no How to read this`); await tab.ev(`document.querySelector(".vg-viewhelp").click()`); const text = await tab.ev(`document.querySelector(".vg-viewcard").hidden ? "" : document.querySelector(".vg-viewcard").textContent.toLowerCase()`); check(text.includes(word.toLowerCase()), `${v}: the card should mention ${word}: ${text.slice(0, 60)}`); await tab.ev(`document.querySelector(".vg-viewhelp").click()`); }
+    // Food web: real levels when direction is known, and a note that links to something sits above it
+    await tab.ev(`${D}.setView("foodweb")`); await sleep(1800); await tab.ev(`${D}.drawNow()`);
+    check(await tab.waitFor(`/mean level/.test(document.querySelector(".vg-status").textContent) ? 1 : 0`, 4000), "the Food web should report its real levels");
+    const web = await tab.ev(`(() => { const a = ${D}.nodes.filter(n => !n.person && !n.ghost && !n.moc && !n.isolated), out = ${JSON.stringify(out)}; let up = 0, down = 0; const by = new Map(a.map(n => [n.id, n])); for (const [s, ts] of Object.entries(out)) for (const t of Object.keys(ts)) { const x = by.get(s), y = by.get(t); if (x && y && !(out[t] && out[t][s])) { if (x.y < y.y - 1) up++; else if (x.y > y.y + 1) down++; } } return { up, down }; })()`);
+    { const stat = await tab.ev(`document.querySelector(".vg-status").textContent`), top = parseFloat((stat.match(/top ([\d.]+)/) || [])[1]); check(top > 0 && top < 25, `trophic levels should be believable, not run away round loops: ${stat}`); }
+    await shot("foodweb");
+    check(web.up > web.down * 3, `a note should mostly sit above what it links to: ${JSON.stringify(web)}`);
+    // Weather: real ground in 3D, wind on it, and back to flat
+    if (hasGl) { await tab.ev(`${D}.setView("weather")`); await sleep(1500); await tab.ev(`document.querySelector("[data-dim='3d']").click()`); await sleep(1500); await tab.ev(`${D}.drawNow()`);
+      const w3 = await tab.ev(`${D}.gl.info()`); check(w3.mesh > 0, "Weather in 3D should draw its ground through WebGL"); check(await tab.ev(`!document.querySelector(".vg-cv").classList.contains("is-tilt3d")`), "Weather in 3D shouldn't also lean the canvas"); check(await tab.ev(`${D}.st.three === true`), "Weather in 3D should orbit");
+      await shot("weather3d"); if (SHOTS) { await tab.ev(`(() => { const c = ${D}.cam; c.yaw = 0.8; c.pitch = -1.2; })()`); await sleep(1500); await shot("weather3d-orbit"); await tab.ev(`(() => { const c = ${D}.cam; c.yaw = 0; c.pitch = -0.95; })()`); await sleep(300); }
+      const ground = await tab.ev(`${D}.gl.weatherGround()`); check(ground.spread > 0 && ground.low > 1 && ground.high < ground.low, `low pressure should sink behind the plane, below the highest ground: ${JSON.stringify(ground)}`);
+      const a = await tab.ev(`${D}.gl.pixelAt(0.5, 0.55)`); check(a[0] + a[1] + a[2] > 20, `the ground should show: ${a}`);
+      await tab.ev(`document.querySelector("[data-dim='2d']").click()`); await sleep(1000); await tab.ev(`${D}.drawNow()`); check(await tab.ev(`${D}.st.three === false && document.querySelector(".vg-gl").hidden`), "Weather in 2D goes back to the flat map"); }
+    // closing a view gives its WebGL context back: browsers allow only about 16, and the plugin's self-test opens a view every run
+    if (hasGl) check(await tab.ev(`(() => { const root = document.createElement("div"); root.style.cssText = "position:absolute;width:900px;height:600px;left:-2000px"; document.body.appendChild(root); const before = document.querySelectorAll(".vg-gl").length, h = mountVaultGraph(root, structuredClone(DATA), { alwaysOn: true }); h.setView("neural"); h._debug.drawNow(); const made = root.querySelectorAll(".vg-gl").length; h.destroy(); root.remove(); return made >= 0 && document.querySelectorAll(".vg-gl").length === before; })()`), "a closed view should release its WebGL canvas");
     // the lenses, each with what makes it that lens; survival and the net compute after opening
     await tab.ev(`${D}.setView("2d")`); await sleep(300);
-    for (const [k, words] of [["blast", ["threshold", "R₀"]], ["survival", ["median time open", "Kaplan-Meier"]], ["spof", ["cut notes", "robustness R"]], ["netlens", ["small-world", "steps of memory", "Reservoir computing"]]]) {
+    for (const [k, words] of [["blast", ["threshold", "R₀", "link to it"]], ["survival", ["median time open", "Kaplan-Meier"]], ["spof", ["cut notes", "robustness R"]], ["netlens", ["small-world", "steps of memory", "Reservoir computing"]], ["flowlens", ["open now", "Little's law"]], ["debt", ["note-years", "note-years owed"]]]) {
       await tab.ev(`${D}.openLens("${k}")`); const done = await tab.waitFor(`(() => { const t = document.querySelector(".vg-lens-body").textContent; return t.trim() && !/^Loading/.test(t.trim()) ? 1 : 0; })()`, 90000); check(done, `${k}: never finished`);
       const text = await tab.ev(`document.querySelector(".vg-lens-body").textContent`); if (!/needs/.test(text.slice(0, 100))) for (const w of words) check(text.includes(w), `${k}: no "${w}"`); check(!/NaN|undefined|Infinity/.test(text), `${k}: shows a broken number: ${(text.match(/.{30}(NaN|undefined|Infinity).{10}/) || [""])[0]}`);
-      if (!/needs/.test(text.slice(0, 100))) { check(await tab.ev(`!!document.querySelector(".vg-lens-body .vg-sci-chart path")`), `${k}: no chart`);
+      if (!/needs/.test(text.slice(0, 100))) { if (k !== "debt") check(await tab.ev(`!!document.querySelector(".vg-lens-body .vg-sci-chart path")`), `${k}: no chart`);
         // every number from real results says what it means, in words that show without hovering
         const help = await tab.ev(`(() => { const b = document.querySelector(".vg-lens-body"), tiles = [...b.querySelectorAll(".vg-sci-facts:not(.vg-sci-hazard) > div")]; return { tiles: tiles.length, bare: tiles.filter(t => !(t.querySelector("small") && t.querySelector("small").textContent.trim().length > 15)).map(t => t.textContent), charts: b.querySelectorAll(".vg-sci-chart").length, reads: b.querySelectorAll(".vg-sci-read").length, seen: tiles.every(t => { const s = t.querySelector("small"); return s && s.getBoundingClientRect().height > 0; }) }; })()`);
         check(help.tiles > 0 && !help.bare.length, `${k}: numbers with no helper text: ${help.bare.join(" | ")}`); check(help.seen, `${k}: helper text isn't showing`); check(help.reads >= help.charts, `${k}: ${help.charts} charts but ${help.reads} explanations`); }

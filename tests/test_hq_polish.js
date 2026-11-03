@@ -34,6 +34,7 @@ assert(!JSON.stringify(R.notePreview("```dataview\nopen").blocks).includes("open
   assert.deepStrictEqual(Q.hqPutOff(data, { review: { hq: { [first.key]: "later:2026-11-03" } }, today: day }), [], "yesterday's Later has run out");
   const until = Q.hqPutOff(data, { review: { hq: { [first.key]: "until:2026-11-09" } }, today: day }); assert.strictEqual(until[0].until, "2026-11-09", "Next week says when");
   Q.configure(env.rules); assert(!today()[0].urgent, "with no pattern nothing is urgent"); }
+
 // reasons and figures in words, with the stored wording left alone (it goes in the note when a suggestion is accepted)
 assert.strictEqual(R.whyWords("similar meaning (0.812)"), "similar meaning: 81% alike"); assert.strictEqual(R.whyWords("3× together in daily notes"), "3× together in daily notes"); assert.strictEqual(R.whyWords(""), "");
 // words
@@ -91,6 +92,7 @@ assert.strictEqual(R.hqNextStep({ list: [{ key: "j", group: "needs", kind: "job"
     await tab.ev(`window.vaultHQ.setScreen("calendar")`); await sleep(100);
     check(await tab.ev(`(() => { const p = document.querySelector(".vg-hq-calpanel").getBoundingClientRect(), c = document.querySelector(".vg-hq-col").getBoundingClientRect(); return c.right - p.right < 40; })()`), "the calendar leaves the right of the screen empty");
     check(await tab.ev(`!!document.querySelector(".vg-hq-calkey")`), "the calendar should say what its shades and dots mean");
+    await tab.ev(`window.vaultHQ.setScreen("today")`); await sleep(100); if (await tab.ev(`!!document.querySelector(".vg-hq-next h2")`)) check(await tab.ev(`/^First /.test((document.querySelector(".vg-hq-whynext") || {}).textContent || "")`), "Do next should say why it's first"); await tab.ev(`window.vaultHQ.setScreen("calendar")`); await sleep(80);
     // what's put off shows on Today, and Bring back returns it
     { const it = await tab.ev(`(() => { const i = window.vaultHQ.items().find(x => x.group === "today"); return i ? i.key : null; })()`);
       if (it) { await tab.ev(`(() => { window.vaultHQ.destroy(); window.__marks = []; const key = ${JSON.stringify(it)}, day = new Date(); window.__o = { state: { review: { hq: { [key]: "later:" + day.getFullYear() + "-" + String(day.getMonth() + 1).padStart(2, "0") + "-" + String(day.getDate()).padStart(2, "0") } } }, api: { hqMark: async (k, m) => window.__marks.push([k, m]), hqFocus: async () => {}, openNote() {}, capture: async () => {} } }; window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, window.__o); window.vaultHQ.setScreen("today"); })()`); await sleep(150);

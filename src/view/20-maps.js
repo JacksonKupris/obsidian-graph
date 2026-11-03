@@ -142,7 +142,9 @@
   // drawn through the kit changes angle, Neural turns or lies flat, and every other view leans back in real perspective.
   // A game has no switch: it's already first-person.
   const isGame = () => !!(SCENES[st.view] && SCENES[st.view].game);
-  const leansBack = () => !isGame() && !(SCENES[st.view] && SCENES[st.view].own3d) && !isoAngle() && !neural() && st.view !== "2d" && st.view !== "3d" && st.angles[st.view] === "tilt3d";
+  const weather3D = () => st.view === "weather" && st.angles.weather === "tilt3d" && !opts.compact && !opts.embed && GL.ok();   // real ground when there's WebGL; a leaning picture otherwise
+  const layWeather = () => { const on = weather3D(); if (on === st.three && !on) return; st.three = on; cam.spin = null; animateTo(on ? { yaw: 0, pitch: -0.95 } : { yaw: 0, pitch: 0, d: 0 }, 700); cv.style.cursor = on ? "grab" : "default"; if (on) afterMorph(() => fit(mapFitPred(), 700), 750); };
+  const leansBack = () => !isGame() && !(SCENES[st.view] && SCENES[st.view].own3d) && !isoAngle() && !neural() && !weather3D() && st.view !== "2d" && st.view !== "3d" && st.angles[st.view] === "tilt3d";
   function dimOf() {
     const v = st.view, angle = isoAngle();
     if (v === "2d" || v === "3d") return v;
@@ -155,7 +157,7 @@
     if (v === "2d" || v === "3d") return setView(d);
     if (isoAngle()) { const own = SCENES[v].iso; st.angles[v] = d === "2d" ? "flat" : own === true ? "iso" : own; fit(null); }
     else if (neural()) { st.angles.neural = d === "2d" ? "flat" : "3d"; layNeural(); brainLayout(true); }
-    else st.angles[v] = d === "3d" ? "tilt3d" : "flat";
+    else { st.angles[v] = d === "3d" ? "tilt3d" : "flat"; if (v === "weather") layWeather(); }
     syncDim(); persistSoon(); dirty = true; kick();
   }
   function layNeural() { st.three = st.angles.neural !== "flat"; if (!st.three) { cam.spin = null; animateTo({ yaw: 0, pitch: 0 }, 500); } cv.style.cursor = st.three ? "grab" : "default"; }
@@ -163,7 +165,7 @@
     const d = dimOf(), seg = $(".vg-dimseg"), status = $(".vg-status"); if (seg) seg.hidden = isGame();
     if (status) status.style.display = isGame() ? "none" : "";   // a count of notes means nothing in a game, and it sits on the game's own text
     $$("[data-dim]").forEach(b => b.setAttribute("aria-pressed", b.dataset.dim === d));
-    cv.classList.toggle("is-tilt3d", leansBack());
+    cv.classList.toggle("is-tilt3d", leansBack()); syncViewHelp();
   }
   // shadeOf(colour, t): colour darkened by t (0..1); a colour that isn't #rrggbb shades a neutral blue-grey
   const shadeOf = (c, t) => hexMix(/^#[0-9a-f]{6}$/i.test(c) ? c : "#a5b4cf", "#000000", t);

@@ -446,3 +446,6 @@
 .vg-hq .vg-hq-putoff > summary { display: flex; justify-content: space-between; padding: 6px 8px; color: var(--hq-muted); font-size: var(--ds-fs-sm); cursor: pointer; }
 .vg-hq .vg-hq-putoff .vg-hq-keepacts { position: static; background: none; padding-left: 0; }
 .vg-hq .vg-hq-calkey { margin: 10px 0 0; color: var(--hq-muted); font-size: var(--ds-fs-sm); }
+.vg-hq .vg-hq-whynext { margin: 2px 0 0; color: var(--hq-muted); font-size: var(--ds-fs-sm); }
+.vg-hq .vg-hq-calday .vg-hq-calback { top: auto; bottom: 3px; right: 5px; background: transparent; color: var(--hq-accent-text); font-size: var(--ds-fs-xs); }
+.vg-hq .vg-hq-calback-list { display: grid; gap: 6px; margin: 10px 0; padding-top: 8px; border-top: 1px solid var(--hq-line); } .vg-hq .vg-hq-calback-list .vg-hq-row { justify-content: space-between; flex-wrap: nowrap; margin: 0; } .vg-hq .vg-hq-calback-list span { min-width: 0; font-size: var(--ds-fs-md); overflow-wrap: anywhere; }
