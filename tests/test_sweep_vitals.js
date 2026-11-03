@@ -49,6 +49,13 @@ const text = [
 // the evening's brief: no asking to pick a focus
 { const list = [{ kind: "plan", group: "today", key: "p", title: "P" }], data = { nodes: [], links: [], hq: { journals: [], standups: [], projects: [], reports: [], reviews: [] } };
   assert.ok(R.hqBrief(data, list, {}, "2026-11-02", [], 9).some(x => /none picked/.test(x)), "the morning asks"); assert.ok(!R.hqBrief(data, list, {}, "2026-11-02", [], 21).some(x => /none picked/.test(x)), "the evening doesn't"); }
+// ---- two-way links: the numbers on a small case, and which lines can go
+{ const ids = ["a", "b", "c", "d"], g = S.directedGraph(ids, [["a", "b"], ["b", "a"], ["b", "c"], ["c", "d"]]);
+  assert.deepStrictEqual(S.twoWayPairs(g), [[0, 1]], "one two-way pair"); assert.ok(S.trophic(g.adj).incoherence > 0.1, "a loop is disorder"); assert.ok(S.incoherenceWithout(g, [[1, 0]]) < 0.01, `a straight chain once it's gone, got ${S.incoherenceWithout(g, [[1, 0]])}`);
+  assert.strictEqual(S.vitals({ rows: [], today: "2026-11-02", notes: ids.map(id => ({ id, name: id, age: 0, stale: false })), pairs: [["a", "b"], ["b", "a"]] }).web.twoWay, 1); }
+for (const [line, yes] of [["- [[Note]]", true], ["  * [[Note|text]] — why it matters", true], ["- [ ] [[Note]]", true], ["See [[Note]] for more.", false], ["- Read [[Note]] first", false], ["- [[A]] and [[B]]", false]]) assert.strictEqual(R.bareLinkLine(line), yes, line);
+assert.strictEqual(R.linkKindOf("- [[N]]", "See Also"), "see also"); assert.strictEqual(R.linkKindOf("- [[N]]", "Process"), "list"); assert.strictEqual(R.linkKindOf("Read [[N]] now", "See Also"), "sentence");
+assert.ok(!R.createdFromLine(["A", "B"]).includes("[["), "a stub line links back"); assert.ok(R.createdFromLine(["A", "B"]).includes("A, B"));
 // ---- moving: the text a project note gets
 { const out = R.addProjectTask("# Note\n\n## Tasks\n\n- [ ] Was here\n", "Moved (from [[2026-03-24]])", ["Child one", "Grandchild"]);
   assert.ok(out.includes("- [ ] Was here\n- [ ] Moved (from [[2026-03-24]])\n    - [ ] Child one\n    - [ ] Grandchild"), `moved text: ${out}`);
@@ -89,11 +96,17 @@ const text = [
     if (p.wrapWriteActions) { const before = files.get(OLD).text, toBefore = files.get(PROJ).text; p.publish = async () => {}; p.nextStepSoon = () => {}; p.wrapWriteActions(); const it2 = R.todayList({ nodes: [], links: [], hq: R.hqGather([{ path: OLD, text: before, fm: {} }], { today: "2026-11-02" }) }, { today: "2026-11-02" }).find(i => i.title === "Lone task");
       assert.ok(it2, "a task left to move"); await p.moveTasks([it2], PROJ); assert.notStrictEqual(files.get(OLD).text, before, "nothing moved"); const entry = p.undoLog[p.undoLog.length - 1]; assert.ok(entry, "Move left no undo entry"); await p.undo(entry.id);
       assert.strictEqual(files.get(OLD).text, before, "Undo left the journal changed"); assert.strictEqual(files.get(PROJ).text, toBefore, "Undo left the project changed"); }
+    // dropping list lines, through the plugin: several from one note, a changed line stays, and Undo puts them all back
+    { mk("Links.md", "# L\n- [[One]]\nA sentence with [[Two]].\n- [[Three]]\n- [[Four]]\n"); const was = files.get("Links.md").text;
+      assert.strictEqual(typeof p.dropLinkLines, "function", "no dropLinkLines"); assert.strictEqual(typeof a.dropLinkLines, "undefined");   // the view's option, not a write anyone else calls
+      const n2 = await p.dropLinkLines([{ path: "Links.md", line: 1, text: "- [[One]]" }, { path: "Links.md", line: 3, text: "- [[Three]]" }, { path: "Links.md", line: 4, text: "- [[Changed]]" }, { path: "Links.md", line: 2, text: "A sentence with [[Two]]." }]);
+      assert.strictEqual(n2, 2, "two lines dropped; a changed line and a sentence stay"); assert.strictEqual(files.get("Links.md").text, "# L\nA sentence with [[Two]].\n- [[Four]]\n");
+      if (p.undoLog) { const entry = p.undoLog[p.undoLog.length - 1]; await p.undo(entry.id); assert.strictEqual(files.get("Links.md").text, was, "Undo left the note changed"); } }
     // changed since it was shown: left where it is, and not copied
     const gone = await a.moveTasks([{ ...item, text: "Not the line any more", subs: [] }], PROJ); assert.strictEqual(gone, 0); assert.ok(!files.get(PROJ).text.includes("Not the line"), "a changed line was copied");
   }
   // ---- on the page: Vitals and the Sweep's controls
-  const V = { pile: { open: 12, came: 30, left: 18, net: 12, old: 4, wip: [1, 3, 6, 12] }, debt: { total: 40, count: 3, top: { id: "x.md", name: "Old Guide", cost: 20, direct: 4, reach: 9, years: 2.5 } }, web: { incoherence: 0.44, links: 600 } };
+  const V = { pile: { open: 12, came: 30, left: 18, net: 12, old: 4, wip: [1, 3, 6, 12] }, debt: { total: 40, count: 3, top: { id: "x.md", name: "Old Guide", cost: 20, direct: 4, reach: 9, years: 2.5 } }, web: { incoherence: 0.44, links: 600, twoWay: 90 } };
   const tab = await cdp.open({ html: env.hqPage("", { today: undefined }), port: 9396 });
   if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
   const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
@@ -112,6 +125,7 @@ const text = [
     check(await click('[data-vital-current]'), "no Still current"); await sleep(100);
     const calls = await tab.ev(`window.__calls`);
     check(calls.some(c => c[0] === "graph" && c[1].lens === "debt"), "the lens button didn't reach the host"); check(calls.some(c => c[0] === "graph" && c[1].view === "foodweb"), "the Food web button didn't reach the host"); check(calls.some(c => c[0] === "stampReviewed" && c[1] === "x.md"), "Still current didn't stamp the note");
+    check(await tab.ev(`!!document.querySelector('[data-graphlens="twoway"]')`), "Vitals has no way into Two-way links");
     if (hasCarried) {
       await tab.ev(`window.vaultHQ.setScreen("sweep")`); await sleep(100);
       check(await tab.ev(`!!document.querySelector('[data-one="move"]') && !!document.querySelector('[data-batch="move"]')`), "the Sweep has no Move");

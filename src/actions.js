@@ -147,8 +147,7 @@ const VGActions = (() => {
     write: { label: "Create note", when: c => !!c.api.writeNote,
       ask: it => ["Create note", `Create “${it.name}” in ${VGRules.folders.inbox}? ${plural(it.refs.length, "note")} already link to it.`, "Create"],
       run: async (it, c) => { const path = `${VGRules.folders.inbox}/${VGRules.safeName(it.name)}.md`;
-        const from = it.refs.slice(0, 5).map(r => c.api.linkText ? c.api.linkText(r, path) : `[[${nameOf(r)}]]`).join(", ");
-        await c.api.writeNote(path, `---\ncreated: ${VGRules.today()}\n---\n# ${it.name}\n\n> Created from Vault Graph: linked from ${from}.\n\n`, { mode: "create", open: true });
+        await c.api.writeNote(path, `---\ncreated: ${VGRules.today()}\n---\n# ${it.name}\n\n${VGRules.createdFromLine(it.refs.slice(0, 5).map(nameOf))}\n\n`, { mode: "create", open: true });
         return `Added ${it.name} to ${VGRules.folders.inbox}`; } },
     hub: { label: "Still current", when: c => !!c.api.stampReviewed,
       ask: it => ["Still current?", `Mark ${it.name} reviewed today? This stamps reviewed: in its frontmatter; nothing else changes.`, "Still current"],

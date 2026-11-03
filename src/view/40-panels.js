@@ -487,7 +487,7 @@
     const c = box.querySelector('[data-act="create"]');
     if (c) c.onclick = async () => {
       const md = `---\ncreated: ${today()}\n---\n# ${n.name}\n\n` +
-        `> Created from Vault Graph: linked from ${n.from.filter(id => byId[id]).map(id => mdLink(id, `${FOLDERS.inbox}/${safeName(n.name)}.md`)).join(", ")}.\n\n`;
+        `${VGRules.createdFromLine(n.from.filter(id => byId[id]).map(id => byId[id].name))}\n\n`;
       try { await opts.writeNote(`${FOLDERS.inbox}/${safeName(n.name)}.md`, md, { mode: "create", open: true }); n.created = true; toast(`Created ${n.name} in ${FOLDERS.inbox}`, "ok"); select(n.id); dirty = true; }
       catch (e) { toast("Couldn't create the note", "warn"); }
     };

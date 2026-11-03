@@ -125,6 +125,8 @@ class VaultGraphView extends ItemView {
       sharedStore: this.plugin.sharedStore(),
       taskHistory: () => this.plugin.taskHistory(),
       writtenLinks: () => this.plugin.writtenLinks(),
+      linkHow: rows => this.plugin.linkHow(rows),
+      dropLinkLines: rows => this.plugin.dropLinkLines(rows),
       mocReport: { load: () => this.plugin.loadMocReport(), tick: (line, on) => this.plugin.tickMocRow(line, on),
                    apply: Platform.isDesktopApp ? () => this.plugin.applyMocReport() : undefined },
       saveBinary: (notePath, buf) => this.plugin.saveBinary(notePath, buf),
@@ -522,7 +524,7 @@ class VaultGraphSuggestView extends ItemView {
 const { today, localDay } = VGRules;   // the shared date rules (this device's calendar day)
 // Every plugin method that writes to the vault. onload wraps each so it announces the change when done (every open
 // surface redraws); viewActions hands the same methods to every graph surface. A new write action goes in this list.
-const WRITE_ACTIONS = ["moveTasks", "planLine", "capture", "openDaily", "linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
+const WRITE_ACTIONS = ["dropLinkLines", "moveTasks", "planLine", "capture", "openDaily", "linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
   "addReference", "tickMocRow", "saveBinary", "stateSnapshots", "undo"];
 // The only methods that touch the vault for a write action. Each notes what it's about to change in the open undo
 // entry, so every action can be undone from the message that confirms it. tests/test_rules.js fails on a vault write
@@ -1418,6 +1420,29 @@ module.exports = class VaultGraphPlugin extends Plugin {
     return n;
   }
   writtenLinks() { const mc = this.app.metadataCache; return VGRules.writtenLinks(mc.resolvedLinks, p => mc.getCache(p), (l, from) => { const f = mc.getFirstLinkpathDest(l.split("#")[0], from); return f && f.path; }); }
+  // How each [from, to] link is written, from Obsidian's index and the note's text: { kind, line, text }, with line only when the
+  // link is one list line that can go without breaking a sentence. A link in generated sections doesn't count.
+  async linkHow(rows) {
+    const mc = this.app.metadataCache, re = VGRules.RULES.generated_link_sections ? new RegExp(VGRules.RULES.generated_link_sections, "i") : null, texts = new Map(), out = [];
+    const dest = (l, from) => { const f = mc.getFirstLinkpathDest(l.split("#")[0], from); return f && f.path; };
+    for (const [from, to] of rows) {
+      const c = mc.getCache(from) || {}, file = this.fileAt(from); if (!file) { out.push({ from, to, kind: "sentence" }); continue; }
+      if (!texts.has(from)) texts.set(from, (await this.app.vault.cachedRead(file)).split(/\r?\n/));
+      const lines = texts.get(from), heads = c.headings || [], kinds = [], at = [];
+      for (const l of c.links || []) { if (dest(l.link, from) !== to) continue; const ln = l.position.start.line, h = heads.filter(x => x.position.start.line <= ln).pop(), head = h ? h.heading : ""; if (re && re.test(head.trim())) continue; kinds.push(VGRules.linkKindOf(lines[ln], head)); at.push(ln); }
+      (c.frontmatterLinks || []).forEach(l => { if (dest(l.link, from) === to) kinds.push("frontmatter"); });
+      const hardest = kinds.map(k => VGRules.LINK_KINDS.indexOf(k)).sort((a, b) => a - b)[0], one = kinds.length === 1 && at.length === 1 && kinds[0] !== "sentence";
+      out.push({ from, to, kind: VGRules.LINK_KINDS[hardest] || "sentence", ...(one ? { line: at[0], text: lines[at[0]] } : {}) });
+    }
+    return out;
+  }
+  // Take list lines out, as one action. A line that changed since it was shown stays. Rows: { path, line, text }.
+  async dropLinkLines(rows) {
+    this.vitalsMemo = null; const byPath = new Map(); rows.forEach(r => { if (!byPath.has(r.path)) byPath.set(r.path, []); byPath.get(r.path).push(r); }); let n = 0;
+    for (const [path, list] of byPath) { const file = this.fileAt(path); if (!file) continue;
+      await this.ioProcess(file, data => { const nl = data.includes("\r\n") ? "\r\n" : "\n", lines = data.split(/\r?\n/); list.slice().sort((a, b) => b.line - a.line).forEach(r => { if (lines[r.line] === r.text && VGRules.bareLinkLine(r.text)) { lines.splice(r.line, 1); n++; } }); return lines.join(nl); }); }
+    return n;
+  }
   // HQ's vitals, from the same methods and links as the lenses. Kept briefly, since HQ asks after every update; a task or review
   // changed clears it. One sample a day goes in the shared state (small, and capped), for the trend.
   async vitals() {

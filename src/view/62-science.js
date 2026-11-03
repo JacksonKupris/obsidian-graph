@@ -170,6 +170,27 @@
       ${sciRead("A cumulative flow chart. The height of each line is a running total, and a steeper line means a faster rate. The gap between them is the new work still open from this period: a widening gap means work is arriving faster than it finishes.")}
       <p class="vg-muted vg-lens-note">Little's law: average open = arrival rate × average time open. ${F.L.toFixed(1)} = ${F.lambda.toFixed(2)} a day × ${F.W.toFixed(1)} days. It holds for any queue, so to shorten how long tasks wait you have to take on fewer or finish more. Tasks done with no date and cancelled tasks aren't counted, so the real finish rate is higher than this. A task counts once however many journals repeat it, and subtasks aren't counted, so Sweep in Vault HQ lists more.</p>`;
   }
+  // ---- Two-way links: what blurs the Food web most. The softer side of each pair is the one to drop; if they're alike, the specific
+  // note keeps its link up to the note more others link to. Obsidian's backlinks still show a dropped link's return.
+  const twDropped = new Set(); let twRows = [];
+  async function loadTwoWay() {
+    const g = directedNotes(), S = VGScience; if (!g) return emptyNext("Two-way links need Obsidian's link directions, which this page doesn't have.", "search");
+    const pairs = S.twoWayPairs(g).filter(([a, b]) => !twDropped.has(`${g.ids[a]}|${g.ids[b]}`) && !twDropped.has(`${g.ids[b]}|${g.ids[a]}`)); if (!pairs.length) return emptyNext("No two notes link to each other.", "search");
+    const how = opts.linkHow ? await opts.linkHow(pairs.flatMap(([a, b]) => [[g.ids[a], g.ids[b]], [g.ids[b], g.ids[a]]])) : [], at = new Map(how.map(h => [`${h.from}|${h.to}`, h])), inDeg = new Int32Array(g.n), rank = k => VGRules.LINK_KINDS.indexOf(k); g.edges.forEach(([, b]) => inDeg[b]++);
+    const of = (a, b) => at.get(`${g.ids[a]}|${g.ids[b]}`) || { kind: "sentence" };
+    twRows = pairs.map(([a, b]) => { const ha = of(a, b), hb = of(b, a), dropA = rank(ha.kind) !== rank(hb.kind) ? rank(ha.kind) > rank(hb.kind) : inDeg[a] >= inDeg[b], from = dropA ? a : b, to = dropA ? b : a, h = dropA ? ha : hb, keep = dropA ? hb : ha; return { from, to, id: g.ids[from], toId: g.ids[to], kind: h.kind, keepKind: keep.kind, line: h.line, text: h.text }; }).sort((x, y) => (y.line != null) - (x.line != null) || rank(y.kind) - rank(x.kind));
+    const can = twRows.filter(r => r.line != null), now = S.trophic(g.adj).incoherence, all = S.incoherenceWithout(g, twRows.map(r => [r.from, r.to])), some = S.incoherenceWithout(g, can.map(r => [r.from, r.to]));
+    const word = { sentence: "in a sentence", list: "a list line", frontmatter: "in frontmatter", "see also": "in See Also" };
+    return `${sciFacts([[String(pairs.length), "two-way pairs", `Pairs of notes that each link to the other, ${pct(pairs.length * 2 / g.edges.length)} of your written links.`], [now.toFixed(2), "incoherence now", "How consistently links run one way. 0 is a strict hierarchy, 1 is no direction."], [all.toFixed(2), "with one side of each gone", "The same measure if every pair below lost its suggested side."], [some.toFixed(2), `with the ${can.length} list lines gone`, "The same, dropping only the links that are one list line."]])}
+      ${sciRead("A hierarchy reads one way: a note leans on what it links to. Two notes linking to each other say both lean on both, which is what blurs the Food web most. One side is usually enough, since Obsidian's backlinks still show the other. A vault doesn't need 0: drop what adds nothing and keep what you use.")}
+      ${can.length && opts.dropLinkLines ? `<div class="vg-row"><button class="vg-btn vg-btn-sm" data-twall>Drop all ${plural(can.length, "list line")}</button></div>` : ""}
+      <div class="vg-list-h">Suggested side to drop <span class="vg-count">${twRows.length}</span></div>
+      ${twRows.slice(0, 60).map((r, i) => `<div class="vg-sugg">${noteRow(r.id, `links to ${byId[r.toId].name} ${word[r.kind]} · the other way is ${word[r.keepKind]}`)}<span class="vg-sugg-acts">${r.line != null && opts.dropLinkLines ? `<button class="vg-btn vg-btn-sm" data-twdrop="${i}">Drop</button>` : ""}${opts.openNote ? `<button class="vg-btn vg-btn-sm" data-twopen="${esc(r.id)}">Open</button>` : ""}</span></div>`).join("")}`;
+  }
+  function twDrop(rows, e) {
+    const done = VGActions.run({ label: () => "Drop", title: () => rows.length === 1 ? `${byId[rows[0].id].name} → ${byId[rows[0].toId].name}` : plural(rows.length, "list line"), run: async () => { const n = await opts.dropLinkLines(rows.map(r => ({ path: r.id, line: r.line, text: r.text }))); rows.forEach(r => twDropped.add(`${r.id}|${r.toId}`)); return `Dropped ${plural(n, "link")}`; }, undo: async () => { rows.forEach(r => twDropped.delete(`${r.id}|${r.toId}`)); } }, null, actionCtx(), e);
+    return Promise.resolve(done).then(ok => { if (ok) refreshLens(); return ok; });
+  }
   // ---- Knowledge debt: what a stale note costs goes up with what rests on it and with how long it's been left
   function lensDebt() {
     const g = spreadGraph(), notes = g.ids.map(id => byId[id]), rows = VGScience.debtRanks(g, notes.map(n => ({ age: n.age, stale: staleFor(n, Q.stale_days) }))).map(r => ({ ...r, n: notes[r.i] }));
@@ -186,5 +207,8 @@
     body.querySelectorAll("[data-blast-t]").forEach(d => { d.oninput = () => { const o = d.parentElement.querySelector("b"); if (o) o.textContent = (+d.value).toFixed(2); }; d.onchange = () => { blastT = +d.value; again(); }; });
     body.querySelectorAll("[data-blast-seed]").forEach(d => d.onclick = e => { e.stopPropagation(); blastSeed = d.dataset.blastSeed; again(); });
     body.querySelectorAll("[data-blast-show]").forEach(d => d.onclick = e => { e.stopPropagation(); blastShow(d.dataset.blastShow); });
+    body.querySelectorAll("[data-twdrop]").forEach(d => d.onclick = e => { e.stopPropagation(); d.disabled = true; twDrop([twRows[+d.dataset.twdrop]], e).then(ok => { if (!ok) d.disabled = false; }); });
+    body.querySelectorAll("[data-twall]").forEach(d => d.onclick = e => { e.stopPropagation(); d.disabled = true; twDrop(twRows.filter(r => r.line != null), e).then(ok => { if (!ok) d.disabled = false; }); });
+    body.querySelectorAll("[data-twopen]").forEach(d => d.onclick = e => { e.stopPropagation(); opts.openNote(d.dataset.twopen, e.ctrlKey || e.metaKey); });
     body.querySelectorAll("[data-survival-split]").forEach(d => d.onclick = e => { e.stopPropagation(); survivalSplit = d.dataset.survivalSplit; again(); });
   }

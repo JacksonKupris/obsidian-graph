@@ -60,6 +60,7 @@
     spof: { name: "Single points of failure", hint: "Reliability engineering: the notes that hold the vault together, and how it breaks when they go", render: lensSpof },
     netlens: { name: "As a neural net", hint: "Reservoir computing: wire a recurrent network the way your notes link, and measure what it can do against random wiring", render: () => "", load: loadNetLens },
     flowlens: { name: "Flow", hint: "Lean manufacturing and queueing theory: how much work is open, whether it's growing, and how long it takes", render: () => "", load: loadFlow },
+    twoway: { name: "Two-way links", hint: "Ecology: pairs of notes that link to each other, which blur which way your notes lean", render: () => "", load: loadTwoWay },
     debt: { name: "Knowledge debt", hint: "Finance: stale notes that the most other notes rest on, where the cost keeps growing", render: lensDebt },
     adjacent: { name: "Adjacent possible", hint: "Notes one step past what you're working on, and strange pairs to combine", render: lensAdjacent },
     ...(opts.mocReport ? { mocalign: { name: "MOC alignment", hint: "Tick the report's rows here; apply when ready", render: () => "", load: lensMocAlign } } : {}),
@@ -414,7 +415,7 @@
   // 2. Write these next: links pointing at notes that don't exist, and short notes many others lean on
   function createGhost(n) {
     const md = `---\ncreated: ${today()}\n---\n# ${n.name}\n\n` +
-      `> Created from Vault Graph: linked from ${n.from.filter(id => byId[id]).map(id => mdLink(id, `${FOLDERS.inbox}/${safeName(n.name)}.md`)).join(", ")}.\n\n`;
+      `${VGRules.createdFromLine(n.from.filter(id => byId[id]).map(id => byId[id].name))}\n\n`;
     return opts.writeNote(`${FOLDERS.inbox}/${safeName(n.name)}.md`, md, { mode: "create", open: true }).then(() => { n.created = true; toast(`Created ${n.name} in ${FOLDERS.inbox}`, "ok"); });
   }
   function lensWrite() {
