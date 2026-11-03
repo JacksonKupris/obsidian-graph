@@ -137,6 +137,18 @@ check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }
     ["status/cancelled", "status/done", "status/open", null, ["type/user-story", "status/in-progress"], ["status/done"]]);
   check("hq: which mark closing a project gives its tasks", [Q.closeMark("complete"), Q.closeMark("cancelled"), Q.closeMark("planned"), Q.closeMark("odd")], ["x", "-", null, null]);
   { const E = new Function(`${build.rulesSource({ ...R, hq: { ...H, completion_field: "✅" } })}; return VGRules;`)();
+    check("hq: a hand tick gets the day, an untick loses it, and any other edit is left alone", [
+      E.taskEdit("- [ ] Ship it", "- [x] Ship it", "2026-11-03"), E.taskEdit("\t1. [ ] Ship it  ", "\t1. [X] Ship it  ", "2026-11-03"),
+      E.taskEdit("- [x] Ship it ✅ 2026-10-20", "- [ ] Ship it ✅ 2026-10-20", "2026-11-03"), E.taskEdit("- [x] Ship it ✅ 2026-10-20", "- [-] Ship it ✅ 2026-10-20", "2026-11-03"),
+      E.taskEdit("- [ ] Ship it ✅ 2026-10-20", "- [x] Ship it ✅ 2026-10-20", "2026-11-03"), E.taskEdit("- [x] Ship it", "- [ ] Ship it", "2026-11-03"),
+      E.taskEdit("- [x] Ship it ✅ 2026-11-03", "- [ ] Ship it", "2026-11-03"), E.taskEdit("- [ ] Ship it", "- [x] Ship it ✅ 2026-11-03", "2026-11-03"),
+      E.taskEdit("- [ ] Ship", "- [ ] Ship it", "2026-11-03"), E.taskEdit("- [ ] Ship it", "- [/] Ship it", "2026-11-03"), E.taskEdit("plain text", "- [x] Ship it", "2026-11-03"),
+      E.taskEdit("  - [ ] row", "  - [x] row", "2026-11-03", false)],
+      ["- [x] Ship it ✅ 2026-11-03", "\t1. [X] Ship it ✅ 2026-11-03", "- [ ] Ship it", "- [-] Ship it", null, null, null, null, null, null, null, null]);
+    check("hq: a click in reading view stamps only the line it changed", [
+      E.noteTaskEdits("# t\r\n- [ ] a\r\n- [x] old\r\n", "# t\r\n- [x] a\r\n- [x] old\r\n", "2026-11-03"), E.noteTaskEdits("- [x] a ✅ 2026-10-01\n- [ ] b", "- [ ] a ✅ 2026-10-01\n- [ ] b", "2026-11-03"),
+      E.noteTaskEdits("- [ ] a", "- [ ] a", "2026-11-03"), E.noteTaskEdits("- [ ] a", "- [x] a\nnew line", "2026-11-03"), E.noteTaskEdits("- [ ] a", "- [x] a ✅ 2026-11-03", "2026-11-03")],
+      ["# t\r\n- [x] a ✅ 2026-11-03\r\n- [x] old\r\n", "- [ ] a\n- [ ] b", null, null, null]);
     check("hq: done stamps the emoji form, and either form already there counts", [E.taskLine("- [ ] Ship it", "x", "2026-10-27"), E.taskLine("- [ ] Ship it ✅ 2026-10-20", "x", "2026-10-27"),
       E.taskLine("- [ ] Ship it [completion:: 2026-10-20]", "x", "2026-10-27"), Q.taskLine("- [ ] Ship it", "x", "2026-10-27"), Q.taskLine("- [ ] Ship it ✅ 2026-10-20", "x", "2026-10-27")],
       ["- [x] Ship it ✅ 2026-10-27", "- [x] Ship it ✅ 2026-10-20", "- [x] Ship it [completion:: 2026-10-20]", "- [x] Ship it [completion:: 2026-10-27]", "- [x] Ship it ✅ 2026-10-20"]); }
