@@ -64,6 +64,11 @@ assert.ok(!R.createdFromLine(["A", "B"]).includes("[["), "a stub line links back
 // ---- Today's adopt uses the same suggestion, and Vitals' Still current is the shared action
 { const hqSrc = require("fs").readFileSync(require("path").join(__dirname, "..", "src", "hq", "70-frame.js"), "utf8"); assert.ok(/VGActions\.run\("current"/.test(hqSrc), "Vitals' Still current has its own copy of the action");
   const act = require("fs").readFileSync(require("path").join(__dirname, "..", "src", "actions.js"), "utf8"); assert.ok(/it\.up && c\.api\.setParents/.test(act), "adopt doesn't use the parent suggestion"); }
+// ---- vault decisions: one at a time when the rules say so, the rest a filter away, and Later brings up the next
+if (H.journal) { const Q = new Function(`${require("../build").rulesSource({ ...env.rules, hq: { ...H, backlog_shown: 1 } })}; return VGRules;`)(), hq = { date: "2026-11-02", journals: [], standups: [], projects: [], reports: [], reviews: [], decisions: [], runs: {}, runlog: [], inbox: [], backlog: ["One", "Two", "Three"].map((t, i) => ({ path: "B.md", line: i, text: t })) };
+  const list = Q.todayList({ nodes: [], links: [], hq }, { today: "2026-11-02" }), needs = list.filter(i => i.group === "needs"); assert.strictEqual(needs.length, 1, "one vault decision needs you"); assert.strictEqual(list.filter(i => i.kind === "backlog").length, 3, "the rest are still there");
+  const later = Q.todayList({ nodes: [], links: [], hq }, { today: "2026-11-02", review: { hq: { [needs[0].key]: "later:2026-11-02" } } }).filter(i => i.group === "needs"); assert.strictEqual(later.length, 1, "Later brings the next one up"); assert.notStrictEqual(later[0].key, needs[0].key);
+  assert.strictEqual(R.hqNextStep({ list: list.filter(i => i.group === "needs"), day: "2026-11-02", hour: 9 }).label, "Clear Needs you (1)", "the count matches"); }
 // ---- moving: the text a project note gets
 { const out = R.addProjectTask("# Note\n\n## Tasks\n\n- [ ] Was here\n", "Moved (from [[2026-03-24]])", ["Child one", "Grandchild"]);
   assert.ok(out.includes("- [ ] Was here\n- [ ] Moved (from [[2026-03-24]])\n    - [ ] Child one\n    - [ ] Grandchild"), `moved text: ${out}`);
