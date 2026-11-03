@@ -185,7 +185,7 @@ const VGActions = (() => {
     return `Done: ${short(it.title)}${logged ? ", added to today's standup" : ""}`;
   }
   const todayWhen = (it, c) => it.reviewOnly ? !!c.api.openNote : !!TODAY[it.kind] && TODAY[it.kind].when(c);
-  const todayLabel = it => it.reviewOnly ? "Open for review" : (TODAY[it.kind] || {}).label || "";
+  const todayLabel = it => it.reviewOnly ? "Open for review" : it.kind === "adopt" && it.up ? "Add parent" : (TODAY[it.kind] || {}).label || "";
   function runToday(it, c, e) {
     if (it.reviewOnly) { c.api.openNote(it.path); return Promise.resolve(false); }
     const t = TODAY[it.kind]; if (!t || !t.when(c)) return Promise.resolve(false);

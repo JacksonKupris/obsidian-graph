@@ -663,7 +663,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   async taskHistory() {
     const cache = this.journalCache = this.journalCache || new Map(), out = [];
     for (const f of this.app.vault.getMarkdownFiles()) {
-      if (!f.path.startsWith(VGRules.folders.daily + "/")) continue;
+      if (!VGRules.inDaily(f.path)) continue;
       let c = cache.get(f.path);
       if (!c || c.mtime !== f.stat.mtime) { cache.set(f.path, c = { mtime: f.stat.mtime, j: VGRules.journalOf(f.path, await this.app.vault.cachedRead(f)) }); }
       if (c.j) out.push(c.j);
@@ -1021,7 +1021,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
         return lines.join(nl); }
       return null; };
     for (const d of this.app.vault.getMarkdownFiles()) {
-      if (!d.path.startsWith(VGRules.folders.daily + "/") || (resolved[d.path] || {})[f.path]) continue;   // already links it
+      if (!VGRules.inDaily(d.path) || (resolved[d.path] || {})[f.path]) continue;   // already links it
       if (asked && !asked.has(d.path)) continue;
       const text = await this.app.vault.cachedRead(d); if (!re.test(text) || linkFirst(text, d.path) == null) continue;
       if (!dryRun) await this.ioProcess(d, t => linkFirst(t, d.path) ?? t);
@@ -1220,7 +1220,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       if (configured) throw new Error(`Template not found: ${templatePath}`);
       const text = kind === "standup"
         ? `---\ntype: standup\ndate: ${date}\ntags:\n  - daily/standup\n---\n\n## Daily Work Summary\n\n**Date:** ${date}\n\n## 1. Work Completed Today\n\n1. \n\n## 2. Blocks\n\n1. \n\n## 3. Work Expected To Be Done Tomorrow\n\n1. \n`
-        : `---\nDate: ${date}\ntags:\n  - daily/journal\n---\n\n# ${date}\n\n**Standup:** [[Daily Standup ${date}]]\n\n## Today's Tasks\n\n- [ ] \n`;
+        : VGRules.HQ.plain_journal ? `# ${date}\n\n## Today's Tasks\n\n- [ ] \n` : `---\nDate: ${date}\ntags:\n  - daily/journal\n---\n\n# ${date}\n\n**Standup:** [[Daily Standup ${date}]]\n\n## Today's Tasks\n\n- [ ] \n`;
       return { text };
     }
     const text = await this.app.vault.read(template);
@@ -1703,9 +1703,17 @@ module.exports = class VaultGraphPlugin extends Plugin {
     try { file = JSON.parse(await this.app.vault.adapter.read(normalizePath(this.settings.rulesPath))); } catch (e) { /* no rules file: Obsidian's settings and the defaults */ }
     this.rulesFile = file;
     this.detected = this.detectRules(file);
-    VGRules.configure(VGRules.mergeRules(BUILT_RULES, { folders: this.detected }, file || {}));
+    VGRules.configure(VGRules.mergeRules(BUILT_RULES, { folders: this.detected, ...this.detectJournal(file) }, file || {}));
     ruleConsts();
     this.rules = VGRules;
+  }
+  // Where this person's daily notes go and how they're named, from Obsidian's settings, unless the vault's rules file says for itself.
+  // A vault that hasn't said gets no standups until it has one.
+  detectJournal(file) {
+    if (file && file.hq && file.hq.journal) return {};
+    const pn = this.app.plugins && this.app.plugins.plugins["periodic-notes"], dn = this.app.internalPlugins && this.app.internalPlugins.getPluginById && this.app.internalPlugins.getPluginById("daily-notes");
+    const on = (pn && pn.settings && pn.settings.daily) || (dn && dn.enabled && dn.instance && dn.instance.options) || {}, format = on.format || "YYYY-MM-DD", folder = String(on.folder || "").replace(/^\/+|\/+$/g, "");
+    return { hq: { journal: VGRules.formatPattern(format), journal_format: format, journal_folder: folder, standups: "if_any", plain_journal: true }, ...(folder ? {} : { folders: { ...this.detected, daily: "" } }) };
   }
   // Folders Obsidian's own settings name, for what the rules file doesn't: the daily notes folder (Periodic Notes or
   // the core Daily notes plugin), the folder new notes go in, and the people folder (where notes tagged person live)

@@ -473,12 +473,24 @@ const VGRules = (() => {
     }
     return fm;
   }
-  const dateIn = (rx, path) => { const m = rx && String(path).match(rx); return m ? m[1] : null; };
+  const dateIn = (re, path) => { const m = re && String(path).match(re); if (!m) return null; const g = m.groups; return g && g.y && g.m && g.d ? `${g.y}-${g.m.padStart(2, "0")}-${g.d.padStart(2, "0")}` : m[1]; };
   const hqJournalDate = path => dateIn(HQ_JOURNAL, path);
+  // Moment-style daily note formats, as Obsidian's settings hold them: YYYY, MM, M, MMMM, DD, D, dddd and [words].
+  const dateTokens = /\[([^\]]*)\]|YYYY|MMMM|MM|M|DD|D|dddd/g;
+  const formatDate = (format, d) => String(format).replace(dateTokens, (t, lit) => lit !== undefined ? lit : t === "YYYY" ? d.getFullYear() : t === "MMMM" ? d.toLocaleString("en-US", { month: "long" }) : t === "MM" ? String(d.getMonth() + 1).padStart(2, "0") : t === "M" ? d.getMonth() + 1 : t === "DD" ? String(d.getDate()).padStart(2, "0") : t === "D" ? d.getDate() : d.toLocaleString("en-US", { weekday: "long" }));
+  // the same format as a pattern that reads the date back, in any order: named groups y, m, d (dateIn puts them together)
+  function formatPattern(format) {
+    const seen = new Set(), esc = s => s.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&"), group = (k, re) => { if (seen.has(k)) return `\\k<${k}>`; seen.add(k); return `(?<${k}>${re})`; }; let out = "", at = 0;
+    for (const m of String(format).matchAll(dateTokens)) { out += esc(String(format).slice(at, m.index)); at = m.index + m[0].length; const t = m[0];
+      out += m[1] !== undefined ? esc(m[1]) : t === "YYYY" ? group("y", "[0-9]{4}") : t === "MM" ? group("m", "[0-9]{2}") : t === "M" ? group("m", "[0-9]{1,2}") : t === "DD" ? group("d", "[0-9]{2}") : t === "D" ? group("d", "[0-9]{1,2}") : "[A-Za-z]+"; }
+    return `(?:^|/)${out}${esc(String(format).slice(at))}[.]md$`;
+  }
+  const standupsInUse = hq => H.standups !== "if_any" || !!((hq && hq.standups) || []).length;
   const dailyNotePath = (date, kind = "journal") => {
     if (!["journal", "standup"].includes(kind) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Invalid daily note date or kind");
     const d = new Date(`${date}T12:00:00`);
     if (isNaN(d) || localDay(d) !== date) throw new Error("Invalid daily note date");
+    if (H.journal_format) return `${H.journal_folder ? `${H.journal_folder}/` : ""}${kind === "standup" ? `Daily Standup ${date}` : formatDate(H.journal_format, d)}.md`;
     const [year, month] = date.split("-");
     const folder = `${R.folders.daily}/${year}/${month}-${d.toLocaleString("en-US", { month: "long" })}`;
     return `${folder}/${kind === "standup" ? `Standups/Daily Standup ${date}` : `Journal/${date}`}.md`;
@@ -494,14 +506,14 @@ const VGRules = (() => {
     return hasYear && hasMonth ? 3 : hasYear ? 2 : 1;
   };
   const canonicalDailyPath = (paths, date, kind = "journal") => (paths || []).map(x => typeof x === "string" ? x : x.path)
-    .filter(p => p.startsWith(R.folders.daily + "/") && dateIn(kind === "standup" ? HQ_STANDUP : HQ_JOURNAL, p) === date)
+    .filter(p => inDaily(p) && dateIn(kind === "standup" ? HQ_STANDUP : HQ_JOURNAL, p) === date)
     .sort((a, b) => journalRank(b, date) - journalRank(a, date) || a.localeCompare(b))[0] || null;
   const canonicalJournalPath = (paths, date) => canonicalDailyPath(paths, date);
   const canonicalJournal = (hq, date) => {
     const journals = (hq && hq.journals) || [], path = canonicalJournalPath(journals, date);
     return journals.find(j => j.path === path) || null;
   };
-  const inDaily = path => String(path).startsWith(R.folders.daily + "/");
+  const inDaily = path => !R.folders.daily || String(path).startsWith(R.folders.daily + "/");
   const reportPrefix = path => String(path).startsWith(R.folders.reports + "/") ? (H.reports || []).find(p => stemCase(path).startsWith(p + " ")) : null;
   const automationReport = path => String(path).startsWith(R.folders.reports + "/") ? (H.automations || []).find(a => a.report && stemCase(path).startsWith(a.report)) : null;
   const OPEN_TASK = /^\s*[-*+] \[ \]/m;
@@ -1252,7 +1264,7 @@ const VGRules = (() => {
     const { list = [], review, day, hour = 12, done = 0, standup = false, session = null } = o, focus = hqFocusItems(list, review, day), today = list.filter(i => i.group === "today"), needs = list.filter(i => i.group === "needs");
     if (session) return { key: "session", label: `Back to: ${session.title}`, screen: "session", target: ".vg-hq-session-acts [data-act='main']" };
     const job = needs.find(i => i.kind === "job"); if (job) return { key: "job", label: `Check ${job.title}`, screen: "needs", target: `.vg-hq-item[data-key^='job|']` };
-    if (hour >= STANDUP_HOUR && done > 0 && !standup) return { key: "standup", label: "Start today's standup", screen: "wrap", target: "[data-makestandup]" };
+    if (hour >= STANDUP_HOUR && done > 0 && !standup && H.standups !== "if_any") return { key: "standup", label: "Start today's standup", screen: "wrap", target: "[data-makestandup]" };
     if (focus.length) return { key: "do", label: `Focus on: ${focus[0].title}`, screen: "today", target: ".vg-hq-next [data-session]" };
     if (hour >= STANDUP_HOUR && done > 0) return { key: "wrap", label: "Wrap up today", screen: "wrap", target: "[data-makestandup]" };
     if (today.length) return { key: "plan", label: "Pick today's focus", screen: "today", target: ".vg-hq-next .vg-hq-star" };
@@ -1323,7 +1335,7 @@ const VGRules = (() => {
   }
   // a task and the open subtasks that go with it, as rows for a status change
   const taskRowsOf = it => [{ path: it.path, line: it.line, text: it.text }, ...(it.subs || []).map(s => ({ path: it.path, line: s.line, text: s.text }))];
-  return { wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

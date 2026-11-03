@@ -35,6 +35,8 @@ Settings → Vault Graph → **This vault** shows the folders it uses (inbox, da
 
 Topic names lead with the system they're about ("AWS SES · Bounce Handling"), taken from the `technology/` or `project/` tag most of a topic's notes share. To name your own systems well, add them to the rules file's `stack` block: `words` for how a tag is spelled in a name (`"odoo": "Odoo"`), `platforms` for project tags that name a platform, and `skip` for tags too broad to name a topic.
 
+Vault HQ reads your daily notes from where Obsidian's Daily notes or Periodic Notes settings put them, in their format, and has no standup step until you keep one.
+
 ## Optional extras
 
 - **Smart Connections**: if that plugin has indexed your vault, Vault Graph uses its note similarity too, for topics and for "these two notes mean the same thing" suggestions.
