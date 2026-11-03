@@ -42,18 +42,17 @@
     matrix: { name: "Topic matrix", hint: "Every pair of topics: links vs. co-mentions — red cells are gaps", render: lensMatrix },
     timeline: { name: "Timeline", hint: `What your dailies talked about, week by week (${(DATA.timeline || { weeks: [] }).weeks.length} weeks)`, render: lensTimeline },
     folders: { name: "Folders vs topics", hint: "Where folder structure disagrees with what notes are about", render: lensFolders },
-    projects: { name: "Project board", hint: "Context notes as cards: activity, tasks, staleness", render: lensProjects },
-    people: { name: "People", hint: "Who you work with on which topics", render: lensPeople },
+    projects: { name: "Context notes", hint: "Each Context note as a card: activity, tasks, staleness", render: lensProjects },
+    people: { name: "People by topic", hint: "Who you work with on which topics", render: lensPeople },
     river: { name: "Topic river", hint: "Your dailies' topics as a stream over time, and each month's top topics", render: lensRiver },
     maptree: { name: "Map tree", hint: "Each map's topics: what it lists, what it's missing — add in place", render: lensMapTree },
     ring: { name: "Folder ring", hint: "Links between folders — thin chords are knowledge that doesn't connect", render: lensRing },
-    stale: { name: "Important but stale", hint: "Notes your work leans on that haven't been edited in a while", render: lensStale },
     write: { name: "Write these next", hint: "Links to notes that don't exist yet, and short notes many others rely on", render: lensWrite },
     follow: { name: "Standup follow-through", hint: "What you planned for tomorrow vs. what the next standups say got done", render: lensFollow },
     dupes: { name: "Duplicates", hint: "Likely duplicate notes side by side, with the links each one has", render: lensDupes },
     ...((DATA.code && (DATA.code.repos || []).length) ? { code: { name: "Code ↔ docs", hint: "Code that changes often with no note, and notes that have fallen behind their code", render: lensCode } } : {}),   // only where work repos exist
     path: { name: "Reading path", hint: "An ordered reading list for getting up to speed on a topic", render: lensPath },
-    triage: { name: "Stale triage", hint: "Old notes sorted by what to do: relied on, holding tasks, unconnected, the rest", render: lensTriage },
+    triage: { name: "Stale notes", hint: "Finance: which old notes would cost most if they've gone out of date, and what to do with each", render: lensTriage },
     blind: { name: "Blind spots", hint: "What you name but never link, topics gone quiet, islands and dead ends", render: lensBlind },
     blast: { name: "Blast radius", hint: "Epidemiology: if a note is wrong, how far does the mistake travel, and where's the tipping point?", render: lensBlast },
     survival: { name: "Task survival", hint: "Clinical trials: how long tasks stay open, counting the ones still open, and what makes them finish", render: () => "", load: loadSurvival },
@@ -61,14 +60,14 @@
     netlens: { name: "As a neural net", hint: "Reservoir computing: wire a recurrent network the way your notes link, and measure what it can do against random wiring", render: () => "", load: loadNetLens },
     flowlens: { name: "Flow", hint: "Lean manufacturing and queueing theory: how much work is open, whether it's growing, and how long it takes", render: () => "", load: loadFlow },
     twoway: { name: "Hierarchy", hint: "Ecology: what blurs which way your notes lean, and the notes with no way up", render: () => "", load: loadTwoWay },
-    debt: { name: "Knowledge debt", hint: "Finance: stale notes that the most other notes rest on, where the cost keeps growing", render: lensDebt },
     adjacent: { name: "Adjacent possible", hint: "Notes one step past what you're working on, and strange pairs to combine", render: lensAdjacent },
     ...(opts.mocReport ? { mocalign: { name: "MOC alignment", hint: "Tick the report's rows here; apply when ready", render: () => "", load: lensMocAlign } } : {}),
   };
   let lensKey = null;
   $(".vg-lens-close").onclick = () => closeLens();
+  const LENS_MOVED = { stale: "triage", debt: "triage" };   // merged into Stale notes
   function openLens(k) {
-    lensKey = k; closeDrawer(); const box = $(".vg-lens"), l = LENSES[k];
+    k = LENS_MOVED[k] || k; lensKey = k; closeDrawer(); const box = $(".vg-lens"), l = LENSES[k];
     box.hidden = false; box.dataset.lens = k; root.classList.add("has-lens");
     $(".vg-lens-title").textContent = l.name; $(".vg-lens-sub").textContent = l.hint;
     const body = $(".vg-lens-body"), none = !nodes.some(n => !special(n) && !n.ghost);
@@ -391,13 +390,13 @@
   // 1. Important but stale: how much the vault leans on a note vs. how long since it was edited.
   // Top-left = notes your work depends on that may have drifted out of date.
   const STALE_AFTER = Q.stale_days;   // the shared rule (vault_graph_rules.json stale_days): one meaning of stale everywhere
-  function lensStale() {
+  function staleChart() {
     const ns = nodes.filter(n => !special(n) && !n.ghost && n.cluster >= 0);
-    if (!ns.length) return `<div class="vg-empty">No notes to rate.</div>`;
+    if (!ns.length) return "";
     impMax = null; const imp = importance;   // the shared measure (fresh maxes: the lens can open after edits)
     const VW = 1000, VH = 320, P = 30, maxAge = Math.max(STALE_AFTER * 2, ...ns.map(n => n.age || 0));
     const x = a => P + (VW - 2 * P) * Math.log1p(a) / Math.log1p(maxAge), y = v => VH - P - (VH - 2 * P) * v;
-    const cut = 0.35, hot = ns.filter(n => imp(n) >= cut && staleFor(n, STALE_AFTER)).sort((a, b) => imp(b) * Math.log1p(b.age) - imp(a) * Math.log1p(a.age));
+    const cut = 0.35;
     const dots = ns.map(n => { const v = imp(n), danger = v >= cut && staleFor(n, STALE_AFTER);
       return `<circle class="vg-st-dot ${danger ? "is-hot" : ""}" data-id="${esc(n.id)}" cx="${x(n.age || 0).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${danger ? 5 : 3.2}" fill="${colorOf(n.cluster)}"><title>${esc(n.name)} · ${n.age}d since edit · ${n.inlinks} links in · ${n.mentions} daily mentions</title></circle>`; }).join("");
     const ticks = [1, 7, 30, 90, 180, 365, 730].filter(d => d <= maxAge).map(d => `<text class="vg-rv-tick" x="${x(d).toFixed(1)}" y="${VH - 8}" text-anchor="middle">${d < 30 ? d + "d" : d < 365 ? Math.round(d / 30) + "mo" : Math.round(d / 365) + "y"}</text>`).join("");
@@ -406,10 +405,7 @@
         <line class="vg-st-axis" x1="${x(STALE_AFTER)}" x2="${x(STALE_AFTER)}" y1="${P}" y2="${VH - P}"/><line class="vg-st-axis" x1="${P}" x2="${VW - P}" y1="${y(cut)}" y2="${y(cut)}"/>
         <text class="vg-rv-tick" x="${VW - P}" y="${P - 8}" text-anchor="end">relied on · stale</text><text class="vg-rv-tick" x="${P}" y="${P - 8}">relied on · fresh</text>
         ${dots}${ticks}</svg>
-      <p class="vg-muted vg-lens-note">Up = relied on (links in, daily mentions, influence${DATA.has_usage ? ", opens" : ", recent mentions"}). Right = days since the last edit (log scale). The shaded corner is relied on and not edited in ${STALE_AFTER}+ days. Click a dot to find it.</p>
-      <div class="vg-list-h">Relied on, not edited in ${STALE_AFTER}+ days <span class="vg-count">${hot.length}</span></div>
-      ${hot.slice(0, 40).map(n => `<div class="vg-sugg">${noteRow(n.id, `${n.age}d since edit · ${n.inlinks} links in · ${n.mentions} mentions`)}<span class="vg-sugg-acts">
-        ${opts.openNote ? actBtn("data-open", n.id, `${icon("open", 12)} Open`) : ""}${opts.stampReviewed ? actBtn("data-reviewed", n.id, "Still current") : ""}${opts.moveNote ? actBtn("data-archive", n.id, "Archive") : ""}</span></div>`).join("") || emptyNext("Nothing relied-on has gone stale.", "lens:triage")}`;
+      <p class="vg-muted vg-lens-note">Up = relied on (links in, daily mentions, influence${DATA.has_usage ? ", opens" : ", recent mentions"}). Right = days since the last edit (log scale). The shaded corner is relied on and not edited in ${STALE_AFTER}+ days. Click a dot to find it.</p>`;
   }
 
   // 2. Write these next: links pointing at notes that don't exist, and short notes many others lean on
@@ -525,7 +521,7 @@
   function lensTriage() {
     const ns = nodes.filter(n => !special(n) && !n.ghost), stale = ns.filter(n => staleFor(n, Q.stale_days)), records = ns.filter(n => isRecord(n) && n.age > Q.stale_days);
     const used = new Set(), take = f => stale.filter(n => !used.has(n.id) && f(n)).map(n => (used.add(n.id), n));
-    const relied = take(n => (n.inlinks || 0) >= 4).sort(byImportance);
+    const debt = debtOf(), cost = new Map(debt.rows.map(r => [r.n.id, r])), relied = debt.known ? take(n => cost.has(n.id)).sort((a, b) => cost.get(b.id).cost - cost.get(a.id).cost) : take(n => (n.inlinks || 0) >= 4).sort(byImportance);
     const tasks = take(n => n.tasks > 0).sort((a, b) => (b.taskAge || 0) - (a.taskAge || 0) || b.tasks - a.tasks);
     const islands = take(n => n.isolated).sort((a, b) => b.age - a.age);
     const rest = take(() => true).sort(byImportance);
@@ -534,9 +530,9 @@
     const ok = n => opts.stampReviewed ? actBtn("data-reviewed", n.id, "Still current") : "";
     const sec = (title, list, hint, render, max) => `<div class="vg-list-h">${title} <span class="vg-count">${list.length}</span></div><p class="vg-muted vg-lens-note">${hint}</p>` +
       (list.slice(0, max).map(render).join("") || `<div class="vg-empty">None.</div>`) + (list.length > max ? `<div class="vg-empty">…and ${list.length - max} more.</div>` : "");
-    return `<p class="vg-muted vg-lens-note"><b>${stale.length}</b> notes haven't changed in ${Q.stale_days}+ days. ${records.length} more are records (finished work, release notes, meetings, reports, dated logs): they're meant to stay as written, so they don't count. Work top to bottom; at 5 a day the first group clears in about ${plural(Math.max(1, Math.ceil(relied.length / 35)), "week")}.</p>` +
-      sec("1 · Relied on", relied, "Four or more notes link here, so an out-of-date version misleads them. Still right → Still current (records a review date, no edit). Wrong → open and fix.",
-        n => row(n, `${n.inlinks} links in · ${n.age}d since edit`, open(n) + ok(n)), 25) +
+    return `${debt.facts}${staleChart()}<p class="vg-muted vg-lens-note"><b>${stale.length}</b> notes haven't changed in ${Q.stale_days}+ days. ${records.length} more are records (finished work, release notes, meetings, reports, dated logs): they're meant to stay as written, so they don't count. Work top to bottom; at 5 a day the first group clears in about ${plural(Math.max(1, Math.ceil(relied.length / 35)), "week")}.</p>` +
+      sec("1 · Relied on", relied, `${debt.known ? "Other notes rest on these through links written into them, most costly first" : "Four or more notes link here"}, so an out-of-date version misleads them. Still right → Still current (records a review date, no edit). Wrong → open and fix.`,
+        n => { const r = cost.get(n.id); return row(n, r ? `${Math.round(r.cost)} note-years · ${r.direct} link to it directly, ${r.reach} through others · ${(r.age / 365).toFixed(1)} years since an edit` : `${n.inlinks} links in · ${n.age}d since edit`, open(n) + ok(n)); }, 25) +
       sec("2 · Holding open tasks", tasks, "Old tasks rot faster than notes. Tick what's done; cancel the rest with [-] in the note.",
         n => row(n, `${plural(n.tasks, "open task")}${n.taskAge != null ? ` · oldest ${n.taskAge}d` : ""} · ${n.age}d since edit`, (opts.readTasks ? `<button class="vg-btn vg-btn-sm" data-sttasks="${esc(n.id)}">Tasks</button>` : "") + open(n), `<div class="vg-st-tasks"></div>`), 20) +
       sec("3 · Unconnected", islands, "Nothing links in or out. Archive what's finished; link the rest from its map or a related note.",

@@ -119,7 +119,7 @@ assert.ok(!R.createdFromLine(["A", "B"]).includes("[["), "a stub line links back
     const gone = await a.moveTasks([{ ...item, text: "Not the line any more", subs: [] }], PROJ); assert.strictEqual(gone, 0); assert.ok(!files.get(PROJ).text.includes("Not the line"), "a changed line was copied");
   }
   // ---- on the page: Vitals and the Sweep's controls
-  const V = { pile: { open: 12, came: 30, left: 18, net: 12, old: 4, wip: [1, 3, 6, 12] }, debt: { total: 40, count: 3, top: { id: "x.md", name: "Old Guide", cost: 20, direct: 4, reach: 9, years: 2.5 } }, web: { incoherence: 0.44, links: 600, twoWay: 90 } };
+  const V = { pile: { open: 12, came: 30, left: 18, net: 12, old: 4, wip: [1, 3, 6, 12] }, debt: { total: 40, count: 3, top: { id: "x.md", name: "Old Guide", cost: 20, direct: 4, reach: 9, years: 2.5, }, list: [{ id: "x.md", name: "Old Guide" }] }, web: { incoherence: 0.44, links: 600, twoWay: 90 } };
   const tab = await cdp.open({ html: env.hqPage("", { today: undefined }), port: 9396 });
   if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
   const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
@@ -134,10 +134,10 @@ assert.ok(!R.createdFromLine(["A", "B"]).includes("[["), "a stub line links back
     for (const w of ["The pile grew by 12 in 90 days", "30 came in, 18 finished", "12 open from earlier days", "4 older than 30 days", "down 8 in a week", "Review Old Guide first", "4 linked directly", "Your links run partly one way", "Incoherence 0.44", "down 0.26 in a week"]) check(t.includes(w), `Vitals: no "${w}" in: ${t}`);
     check(!/NaN|undefined/.test(t), "Vitals shows a broken number");
     const click = sel => tab.ev(`(() => { const b = document.querySelector(${JSON.stringify(sel)}); if (!b) return false; b.click(); return true; })()`);
-    check(await click('[data-graphlens="debt"]'), "no way into Knowledge debt"); check(await click('[data-graphview="foodweb"]'), "no way into the Food web");
+    check(await click('[data-graphlens="triage"]'), "no way into Stale notes"); check(await click('[data-graphview="foodweb"]'), "no way into the Food web");
     check(await click('[data-vital-current]'), "no Still current"); await sleep(100);
     const calls = await tab.ev(`window.__calls`);
-    check(calls.some(c => c[0] === "graph" && c[1].lens === "debt"), "the lens button didn't reach the host"); check(calls.some(c => c[0] === "graph" && c[1].view === "foodweb"), "the Food web button didn't reach the host"); check(calls.some(c => c[0] === "stampReviewed" && c[1] === "x.md"), "Still current didn't stamp the note");
+    check(calls.some(c => c[0] === "graph" && c[1].lens === "triage"), "the lens button didn't reach the host"); check(calls.some(c => c[0] === "graph" && c[1].view === "foodweb"), "the Food web button didn't reach the host"); check(calls.some(c => c[0] === "stampReviewed" && c[1] === "x.md"), "Still current didn't stamp the note");
     check(await tab.ev(`!!document.querySelector('[data-graphlens="twoway"]')`), "Vitals has no way into Two-way links");
     if (hasCarried) {
       await tab.ev(`window.vaultHQ.setScreen("sweep")`); await sleep(100);

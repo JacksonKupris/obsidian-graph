@@ -333,7 +333,7 @@ const VGScienceMake = () => {
     const g = directedGraph(o.notes.map(n => n.id), o.pairs), spread = directedGraph(g.ids, g.edges.map(([a, b]) => [g.ids[b], g.ids[a]]));
     const F = flow(o.rows.map(r => ({ born: r.born, done: r.event ? r.done : null })), o.today, 90), old = o.rows.filter(r => !r.event && r.t > 30).length;
     const ranks = debtRanks(spread, o.notes), total = ranks.reduce((s, r) => s + r.cost, 0), top = ranks[0], web = g.edges.length ? trophic(g.adj) : null;
-    return { pile: { open: F.openNow, came: F.cumIn[F.days], left: F.cumOut[F.days], net: F.net, old, wip: F.wip }, debt: { total, count: ranks.length, top: top ? { id: g.ids[top.i], name: o.notes[top.i].name, cost: top.cost, direct: top.direct, reach: top.reach, years: top.age / 365 } : null }, web: { incoherence: web ? web.incoherence : null, links: g.edges.length, twoWay: twoWayPairs(g).length } };
+    return { pile: { open: F.openNow, came: F.cumIn[F.days], left: F.cumOut[F.days], net: F.net, old, wip: F.wip }, debt: { total, count: ranks.length, top: top ? { id: g.ids[top.i], name: o.notes[top.i].name, cost: top.cost, direct: top.direct, reach: top.reach, years: top.age / 365 } : null, list: ranks.slice(0, 5).map(r => ({ id: g.ids[r.i], name: o.notes[r.i].name })) }, web: { incoherence: web ? web.incoherence : null, links: g.edges.length, twoWay: twoWayPairs(g).length } };
   }
   const vitalsSample = v => ({ open: v.pile.open, debt: Math.round(v.debt.total), incoherence: v.web.incoherence == null ? null : +v.web.incoherence.toFixed(2) });
   // the change in one sample's number against the latest sample a week or more old, or null when there isn't one yet

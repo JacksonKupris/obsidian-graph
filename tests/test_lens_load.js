@@ -79,7 +79,8 @@ if (env.rules.hq && env.rules.hq.journal) {
     // Knowledge debt and Blast radius follow the written links: with none, nothing rests on anything
     await tab.ev(`void (window.__written = Object.fromEntries(${JSON.stringify(Object.keys(out).slice(0, 1))}.map(k => [k, {}])))`); await tab.ev(`${D}.renewLinks()`);
     await tab.ev(`${D}.openLens("debt")`); await sleep(300); const debt = await tab.ev(`document.querySelector(".vg-lens-body").textContent`);
-    check(/No stale note has anything resting on it/.test(debt), "Knowledge debt still counts links that aren't written");
+    check(/notes haven't changed/.test(debt), `The old Knowledge debt key doesn't open Stale notes: ${debt.slice(0, 120)}`); check(!/note-years owed/.test(debt), "Stale notes still counts links that aren't written");
+    check(!(await tab.ev(`${D}.lenses()`)).some(k => k === "debt" || k === "stale"), "a merged lens is still listed");
   } catch (e) { fails.push(e.message); }
   await tab.close();
   if (fails.length) { console.error(fails.map(f => `  - ${f}`).join("\n")); process.exit(1); }

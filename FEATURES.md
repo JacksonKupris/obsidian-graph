@@ -16,8 +16,7 @@ What Vault Graph already does, and where. Read this before adding anything: exte
 | A week back | Weekly review | `src/hq/25-cockpit.js` |
 | The tasks as a queue | Flow lens (Little's law) | `src/view/62-science.js` |
 | How long tasks last | Task survival lens | `src/view/62-science.js` |
-| Which old note to review | Knowledge debt lens (`VGScience.debtRanks`) | `src/view/62-science.js` |
-| What to do with every old note | Stale triage lens | `src/view/60-lenses.js` |
+| Old notes: which first, what to do with each | Stale notes lens (`VGScience.debtRanks`); Vitals and Weekly review read the same list | `src/view/60-lenses.js`, `src/view/62-science.js` |
 | Which way notes lean, and notes with no way up | Hierarchy lens (`VGRules.wayUp`, `twoWayPairs`), and `adopt` on Today | `src/view/62-science.js`, `src/rules.js` |
 | What counts as reliance | `VGRules.writtenLinks`, from `generated_link_sections` | `src/rules.js` |
 | If a note is wrong | Blast radius lens | `src/view/62-science.js` |
@@ -36,8 +35,6 @@ What Vault Graph already does, and where. Read this before adding anything: exte
 | Long jobs without blocking | A worker from `VGScienceMake` | `src/science.js` |
 | The notes as pictures | Scenes and map views | `src/scenes/`, `src/view/` |
 
-## Known overlaps still to merge
+## Known overlaps
 
-- Project board lens and HQ Projects: the lens only reads Context notes.
-- People lens and HQ People: the lens is a who-by-topic table, HQ is who's in open work.
-- Important but stale lens, Stale triage lens and Knowledge debt lens rank old notes three ways.
+None known. Context notes (lens) and People by topic (lens) keep their own jobs: Context notes aren't HQ's projects, and who works on which topic isn't who's in open work.
