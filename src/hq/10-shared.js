@@ -91,7 +91,7 @@
   function row(it) {
     return `<div class="vg-hq-item${selected() === it && railOn() ? " is-sel" : ""}${picked.has(it.key) ? " is-picked" : ""}${(it.age || 0) >= 14 ? " is-old" : ""}" data-key="${esc(it.key)}">${pickBox(it)}<span class="vg-hq-kind">${icon(KIND_ICON[it.kind] || "graph", 16)}</span>` +
       `<div class="vg-hq-txt"><b>${esc(it.title)}</b>${it.why ? `<small>${esc(VGRules.whyWords(it.why))}${it.delegated ? ` · delegated to ${esc(it.delegated)}` : ""}</small>` : ""}</div>` +
-      `<div class="vg-hq-acts">${starButton(it)}${railOn() ? "" : ctxButton(it)}${buttons(it)}${reactButtons(it)}</div>${railOn() ? "" : contextPanel(it)}</div>`;
+      `<div class="vg-hq-acts">${starButton(it)}${railOn() ? "" : ctxButton(it)}${it.kind === "job" ? '<button class="vg-hq-btn vg-hq-btn-sm" data-go="automations">See all runs</button>' : ""}${buttons(it)}${reactButtons(it)}</div>${railOn() ? "" : contextPanel(it)}</div>`;
   }
   // ---- what your notes already know about an item: the second brain's main trick. Opens from any row (the arrow, or Enter
   // on the keyboard); Do next opens with it. Results are kept for the visit, so going back and forth costs nothing.
@@ -113,6 +113,8 @@
   const isFocus = it => VGRules.focusKeys(STATE.review, day()).includes(it.key);
   // worded: on Do next, where it's what the day's Plan step asks for; a row keeps just the star
   const starButton = (it, worded) => api.hqFocus && it.group === "today" ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-star${isFocus(it) ? " is-on" : ""}" data-star="${esc(it.key)}" aria-pressed="${isFocus(it)}" aria-label="Today's focus" title="${isFocus(it) ? "Take out of today's focus" : "Add to today's focus"} (f)">${isFocus(it) ? "★" : "☆"}${worded ? ` ${isFocus(it) ? "Starred" : "Star"}` : ""}</button>` : "";
+  // why this one leads the list, in the order the list is ranked
+  const whyNext = it => isFocus(it) ? "First because you starred it for today." : it.urgent ? "First because it's urgent." : it.kind === "task" ? "First because nothing's starred, and today's journal comes first." : it.kind === "plan" ? "First because nothing's starred or in today's journal, and it's next in your last standup's plan." : it.kind === "carried" ? "First because nothing newer is planned, and this is the most recent left over." : "First on the list.";
   const statusWord = p => VGRules.statusWords(p && p.status) || "no status";
   // what Later and Next week have taken off the list, still in sight, with a way back. Open by itself if something urgent is in it.
   function putOffHtml() {

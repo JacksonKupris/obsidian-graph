@@ -71,27 +71,29 @@
   }
   function drawWeather(now) {
     const { dpr, R, litSet, font, k } = mapFrame(), Wd = mapCache.weather;
-    ctx.fillStyle = "#0b1220"; ctx.fillRect(0, 0, W, H); if (!Wd) return;
-    worldTransform(dpr, R); ctx.imageSmoothingEnabled = true; ctx.drawImage(Wd.img, Wd.x0, Wd.y0, Wd.w, Wd.h);
-    Wd.iso.forEach(c => { ctx.strokeStyle = c.lv < 0 ? "rgba(254,178,178,.28)" : "rgba(147,197,253,.24)"; ctx.lineWidth = (Math.abs(c.lv) % 0.48 < 0.01 ? 1.6 : 0.8) / k; strokeSegs(c.seg); });
+    const gl3 = glOn() && !!Wd, heightAt = (x, y) => { const i = Math.round((x - Wd.x0) / Wd.CELL), j = Math.round((y - Wd.y0) / Wd.CELL); return i < 0 || j < 0 || i >= Wd.gw || j >= Wd.gh ? 0 : -Wd.E[j * Wd.gw + i] * WEATHER_RELIEF; }, on3 = (x, y, up = 0) => (gl3 ? proj(x, y, heightAt(x, y) - up, R) : scr(x, y, R));
+    if (!gl3) { ctx.fillStyle = "#0b1220"; ctx.fillRect(0, 0, W, H); } if (!Wd) return;
+    if (gl3) drawWeatherGL(Wd, R);
+    else { worldTransform(dpr, R); ctx.imageSmoothingEnabled = true; ctx.drawImage(Wd.img, Wd.x0, Wd.y0, Wd.w, Wd.h);
+    Wd.iso.forEach(c => { ctx.strokeStyle = c.lv < 0 ? "rgba(254,178,178,.28)" : "rgba(147,197,253,.24)"; ctx.lineWidth = (Math.abs(c.lv) % 0.48 < 0.01 ? 1.6 : 0.8) / k; strokeSegs(c.seg); }); }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // wind: particles carried from high pressure to low, turned a little (as the Coriolis force does)
+    // surface wind: round the lows and highs along the isobars, leaning 25 degrees in towards low pressure (Buys Ballot's law)
     const wind = (x, y) => { const i = Math.round((x - Wd.x0) / Wd.CELL), j = Math.round((y - Wd.y0) / Wd.CELL);
       if (i < 1 || j < 1 || i >= Wd.gw - 1 || j >= Wd.gh - 1) return null;
       const gx = Wd.E[j * Wd.gw + i + 1] - Wd.E[j * Wd.gw + i - 1], gy = Wd.E[(j + 1) * Wd.gw + i] - Wd.E[(j - 1) * Wd.gw + i];
-      return [(-gx * 0.85 - gy * 0.5) * 9, (-gy * 0.85 + gx * 0.5) * 9]; };
+      const v = VGScience.surfaceWind(gx, gy); return [v[0] * 9, v[1] * 9]; };
     const wx = Wd.wx || (Wd.wx = { parts: [] }), wdt = tickOf(wx, now);
     while (wx.parts.length < (MOBILE ? 140 : 280)) wx.parts.push({ x: Wd.x0 + Math.random() * Wd.w, y: Wd.y0 + Math.random() * Wd.h, life: Math.random() * 4000 });
     ctx.strokeStyle = "rgba(186,230,253,.3)"; ctx.lineWidth = 1.2; ctx.beginPath();
     wx.parts.forEach(q => { const v = wind(q.x, q.y); q.life -= wdt;
       if (!v || q.life <= 0 || Math.hypot(v[0], v[1]) < 0.01) { q.x = Wd.x0 + Math.random() * Wd.w; q.y = Wd.y0 + Math.random() * Wd.h; q.life = 2500 + Math.random() * 3500; return; }
       const m = Math.hypot(v[0], v[1]), sp = 0.4 + 1.2 * Math.min(1, m * 4), ux = v[0] / m, uy = v[1] / m; q.x += ux * sp * wdt * 0.06; q.y += uy * sp * wdt * 0.06;
-      const L = 6 + 14 * Math.min(1, m * 4), a = scr(q.x, q.y, R), b = scr(q.x - ux * L, q.y - uy * L, R); ctx.moveTo(b.x, b.y); ctx.lineTo(a.x, a.y); });   // a streak, longer in stronger wind
+      const L = 6 + 14 * Math.min(1, m * 4), a = on3(q.x, q.y, 3), b = on3(q.x - ux * L, q.y - uy * L, 3); if (a && b) { ctx.moveTo(b.x, b.y); ctx.lineTo(a.x, a.y); } });   // a streak, longer in stronger wind
     ctx.stroke();
     // fronts: two topics that keep coming up together. Warm (red, half-moons) when both are heating up,
     // cold (blue, triangles) when one is heating and one cooling, stationary (alternating) otherwise
     Wd.fronts.forEach(f => {
-      const a = scr(f.a.x, f.a.y, R), b = scr(f.b.x, f.b.y, R), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
+      const a = on3(f.a.x, f.a.y), b = on3(f.b.x, f.b.y); if (!a || !b) return; const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
       const nx = -dy / L, ny = dx / L, half = Math.min(90, L * 0.35) * 1, kind = f.a.a > 0.2 && f.b.a > 0.2 ? "warm" : (f.a.a > 0.2) !== (f.b.a > 0.2) ? "cold" : "still";
       const p0 = [mx - nx * half, my - ny * half], p1 = [mx + nx * half, my + ny * half], col = kind === "warm" ? "#dc2626" : kind === "cold" ? "#2563eb" : "#7c3aed";
       ctx.strokeStyle = col; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(...p0); ctx.lineTo(...p1); ctx.stroke();
@@ -104,13 +106,13 @@
     dots(n => !special(n) && !n.ghost, () => "rgba(226,232,240,.55)", () => Math.max(1.4, 1.8 * Math.sqrt(k)), R);
     // clouds drift round busy topics; a storm's clouds are darker and spin faster
     Wd.tops.forEach(t => { if (t.a < 0.35 && !t.storm) return;
-      const p = scr(t.x, t.y, R), puffs = t.storm ? 6 : 3, spin = (reducedMotion() ? 0 : now) / (t.storm ? 2600 : 9000);
+      const p = on3(t.x, t.y, gl3 ? 90 : 0); if (!p) return; const puffs = t.storm ? 6 : 3, spin = (reducedMotion() ? 0 : now) / (t.storm ? 2600 : 9000);
       for (let i = 0; i < puffs; i++) { const a = spin + i / puffs * 2 * Math.PI, rr = (t.storm ? 46 : 60) * Math.sqrt(k), x = p.x + Math.cos(a) * rr, y = p.y + Math.sin(a) * rr * 0.6, cr = (t.storm ? 30 : 26) * Math.sqrt(k);
         const g = ctx.createRadialGradient(x, y, 0, x, y, cr); g.addColorStop(0, t.storm ? "rgba(203,213,225,.42)" : "rgba(255,255,255,.2)"); g.addColorStop(1, "rgba(255,255,255,0)");
         ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, cr, cr * 0.65, 0, 0, 2 * Math.PI); ctx.fill(); } });
     // pressure centres: L for busy, H for quiet; storms get rain and lightning
     Wd.tops.slice().sort((a, b) => Math.abs(b.a) - Math.abs(a.a)).forEach(t => {
-      const p = scr(t.x, t.y, R), lit = !litSet || nodes.some(n => n.cluster === t.c && litSet.has(n.id));
+      const p = on3(t.x, t.y, gl3 ? 14 : 0); if (!p) return; const lit = !litSet || nodes.some(n => n.cluster === t.c && litSet.has(n.id));
       ctx.globalAlpha = lit ? 1 : 0.3;
       if (t.storm && !reducedMotion()) { ctx.strokeStyle = "rgba(125,211,252,.6)"; ctx.lineWidth = 1;
         for (let i = 0; i < 26; i++) { const h = hash(t.c + "r" + i), x = p.x + ((h % 160) - 80) * Math.sqrt(k), y0 = p.y - 60 + (((h >>> 8) % 120) + now / 6) % 120 * Math.sqrt(k);
@@ -130,15 +132,20 @@
   // notes that mostly link out are consumers (logs, plans, task lists). Energy flows up the links. A relied-on note
   // that has gone stale is endangered: the notes above it feed on something that's out of date.
   function foodwebLayout(geo) {
-    const ns = nodes.filter(n => !special(n) && !n.ghost && !n.isolated), pos = new Map(geo), levels = [[], [], [], [], []];
-    const lvl = VGRules.trophicLevels(ns);   // shared rule (vault_graph_rules.js): rank of out-share, low-degree notes kept off the ends
-    ns.forEach(n => levels[lvl.get(n.id)].push(n));
+    const ns = nodes.filter(n => !special(n) && !n.ghost && !n.isolated), pos = new Map(geo);
+    // trophic levels from which way links really point (science.js): a note feeds on what it links to. Each note's height is its level.
+    const dg = directedNotes(), order0 = dg && VGScience.trophic(dg.adj), byLevel = new Map(), stats = order0 ? { ...order0, mean: order0.meanLevel, n: dg.n } : null;
+    if (dg) dg.ids.forEach((id, i) => byLevel.set(id, order0.level[i]));
+    const lvl = dg ? null : VGRules.trophicLevels(ns);   // no direction to work from (the test page): the shared rule, a rank of out-share
+    const levelOf = n => dg ? (byLevel.get(n.id) ?? 2) : lvl.get(n.id) + 1;
+    const bands = dg ? Math.max(2, Math.ceil(order0.maxLevel)) : 5, step = 840 / (bands - 1), yOf = v => 420 - (v - 1) * step, levels = Array.from({ length: bands }, () => []);
+    ns.forEach(n => levels[Math.max(0, Math.min(bands - 1, Math.round(levelOf(n)) - 1))].push(n));
     const order = topicOrder().map(c => c.id), ci = c => { const i = order.indexOf(c); return i < 0 ? 99 : i; };
     levels.forEach((ms, L) => { ms.sort((a, b) => ci(a.cluster) - ci(b.cluster) || importance(b) - importance(a));
       const rows = Math.max(1, Math.min(5, Math.ceil(ms.length * 24 / 1800))), cols = Math.max(1, Math.ceil(ms.length / rows)), width = Math.min(1800, Math.max(600, cols * 26));
-      ms.forEach((n, i) => { const row = i % rows, j = Math.floor(i / rows); pos.set(n.id, [-width / 2 + (j + 0.5 + (row % 2) * 0.5) * width / cols, 420 - L * 210 + row * 30 - (rows - 1) * 15]); }); });   // staggered, so topics read as bands of colour
+      ms.forEach((n, i) => { const row = i % rows, j = Math.floor(i / rows); pos.set(n.id, [-width / 2 + (j + 0.5 + (row % 2) * 0.5) * width / cols, dg ? yOf(levelOf(n)) + (row - (rows - 1) / 2) * Math.min(7, step / 8) : 420 - L * 210 + row * 30 - (rows - 1) * 15]); }); });   // staggered, so topics read as bands of colour
     const endangered = new Set(ns.filter(n => n.inlinks >= 4 && staleFor(n, Q.stale_days)).map(n => n.id));
-    return { pos, levels: levels.map(l => l.length), endangered };
+    return { pos, levels: levels.map(l => l.length), endangered, stats, step };
   }
   // Sparks climb the links from the notes relied on to the notes that use them, more often into busy notes. A spark
   // leaving a stale (endangered) note -- or one already tainted -- is grey, and taints what it reaches, so you can
@@ -174,9 +181,10 @@
   function drawFoodweb(now) {
     const { R, litSet, font, k } = mapFrame(), F = mapCache.foodweb;
     backdrop("#14231b", "#22331c"); if (!F) return;
-    const NAMES = ["Producers · relied on, link out little", "Primary consumers", "Mixed", "Secondary consumers", "Apex · logs, plans, task lists"];
-    NAMES.forEach((nm, L) => { const p = scr(0, 420 - L * 210, R); ctx.fillStyle = "rgba(255,255,255,.03)"; ctx.fillRect(0, p.y - 95 * k, W, 190 * k);
-      const t = `${nm} (${F.levels[L]})`, f = `700 10.5px ${font}`, y = p.y - 80 * k;
+    const NAMES = F.stats ? F.levels.map((_, L) => (L === 0 ? "Level 1 · the base" : `Level ${L + 1}`)) : ["Producers · relied on, link out little", "Primary consumers", "Mixed", "Secondary consumers", "Apex · logs, plans, task lists"];
+    if (F.stats) setSceneStat(`mean level ${F.stats.mean.toFixed(1)} · top ${F.stats.maxLevel.toFixed(1)} · incoherence ${F.stats.incoherence.toFixed(2)} · connectance ${(F.stats.connectance * 100).toFixed(1)}%`);
+    NAMES.forEach((nm, L) => { const p = scr(0, 420 - L * F.step, R), half = F.step * 0.45; if (L % 2 === 0) { ctx.fillStyle = "rgba(255,255,255,.03)"; ctx.fillRect(0, p.y - half * k, W, 2 * half * k); }
+      if (!F.levels[L]) return; const t = `${nm} (${F.levels[L]})`, f = `700 10.5px ${font}`, y = p.y - half * 0.8 * k;
       ctx.font = f; freeSpot(14, y - 8, ctx.measureText(t).width + 6, 16);   // reserved, so note labels steer around the level's name
       haloText(t, 14, y, "rgba(220,252,231,.75)", "#14231b", f); });
     ctx.lineWidth = 0.7;

@@ -35,13 +35,17 @@ void main() { vec2 d = b.xy - a.xy; float L = max(length(d), 0.001); vec2 n = ve
 precision highp float; in vec4 v_col; in float v_u; in float v_d; in float v_len; flat in float v_dash; uniform vec3 u_bg; uniform float u_add; out vec4 o;
 void main() { if (v_dash > 0.0 && fract(v_len / v_dash) > 0.55) discard; float e = 1.0 - smoothstep(0.55, 1.0, abs(v_u)), f = smoothstep(0.42, 0.72, v_d), a = v_col.a * e * (1.0 - f * 0.82); o = u_add > 0.5 ? vec4(v_col.rgb * a, 0.0) : vec4(v_col.rgb * a, a); }`;
     const MESH_VS = `#version 300 es
-in vec3 pos; in vec3 nor; in float fold; in float lobe; uniform vec2 u_size; uniform vec4 u_rot; uniform vec3 u_c; uniform vec4 u_cam; uniform float u_focal; uniform float u_range; out vec3 v_n; out float v_fold; flat out float v_lobe; out float v_d;
+in vec3 pos; in vec3 nor; in float fold; in float lobe; uniform vec2 u_size; uniform vec4 u_rot; uniform vec3 u_c; uniform vec4 u_cam; uniform float u_focal; uniform float u_range; uniform float u_home; out vec3 v_n; out float v_fold; flat out float v_lobe; out float v_d;
 vec3 turn(vec3 q) { float x1 = q.x * u_rot.x + q.z * u_rot.y, z1 = -q.x * u_rot.y + q.z * u_rot.x; return vec3(x1, q.y * u_rot.z - z1 * u_rot.w, q.y * u_rot.w + z1 * u_rot.z); }
-void main() { vec3 q = turn(pos - u_c); q.z -= u_cam.w; v_n = turn(nor); v_fold = fold; v_lobe = lobe; float den = u_focal + q.z, s = u_focal / max(den, 1.0); vec2 px = vec2(u_size.x * 0.5 + u_cam.y + q.x * s * u_cam.x, u_size.y * 0.5 + u_cam.z + q.y * s * u_cam.x); float d = (q.z + u_range) / (2.0 * u_range); v_d = d; gl_Position = vec4(px.x / u_size.x * 2.0 - 1.0, 1.0 - px.y / u_size.y * 2.0, den < 40.0 ? 2.0 : d * 2.0 - 1.0, 1.0); }`;
+void main() { vec3 q = turn(pos - u_c); q.z -= u_cam.w; v_n = turn(nor); v_fold = fold; v_lobe = lobe; float den = u_focal + q.z, s = u_focal / max(den, 1.0); vec2 px = vec2(u_size.x * 0.5 + u_cam.y + q.x * s * u_cam.x, u_size.y * 0.5 + u_cam.z + q.y * s * u_cam.x); float d = (q.z + u_home + u_range) / (2.0 * u_range); v_d = d; gl_Position = vec4(px.x / u_size.x * 2.0 - 1.0, 1.0 - px.y / u_size.y * 2.0, den < 40.0 ? 2.0 : d * 2.0 - 1.0, 1.0); }`;
     const MESH_FS = `#version 300 es
 precision highp float; in vec3 v_n; in float v_fold; flat in float v_lobe; in float v_d; uniform vec3 u_tint; uniform vec3 u_light; uniform float u_act[6]; uniform float u_pass; out vec4 o;
 void main() { vec3 N = normalize(v_n); float facing = abs(N.z), fres = pow(1.0 - facing, 2.1), act = u_act[int(v_lobe + 0.5)], relief = 0.45 + 0.55 * max(dot(N, normalize(u_light)) * (N.z < 0.0 ? 1.0 : -1.0), 0.0), sulcus = mix(0.18, 1.0, smoothstep(0.08, 0.62, v_fold));
   float groove = 1.0 - smoothstep(0.12, 0.42, v_fold); vec3 c = mix(u_tint * (0.28 + 1.0 * relief) + vec3(1.0, 0.55, 0.3) * act * 0.25, u_tint * 0.05, groove); float a = (0.022 + fres * 0.17 + relief * relief * 0.07 + act * 0.03 + groove * 0.26) * (u_pass > 0.5 ? 1.0 : 0.35); a *= 1.0 - smoothstep(0.55, 0.8, v_d) * 0.5; o = vec4(c * a, a); }`;
+    const TERRAIN_FS = `#version 300 es
+precision highp float; in vec3 v_n; in float v_fold; flat in float v_lobe; in float v_d; uniform vec3 u_light; out vec4 o;
+void main() { vec3 N = normalize(v_n); N = normalize(vec3(N.xy, -abs(N.z))); /* a slope past the line of sight shades on smoothly */ float v = clamp(v_fold, -1.0, 1.0), lit = 0.45 + 0.75 * max(dot(N, normalize(u_light)), 0.0), w = fwidth(v * 9.0), bar = 1.0 - smoothstep(0.0, 1.6 * w, abs(fract(v * 9.0 - 0.5) - 0.5));
+  vec3 night = vec3(0.045, 0.075, 0.13), c = v < 0.0 ? mix(night, vec3(0.86, 0.22, 0.26), pow(-v, 1.1)) : mix(night, vec3(0.16, 0.42, 0.9), pow(v, 1.1)); c = c * lit + vec3(1.0) * bar * 0.13; c = mix(c, vec3(0.043, 0.07, 0.125), smoothstep(0.55, 0.8, v_d) * 0.7); o = vec4(c, 1.0); }`;
     const compile = (vs, fs, names, bound) => {
       const mk = (t, s) => { const x = gl.createShader(t); gl.shaderSource(x, s); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
       const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
@@ -54,7 +58,7 @@ void main() { vec3 N = normalize(v_n); float facing = abs(N.z), fres = pow(1.0 -
         el = document.createElement("canvas"); el.className = "vg-gl"; el.setAttribute("aria-hidden", "true"); el.hidden = true; wrap.insertBefore(el, cv);
         gl = el.getContext("webgl2", { alpha: false, antialias: true, depth: true, powerPreference: "low-power" }); if (!gl) { el.remove(); el = null; return false; }
         el.addEventListener("webglcontextlost", e => { e.preventDefault(); dead = true; dirty = true; kick(); });
-        el.addEventListener("webglcontextrestored", () => { dead = false; mesh = null; build(); dirty = true; kick(); });
+        el.addEventListener("webglcontextrestored", () => { dead = false; mesh = null; meshes.clear(); build(); dirty = true; kick(); });
         build(); return true;
       } catch (e) { console.warn("Vault Graph: no WebGL, drawing on the 2D canvas", e); if (el) el.remove(); el = null; gl = null; return false; }
     }
@@ -62,7 +66,8 @@ void main() { vec3 N = normalize(v_n); float facing = abs(N.z), fres = pow(1.0 -
       const sprite = ["c", "p", "r", "col", "kind", "dr"], base = ["u_size", "u_pad", "u_flat"];
       P.lit = compile(QUAD_VS, LIT_FS, [...base, "u_light", "u_bg", "u_dark"], sprite); P.glow = compile(QUAD_VS, GLOW_FS, [...base, "u_add"], sprite);
       P.line = compile(LINE_VS, LINE_FS, ["u_size", "u_bg", "u_add"], ["c", "a", "b", "col", "w", "dash"]);
-      P.mesh = compile(MESH_VS, MESH_FS, ["u_size", "u_rot", "u_c", "u_cam", "u_focal", "u_range", "u_tint", "u_light", "u_act", "u_pass"], ["pos", "nor", "fold", "lobe"]);
+      P.mesh = compile(MESH_VS, MESH_FS, ["u_size", "u_rot", "u_c", "u_cam", "u_focal", "u_range", "u_home", "u_tint", "u_light", "u_act", "u_pass"], ["pos", "nor", "fold", "lobe"]);
+      P.terrain = compile(MESH_VS, TERRAIN_FS, ["u_size", "u_rot", "u_c", "u_cam", "u_focal", "u_range", "u_home", "u_light"], ["pos", "nor", "fold", "lobe"]);
       quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
       inst = gl.createBuffer(); lineBuf = gl.createBuffer(); P.lineQuad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, P.lineQuad); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, -1, 1, -1, 0, 1, 1, 1]), gl.STATIC_DRAW);
       gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.enable(gl.BLEND);
@@ -103,21 +108,31 @@ void main() { vec3 N = normalize(v_n); float facing = abs(N.z), fres = pow(1.0 -
     }
     function brain(size, o) {
       if (!mesh || mesh.size !== size) buildMesh(size);
-      const pr = P.mesh; gl.useProgram(pr.p); gl.uniform2f(pr.u.u_size, el.width / sizeScale, el.height / sizeScale); gl.uniform4f(pr.u.u_rot, o.rot[0], o.rot[1], o.rot[2], o.rot[3]); gl.uniform3f(pr.u.u_c, cam.cx, cam.cy, cam.cz); gl.uniform4f(pr.u.u_cam, cam.k, cam.tx, cam.ty, cam.d || 0); gl.uniform1f(pr.u.u_focal, UI.size.focal); gl.uniform1f(pr.u.u_range, DEPTH_RANGE); gl.uniform3fv(pr.u.u_tint, o.tint); gl.uniform3fv(pr.u.u_light, o.light); gl.uniform1fv(pr.u.u_act, o.act); gl.uniform1f(pr.u.u_pass, o.front ? 1 : 0);
+      const pr = P.mesh; gl.useProgram(pr.p); gl.uniform2f(pr.u.u_size, el.width / sizeScale, el.height / sizeScale); gl.uniform4f(pr.u.u_rot, o.rot[0], o.rot[1], o.rot[2], o.rot[3]); gl.uniform3f(pr.u.u_c, cam.cx, cam.cy, cam.cz); gl.uniform4f(pr.u.u_cam, cam.k, cam.tx, cam.ty, cam.d || 0); gl.uniform1f(pr.u.u_focal, UI.size.focal); gl.uniform1f(pr.u.u_range, DEPTH_RANGE); gl.uniform1f(pr.u.u_home, glHome); gl.uniform3fv(pr.u.u_tint, o.tint); gl.uniform3fv(pr.u.u_light, o.light); gl.uniform1fv(pr.u.u_act, o.act); gl.uniform1f(pr.u.u_pass, o.front ? 1 : 0);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
       gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ibo);
       [["pos", 3, 0], ["nor", 3, 12], ["fold", 1, 24], ["lobe", 1, 28]].forEach(([n, k, off]) => { const l = pr.a[n]; if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, k, gl.FLOAT, false, 32, off); gl.vertexAttribDivisor(l, 0); } });
       gl.enable(gl.CULL_FACE); gl.cullFace(o.front ? gl.BACK : gl.FRONT); gl.frontFace(gl.CW); gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_INT, 0); gl.disable(gl.CULL_FACE); drew.mesh++;
     }
+    // a height field: data is x, y, z, normal, value per point on a w by h grid, the value -1 to 1
+    function field(key, build, o) {
+      let m = meshes.get(key); if (!m) { for (const [, old] of meshes) { gl.deleteBuffer(old.vbo); gl.deleteBuffer(old.ibo); } meshes.clear(); const { data, w, h } = build(), index = new Uint32Array((w - 1) * (h - 1) * 6); let t = 0; for (let j = 0; j < h - 1; j++) for (let i = 0; i < w - 1; i++) { const a = j * w + i; index[t++] = a; index[t++] = a + w; index[t++] = a + 1; index[t++] = a + 1; index[t++] = a + w; index[t++] = a + w + 1; }
+        m = { vbo: gl.createBuffer(), ibo: gl.createBuffer(), count: t }; gl.bindBuffer(gl.ARRAY_BUFFER, m.vbo); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.ibo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, index, gl.STATIC_DRAW); meshes.set(key, m); }
+      const pr = P.terrain; gl.useProgram(pr.p); gl.uniform2f(pr.u.u_size, el.width / sizeScale, el.height / sizeScale); gl.uniform4f(pr.u.u_rot, o.rot[0], o.rot[1], o.rot[2], o.rot[3]); gl.uniform3f(pr.u.u_c, cam.cx, cam.cy, cam.cz); gl.uniform4f(pr.u.u_cam, cam.k, cam.tx, cam.ty, cam.d || 0); gl.uniform1f(pr.u.u_focal, UI.size.focal); gl.uniform1f(pr.u.u_range, DEPTH_RANGE); gl.uniform1f(pr.u.u_home, glHome); gl.uniform3fv(pr.u.u_light, o.light);
+      gl.blendFunc(gl.ONE, gl.ZERO); gl.depthMask(true); gl.bindBuffer(gl.ARRAY_BUFFER, m.vbo); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, m.ibo);
+      [["pos", 3, 0], ["nor", 3, 12], ["fold", 1, 24], ["lobe", 1, 28]].forEach(([n, k, off]) => { const l = pr.a[n]; if (l >= 0) { gl.enableVertexAttribArray(l); gl.vertexAttribPointer(l, k, gl.FLOAT, false, 32, off); gl.vertexAttribDivisor(l, 0); } });
+      gl.drawElements(gl.TRIANGLES, m.count, gl.UNSIGNED_INT, 0); drew.mesh++;
+    }
+    const meshes = new Map();
     let sizeScale = 1;
     function begin(rgb, scale) {
       const w = Math.max(1, Math.round(W * scale)), h = Math.max(1, Math.round(H * scale)); sizeScale = scale; if (el.width !== w || el.height !== h) { el.width = w; el.height = h; el.style.width = W + "px"; el.style.height = H + "px"; }
       bg = rgb; gl.viewport(0, 0, w, h); gl.depthMask(true); gl.clearColor(rgb[0], rgb[1], rgb[2], 1); gl.clearDepth(1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); drew = { sprites: 0, lines: 0, mesh: 0 };
     }
-    return { ok, begin, sprites, lines, brain, show(on) { if (el) el.hidden = !on; }, info: () => ({ ok: !!gl && !dead, ...drew, renderer: gl ? gl.getParameter(gl.VERSION) : null }), pixel(x, y) { const d = new Uint8Array(4); gl.readPixels(Math.round(x * sizeScale), el.height - 1 - Math.round(y * sizeScale), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, d); return [...d]; }, flushRead() { gl.finish(); }, destroy() { if (gl) { const x = gl.getExtension("WEBGL_lose_context"); if (x) x.loseContext(); } if (el) el.remove(); el = null; gl = null; } };
+    return { ok, begin, sprites, lines, brain, field, show(on) { if (el) el.hidden = !on; }, info: () => ({ ok: !!gl && !dead, ...drew, renderer: gl ? gl.getParameter(gl.VERSION) : null }), pixel(x, y) { const d = new Uint8Array(4); gl.readPixels(Math.round(x * sizeScale), el.height - 1 - Math.round(y * sizeScale), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, d); return [...d]; }, flushRead() { gl.finish(); }, destroy() { if (gl) { const x = gl.getExtension("WEBGL_lose_context"); if (x) x.loseContext(); } if (el) el.remove(); el = null; gl = null; } };
   })();
   // used where it pays: the 3D graph and the 3D brain, in a pane big enough to look at
-  const glWanted = () => !opts.compact && !opts.embed && st.three && (st.view === "3d" || neural());
+  const glWanted = () => !opts.compact && !opts.embed && st.three && (st.view === "3d" || neural() || st.view === "weather");
   const glOn = () => glWanted() && GL.ok();
 
   // what the frame sends: grown as needed, and reused so a frame makes no garbage
@@ -174,6 +189,12 @@ void main() { vec3 N = normalize(v_n); float facing = abs(N.z), fres = pow(1.0 -
     return { order, badges };
   }
 
+  // ---- Weather in 3D: the pressure field as ground, a low a valley and a high a hill, so the slope you see is what drives the wind
+  const WEATHER_RELIEF = 48;
+  function drawWeatherGL(Wd, R) {
+    GL.begin([0.043, 0.07, 0.125], glScale());
+    GL.field(Wd, () => { const { E, gw: w, gh: h, CELL, x0, y0 } = Wd, top = Math.max(0.3, ...E.map(Math.abs)), data = new Float32Array(w * h * 8); for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const k = j * w + i, o = k * 8, dx = -(E[j * w + Math.min(w - 1, i + 1)] - E[j * w + Math.max(0, i - 1)]) * WEATHER_RELIEF, dy = -(E[Math.min(h - 1, j + 1) * w + i] - E[Math.max(0, j - 1) * w + i]) * WEATHER_RELIEF, nz = 2 * CELL, L = Math.hypot(dx, dy, nz); data[o] = x0 + i * CELL; data[o + 1] = y0 + j * CELL; data[o + 2] = -E[k] * WEATHER_RELIEF;   /* z runs away from the camera: low pressure sinks */ data[o + 3] = dx / L; data[o + 4] = dy / L; data[o + 5] = -nz / L; data[o + 6] = E[k] / top; data[o + 7] = 0; } return { data, w, h }; }, { rot: R, light: worldLight(R) });
+  }
   // ---- the brain: real anatomy and a real neuron model. See src/science.js for both and tests/test_science.js for what holds them.
   // The network: each note a neuron, each link a synapse. Spikes take the time the axon takes: 300 units is the brain's 84 mm half
   // length, and conduction is 3 m/s short range, up to 12 m/s for the long myelinated tracts. Slowed 25 times so you can follow one.
@@ -219,5 +240,17 @@ void main() { vec3 N = normalize(v_n); float facing = abs(N.z), fres = pow(1.0 -
     GL.brain(BRAIN_SIZE, { ...M, front: true });
     return order;
   }
-  { const b = $(".vg-neurobtn"), c = $(".vg-neurocard"); b.onclick = e => { e.stopPropagation(); c.hidden = !c.hidden; b.setAttribute("aria-expanded", String(!c.hidden)); }; }
+  // How to read this, for every view that shows real results in a picture: what each mark and number means, one click away
+  const VIEW_HELP = {
+    neural: [["Nodes, links, lobes, maps, bridges", "What's on screen: notes, people and notes to write; the links between notes; your topics; your map notes; and notes that join two topics."], ["Hz", "The firing rate, measured live in 3D: spikes per note, per simulated second. Real cortex runs at a few hertz. A note you've worked on lately gets more input, so it fires more."], ["LIF network", "Each note is a model neuron and each link a synapse. A neuron charges up, fires at a threshold, then resets (leaky integrate-and-fire). The spikes come from that model, not from your edits one by one."], ["80/20 E/I", "80% of cells excite the cells they link to and 20% inhibit them, as in real cortex. Spikes in a note's colour excite. Pale blue spikes inhibit."], ["×1/25 speed", "Slowed 25 times so you can follow a spike along a link. Long links carry faster, as long nerve fibres do."], ["Shape", "Proportions and lobes are a real brain's, and lobes hold topics in their real shares of cortex. Which lobe a topic lands in means nothing about the topic. The notes in the centre, in the thalamus, are the ones that connect most. Notes with no topic sit in the cerebellum."], ["Links", "Curves under the surface. Links between the two halves cross in the middle, at the corpus callosum."], ["Under each topic", "Its notes, how many you touched this week, and the share gone stale."]],
+    foodweb: [["Height", "A note's trophic level (MacKay, Johnson & Sansom). A note feeds on what it links to, and each note gets the height that makes its links climb by as close to one level as they can. High notes rest on chains of others; low ones are what the rest stands on."], ["Mean level, top", "The average height of notes that link to something, and the highest in the web. Longer chains mean more rests on more."], ["Incoherence", "How far the links are from a clean climb. 0 is a true hierarchy, every link up exactly one level. 1 is no direction at all, as in links that go round in circles."], ["Connectance", "The share of all possible links that exist. Real food webs run about 3 to 30%; a vault is far sparser, since it has many more species."], ["Sparks", "Energy climbing from a note to what links to it. Grey sparks start from a stale note, and turn what they reach grey for a while: out-of-date knowledge moving up the chain."], ["Red rings", "Stale notes that at least four others link to: if they're wrong, a lot rests on them."]],
+    weather: [["Pressure", "Each topic's anomaly: how much more or less your dailies mention it lately than usual. L is busier than usual, H quieter. Only the shape is real: there's no millibar reading behind it."], ["Isobars", "Lines of equal pressure. Closer lines mean a sharper change between neighbouring topics. In 3D the same field is ground: a low is a valley, a high a hill."], ["Wind", "Follows real surface wind: along the isobars, counter-clockwise round a low and clockwise round a high, leaning 25 degrees in towards the low (Buys Ballot's law)."], ["Fronts", "Two topics that keep coming up together. Red with half-moons: both heating up. Blue with triangles: one heating, one cooling. Both: neither stands out."], ["Storm", "A topic whose latest week is at least 2.5 times its usual, with at least 4 mentions."]],
+    cosmos: [["Orbits", "Real Newtonian gravity: notes linked to a star orbit it, as true ellipses, and Kepler's laws hold. Further out takes longer."], ["Stars, planets, black holes", "You place these. A star takes a note and what it links to; a planet takes the matches of a search; a black hole pulls in what's stale; a repulsor pushes notes away."], ["Nebula, belt, comets", "The nebula is unlinked notes. The belt is notes to write. Comets are notes from recent dailies, on long ellipses."], ["Figures", "Pick a body for its mass, orbit distance a, shape e and lap time."]],
+    subway: [["Lines", "Each topic is a line."], ["Stations", "Notes. A black ring is an interchange: a note connecting topics. The busier the note, the bigger the station."]],
+    clock: [["The rings", "When each topic comes up in your dailies, by weekday and by month. Hotter means more mentions then. A count of mentions, not hours worked."]],
+    radar: [["Blips", "Notes with open tasks. The nearer the centre, the longer its oldest task has waited."], ["Next step", "Click a blip to tick its tasks off."]],
+    "3d": [["Moving", "Drag to orbit; the wheel flies in and out, so near notes pass you and far ones barely move."], ["Size", "How many routes between other notes run through it."], ["Floor", "Shadows sit under the notes and show how high each one is. The height itself comes from the layout: linked notes pull together, and it has no meaning of its own."]],
+  };
+  function syncViewHelp() { const b = $(".vg-viewhelp"), c = $(".vg-viewcard"), help = !opts.compact && !isGame() && VIEW_HELP[st.view]; b.hidden = !help; if (c.dataset.view !== st.view) { c.hidden = true; b.setAttribute("aria-expanded", "false"); c.dataset.view = st.view; c.innerHTML = help ? `<dl>${help.map(([t, d]) => `<dt>${esc(t)}</dt><dd>${esc(d)}</dd>`).join("")}</dl>` : ""; } }
+  { const b = $(".vg-viewhelp"), c = $(".vg-viewcard"); b.onclick = e => { e.stopPropagation(); c.hidden = !c.hidden; b.setAttribute("aria-expanded", String(!c.hidden)); }; }
   const neuroRate = () => { if (!neuro || !neuro.net.time()) return 0; return neuro.net.total() / Math.max(1, neuro.list.length) / (neuro.net.time() / 1000); };

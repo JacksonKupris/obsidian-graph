@@ -356,6 +356,7 @@
       applyMapLayout(true);
       animateTo({ cx: 0, cy: 0, cz: 0, yaw: 0, pitch: 0 }, 600);
       fitted = false; afterMorph(() => { fitted = true; fit(mapFitPred(), 700); }, 1000);
+      if (view === "weather") { layWeather(); syncDim(); }
       introduce(view, SCENES[view] ? SCENES[view].toast : { subway: "Subway — each topic is a line; black-ringed stations connect topics",
         weather: "Weather — L is a topic busier than usual in your dailies, H a quiet one; storms are this week's bursts, fronts join topics that come up together",
         foodweb: "Food web — producers (relied on, rarely link out) at the bottom, logs and plans at the top; red rings are relied-on notes gone stale",
@@ -365,7 +366,7 @@
       if (was === "2d") nodes.forEach(n => { n.z = n.z0 * 0.6; });
       brainLayout(true);
       animateTo({ k: Math.min(cam.k, 1), tx: 0, ty: 0, cx: 0, cy: 0, cz: 0, pitch: st.angles.neural === "flat" ? 0 : -0.25, yaw: 0 }, 1400);
-      layNeural();
+      layNeural(); syncDim();   // the toggle was set before this, from whatever view came before
       fitted = false; afterMorph(() => { fitted = true; fit(n => !special(n), 900); }, 1500);
       toast("Neural view — lobes are topics, the core holds your bridge notes");
     } else {
@@ -617,13 +618,15 @@
         info: () => GL.info(),
         // two spheres at one spot, in both drawing orders: the depth buffer decides, so the near (red) one must show either way. Pixels are read in the same task, before the page composites.
         depthCheck() { if (!GL.ok()) return null; const put = (a, b) => { GL.begin([0, 0, 0], 1); glSn = 0; for (const [d, c] of [a, b]) putSprite(W / 2, H / 2, d, 60, c, 1, 0, 0); GL.sprites("lit", glS, glSn, { light: [0, 0, -1], dark: true }); glSn = 0; return GL.pixel(W / 2, H / 2); }, near = [0.3, [1, 0, 0]], far = [0.35, [0, 0, 1]], out = { nearLast: put(far, near), nearFirst: put(near, far) }; dirty = true; kick(); return out; },
+        pixelAt(fx, fy) { const c = document.querySelector(".vg-gl"); draw(performance.now()); return GL.pixel(fx * c.clientWidth, fy * c.clientHeight); },
+        weatherGround() { const W0 = mapCache.weather; if (!W0) return null; let lo = 0, hi = 0; W0.E.forEach((v, i) => { if (v < W0.E[lo]) lo = i; if (v > W0.E[hi]) hi = i; }); const at = (i, z) => proj(W0.x0 + (i % W0.gw) * W0.CELL, W0.y0 + Math.floor(i / W0.gw) * W0.CELL, z, rot()).depth, rise = i => at(i, -W0.E[i] * WEATHER_RELIEF) - at(i, 0); return { low: rise(lo), high: rise(hi), spread: W0.E[hi] - W0.E[lo] }; },   // how far each sits behind (+) or in front of (-) the flat plane
         shadeCheck() { if (!GL.ok()) return null; GL.begin([0, 0, 0], 1); glSn = 0; putSprite(W / 2, H / 2, 0.3, 100, [0.8, 0.8, 0.8], 1, 0, 0); GL.sprites("lit", glS, glSn, { light: [-0.5, -0.8, -0.4], dark: false }); glSn = 0; const lit = GL.pixel(W / 2 - 40, H / 2 - 60), away = GL.pixel(W / 2 + 40, H / 2 + 60); dirty = true; kick(); return { lit: lit[0], away: away[0] }; },
       },
       neuro() { const N = neuro; if (!N) return { spikes: 0, ok: false }; const P = N.net.P; let ok = true; for (const v of N.net.V) if (!isFinite(v) || v > P.threshold + 40 || v < -200) ok = false; return { spikes: N.net.total(), hz: neuroRate(), ok, n: N.list.length, time: N.net.time(), morph: !!morph, vMax: Math.max(...N.net.V), vMean: N.net.V.reduce((x, y) => x + y, 0) / N.net.V.length, shown: neuroSpikes.length }; },
       drawNow() { if (!W) return null; const t0 = performance.now(); draw(performance.now()); dirty = false; return performance.now() - t0; },   // tests: a frame now, its ms
       views: () => [...Object.keys(GRAPH_INFO), ...Object.keys(MAPS)], lenses: () => Object.keys(LENSES), openLens, st, cam, active: () => active, P, alpha: () => alpha, layouts, setView, scenes: () => SCENES, drawMs: () => drawMs, maps: () => mapCache, cos: () => cos, nodes, nb, replay: () => replay, visible, rules: VGRules },
     syncNext: syncNextBtn,
-    destroy() { persistNow(); destroyed = true; clearTimeout(persistTimer); 
+    destroy() { persistNow(); destroyed = true; GL.destroy(); clearTimeout(persistTimer); 
       if (RM && RM.removeEventListener) RM.removeEventListener("change", onReduced);
       win.removeEventListener("keyup", keyUp, true); win.removeEventListener("blur", releaseKeys); root.ownerDocument.removeEventListener("visibilitychange", onHidden);
       cancelAnimationFrame(raf); ro.disconnect(); if (dprQuery) dprQuery.removeEventListener("change", dprChanged); if (io) io.disconnect(); root.innerHTML = ""; root.classList.remove("vg-root", "has-inspector", "vg-side-hidden", "vg-side-open", "is-neural", "is-compact", "is-mobile", "is-playing"); },

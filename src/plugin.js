@@ -124,6 +124,7 @@ class VaultGraphView extends ItemView {
       }),
       sharedStore: this.plugin.sharedStore(),
       taskHistory: () => this.plugin.taskHistory(),
+      outLinks: () => this.app.metadataCache.resolvedLinks,
       mocReport: { load: () => this.plugin.loadMocReport(), tick: (line, on) => this.plugin.tickMocRow(line, on),
                    apply: Platform.isDesktopApp ? () => this.plugin.applyMocReport() : undefined },
       saveBinary: (notePath, buf) => this.plugin.saveBinary(notePath, buf),

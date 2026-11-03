@@ -458,7 +458,7 @@
   // one short sentence per step, each about the control it points at
   const TOUR = [
     { sel: ".vg-nextbtn", title: "The next step", text: "The one thing to do now. It opens Vault HQ at that step." },
-    { sel: ".vg-pickbtn", title: "Views and lenses", text: "Draw the vault another way (2D, 3D, City, Cosmos…) or open a lens: a focused list with buttons that fix what it finds. Press M." },
+    { sel: ".vg-pickbtn", title: "Views and lenses", text: "Draw the vault another way (2D, 3D, Neural, Cosmos…) or open a lens: a focused list with buttons that fix what it finds. Press M." },
     { sel: ".vg-searchbtn", title: "Search", text: "Jump to any note, topic or saved view. Press / or Ctrl K." },
     { sel: ".vg-reviewbtn", title: "Today's review", text: "One small improvement at a time: a link to add, a note to put on its map, a note to write." },
     { sel: ".vg-toggle", title: "Insights", text: "What changed since the last analysis, your topics and the gaps between them. Tap a count to see those notes." },
@@ -553,7 +553,7 @@
       const item = (sw, t) => `<span class="vg-lg-item">${sw}${t}</span>`;
       $(".vg-legend").innerHTML = SCENES[st.view] ? (SCENES[st.view].legend ? SCENES[st.view].legend(item) : "") : st.view === "subway" ? item(`<i class="vg-lg-line" style="height:4px;background:${colorOf(0)}"></i>`, "line = topic") + item(`<i class="vg-lg-stn"></i>`, "note") + item(`<i class="vg-lg-stn is-x"></i>`, "connects topics")
         : st.view === "weather" ? item("<b style='color:#b91c1c'>L</b>", "busier than usual") + item("<b style='color:#1d4ed8'>H</b>", "quieter") + item("⛈", "burst this week") + item("<i class='vg-lg-line' style='border-color:#dc2626'></i>", "front = come up together")
-        : st.view === "foodweb" ? item("↑", "producers at the bottom, logs at the top") + item("<b style='color:#f87171'>◯</b>", "endangered: relied on, stale")
+        : st.view === "foodweb" ? item("↑", "height is trophic level, the base at the bottom") + item("<b style='color:#f87171'>◯</b>", "endangered: relied on, stale")
         : st.view === "clock" ? item("◔", "ring = topic") + item("<i class='vg-lg-win'></i>", "brighter = more of its mentions")
         : st.view === "radar" ? item("<b style='color:#22c55e'>●</b>", "note with open tasks") + item("<b style='color:#f87171'>●</b>", "oldest task 90+ days") + item("↻", "click a blip to tick off")
         : item(`<i class="vg-lg-bld"></i>`, "height = relied on") + item(`<i class="vg-lg-win"></i>`, "lit = recent activity") + item(`<i class="vg-lg-bld is-stale"></i>`, "grey = stale") + item(`<i class="vg-lg-lot"></i>`, "empty lot = not written") + item("<b style='color:#ef4444'>•</b>", "beacon = open tasks") + item("🏛", "town hall = the topic's map");
@@ -594,7 +594,6 @@
   function renderHud() {
     if (!neural()) return;
     const n = st.selected && byId[st.selected];
-    { const b = $(".vg-neurobtn"), on = st.three && glOn(); b.hidden = !on; if (!on) { $(".vg-neurocard").hidden = true; b.setAttribute("aria-expanded", "false"); } }
     $(".vg-hud-title").innerHTML = `<b>VAULT // NEURAL MAP</b><span>${esc(DATA.vault || "").toUpperCase()} · ${esc(DATA.date)} · ${st.vision.toUpperCase()}</span>` +
       `<span>NODES ${active.length} · LINKS ${visLinks.filter(l => l.kind === "link").length} · LOBES ${DATA.clusters.length} · MAPS ${mocs.length} · BRIDGES ${nodes.filter(n => n.bridge).length}</span>` + (st.three && glOn() ? `<span>LIF NETWORK · 80/20 E/I · ${neuroRate().toFixed(1)} HZ · ×1/${NEURO_SLOW} SPEED</span>` : "");
     const p = n && P.get(n.id);
