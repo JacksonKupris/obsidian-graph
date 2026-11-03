@@ -57,6 +57,7 @@
     const b = e.target.closest("button, [data-closedrawer], [data-peekclose]"); if (!b || !el.contains(b) || b.disabled) return;
     const d = b.dataset;
     if (d.bringback) bringBack(d.bringback);
+    if (d.planback) planBack(d.planback);
     else if (d.nextstep !== undefined) goNext();
     else if (d.peek) peekOpen(d.peek);
     else if (d.peeklink) peekOpen(d.peeklink, [...peek.back, peek.path]);

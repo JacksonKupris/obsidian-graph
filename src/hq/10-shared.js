@@ -122,6 +122,12 @@
     const urgent = held.filter(it => it.urgent).length;
     return `<details class="vg-hq-sec vg-hq-putoff"${urgent ? " open" : ""}><summary><span>Put off${urgent ? ` · <b class="vg-hq-jobbad">${urgent} urgent</b>` : ""}</span><span>${held.length}</span></summary>${held.map(it => `<div class="vg-hq-item${it.urgent ? " is-old" : ""}"><span class="vg-hq-kind">${icon(KIND_ICON[it.kind] || "clock", 16)}</span><div class="vg-hq-txt"><b>${esc(it.title)}</b><small>${esc(it.until ? `Back on ${shortDate(it.until)}` : "Back tomorrow")} · ${esc(it.why || "")}</small></div><div class="vg-hq-acts vg-hq-keepacts"><button class="vg-hq-btn vg-hq-btn-sm" data-bringback="${esc(it.key)}">Bring back</button></div></div>`).join("")}</details>`;
   }
+  // what the plan leaves out because it's already done, with a way back for the one that really came back
+  function planDoneHtml() {
+    const done = VGRules.hqPlanDone(DATA, { review: STATE.review, today: day() }); if (!done.length || !api.hqMark) return "";
+    return `<details class="vg-hq-sec vg-hq-putoff vg-hq-plandone"><summary><span>Already done from the plan</span><span>${done.length}</span></summary>${done.map(it => `<div class="vg-hq-item"><span class="vg-hq-kind">${icon("check", 16)}</span><div class="vg-hq-txt"><b>${esc(it.title)}</b><small>Done ${esc(shortDate(it.doneOn))}</small></div><div class="vg-hq-acts vg-hq-keepacts"><button class="vg-hq-btn vg-hq-btn-sm" data-planback="${esc(it.key)}">Bring back</button></div></div>`).join("")}</details>`;
+  }
+  async function planBack(key) { STATE = { ...STATE, review: { ...(STATE.review || {}), hq: { ...((STATE.review || {}).hq || {}), [key]: `open:${day()}` } } }; gone.delete(key); relist(); render(); await api.hqMark(key, "open"); }
   async function bringBack(key) { const marks = { ...((STATE.review || {}).hq || {}) }; delete marks[key]; STATE = { ...STATE, review: { ...(STATE.review || {}), hq: marks } }; gone.delete(key); relist(); render(); await api.hqMark(key, null); }
   async function toggleFocus(key) {
     const keys = VGRules.focusKeys(STATE.review, day()), on = keys.includes(key);
@@ -175,7 +181,7 @@
   }
   // kinds hidden with Less like this, each with its way back
   const hiddenKindsLine = () => { const kinds = ((STATE.review || {}).hiddenKinds || []); return kinds.length && api.hqReact ? `<p class="vg-hq-lede vg-hq-hiddenkinds">Hidden: ${kinds.map(k => `${esc(VGRules.kindWords(k))} <button class="vg-hq-btn vg-hq-btn-sm" data-showkind="${esc(k)}">Show</button>`).join(" ")}</p>` : ""; };
-  const duplicateKey = it => VGRules.plainTask(it.text || it.title).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const duplicateKey = it => VGRules.taskWords(it.text || it.title);
   function taskRows(items) {
     const groups = new Map();
     items.forEach(it => { const key = ["task", "carried", "plan"].includes(it.kind) ? duplicateKey(it) : it.key; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(it); });
