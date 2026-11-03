@@ -144,7 +144,8 @@
     levels.forEach((ms, L) => { ms.sort((a, b) => ci(a.cluster) - ci(b.cluster) || importance(b) - importance(a));
       const rows = Math.max(1, Math.min(5, Math.ceil(ms.length * 24 / 1800))), cols = Math.max(1, Math.ceil(ms.length / rows)), width = Math.min(1800, Math.max(600, cols * 26));
       ms.forEach((n, i) => { const row = i % rows, j = Math.floor(i / rows); pos.set(n.id, [-width / 2 + (j + 0.5 + (row % 2) * 0.5) * width / cols, dg ? yOf(levelOf(n)) + (row - (rows - 1) / 2) * Math.min(7, step / 8) : 420 - L * 210 + row * 30 - (rows - 1) * 15]); }); });   // staggered, so topics read as bands of colour
-    const endangered = new Set(ns.filter(n => n.inlinks >= 4 && staleFor(n, Q.stale_days)).map(n => n.id));
+    const reliedOn = new Map(); if (dg) dg.edges.forEach(([, to]) => reliedOn.set(dg.ids[to], (reliedOn.get(dg.ids[to]) || 0) + 1));   // links written into a note, when the direction is known
+    const endangered = new Set(ns.filter(n => (dg ? reliedOn.get(n.id) || 0 : n.inlinks) >= 4 && staleFor(n, Q.stale_days)).map(n => n.id));
     return { pos, levels: levels.map(l => l.length), endangered, stats, step };
   }
   // Sparks climb the links from the notes relied on to the notes that use them, more often into busy notes. A spark
@@ -182,7 +183,7 @@
     const { R, litSet, font, k } = mapFrame(), F = mapCache.foodweb;
     backdrop("#14231b", "#22331c"); if (!F) return;
     const NAMES = F.stats ? F.levels.map((_, L) => (L === 0 ? "Level 1 · the base" : `Level ${L + 1}`)) : ["Producers · relied on, link out little", "Primary consumers", "Mixed", "Secondary consumers", "Apex · logs, plans, task lists"];
-    if (F.stats) setSceneStat(`mean level ${F.stats.mean.toFixed(1)} · top ${F.stats.maxLevel.toFixed(1)} · incoherence ${F.stats.incoherence.toFixed(2)} · connectance ${(F.stats.connectance * 100).toFixed(1)}%`);
+    if (F.stats) setSceneStat(`mean level ${F.stats.mean.toFixed(1)} · top ${F.stats.maxLevel.toFixed(1)} · incoherence ${F.stats.incoherence.toFixed(2)} · connectance ${(F.stats.connectance * 100).toFixed(1)}% · written links only`);
     NAMES.forEach((nm, L) => { const p = scr(0, 420 - L * F.step, R), half = F.step * 0.45; if (L % 2 === 0) { ctx.fillStyle = "rgba(255,255,255,.03)"; ctx.fillRect(0, p.y - half * k, W, 2 * half * k); }
       if (!F.levels[L]) return; const t = `${nm} (${F.levels[L]})`, f = `700 10.5px ${font}`, y = p.y - half * 0.8 * k;
       ctx.font = f; freeSpot(14, y - 8, ctx.measureText(t).width + 6, 16);   // reserved, so note labels steer around the level's name

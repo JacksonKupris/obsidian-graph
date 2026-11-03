@@ -49,14 +49,14 @@
     const animFps = mapView() && (!reducedMotion() || (SCENES[st.view] && SCENES[st.view].game)) ? ANIM_MAPS[st.view] || 0 : 0;
     if (animFps) {
       const busy = morph || tween || drag, phone = MOBILE && !(SCENES[st.view] && SCENES[st.view].game), fps = busy ? 0 : !document.hasFocus() ? 3 : opts.compact ? Math.min(15, animFps) : phone ? Math.min(now - lastInteract > PHONE_REST_MS ? SCENES[st.view] && SCENES[st.view].restFps || 10 : SCENES[st.view] && SCENES[st.view].phoneFps || 20, animFps) : animFps;
-      if (!fps || now - lastMapAnim >= 1000 / fps - 2) { lastMapAnim = now; dirty = true; }
+      const shown = lensFps(fps); if (!shown || now - lastMapAnim >= 1000 / shown - 2) { lastMapAnim = now; dirty = true; }
       more = true;
     }
     if (neural()) {   // living view: pulses + slow drift while idle
       // Frame budget: full rate while you're moving it, otherwise 30 fps (15 in small panes and the
       // home-screen card), and 3 fps while Obsidian isn't the focused window.
       const busy = morph || tween || drag || cam.spin;
-      const fps = busy ? 0 : !document.hasFocus() ? 3 : opts.compact ? 15 : 30;
+      const fps = busy ? 0 : lensFps(!document.hasFocus() ? 3 : opts.compact ? 15 : 30);
       const dt = Math.min(250, now - (lastNeural || now));
       if (!fps || dt >= 1000 / fps) {
         if (st.three && !opts.compact && !drag && !tween && !reducedMotion() && now - lastInteract > 3500) cam.yaw += 0.0016 * dt / 16.7;   // not in small panes: it drifts a few notes out of view
@@ -92,6 +92,8 @@
   const narrow = () => root.clientWidth < 760;
   // a lens sits beside the view on a wide pane (vault_graph_view.css, same width), so choosing a row shows it there; narrower, the lens covers the view and closes first
   const lensBeside = () => root.clientWidth >= 1100;
+  // a lens over the picture leaves little to see, and one beside it has your attention: the picture needn't animate at full rate
+  const lensFps = fps => (!fps || !lensKey ? fps : Math.min(fps, lensBeside() ? 12 : 3));
   // in a narrow pane the side panel is a drawer over the toolbar: anything that opens a panel or acts on the graph closes it
   const closeDrawer = () => { if (narrow()) root.classList.remove("vg-side-open"); };
 

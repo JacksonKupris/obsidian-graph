@@ -75,7 +75,7 @@ function hqData(today) {
     if (H.automation_status && rel.startsWith(H.automation_status + "/") && e.name.endsWith(".json")) { try { files.push({ path: rel, json: JSON.parse(fs.readFileSync(p, "utf8")) }); } catch (err) { /* half-written */ } return; }
     if (!e.name.endsWith(".md")) return;
     const text = fs.readFileSync(p, "utf8");
-    if (VGRules.hqKind(rel, VGRules.frontOf(text), day)) files.push({ path: rel, text });
+    if (VGRules.hqKind(rel, VGRules.frontOf(text), day, /^\s*[-*+] \[ \]/m.test(text))) files.push({ path: rel, text });
   });
   walk(dir);
   return VGRules.hqGather(files, { today: day });

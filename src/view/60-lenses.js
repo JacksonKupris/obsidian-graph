@@ -694,8 +694,9 @@
     const F = mapCache.foodweb; if (!F) return new Set();
     if (depMemo && depMemo.F === F && depMemo.links === links.length && depMemo.m.has(id)) return depMemo.m.get(id);
     if (!depMemo || depMemo.F !== F || depMemo.links !== links.length) depMemo = { F, links: links.length, m: new Map() };
-    const y = i => (F.pos.get(i) || [0, -1e9])[1], seen = new Set([id]), q = [id];
-    while (q.length) { const x = q.shift(); for (const m of nb[x] || []) if (!seen.has(m) && byId[m] && !special(byId[m]) && !byId[m].isolated && y(m) < y(x) - 60) { seen.add(m); q.push(m); } }
+    const y = i => (F.pos.get(i) || [0, -1e9])[1], seen = new Set([id]), q = [id], sg = directedNotes() ? spreadGraph() : null;
+    const users = x => { if (!sg) return nb[x] || []; const at = sg.at.get(x); return at == null ? [] : sg.adj[at].map(i => sg.ids[i]); };   // who links to x, written links only
+    while (q.length) { const x = q.shift(); for (const m of users(x)) if (!seen.has(m) && byId[m] && !special(byId[m]) && !byId[m].isolated && y(m) < y(x) - 60) { seen.add(m); q.push(m); } }
     seen.delete(id); depMemo.m.set(id, seen); return seen;
   }
   const keystones = () => !mapCache.foodweb ? [] : nodes.filter(n => !special(n) && !n.ghost && !n.isolated && staleFor(n, Q.stale_days))

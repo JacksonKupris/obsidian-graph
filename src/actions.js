@@ -234,9 +234,14 @@ const VGActions = (() => {
   // Several tasks at once (the carried-over sweep): done or cancelled in their own notes, one Undo for all. Done here
   // is not today's work (it was finished some time ago), so nothing goes in the standup.
   function runBatch(items, status, c, from) {
-    const rows = items.map(it => ({ path: it.path, line: it.line, text: it.text }));
+    const rows = items.flatMap(VGRules.taskRowsOf);
     return run({ label: () => (status === "x" ? "Done" : "Cancel"), title: () => from || "",
       run: async () => { const n = await c.api.setTasksStatus(rows, status); return `${status === "x" ? "Done" : "Cancelled"}: ${plural(n, "task")}${from ? ` from ${from}` : ""}`; } }, null, c);
+  }
+  // Tasks into a project's note, with their subtasks: added there and cancelled where they were, as one action with one Undo
+  function runMove(items, to, title, c) {
+    return run({ label: () => "Move", title: () => `to ${title}`,
+      run: async () => { const n = await c.api.moveTasks(items, to); return `Moved ${plural(n, "task")} to ${title}`; } }, null, c);
   }
   // One report row (VGRules.reportRows) ticked to apply ("x") or skipped ("-") in the report itself; the gardener applies
   // the ticked rows and remembers the skipped ones
@@ -279,5 +284,5 @@ const VGActions = (() => {
     return box;
   }
 
-  return { ACTIONS, PROBLEMS, forNote, problems, run, render, archiveFolder, isArchived, nameOf, TODAY, todayWhen, todayLabel, runToday, TODAY_MORE, todayMore, runMore, runBatch, runRow };
+  return { ACTIONS, PROBLEMS, forNote, problems, run, render, archiveFolder, isArchived, nameOf, TODAY, todayWhen, todayLabel, runToday, TODAY_MORE, todayMore, runMore, runBatch, runMove, runRow };
 })();

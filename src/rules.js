@@ -504,13 +504,15 @@ const VGRules = (() => {
   const inDaily = path => String(path).startsWith(R.folders.daily + "/");
   const reportPrefix = path => String(path).startsWith(R.folders.reports + "/") ? (H.reports || []).find(p => stemCase(path).startsWith(p + " ")) : null;
   const automationReport = path => String(path).startsWith(R.folders.reports + "/") ? (H.automations || []).find(a => a.report && stemCase(path).startsWith(a.report)) : null;
+  const OPEN_TASK = /^\s*[-*+] \[ \]/m;
   // which kind of HQ note a path is, or null
-  function hqKind(path, fm, day) {
+  // hasOpen: the note still has an open task. A journal with one stays in HQ however old it is; one with none only for carry_days.
+  function hqKind(path, fm, day, hasOpen) {
     path = String(path); fm = fm || {}; day = day || today();
     if (!H.journal || path.startsWith(R.folders.archive + "/") || path.startsWith(R.folders.templates + "/")) return null;
     const ok = (d, n) => !!d && daysBetween(d, day) >= 0 && daysBetween(d, day) <= n;
     if (inDaily(path)) {
-      if (ok(dateIn(HQ_JOURNAL, path), H.carry_days)) return "journal";
+      if (ok(dateIn(HQ_JOURNAL, path), hasOpen ? Infinity : H.carry_days)) return "journal";
       if (ok(dateIn(HQ_STANDUP, path), H.carry_days)) return "standup";
     }
     const type = String(fm.type || "").toLowerCase();
@@ -532,12 +534,16 @@ const VGRules = (() => {
       if (/^\s*(```|~~~)/.test(l)) { code = !code; return; } if (code) return;
       const h = l.match(/^#{1,6}\s+(.*)/); if (h) { section = h[1].trim(); stack.length = 0; return; }
       const m = l.match(TASK_LINE), indent = (l.match(/^\s*/) || [""])[0].length, sub = indent > 0;
+      if (!m && !/^\s*(?:[-*+]|\d+[.)]) /.test(l)) return;
+      while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop();   // a plain bullet ends the tasks above it too
       if (!m) return;
-      while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop();
       const parent = stack[stack.length - 1], task = { line: i, text: m[4], mark: m[2], section,
         ...(o.nested ? { sub, ...(parent ? { parent: { line: parent.line, title: plainTask(parent.text) } } : {}) } : {}) };
-      if (o.nested || !sub) out.push(task);
-      stack.push({ indent, line: i, text: m[4] });
+      // loose: nothing open goes out of sight. A subtask joins its top open parent (subs, closed and moved with it); with no open
+      // parent, under a finished task or a plain bullet, it's listed in its own right (loose, and under: what it sits under).
+      if (o.loose && sub && m[2] === " ") { const root = stack.find(s => s.mark === " "); if (root) (root.task.subs = root.task.subs || []).push({ line: i, text: m[4] }); else { task.loose = true; if (parent) { task.under = plainTask(parent.text).replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/g, ""); task.underDone = parent.mark !== " "; } } }
+      if (o.nested || !sub || task.loose) out.push(task);
+      stack.push({ indent, line: i, text: m[4], mark: m[2], task });
     });
     return out;
   }
@@ -601,8 +607,8 @@ const VGRules = (() => {
     const newestReport = {};
     for (const f of files || []) {
       if (f.json) { Object.entries(f.json || {}).forEach(([name, run]) => { if (run && (!hq.runs[name] || String(run.last_run) > String(hq.runs[name].last_run))) hq.runs[name] = run; }); continue; }
-      const fm = f.fm || frontOf(f.text), kind = hqKind(f.path, fm, day), name = stemCase(f.path);
-      if (kind === "journal") hq.journals.push({ path: f.path, date: dateIn(HQ_JOURNAL, f.path), tasks: tasksIn(f.text) });
+      const fm = f.fm || frontOf(f.text), kind = hqKind(f.path, fm, day, OPEN_TASK.test(f.text || "")), name = stemCase(f.path);
+      if (kind === "journal") hq.journals.push({ path: f.path, date: dateIn(HQ_JOURNAL, f.path), tasks: tasksIn(f.text, { loose: true }) });
       else if (kind === "standup") hq.standups.push({ path: f.path, date: dateIn(HQ_STANDUP, f.path), plan: HQ_PLAN ? itemsUnder(f.text, HQ_PLAN) : [],
         deviation: Number(fm.deviation_hours) || 0, projects: [].concat(fm["related-projects"] || []).map(plainTask).filter(Boolean) });
       else if (kind === "project") {
@@ -694,19 +700,20 @@ const VGRules = (() => {
     const label = t => plainTask(t) || "(untitled task)";
     const fieldsOf = t => ({ delegated: inlineField(t, H.delegate_field || "delegate"), review: inlineField(t, "review") });
     const todayJournal = canonicalJournal(hq, day);
-    (todayJournal ? [todayJournal] : []).forEach(j => j.tasks.filter(t => t.mark === " ").forEach((t, i) =>
+    (todayJournal ? [todayJournal] : []).forEach(j => j.tasks.filter(t => t.mark === " " && !t.loose).forEach((t, i) =>
       put({ key: `task|${j.path}|${t.text}`, kind: "task", path: j.path, line: t.line, text: t.text, ...fieldsOf(t.text), ids: [j.path], title: label(t.text), why: t.section || "Today's journal", score: 20 - i * 0.01 })));
     const plan = hq.standups.find(s => s.date < day);
     if (plan) plan.plan.forEach((p, i) => put({ key: `plan|${plan.path}|${i}|${p.text}`, kind: "plan", path: plan.path, line: p.line, text: p.text, ids: [plan.path], title: label(p.text), why: `Planned in ${stemCase(plan.path)}`, score: 15 - i * 0.01 }));
     hq.projects.filter(s => s.group === "waiting").forEach(s => { const waited = s.updated ? daysBetween(s.updated, day) : 0;
       put({ key: `approval|${s.path}`, kind: "approval", path: s.path, ids: [s.path], title: s.title, why: `${statusWords(s.status)}${waited > 0 ? ` for ${waited} day${waited === 1 ? "" : "s"}` : ""}`, waited, score: waited > (H.approval_overdue_days || 3) ? 21 : 12 }); });
-    hq.reviews.filter(r => r.status === "waiting" || r.reviewOnly && ["pending", "proposed"].includes(r.status)).forEach(r => put({ key: `review|${r.path}`, kind: "review", path: r.path, ids: [r.path], title: r.reviewOnly ? reportTitle(r.name) : r.title,
+    const reportNames = new Map(); hq.reviews.forEach(r => { if (r.reviewOnly) reportNames.set(reportTitle(r.name), (reportNames.get(reportTitle(r.name)) || 0) + 1); });
+    hq.reviews.filter(r => r.status === "waiting" || r.reviewOnly && ["pending", "proposed"].includes(r.status)).forEach(r => put({ key: `review|${r.path}`, kind: "review", path: r.path, ids: [r.path], title: r.reviewOnly ? (reportNames.get(reportTitle(r.name)) > 1 ? reportTitleTimed(r.name) : reportTitle(r.name)) : r.title,
       why: r.reviewOnly ? "Review only · no rows applied" : r.task ? `Draft for: ${r.task}` : "Draft waiting", reviewOnly: !!r.reviewOnly, score: 11.5 }));
     hqJobs(hq, o.now).filter(j => j.state === "failed" || j.state === "late").forEach(j => put({ key: `job|${j.name}|${j.last}`, kind: "job", path: H.automations_note, name: j.name, ids: [],
       title: `${j.name}: ${j.state === "failed" ? "failed" : "late"}`, why: j.summary || j.when, score: j.state === "failed" ? 13 : 10 }));
     [...new Set(hq.journals.map(j => j.date).filter(d => d < day))].map(d => canonicalJournal(hq, d)).filter(Boolean).forEach(j => { const age = daysBetween(j.date, day);
-      j.tasks.filter(t => t.mark === " ").forEach(t => put({ key: `carried|${j.path}|${t.text}`, kind: "carried", path: j.path, line: t.line, text: t.text, date: j.date, age, ...fieldsOf(t.text), ids: [j.path],
-        title: label(t.text), why: `From ${j.date} · ${age} day${age === 1 ? "" : "s"} ago`, score: Math.max(1, 9 - age * 0.25) })); });
+      j.tasks.filter(t => t.mark === " ").forEach(t => put({ key: `carried|${j.path}|${t.text}`, kind: "carried", path: j.path, line: t.line, text: t.text, date: j.date, age, ...fieldsOf(t.text), ids: [j.path], section: t.section, subs: t.subs, under: t.under, underDone: t.underDone,
+        title: label(t.text), why: `From ${j.date} · ${age} day${age === 1 ? "" : "s"} ago${t.under ? ` · under ${t.under}` : ""}`, score: Math.max(1, 9 - age * 0.25) })); });
     (hq.inbox || []).forEach(n => put({ key: `inbox|${n.path}`, kind: "inbox", path: n.path, ids: [n.path], title: n.title || n.name, why: "In the inbox", score: 3 }));
     hq.backlog.forEach(b => put({ key: `backlog|${b.path}|${b.text}`, kind: "backlog", path: b.path, line: b.line, text: b.text, ids: [b.path], title: label(b.text), why: stemCase(b.path), score: 3 }));
     hq.reports.filter(r => r.open > 0 && !r.job).forEach(r => put({ key: `report|${r.path}`, kind: "report", path: r.path, ids: [r.path], title: `${r.name}: ${r.open} row${r.open === 1 ? "" : "s"} to tick`, why: "Tick the rows to apply", score: 2.8 }));
@@ -736,8 +743,8 @@ const VGRules = (() => {
   }
   // A new task in a project's note: after the tasks under its task heading, or in a Tasks section of its own, ahead of the
   // Related section the gardener keeps at the end. Headings inside a code block and frontmatter don't count.
-  function addProjectTask(text, task) {
-    const nl = text.includes("\r\n") ? "\r\n" : "\n", lines = text.split(/\r?\n/), line = `- [ ] ${task.trim()}`;
+  function addProjectTask(text, task, subs) {
+    const nl = text.includes("\r\n") ? "\r\n" : "\n", lines = text.split(/\r?\n/), line = [`- [ ] ${task.trim()}`, ...(subs || []).map(s => `    - [ ] ${s.trim()}`)].join(nl);
     let i = 0; if (lines[0] === "---") { const close = lines.indexOf("---", 1); if (close > 0) i = close + 1; }
     let fence = false, at = -1, related = -1;
     for (; i < lines.length; i++) {
@@ -814,11 +821,11 @@ const VGRules = (() => {
     return out;
   }
   // The morning brief: short sentences of plain fact, what you'd want to know before starting
-  function hqBrief(data, list, review, day, threads) {
+  function hqBrief(data, list, review, day, threads, hour = 12) {
     const out = [], yesterday = localDay(new Date(new Date(`${day}T12:00:00`).getTime() - 864e5)), done = doneToday(data, review, yesterday).length, today = doneToday(data, review, day).length;
     if (today) out.push(`${today} done so far today.`); else if (done) out.push(`${done} done yesterday.`);
     const focus = hqFocusItems(list, review, day), plan = list.filter(i => i.kind === "plan" || i.kind === "task").length;
-    if (focus.length) out.push(`Focus: ${focus.map(i => i.title).join("; ")}.`); else if (plan) out.push(`${plan} planned for today, none picked yet.`);
+    if (focus.length) out.push(`Focus: ${focus.map(i => i.title).join("; ")}.`); else if (plan && hour < STANDUP_HOUR) out.push(`${plan} planned for today, none picked yet.`);
     const top = (threads || []).find(t => t.project || t.area); if (top && top.items.length > 1) out.push(`Most open work is in ${top.title} (${top.items.length}).`);
     const approvals = list.filter(i => i.kind === "approval"), reviews = list.filter(i => i.kind === "review"); if (approvals.length || reviews.length) out.push(`${[approvals.length ? `${approvals.length} approval${approvals.length === 1 ? "" : "s"}` : "", reviews.length ? `${reviews.length} draft${reviews.length === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ")} waiting on you.`);
     const failed = list.filter(i => i.kind === "job"); if (failed.length) out.push(`${failed.length} automation${failed.length === 1 ? " needs" : "s need"} attention.`);
@@ -1143,6 +1150,8 @@ const VGRules = (() => {
   const wikiraceScore = ({ hops, par, hubs = 0, traps = 0, seconds = 0 }) => Math.max(0, 1000 - Math.max(0, hops - par) * 100 - hubs * 50 - traps * 75 - Math.floor(seconds));
   // A generated report's file name as people read it: its date stays, the machine's run stamp and host don't.
   const reportTitle = name => String(name).replace(/(\d{4}-\d{2}-\d{2})\s+\d{6}-\d+(\s+\S+)?$/, "$1");
+  // the same, with the time it ran: for two reports from one day
+  const reportTitleTimed = name => String(name).replace(/(\d{4}-\d{2}-\d{2})\s+(\d{2})(\d{2})\d{2}-\d+(\s+\S+)?$/, "$1 $2:$3");
   // What HQ's search understands besides words: kind:, status:, system:, tag:, in: and is:stale, is:old or is:focus. Only names
   // it knows are filters, so "note: this" or a time like 10:30 stays plain words.
   const SEARCH_FILTERS = ["kind", "status", "system", "tag", "in", "is"];
@@ -1245,6 +1254,7 @@ const VGRules = (() => {
     const job = needs.find(i => i.kind === "job"); if (job) return { key: "job", label: `Check ${job.title}`, screen: "needs", target: `.vg-hq-item[data-key^='job|']` };
     if (hour >= STANDUP_HOUR && done > 0 && !standup) return { key: "standup", label: "Start today's standup", screen: "wrap", target: "[data-makestandup]" };
     if (focus.length) return { key: "do", label: `Focus on: ${focus[0].title}`, screen: "today", target: ".vg-hq-next [data-session]" };
+    if (hour >= STANDUP_HOUR && done > 0) return { key: "wrap", label: "Wrap up today", screen: "wrap", target: "[data-makestandup]" };
     if (today.length) return { key: "plan", label: "Pick today's focus", screen: "today", target: ".vg-hq-next .vg-hq-star" };
     if (needs.length) return { key: "needs", label: `Clear Needs you (${needs.length})`, screen: "needs", target: ".vg-hq-sec .vg-hq-item[data-key]" };
     return { key: "capture", label: "Capture what's next", screen: "today", target: ".vg-hq-captureinput" };
@@ -1273,7 +1283,31 @@ const VGRules = (() => {
     return marks.length ? applyLedgers(follow(shared), marks) : shared;
   }
 
-  return { plainSnippet, whyWords, hqPutOff, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  // A note's outgoing links, less those in generated sections (the rules file's generated_link_sections: "Related", similar-meaning
+  // lists and the like), which say two notes are alike rather than that one relies on the other. resolved: Obsidian's { from: { to:
+  // count } }; cacheOf(path): its file cache (headings, links); resolve(link, from): the path a link goes to. A link also written
+  // in the note's own text stays, since only the generated copies are taken off the count. Frontmatter links count as written.
+  function writtenLinks(resolved, cacheOf, resolve) {
+    const re = R.generated_link_sections ? new RegExp(R.generated_link_sections, "i") : null, out = {};
+    for (const from of Object.keys(resolved || {})) {
+      const c = re && cacheOf(from), heads = (c && c.headings) || [], ls = (c && c.links) || [];
+      if (!heads.length || !ls.length) { out[from] = resolved[from]; continue; }
+      const left = { ...resolved[from] }; let h = 0, within = 0;   // within: the level of the generated section we're in
+      for (const l of ls) {
+        const at = l.position.start.line;
+        while (h < heads.length && heads[h].position.start.line <= at) { const x = heads[h++]; if (within && x.level > within) continue; within = re.test(x.heading.trim()) ? x.level : 0; }
+        if (!within) continue;
+        const to = resolve(l.link, from); if (to && left[to] != null && --left[to] <= 0) delete left[to];
+      }
+      out[from] = left;
+    }
+    return out;
+  }
+  // what stays out of a standup and a copied update (the rules file's hq.standup_skip): work on the notes themselves, say
+  const forStandup = text => !(H.standup_skip && new RegExp(H.standup_skip, "i").test(String(text)));
+  // a task and the open subtasks that go with it, as rows for a status change
+  const taskRowsOf = it => [{ path: it.path, line: it.line, text: it.text }, ...(it.subs || []).map(s => ({ path: it.path, line: s.line, text: s.text }))];
+  return { forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

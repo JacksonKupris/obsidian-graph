@@ -5,6 +5,8 @@ An Obsidian plugin that maps your vault: it finds the topics your notes form, th
 ## What you get
 
 - **Vault HQ**: your home screen. Capture in one box, star what matters today, and pick anything to see what your notes already know about it. A morning brief, threads of related work, people, a daily wrap-up that feeds your standup, a weekly review, and Ctrl K to find or do anything.
+- **Vitals**: what your tasks and notes add up to, in plain sentences, each with what to do about it and the change over a week.
+- **Sweep**: every open task from earlier days, with its subtasks. Finish, cancel, keep or move it to a project, one at a time or by day or heading. Subtasks left open under a finished task get their own group.
 - **Today**: one list of next steps, with today's three at the top. Link two notes that belong together, add a note to its topic's map, write a note other notes already link to, check that a note you rely on is still current, give a topic a map, link a note nothing points to. Each has its button and Undo. It's in the graph's Insights tab, its Today panel (the flag button, or G) and the sidebar.
 - **Map**: the graph itself in 2D or 3D, coloured by topic, with the bridge notes and the gaps between topics.
 - **Scenes**: the same notes as pictures (a neon city, a food web, weather, a radar of open tasks, a heat clock, and a first-person shooter where every note is an enemy), every one in 2D or 3D, with a time-lapse of how your vault grew, and scenes you write yourself in a note.

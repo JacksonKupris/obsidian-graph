@@ -93,7 +93,11 @@
     else if (d.makestandup !== undefined) api.openStandup(day());
     else if (d.showkind) api.hqReact(d.showkind, "show");
     else if (d.one) { const it = BY_KEY.get(d.key); if (it) sweep(d.one, [it], b); }
-    else if (d.batch) { const its = ofKind("carried").filter(it => it.date === d.day && !kept.has(it.key)); sweep(d.batch, its, b, d.day); }
+    else if (d.batch) { const its = ofKind("carried").filter(it => !kept.has(it.key) && (d.leftover ? it.underDone : !it.underDone && (d.section !== undefined ? sectionOf(it) === d.section : it.date === d.day))); sweep(d.batch, its, b, d.leftover ? "under finished tasks" : d.section !== undefined ? d.section : d.day); }
+    else if (d.sweepby) { sweepBy = d.sweepby; render(); }
+    else if (d.graphlens) { if (opts.openGraph) opts.openGraph({ lens: d.graphlens }); }
+    else if (d.graphview) { if (opts.openGraph) opts.openGraph({ view: d.graphview }); }
+    else if (d.vitalCurrent) { const id = d.vitalCurrent, name = d.vitalName; VGActions.run({ label: () => "Still current", title: () => name, run: async (_, c) => { await c.api.stampReviewed(id); return `Marked ${name} still current`; } }, null, ctx()); }
     else if (d.row) tickRow(+d.rline, d.row, b);
     else if (d.go) { if (d.needsTo) needFilter = d.needsTo; setScreen(d.go); }
     else if (d.open !== undefined) { if (api.openNote) api.openNote(d.open); }
@@ -190,8 +194,9 @@
       if (line && e.target.matches(".vg-hq-item")) { e.preventDefault(); e.target.scrollIntoView({ block: "center" }); }
     }
   });
-  function setScreen(s) { if (!known(s)) return; const moved = s !== cur; if (moved) selKey = null; if (s === "sweep" && cur !== "sweep") kept = new Set(); cur = s; drawer = null; peek = null; if (moved) { needsWalk = false; leaving = true; sayEl.textContent = SUB[s] ? SUB[s][0] : SCREENS.find(x => x[0] === s)[1]; } render(); const m = el.querySelector(".vg-hq-main"); if (m) { m.scrollTop = 0; if (moved) { const col = m.querySelector(".vg-hq-col"); if (col) col.classList.add("vg-hq-enter"); } } if (opts.onScreen) opts.onScreen(s); }
+  function setScreen(s) { if (!known(s)) return; const moved = s !== cur; if (moved) { selKey = null; needsWalk = false; } if (s === "sweep" && cur !== "sweep") kept = new Set(); cur = s; drawer = null; peek = null; if (moved) { needsWalk = false; leaving = true; sayEl.textContent = SUB[s] ? SUB[s][0] : SCREENS.find(x => x[0] === s)[1]; } render(); const m = el.querySelector(".vg-hq-main"); if (m) { m.scrollTop = 0; if (moved) { const col = m.querySelector(".vg-hq-col"); if (col) col.classList.add("vg-hq-enter"); } } if (opts.onScreen) opts.onScreen(s); }
   render();
+  setTimeout(() => { if (el.isConnected) loadVitals(); }, 600);   // after the first paint: it reads every journal
   // a first open: the tour, once HQ has settled. A vault with nothing in it has its own welcome instead.
   if (api.hqTourSeen && !(STATE.review || {}).hqTour && !isNewVault()) tourTimer = setTimeout(() => { if (el.isConnected && !el.querySelector(".vg-hq-dialog, .vg-hq-palette")) startHQTour(); }, 1500);
   // The clock, and the part of the list that depends on it: a job goes late, or the day turns over, with no note changing and so
@@ -206,7 +211,7 @@
   clockTimer = opts.now ? null : setInterval(tick, 30000);
   return {
     tick,
-    update(data, state) { DATA = data || DATA; if (state) STATE = state; gone = new Set(); relist(); searchNotes(globalQuery, 80); render(); },
+    update(data, state) { DATA = data || DATA; if (state) STATE = state; gone = new Set(); relist(); searchNotes(globalQuery, 80); render(); loadVitals(); },
     setScreen, screen: () => cur, palette: () => openPalette(), session: () => session, next: () => goNext(), tour: () => startHQTour(),
     showRows: path => ctx().showRows(path),   // a report's rows (the sidebar's Review rows opens HQ there)
     items: () => LIST.slice(),

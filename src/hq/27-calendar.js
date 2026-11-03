@@ -35,7 +35,7 @@
     return VGActions.run({ label: () => "Save the week", title: () => monday, run: async () => { await api.writeNote(path, weekNote(monday), { mode: "create", open: false }); return `Saved Week in Review ${monday}`; } }, null, ctx()).finally(() => { if (btn.isConnected) btn.disabled = false; });
   }
   async function calendarCopy(date) {
-    const text = VGRules.doneToday(DATA, STATE.review, date).map(d => `- ${d.text}`).join("\n");
+    const text = VGRules.doneToday(DATA, STATE.review, date).filter(d => VGRules.forStandup(d.text)).map(d => `- ${d.text}`).join("\n");
     try { await navigator.clipboard.writeText(text); toast("Copied"); } catch (e) { toast("Couldn't copy to the clipboard", null, true); }
   }
 

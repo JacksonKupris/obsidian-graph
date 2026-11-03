@@ -129,6 +129,7 @@ function mountVaultGraph(root, DATA, opts) {
   // plugin: Obsidian's own link text (a same-name note outside the graph, like a root dashboard, can't take the link)
   const mdLink = (id, from) => { if (opts.linkText) return opts.linkText(id, typeof from === "string" ? from : ""); const n = byId[id]; return nameCount[n.name] > 1 ? `[[${id.replace(/\.md$/, "")}|${n.name}]]` : `[[${n.name}]]`; };
   const links = DATA.links.map(l => ({ ...l, s: byId[l.source], t: byId[l.target] })).filter(l => l.s && l.t);
+  let linkGen = 0;   // goes up each time the links are refilled: links is one array, changed in place, so it can't tell you itself
   const nb = {}; nodes.forEach(n => nb[n.id] = new Set());
   links.filter(l => l.kind === "link").forEach(l => { nb[l.s.id].add(l.t.id); nb[l.t.id].add(l.s.id); });
   // The view's live state in the shape the shared rules read (VGRules.graph's contract). Phase 3 of the

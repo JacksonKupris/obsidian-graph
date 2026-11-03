@@ -124,7 +124,7 @@ class VaultGraphView extends ItemView {
       }),
       sharedStore: this.plugin.sharedStore(),
       taskHistory: () => this.plugin.taskHistory(),
-      outLinks: () => this.app.metadataCache.resolvedLinks,
+      writtenLinks: () => this.plugin.writtenLinks(),
       mocReport: { load: () => this.plugin.loadMocReport(), tick: (line, on) => this.plugin.tickMocRow(line, on),
                    apply: Platform.isDesktopApp ? () => this.plugin.applyMocReport() : undefined },
       saveBinary: (notePath, buf) => this.plugin.saveBinary(notePath, buf),
@@ -330,7 +330,7 @@ class VaultHQView extends ItemView {
       ask: (title, text, ok) => confirmModal(this.app, title, text, ok),
       input: (title, text, placeholder) => inputModal(this.app, title, text, placeholder),
       onDone: msg => this.plugin.recordAction(msg),
-      openGraph: () => this.plugin.open(),
+      openGraph: to => this.plugin.openGraphAt(to),
     });
   }
 }
@@ -522,7 +522,7 @@ class VaultGraphSuggestView extends ItemView {
 const { today, localDay } = VGRules;   // the shared date rules (this device's calendar day)
 // Every plugin method that writes to the vault. onload wraps each so it announces the change when done (every open
 // surface redraws); viewActions hands the same methods to every graph surface. A new write action goes in this list.
-const WRITE_ACTIONS = ["planLine", "capture", "openDaily", "linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
+const WRITE_ACTIONS = ["moveTasks", "planLine", "capture", "openDaily", "linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
   "addReference", "tickMocRow", "saveBinary", "stateSnapshots", "undo"];
 // The only methods that touch the vault for a write action. Each notes what it's about to change in the open undo
 // entry, so every action can be undone from the message that confirms it. tests/test_rules.js fails on a vault write
@@ -586,7 +586,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
     // a note HQ reads changed (a task ticked in the journal, a draft's status set by hand): HQ and the sidebar redraw.
     // The live signature can't see these (no file or link count changes).
     this.registerEvent(this.app.metadataCache.on("changed", file => {
-      if (!VGRules.hqKind(file.path, (this.app.metadataCache.getFileCache(file) || {}).frontmatter, today())) return;
+      const fc = this.app.metadataCache.getFileCache(file) || {};
+      if (!VGRules.hqKind(file.path, fc.frontmatter, today(), hasOpenTask(fc)) && !(this.hqTexts && this.hqTexts.has(file.path))) return;   // or it just lost its last open task
       this.cacheStale = true; clearTimeout(this.hqTimer);
       this.hqTimer = setTimeout(() => this.refreshHQViews(), 800);
     }));
@@ -780,6 +781,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   lastUndo() { const e = this.undoLog[this.undoLog.length - 1]; return e ? e.id : 0; }
   // Put back what one action changed, its last change first. Nothing is undone if any of its files changed since.
   async undo(id) {
+    this.vitalsMemo = null;
     const e = this.undoLog.find(x => x.id === id);
     if (!e) throw new Error("it's no longer in the undo list");
     const renamedTo = (i, p) => e.ops.slice(i + 1).reduce((q, o) => (o.kind === "rename" && o.from === q ? o.to : q), p);
@@ -888,6 +890,15 @@ module.exports = class VaultGraphPlugin extends Plugin {
       el.createEl("div", { cls: "vg-embed-note", text: "This note isn't in the graph yet (it has no links to other topic notes, or the data is older than the note)." });
   }
 
+  // The graph, and optionally a view or a lens in it (to: { view, lens }). A new tab has no handle until its data has loaded.
+  async openGraphAt(to) {
+    const leaf = await this.open(); if (!to) return leaf;
+    if (leaf.loadIfDeferred) await leaf.loadIfDeferred();
+    for (let i = 0; i < 100 && !(leaf.view && leaf.view.handle); i++) await new Promise(r => setTimeout(r, 100));
+    const h = leaf.view && leaf.view.handle; if (!h) return leaf;
+    if (to.view) h.setView(to.view); if (to.lens) h.openLens(to.lens);
+    return leaf;
+  }
   async open() {
     let leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
     if (!leaf) {
@@ -1260,6 +1271,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
       completeTask: (notePath, line, text) => this.completeTask(notePath, line, text),
       logWork: text => this.logWork(text),
       setTasksStatus: (rows, status) => this.setTasksStatus(rows, status),
+      moveTasks: (items, to) => this.moveTasks(items, to),
+      vitals: () => this.vitals(),
       setNoteStatus: (notePath, status, reason) => this.setNoteStatus(notePath, status, reason),
       setProjectStatus: (notePath, status, closeTasks) => this.setProjectStatus(notePath, status, closeTasks),
       hqMark: (key, mark) => this.hqMark(key, mark),
@@ -1275,7 +1288,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       hqHome: hidden => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.hqHome = hidden; return sh; }),
       planLine: text => this.planLine(text),
       searchMeaning: (q, n) => this.searchMeaning(q, n),
-      stampReviewed: notePath => this.stampReviewed(notePath),
+      stampReviewed: notePath => { this.vitalsMemo = null; return this.stampReviewed(notePath); },
       dismissPair: async (a, b, kind) => { await this.dismiss(a, b, kind); new Notice("Won't suggest that pair again"); },
       linkText: (id, fromPath) => this.linkText(id, fromPath),
       addToMap: (mocId, ids) => this.addToMap(mocId, ids),
@@ -1394,7 +1407,35 @@ module.exports = class VaultGraphPlugin extends Plugin {
   }
   // Several tasks at once (the carried-over sweep's Done all / Cancel all), as one action with one Undo. A task that
   // changed since is left as it is. Resolves how many were changed.
+  // Tasks into a project's note. Cancelled first: a line that changed since it was shown (stale) is left where it is, not copied.
+  async moveTasks(items, to) {
+    const note = this.fileAt(to); if (!note) throw new Error(`${to} isn't there any more`);
+    let n = 0;
+    for (const it of items) {
+      const moved = await this.setTasksStatus(VGRules.taskRowsOf(it), "-"); if (!moved) continue; n += moved;
+      await this.ioProcess(note, t => VGRules.addProjectTask(t, `${it.text}${it.date ? ` (from [[${it.date}]])` : ""}`, (it.subs || []).map(s => s.text)));
+    }
+    return n;
+  }
+  writtenLinks() { const mc = this.app.metadataCache; return VGRules.writtenLinks(mc.resolvedLinks, p => mc.getCache(p), (l, from) => { const f = mc.getFirstLinkpathDest(l.split("#")[0], from); return f && f.path; }); }
+  // HQ's vitals, from the same methods and links as the lenses. Kept briefly, since HQ asks after every update; a task or review
+  // changed clears it. One sample a day goes in the shared state (small, and capped), for the trend.
+  async vitals() {
+    const now = Date.now(); if (this.vitalsMemo && now - this.vitalsMemo.t < 60000) return this.vitalsMemo.v;
+    const data = await this.graphData(); if (!data || !data.nodes) return null;
+    const out = this.writtenLinks(), pairs = [], day = today(), staleDays = (data.quality || {}).stale_days;
+    for (const l of data.links || []) { if (l.kind !== "link") continue; if (out[l.source] && out[l.source][l.target]) pairs.push([l.source, l.target]); if (out[l.target] && out[l.target][l.source]) pairs.push([l.target, l.source]); }
+    const v = VGScience.vitals({ rows: VGScience.taskLives(await this.taskHistory(), day).rows, today: day, pairs,
+      notes: data.nodes.filter(n => !n.person && !n.ghost && !n.moc).map(n => ({ id: n.id, name: n.name, age: n.age || 0, stale: VGRules.isStale(n, staleDays) })) });
+    // what's open is what HQ lists, so the two can't disagree; came in and finished stay the Flow lens's own count
+    const sh = await this.loadShared(), carried = VGRules.todayList(data, { review: sh && sh.review, hidden: sh && sh.cosmos && sh.cosmos.hidden, today: day }).filter(i => i.kind === "carried");
+    v.pile.open = carried.length; v.pile.old = carried.filter(i => i.age > 30).length;
+    this.vitalsMemo = { t: now, v };
+    if (!(sh && sh.review && sh.review.vitals && sh.review.vitals[day])) await this.updateShared(s => { s.review = s.review || {}; const h = s.review.vitals = { ...(s.review.vitals || {}), [day]: VGScience.vitalsSample(v) }; Object.keys(h).sort().slice(0, -180).forEach(d => delete h[d]); return s; });
+    return v;
+  }
   async setTasksStatus(rows, status) {
+    this.vitalsMemo = null;
     let n = 0;
     for (const r of rows) { try { await this.setTaskStatus(r.path, r.line, r.text, status); n++; } catch (e) { if (e.message !== "stale") throw e; } }
     return n;
@@ -1845,8 +1886,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
     if (!H || !H.journal) return null;
     const day = today(), cache = this.hqTexts = this.hqTexts || new Map(), files = [];
     for (const f of this.app.vault.getMarkdownFiles()) {
-      const fm = (this.app.metadataCache.getFileCache(f) || {}).frontmatter;
-      if (EXCLUDE_PREFIXES.some(x => f.path.startsWith(x)) || !VGRules.hqKind(f.path, fm, day)) { cache.delete(f.path); continue; }
+      const fc = this.app.metadataCache.getFileCache(f) || {}, fm = fc.frontmatter;   // Obsidian's index says which old journals have an open task, so only those are read
+      if (EXCLUDE_PREFIXES.some(x => f.path.startsWith(x)) || !VGRules.hqKind(f.path, fm, day, hasOpenTask(fc))) { cache.delete(f.path); continue; }
       let c = cache.get(f.path);
       if (!c || c.mtime !== f.stat.mtime) cache.set(f.path, c = { mtime: f.stat.mtime, text: await this.app.vault.cachedRead(f) });
       files.push({ path: f.path, text: c.text, fm: fm || {} });
@@ -2022,6 +2063,7 @@ function ruleConsts() {
 ruleConsts();   // the built-in rules until onload's loadRules brings this vault's
 // a scene written in a note: ```vault-graph-scene ... ``` (VGRules.sceneSpec reads it)
 const SCENE_LANG = "vault-graph-scene", SCENE_BLOCK = /^```vault-graph-scene[^\S\n]*\n([\s\S]*?)^```/gm, SCENE_BLOCK_START = /^```vault-graph-scene/gm;
+const hasOpenTask = fc => (fc.listItems || []).some(i => i.task === " ");
 const DISMISSED = new Set();   // dismissed pairs by note name (dismissKey); kept current by the plugin, applied in liveMerge
 // Shared rules (vault_graph_rules.js, built in ahead of this file): records are never "stale"; dismissals match
 // by note name like the analysis (vault_gaps._dismissed), so a same-name copy counts as dismissed too
