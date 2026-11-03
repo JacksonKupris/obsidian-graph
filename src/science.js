@@ -324,6 +324,24 @@ const VGScienceMake = () => {
     const p = (async () => { if (typeof Worker === "function" && typeof Blob === "function" && typeof URL === "function" && URL.createObjectURL) { try { const r = await inWorker(g); netStats.via = "worker"; return r; } catch (e) { console.warn("Vault Graph: the network tests are running on the main thread:", e.message); } } netStats.via = "here"; return netHere(g); })();
     netMemo.set(key, p); return p;
   }
+  // ---- control charts: Shewhart's individuals chart (XmR). Limits come from how much a value moves from one to the next (2.66 = 3 / d2, with
+  // d2 = 1.128 for ranges of two), so a run of values can't widen its own limits by trending. A signal: a point outside the limits, or eight
+  // in a row on one side of the centre (Western Electric). Counts can't go below 0, so nor can the lower limit.
+  function xmr(values) {
+    const n = values.length, mean = values.reduce((a, b) => a + b, 0) / (n || 1), ranges = values.slice(1).map((v, i) => Math.abs(v - values[i])), mr = ranges.reduce((a, b) => a + b, 0) / (ranges.length || 1), ucl = mean + 2.66 * mr, lcl = Math.max(0, mean - 2.66 * mr), signals = [];
+    values.forEach((v, i) => { if (v > ucl || v < lcl) signals.push({ i, rule: v > ucl ? "above" : "below" }); });
+    let run = 0, side = 0; values.forEach((v, i) => { const s = Math.sign(v - mean); if (s && s === side) run++; else { run = s ? 1 : 0; side = s; } if (run === 8) signals.push({ i, rule: side > 0 ? "run-high" : "run-low" }); });
+    return { mean, mr, ucl, lcl, signals };
+  }
+  // ---- diversity: Hill numbers (Hill 1973), an ecologist's "effective number of species". q 1 = exp(Shannon), q 2 = inverse Simpson. Five topics
+  // shared equally are 5 at every order; one taking nearly everything is near 1, however many others appear.
+  function hill(counts) { const c = counts.filter(x => x > 0), t = c.reduce((a, b) => a + b, 0); if (!t) return { q0: 0, q1: 0, q2: 0 }; return { q0: c.length, q1: Math.exp(-c.reduce((a, x) => a + x / t * Math.log(x / t), 0)), q2: 1 / c.reduce((a, x) => a + (x / t) ** 2, 0) }; }
+  // ---- k-core (Seidman 1983; peeling as in Batagelj & Zaversnik 2003): the largest set where each note has k links inside the set. adj: undirected.
+  function kCore(adj) { const n = adj.length, deg = adj.map(a => a.length), core = new Int32Array(n), gone = new Uint8Array(n); let k = 0, left = n; while (left) { let changed = true; while (changed) { changed = false; for (let i = 0; i < n; i++) if (!gone[i] && deg[i] <= k) { gone[i] = 1; core[i] = k; left--; changed = true; for (const j of adj[i]) if (!gone[j]) deg[j]--; } } k++; } return core; }
+  // ---- unseen species: Chao1 (Chao 1984). From how many kinds were seen once (f1) and twice (f2), a lower bound on the kinds never seen: f1^2 / (2 f2).
+  function chao1(counts) { const f1 = counts.filter(c => c === 1).length, f2 = counts.filter(c => c === 2).length, S = counts.filter(c => c > 0).length, unseen = f2 > 0 ? f1 * f1 / (2 * f2) : f1 * (f1 - 1) / 2; return { S, f1, f2, unseen, total: S + unseen }; }
+  // ---- location quotient (regional economics, Isard 1960): a part's share of one total against its share of another. 1 = in step; 2 = twice its share.
+  const locationQuotient = (a, A, b, B) => (b && B && A ? (a / A) / (b / B) : null);
   // ---- two-way links: pairs of notes that link to each other, and what the web's incoherence would be without the links in drops ([from, to] indexes)
   function twoWayPairs(g) { const has = new Set(g.edges.map(([a, b]) => a * g.n + b)); return g.edges.filter(([a, b]) => a < b && has.has(b * g.n + a)); }
   function incoherenceWithout(g, drops) { const off = new Set(drops.map(([a, b]) => a * g.n + b)); return trophic(g.adj.map((a, i) => a.filter(j => !off.has(i * g.n + j)))).incoherence; }
@@ -338,6 +356,6 @@ const VGScienceMake = () => {
   const vitalsSample = v => ({ open: v.pile.open, debt: Math.round(v.debt.total), incoherence: v.web.incoherence == null ? null : +v.web.incoherence.toFixed(2) });
   // the change in one sample's number against the latest sample a week or more old, or null when there isn't one yet
   function vitalsDelta(history, day, key, now) { const edge = Date.parse(`${day}T12:00:00Z`) - 7 * 864e5, past = Object.keys(history || {}).filter(d => Date.parse(`${d}T12:00:00Z`) <= edge && history[d][key] != null).sort().pop(); return past == null || now == null ? null : now - history[past][key]; }
-  return { twoWayPairs, incoherenceWithout, debtRanks, vitals, vitalsSample, vitalsDelta, NET_RHOS, NET_SEEDS, netStudySteps, netStudyNow, netStudy, netStats, graphKey, flow, reachCounts, reliance, trophic, surfaceWind, WIND_INFLOW, directedGraph, largestAbsEigen, reservoir, ridge, r2, memoryCapacity, narma, narmaError, clustering, meanPath, rewired, randomGraph, smallWorld, rng, graphOf, moments, spectralRadius, outbreak, outbreakStats, epidemic, sweep, kaplanMeier, survivalAt, medianOf, conditional, restrictedMean, logRank, erfc, taskLives, components, cutPoints, cutDamage, percolationCurve, randomOrder, attackOrder, robustnessR, robustness, concentration, busFactor, LIF, lifRate, lifNetwork, BRAIN, lobeOf, gyri, cortexAt, CEREBELLUM, STEM, LOBE_SHARE, assignLobes, lobeSpots };
+  return { xmr, hill, kCore, chao1, locationQuotient, twoWayPairs, incoherenceWithout, debtRanks, vitals, vitalsSample, vitalsDelta, NET_RHOS, NET_SEEDS, netStudySteps, netStudyNow, netStudy, netStats, graphKey, flow, reachCounts, reliance, trophic, surfaceWind, WIND_INFLOW, directedGraph, largestAbsEigen, reservoir, ridge, r2, memoryCapacity, narma, narmaError, clustering, meanPath, rewired, randomGraph, smallWorld, rng, graphOf, moments, spectralRadius, outbreak, outbreakStats, epidemic, sweep, kaplanMeier, survivalAt, medianOf, conditional, restrictedMean, logRank, erfc, taskLives, components, cutPoints, cutDamage, percolationCurve, randomOrder, attackOrder, robustnessR, robustness, concentration, busFactor, LIF, lifRate, lifNetwork, BRAIN, lobeOf, gyri, cortexAt, CEREBELLUM, STEM, LOBE_SHARE, assignLobes, lobeSpots };
 };
 const VGScience = VGScienceMake();

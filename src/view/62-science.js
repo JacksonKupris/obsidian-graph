@@ -124,12 +124,21 @@
       <p class="vg-sci-key"><i class="is-a"></i>busiest notes lost first <i class="is-b"></i>notes lost at random</p>
       ${sciRead("Both lines start with the vault whole and show the largest connected part as notes are removed. The further the solid line falls below the dashed one, the more the vault depends on its busiest notes.")}
       <p class="vg-muted vg-lens-note">The gap between the lines is how much the vault depends on its hubs. Molloy-Reed: κ = ⟨k²⟩/⟨k⟩ = ${rob.kappa.toFixed(1)}${rob.holds ? `, so in theory a network like this holds together until about ${pct(rob.fc)} of notes are lost at random` : ", under the 2 a network needs to hold together"}. Its largest part already has ${pct((size[0] || 0) / n)} of the notes, in ${plural(size.length, "connected part")}. Losing a note here means it's wrong, gone or out of date.</p>
+      ${coreHtml()}
       <div class="vg-list-h">Cut notes, by what they'd strand <span class="vg-count">${cuts.cut.length}</span></div>
       ${damage.filter(d => d.stranded > 0).slice(0, 14).map(d => `<div class="vg-sugg">${noteRow(g.ids[d.i], `the only route to ${plural(d.stranded, "note")} · splits into ${d.parts} parts`)}</div>`).join("") || `<p class="vg-muted vg-lens-note">No single note holds the main part together.</p>`}
       <div class="vg-list-h">Topics that rest on the fewest notes <span class="vg-count">${topics.length}</span></div>
       ${sciRead("\"Falls apart\" means no piece keeps half the topic. \"Shared like 3 equal notes\" means its links are as concentrated as if only 3 notes held them all evenly.")}
       ${topics.slice(0, 12).map(t => `<div class="vg-sugg">${noteRow(t.hub, `${clusterName(t.c.id)}: falls apart without ${plural(t.bus, "note")} of ${t.n} · this one holds ${pct(t.top)} of its links · shared like ${t.eff.toFixed(1)} equal notes`)}</div>`).join("")}
       ${lead && who.top ? `<div class="vg-list-h">People</div><p class="vg-muted vg-lens-note">${esc(lead.name)} has ${pct(who.top)} of the mentions in your dailies; across ${people.length} people that's like ${who.effective.toFixed(1)} people sharing them equally (Herfindahl). A count of mentions, not of who knows what.</p>` : ""}`;
+  }
+  // the k-core: what's left when you keep removing the least connected notes. Written links where the direction is known, each counted once.
+  function coreHtml() {
+    const d = directedNotes(), g = d || noteGraph(), und = g.ids.map(() => new Set()); g.edges.forEach(([a, b]) => { und[a].add(b); und[b].add(a); });
+    const core = VGScience.kCore(und.map(s => [...s])), top = Math.max(0, ...core); if (top < 2) return "";
+    const inner = g.ids.filter((_, i) => core[i] === top), bare = core.filter(c => c === 0).length;
+    return `<div class="vg-list-h">The core <span class="vg-count">${inner.length}</span></div>${sciRead(`A k-core is what's left after repeatedly taking away notes with fewer than k links. The innermost here has ${top} links each within the group: these notes hold each other up, so they're where your written knowledge is densest. ${bare ? `${plural(bare, "note")} have no written link, so they aren't part of it at all.` : ""} A core shows where links are thick, not that those notes matter most.`)}
+      ${inner.slice(0, 14).map(id => `<div class="vg-sugg">${noteRow(id, `core ${top}`)}</div>`).join("")}`;
   }
   // ---- As a neural net: your links as the wiring of a recurrent network, tested the way real connectomes are. The answer is worked
   // out from the runs, so it can come out either way, and changes with the vault.
@@ -168,7 +177,8 @@
       ${sciChart({ label: "Tasks in and out over time", xmax: F.days, xticks: [0, Math.round(F.days / 3), Math.round(2 * F.days / 3), F.days], xfmt: v => (v === F.days ? "today" : `${F.days - v}d ago`), xlabel: "", ymax: span, yticks: [0, span / 2, span], yfmt: v => v.toFixed(0), series: [{ pts: line(F.cumIn), cls: "is-a" }, { pts: line(F.cumOut), cls: "is-b" }] })}
       <p class="vg-sci-key"><i class="is-a"></i>tasks written down, added up <i class="is-b"></i>tasks finished, added up</p>
       ${sciRead("A cumulative flow chart. The height of each line is a running total, and a steeper line means a faster rate. The gap between them is the new work still open from this period: a widening gap means work is arriving faster than it finishes.")}
-      <p class="vg-muted vg-lens-note">Little's law: average open = arrival rate × average time open. ${F.L.toFixed(1)} = ${F.lambda.toFixed(2)} a day × ${F.W.toFixed(1)} days. It holds for any queue, so to shorten how long tasks wait you have to take on fewer or finish more. Tasks done with no date and cancelled tasks aren't counted, so the real finish rate is higher than this. A task counts once however many journals repeat it, and subtasks aren't counted, so Sweep in Vault HQ lists more.</p>`;
+      <p class="vg-muted vg-lens-note">Little's law: average open = arrival rate × average time open. ${F.L.toFixed(1)} = ${F.lambda.toFixed(2)} a day × ${F.W.toFixed(1)} days. It holds for any queue, so to shorten how long tasks wait you have to take on fewer or finish more. Tasks done with no date and cancelled tasks aren't counted, so the real finish rate is higher than this. A task counts once however many journals repeat it, and subtasks aren't counted, so Sweep in Vault HQ lists more.</p>
+      ${flowByArea()}`;
   }
   // ---- Two-way links: what blurs the Food web most. The softer side of each pair is the one to drop; if they're alike, the specific
   // note keeps its link up to the note more others link to. Obsidian's backlinks still show a dropped link's return.
@@ -202,6 +212,15 @@
     const done = VGActions.run({ label: () => "Drop", title: () => rows.length === 1 ? `${byId[rows[0].id].name} → ${byId[rows[0].toId].name}` : plural(rows.length, "list line"), run: async () => { const n = await opts.dropLinkLines(rows.map(r => ({ path: r.id, line: r.line, text: r.text }))); rows.forEach(r => twDropped.add(`${r.id}|${r.toId}`)); return `Dropped ${plural(n, "link")}`; }, undo: async () => { rows.forEach(r => twDropped.delete(`${r.id}|${r.toId}`)); } }, null, actionCtx(), e);
     return Promise.resolve(done).then(ok => { if (ok) refreshLens(); return ok; });
   }
+  // Where the pile is: each area's share of what's open against its share of what got finished. Areas come from the rules file (thread_areas).
+  function flowByArea() {
+    const today0 = DATA.date || today(), since = new Date(Date.parse(`${today0}T12:00:00Z`) - flowDays * 864e5).toISOString().slice(0, 10), parts = {};
+    for (const r of (survivalLives || { rows: [] }).rows) { const a = VGRules.areaOfText(VGRules.plainTask(r.text)); if (!a) continue; const p = parts[a] = parts[a] || { open: 0, done: 0 }; if (!r.event) p.open++; else if (r.done >= since) p.done++; }
+    const list = Object.entries(parts), O = list.reduce((s, [, p]) => s + p.open, 0), D = list.reduce((s, [, p]) => s + p.done, 0); if (list.length < 2 || !O || !D) return "";
+    const rows = list.map(([a, p]) => ({ a, ...p, lq: VGScience.locationQuotient(p.open, O, p.done, D) })).sort((x, y) => (y.lq == null ? 1e9 : y.lq) - (x.lq == null ? 1e9 : x.lq)), top = rows[0];
+    return `<div class="vg-list-h">Where the pile is <span class="vg-count">${rows.length}</span></div>${sciRead(`A location quotient, from regional economics: an area's share of open tasks against its share of what got finished in ${flowDays} days. 1 means in step. Above 1, it's piling up faster than you finish it${top.done ? `: ${top.a} holds ${pct(top.open / O)} of what's open and ${pct(top.done / D)} of what got finished` : `: ${top.a} has open tasks and nothing finished`}. Small counts move this a lot, so read the counts with it.`)}
+      ${rows.map(r => `<div class="vg-sugg"><span class="vg-item-main"><span>${esc(r.a)}</span><span class="vg-item-sub">${r.open} open · ${r.done} finished${r.lq != null ? ` · ${r.lq.toFixed(2)}` : " · none finished"}</span></span></div>`).join("")}`;
+  }
   // ---- Debt: what a stale note costs goes up with what rests on it and with how long it's been left. For Stale notes.
   function debtOf() {
     const g = spreadGraph(), notes = g.ids.map(id => byId[id]), rows = VGScience.debtRanks(g, notes.map(n => ({ age: n.age, stale: staleFor(n, Q.stale_days) }))).map(r => ({ ...r, n: notes[r.i] })), known = !!g.directed;
@@ -211,11 +230,52 @@
       ${sciRead("Debt here is a way of ranking, not a measure of money or of error: a note isn't wrong for being old. It says which old notes would cost most if they had gone out of date. Reviewing one clears all of its debt, so start at the top.")}
       <p class="vg-muted vg-lens-note">Cost = how much rests on it × years since it was edited. A note linking to it directly counts 1, two links away a half, three a quarter, since through enough links nearly everything reaches everything. ${known ? "Resting on means linking to it. Links in Related sections and similar-meaning lines don't count: only links written into a note do." : "This page has no link direction, so links count both ways."}</p>` };
   }
+  // ---- Control chart: Shewhart's question. What's the normal range of your work, and has anything moved outside it?
+  let controlKind = "finished";
+  async function loadControl() { if (!survivalLives) { const journals = opts.taskHistory ? await opts.taskHistory() : ((DATA.hq || {}).journals || []); survivalLives = VGScience.taskLives(journals, DATA.date || today()); } return renderControl(); }
+  function renderControl() {
+    const rows = (survivalLives || { rows: [] }).rows, end = Date.parse(`${DATA.date || today()}T12:00:00Z`), WEEKS = 16, bucket = d => { const w = Math.floor((end - Date.parse(`${d}T12:00:00Z`)) / (7 * 864e5)); return w >= 0 && w < WEEKS ? WEEKS - 1 - w : -1; }, v = new Array(WEEKS).fill(0);
+    rows.forEach(r => { const d = controlKind === "finished" ? (r.event ? r.done : null) : r.born; if (!d) return; const b = bucket(d); if (b >= 0) v[b]++; });
+    const first = v.findIndex(x => x > 0), vals = first < 0 ? [] : v.slice(first); if (vals.length < 6) return emptyNext("A control chart needs at least six weeks of tasks with dates.", "daily", "search");
+    const X = VGScience.xmr(vals), n = vals.length, last = vals[n - 1], ymax = Math.ceil(Math.max(X.ucl, ...vals) / 10) * 10 || 10, line = y => vals.map((_, i) => [i, y]), label = i => (i === n - 1 ? "this week" : `${n - 1 - i}w ago`);
+    const word = controlKind === "finished" ? "finished" : "came in", out = X.signals.filter(s => s.rule === "above" || s.rule === "below"), runs = X.signals.filter(s => s.rule.startsWith("run")), sig = X.signals.find(s => s.i === n - 1);
+    const verdict = X.signals.length ? `${plural(X.signals.length, "real signal")}: ${[...out.map(s => `${label(s.i)} was ${s.rule} the limits`), ...runs.map(s => `eight weeks in a row ${s.rule === "run-high" ? "above" : "below"} average, ending ${label(s.i)}`)].join("; ")}.` : `Every week is inside the limits, so none of this says your work changed: the ups and downs are its normal variation.`;
+    return `${sciFacts([[X.mean.toFixed(1), `${word} a week`, `The average over these ${n} weeks.`], [`${X.lcl.toFixed(0)} to ${X.ucl.toFixed(0)}`, "normal range", "What this process produces with nothing changed. A week outside it, or eight in a row on one side of the average, means something did."], [String(last), "this week", sig ? "Outside the normal range: worth asking what changed." : "Inside the normal range."], [String(X.signals.length), "signals", "Weeks the chart says are more than noise."]])}
+      <div class="vg-filter-row vg-sci-split" role="group" aria-label="What to chart">${[["finished", "Tasks finished"], ["came", "Tasks that came in"]].map(([k, w]) => `<button class="vg-btn vg-btn-sm${k === controlKind ? " is-on" : ""}" data-control="${k}" aria-pressed="${k === controlKind}">${w}</button>`).join("")}</div>
+      <p class="vg-sci-verdict"><b>${esc(verdict)}</b></p>
+      ${sciChart({ label: `Tasks ${word} per week, with the normal range`, xmax: n - 1, xticks: vals.map((_, i) => i).filter(i => i % 3 === (n - 1) % 3), xfmt: i => (i === n - 1 ? "this week" : `${n - 1 - i}w`), xlabel: "", ymax, yticks: [0, ymax / 2, ymax], yfmt: y => y.toFixed(0), series: [{ pts: line(X.ucl), cls: "is-b" }, { pts: line(X.mean), cls: "is-all" }, ...(X.lcl > 0 ? [{ pts: line(X.lcl), cls: "is-b" }] : []), { pts: vals.map((y, i) => [i, y]), cls: "is-a" }] })}
+      <p class="vg-sci-key"><i class="is-a"></i>each week <i class="is-all"></i>average <i class="is-b"></i>normal range</p>
+      ${sciRead("Shewhart's chart, from factories. Every process wobbles, and reacting to each wobble makes things worse, so the limits are worked out from how much your weeks normally move from one to the next. Inside them, a good or bad week has no special cause to find. Use it after you change how you work: real improvement shows as a week above the limit or eight in a row above the average.")}
+      <p class="vg-muted vg-lens-note">Individuals chart (XmR): limits at the average ± 2.66 × the average move between weeks, ${X.mr.toFixed(1)} here. A count of tasks, each counted the same, whatever its size. Only tasks with a completion date count as finished. Weeks run back from today, so this week is a full 7 days. Limits this wide also mean small real changes won't show yet.</p>`;
+  }
+  // ---- Attention: Hill numbers on where your dailies went, week by week
+  function lensAttention() {
+    const T = DATA.timeline; if (!T || T.weeks.length < 4) return emptyNext("Attention needs four weeks of daily notes that link or name your notes.", "daily", "lens:river");
+    const cs = Object.entries(T.clusters).filter(([c]) => clusterById[c]), todayD = Date.parse(`${DATA.date || today()}T12:00:00Z`), full = T.weeks.map((w, i) => i).filter(i => todayD - Date.parse(`${T.weeks[i]}T12:00:00Z`) >= 6 * 864e5), idx = full.slice(-26);
+    const H = idx.map(i => ({ i, ...VGScience.hill(cs.map(([, v]) => v[i] || 0)), total: cs.reduce((s, [, v]) => s + (v[i] || 0), 0) })).filter(w => w.total >= 3); if (H.length < 4) return emptyNext("Attention needs four weeks of daily notes that link or name your notes.", "daily", "lens:river");
+    const now = H[H.length - 1], recent = H.slice(-4), past = H.slice(0, -4), avg = (a, k) => a.reduce((s, x) => s + x[k], 0) / (a.length || 1), top = cs.map(([c, v]) => [c, recent.reduce((s, w) => s + (v[w.i] || 0), 0)]).sort((a, b) => b[1] - a[1]), rT = top.reduce((s, x) => s + x[1], 0), ymax = Math.ceil(Math.max(...H.map(w => w.q1))) + 1;
+    const shift = past.length ? avg(recent, "q1") - avg(past, "q1") : 0;
+    return `${sciFacts([[now.q1.toFixed(1), "topics last week", `As many as if your attention were split evenly between this many topics. ${now.q0} topics came up at all.`], [avg(recent, "q1").toFixed(1), "over 4 weeks", past.length ? `The ${past.length} weeks before that averaged ${avg(past, "q1").toFixed(1)}.` : "Not enough earlier weeks to compare."], [now.q2.toFixed(1), "main topics", "The same measure counting only the big ones (inverse Simpson). Far below the number above means one or two topics took most of it."], [top[0] && rT ? pct(top[0][1] / rT) : "0%", top[0] ? clusterName(+top[0][0]) : "top topic", "Its share of the last 4 weeks."]])}
+      <p class="vg-sci-verdict"><b>${Math.abs(shift) < 0.5 ? "Your attention is about as spread as it has been." : shift > 0 ? `You've been more spread lately: about ${shift.toFixed(1)} more topics a week.` : `You've been more focused lately: about ${(-shift).toFixed(1)} fewer topics a week.`}</b></p>
+      ${sciChart({ label: "Effective number of topics per week", xmax: H.length - 1, xticks: H.map((_, i) => i).filter(i => i % 4 === (H.length - 1) % 4), xfmt: i => `${H.length - 1 - i}w`, xlabel: "weeks ago", ymax, yticks: [0, ymax / 2, ymax], yfmt: y => y.toFixed(0), series: [{ pts: H.map((w, i) => [i, w.q2]), cls: "is-b" }, { pts: H.map((w, i) => [i, w.q1]), cls: "is-a" }] })}
+      <p class="vg-sci-key"><i class="is-a"></i>effective topics <i class="is-b"></i>main topics</p>
+      ${sciRead("Ecologists measure diversity this way: not how many species a forest has, but how evenly they're shared. Five topics at 20% each count as 5. Five where one takes 96% count as barely over 1. Neither is better: a focused week and a spread week suit different work, so this tells you which you've had.")}
+      <p class="vg-muted vg-lens-note">Hill numbers (Hill 1973), order 1 and 2, on how often your dailies link or name each topic. It reads what you wrote down, not the hours you spent, and a topic is one the analysis found, so a new topic counts from when it was named.</p>`;
+  }
+  // ---- Version drift: what your notes say against what you run (the rules file's drift list)
+  async function loadDrift() {
+    if (!opts.driftScan) return emptyNext("Version drift reads your notes, which this page can't.", "search"); const rows = await opts.driftScan();
+    if (!rows.length) return `<div class="vg-empty">Every version your notes name matches what you run.</div>`;
+    const by = new Map(); rows.forEach(r => { if (!by.has(r.name)) by.set(r.name, []); by.get(r.name).push(r); });
+    return `${sciRead("Notes that name a version other than the one you run. Some are right: history, or an upgrade's starting point. The rest quietly send someone to the wrong instructions. Dated records aren't checked, since they're meant to stay as written.")}
+      ${[...by].map(([name, list]) => `<div class="vg-list-h">${esc(name)}: you run ${esc(list[0].current)} <span class="vg-count">${list.length}</span></div>${list.slice(0, 25).map(r => `<div class="vg-sugg">${byId[r.path] ? noteRow(r.path, `says ${r.found}: ${r.text.slice(0, 110)}`) : `<span class="vg-item-main"><span>${esc(nameOf(r.path))}</span><span class="vg-item-sub">says ${esc(r.found)}: ${esc(r.text.slice(0, 110))}</span></span>`}<span class="vg-sugg-acts">${opts.openNote ? `<button class="vg-btn vg-btn-sm" data-twopen="${esc(r.path)}">Open</button>` : ""}</span></div>`).join("")}`).join("")}`;
+  }
   function wireScience(body) {
-    const again = () => { const y = body.scrollTop; body.innerHTML = lensKey === "survival" ? renderSurvival() : lensKey === "flowlens" ? renderFlow() : LENSES[lensKey].render(); wireLens(body); body.scrollTop = y; };
+    const again = () => { const y = body.scrollTop; body.innerHTML = lensKey === "survival" ? renderSurvival() : lensKey === "flowlens" ? renderFlow() : lensKey === "control" ? renderControl() : LENSES[lensKey].render(); wireLens(body); body.scrollTop = y; };
     body.querySelectorAll("[data-blast-t]").forEach(d => { d.oninput = () => { const o = d.parentElement.querySelector("b"); if (o) o.textContent = (+d.value).toFixed(2); }; d.onchange = () => { blastT = +d.value; again(); }; });
     body.querySelectorAll("[data-blast-seed]").forEach(d => d.onclick = e => { e.stopPropagation(); blastSeed = d.dataset.blastSeed; again(); });
     body.querySelectorAll("[data-blast-show]").forEach(d => d.onclick = e => { e.stopPropagation(); blastShow(d.dataset.blastShow); });
+    body.querySelectorAll("[data-control]").forEach(d => d.onclick = e => { e.stopPropagation(); controlKind = d.dataset.control; again(); });
     body.querySelectorAll("[data-upone]").forEach(d => d.onclick = e => { e.stopPropagation(); d.disabled = true; upAdd([upRows[+d.dataset.upone]], e).then(ok => { if (!ok) d.disabled = false; }); });
     body.querySelectorAll("[data-upall]").forEach(d => d.onclick = e => { e.stopPropagation(); d.disabled = true; upAdd(upRows, e).then(ok => { if (!ok) d.disabled = false; }); });
     body.querySelectorAll("[data-twdrop]").forEach(d => d.onclick = e => { e.stopPropagation(); d.disabled = true; twDrop([twRows[+d.dataset.twdrop]], e).then(ok => { if (!ok) d.disabled = false; }); });

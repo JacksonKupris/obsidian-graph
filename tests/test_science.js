@@ -139,4 +139,16 @@ const again = S.outbreakStats(K5, 1, 0.4, 100, 5), twice = S.outbreakStats(K5, 1
   assert.strictEqual(S.graphKey(g), S.graphKey(g2), "the same links gave a different network key"); assert.notStrictEqual(S.graphKey(g), S.graphKey(g3), "a dropped link kept the network key");
   const first = S.netStudy(g), again = S.netStudy(g2); assert.strictEqual(first, again, "the same network was worked out twice"); assert.strictEqual(S.netStats.runs, 1);
   first.then(r => { assert.strictEqual(S.netStats.via, "here"); assert.deepStrictEqual(JSON.stringify(r), JSON.stringify(S.netStudyNow(S.graphOf(ids, pairs))), "stepping changed the answer"); assert.strictEqual(r.runs.yours.length, S.NET_RHOS.length); }).catch(e => { console.error(e); process.exit(1); }); }
+// control chart: worked by hand. Moves of 1,2,1,1 average 1.25, so the limits are the mean 11 +/- 3.325
+{ const X = S.xmr([10, 11, 13, 12, 11]); near(X.mean, 11.4, 1e-9, "XmR mean"); near(X.mr, 1.25, 1e-9, "XmR average move"); near(X.ucl, 11.4 + 2.66 * 1.25, 1e-9, "XmR upper limit"); assert.strictEqual(X.signals.length, 0, "no signal in a steady run");
+  assert(S.xmr([10, 11, 10, 11, 10, 11, 10, 30]).signals.some(s => s.i === 7 && s.rule === "above"), "a point past the limit"); assert(S.xmr([1, 1, 2, 1, 2, 1, 1, 2, 9, 9, 10, 9, 10, 9, 10, 9]).signals.some(s => s.rule === "run-high"), "eight in a row above the centre");
+  assert.strictEqual(S.xmr([0, 0, 1, 0, 0, 1]).lcl, 0, "a count's limit doesn't go below 0"); }
+// Hill numbers: equal shares give the richness at every order; order rises as evenness rises
+{ const e = S.hill([5, 5, 5, 5, 5]); near(e.q0, 5, 1e-9, "richness"); near(e.q1, 5, 1e-9, "q1, even"); near(e.q2, 5, 1e-9, "q2, even"); const u = S.hill([96, 1, 1, 1, 1]); assert(u.q1 < 1.4 && u.q2 < 1.1, "one topic taking nearly all"); near(S.hill([50, 50]).q1, 2, 1e-9, "two equal"); assert.strictEqual(S.hill([0, 0]).q1, 0, "nothing at all"); }
+// k-core: a triangle with a tail. The triangle is the 2-core, the tail is 1, a lone note 0.
+{ const c = S.kCore([[1, 2], [0, 2], [0, 1, 3], [2], []]); assert.deepStrictEqual([...c], [2, 2, 2, 1, 0], "triangle, tail, lone note"); assert.deepStrictEqual([...S.kCore([[1, 2, 3], [0, 2, 3], [0, 1, 3], [0, 1, 2]])], [3, 3, 3, 3], "a complete four"); }
+// Chao1 (Chao 1984): S + f1^2 / 2 f2; with no doubletons, the bias-corrected f1(f1-1)/2
+{ const c = S.chao1([1, 1, 1, 1, 2, 2, 5]); assert.strictEqual(c.S, 7); assert.strictEqual(c.unseen, 4, "16 / 4"); assert.strictEqual(c.total, 11); assert.strictEqual(S.chao1([1, 1, 1, 3]).unseen, 3, "no doubletons"); }
+// location quotient: in step is 1; twice its share is 2; nothing finished has no answer
+{ near(S.locationQuotient(10, 100, 20, 200), 1, 1e-9, "in step"); near(S.locationQuotient(6, 100, 1, 33.33), 2, 0.01, "twice its share"); assert.strictEqual(S.locationQuotient(5, 10, 0, 10), null); }
 console.log("ok - science: Kaplan-Meier and log-rank on the 6-MP trial, SIR and its threshold, cut points, percolation, the neuron's closed form, anatomy");

@@ -58,6 +58,9 @@
     survival: { name: "Task survival", hint: "Clinical trials: how long tasks stay open, counting the ones still open, and what makes them finish", render: () => "", load: loadSurvival },
     spof: { name: "Single points of failure", hint: "Reliability engineering: the notes that hold the vault together, and how it breaks when they go", render: lensSpof },
     netlens: { name: "As a neural net", hint: "Reservoir computing: wire a recurrent network the way your notes link, and measure what it can do against random wiring", render: () => "", load: loadNetLens },
+    control: { name: "Control chart", hint: "Manufacturing: is this week really different, or the normal up and down of your work?", render: () => "", load: loadControl },
+    attention: { name: "Attention", hint: "Ecology: how many topics your week really went to, and whether you're focused or spread", render: lensAttention },
+    drift: { name: "Version drift", hint: "Notes and doc links that name a version other than the one you run", render: () => "", load: loadDrift },
     flowlens: { name: "Flow", hint: "Lean manufacturing and queueing theory: how much work is open, whether it's growing, and how long it takes", render: () => "", load: loadFlow },
     twoway: { name: "Hierarchy", hint: "Ecology: what blurs which way your notes lean, and the notes with no way up", render: () => "", load: loadTwoWay },
     adjacent: { name: "Adjacent possible", hint: "Notes one step past what you're working on, and strange pairs to combine", render: lensAdjacent },
@@ -419,7 +422,8 @@
     const stubs = nodes.filter(n => !special(n) && !n.ghost && (n.words || 0) < Q.stub_words && (n.inlinks || 0) >= 2)
       .sort((a, b) => b.inlinks - a.inlinks || b.mentions - a.mentions);
     if (!wanted.length && !stubs.length) return emptyNext("Every link points at a real note, and no short note has several links in.", "new:note", "lens:triage");
-    return `<p class="vg-muted vg-lens-note">Notes other notes already point at, ranked by how many. Writing these fills the biggest holes first.</p>
+    const named = opts.wantedCounts ? opts.wantedCounts() : null, ch = named && named.length >= 10 ? VGScience.chao1(named) : null;
+    return `${ch ? `<div class="vg-sci-facts">${[[String(ch.S), "notes linked but not written", "Every link in the vault that points at a note that doesn't exist."], [`${ch.f1} / ${ch.f2}`, "linked once / twice", "Most wanted notes are named only once or twice, which is what the estimate reads."], [`${Math.round(ch.unseen)}+`, "never named yet", "Chao1's estimate: how many more you'd expect to find if you kept writing. A lower bound, from the way ecologists count species they haven't seen."]].map(([v, l, h]) => `<div><b>${esc(v)}</b><span>${esc(l)}</span><small>${esc(h)}</small></div>`).join("")}</div>` : ""}<p class="vg-muted vg-lens-note">Notes other notes already point at, ranked by how many. Writing these fills the biggest holes first.</p>
       <div class="vg-list-h">Linked but never written <span class="vg-count">${wanted.length}</span></div>
       ${wanted.slice(0, 30).map(n => `<div class="vg-sugg"><button class="vg-item" data-id="${esc(n.id)}"><span class="vg-dot is-ghost"></span><span class="vg-item-main"><span>${esc(n.name)}</span>
         <span class="vg-item-sub">linked from ${plural(n.from.length, "note")}: ${n.from.filter(id => byId[id]).slice(0, 3).map(id => esc(byId[id].name)).join(", ")}${n.from.length > 3 ? "…" : ""}</span></span></button>

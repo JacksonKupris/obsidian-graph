@@ -14,16 +14,19 @@ What Vault Graph already does, and where. Read this before adding anything: exte
 | Are things getting better | Vitals, with a daily sample in shared state | `VGScience.vitals`, `src/hq/20-home.js` |
 | The day's end | Wrap up; `VGRules.forStandup` decides what stays out | `src/hq/10-shared.js` |
 | A week back | Weekly review | `src/hq/25-cockpit.js` |
-| The tasks as a queue | Flow lens (Little's law) | `src/view/62-science.js` |
+| The tasks as a queue, and where the pile is | Flow lens (Little's law, location quotient) | `src/view/62-science.js` |
+| Is this week really different | Control chart lens (Shewhart XmR) | `src/view/62-science.js` |
+| Focused or spread | Attention lens (Hill numbers) | `src/view/62-science.js` |
+| Notes out of step with what you run | Version drift lens (the rules file's `drift`); `ref_lint.py` owns URL rules in the vault | `src/plugin.js`, `src/view/62-science.js` |
 | How long tasks last | Task survival lens | `src/view/62-science.js` |
 | Old notes: which first, what to do with each | Stale notes lens (`VGScience.debtRanks`); Vitals and Weekly review read the same list | `src/view/60-lenses.js`, `src/view/62-science.js` |
 | Which way notes lean, and notes with no way up | Hierarchy lens (`VGRules.wayUp`, `twoWayPairs`), and `adopt` on Today | `src/view/62-science.js`, `src/rules.js` |
 | What counts as reliance | `VGRules.writtenLinks`, from `generated_link_sections` | `src/rules.js` |
 | If a note is wrong | Blast radius lens | `src/view/62-science.js` |
-| What holds the vault together | Single points of failure lens | `src/view/62-science.js` |
+| What holds the vault together | Single points of failure lens, with the k-core | `src/view/62-science.js` |
 | Likely duplicate notes | Duplicates lens | `src/view/60-lenses.js` |
 | Notes named but not linked, islands | Blind spots lens | `src/view/60-lenses.js` |
-| Notes to write | Write these next lens, `write` on Today | `src/view/60-lenses.js` |
+| Notes to write, and how many are unnamed (Chao1) | Write these next lens, `write` on Today | `src/view/60-lenses.js` |
 | What a map lists and misses | Map tree lens, `map` on Today | `src/view/60-lenses.js` |
 | Where folders and topics disagree | Folders vs topics lens | `src/view/60-lenses.js` |
 | Work on a project | HQ Projects (cards, board, drawer) | `src/hq/40-projects.js` |

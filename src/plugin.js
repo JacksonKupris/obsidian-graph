@@ -128,6 +128,8 @@ class VaultGraphView extends ItemView {
       linkHow: rows => this.plugin.linkHow(rows),
       dropLinkLines: rows => this.plugin.dropLinkLines(rows),
       setParents: rows => this.plugin.setParents(rows),
+      wantedCounts: () => this.plugin.wantedCounts(),
+      driftScan: () => this.plugin.driftScan(),
       mocReport: { load: () => this.plugin.loadMocReport(), tick: (line, on) => this.plugin.tickMocRow(line, on),
                    apply: Platform.isDesktopApp ? () => this.plugin.applyMocReport() : undefined },
       saveBinary: (notePath, buf) => this.plugin.saveBinary(notePath, buf),
@@ -1422,6 +1424,19 @@ module.exports = class VaultGraphPlugin extends Plugin {
     return n;
   }
   writtenLinks() { const mc = this.app.metadataCache; return VGRules.writtenLinks(mc.resolvedLinks, p => mc.getCache(p), (l, from) => { const f = mc.getFirstLinkpathDest(l.split("#")[0], from); return f && f.path; }); }
+  // How many notes link to each note that doesn't exist, the whole list (the graph data keeps only the top ones). Dailies and reports don't count.
+  wantedCounts() {
+    const un = this.app.metadataCache.unresolvedLinks || {}, by = new Map(); for (const [from, targets] of Object.entries(un)) { if (VGRules.inDaily(from) || from.startsWith(`${VGRules.folders.reports}/`) || EXCLUDE_PREFIXES.some(x => from.startsWith(x))) continue; for (const t of Object.keys(targets)) by.set(t, (by.get(t) || 0) + 1); }
+    return [...by.values()];
+  }
+  // Notes naming a version other than the one you run (the rules file's drift: name, pattern with the version as its first group, current). Code blocks count: a pinned command drifts too.
+  async driftScan() {
+    const rules = VGRules.RULES.drift || [], out = []; if (!rules.length) return out;
+    const skip = [VGRules.folders.reports + "/", VGRules.folders.templates + "/", VGRules.folders.archive + "/", VGRules.folders.system + "/", ...EXCLUDE_PREFIXES], res = rules.map(r => ({ ...r, re: new RegExp(r.pattern, "gi") }));
+    for (const f of this.app.vault.getMarkdownFiles()) { if (VGRules.inDaily(f.path) || skip.some(x => f.path.startsWith(x)) || /\d{4}-\d{2}-\d{2}/.test(f.basename) || VGRules.isRecord({ id: f.path, name: f.basename, tags: [] })) continue;
+      const lines = (await this.app.vault.cachedRead(f)).split(/\r?\n/); for (const r of res) { let hit = null; for (const l of lines) { r.re.lastIndex = 0; for (const m of l.matchAll(r.re)) if (m[1] && !String(m[1]).startsWith(r.current)) { hit = { found: m[1], text: l.trim() }; break; } if (hit) break; } if (hit) out.push({ path: f.path, name: r.name, current: r.current, ...hit }); } }
+    return out;
+  }
   // Give notes a way up: parent: "[[Hub]]" in the frontmatter, as one action. A note that already has a parent keeps it. Rows: { path, hub }.
   async setParents(rows) {
     this.vitalsMemo = null; let n = 0;
