@@ -1366,6 +1366,8 @@ const VGRules = (() => {
   // What's new, newest first: since is the first version with it; to is where it lives (a screen, a view, or a report). A release that adds
   // something a person should know adds a line. Compared by number, so 0.6.100 comes after 0.6.99.
   const NEWS = [
+    { since: "0.6.46", text: "Two-way links: table rows and lines of links are labelled as what they are, and a note's only link is never the one to drop", to: { graph: {} } },
+    { since: "0.6.46", text: "No way up suggests a note's system map first, then a tag", to: { graph: {} } },
     { since: "0.6.45", text: "Ticking a todo in a note adds today's date, and unticking it takes the date off", to: { screen: "today" } },
     { since: "0.6.44", text: "Plan items you finished stay finished when the next standup repeats them, listed under the plan with a way back", to: { screen: "today" } },
     { since: "0.6.43", text: "Views: lenses, scenes and maps are one menu now, grouped by what you want to know", to: { graph: {} } },
@@ -1384,22 +1386,35 @@ const VGRules = (() => {
   // the line a note made from a wanted link starts with. Plain names, not links: nobody wrote these as reliance, and backlinks already show them.
   const createdFromLine = names => `> Created from Vault Graph: linked from ${names.join(", ")}.`;
   // a line that's only a link in a list (with at most a few words after it): it can go without breaking a sentence
-  const bareLinkLine = l => /^\s*[-*+]\s+(?:\[[ x-]\]\s+)?\[\[[^\]]+\]\]\s*(?:[—–:-].{0,80})?$/.test(String(l));
+  const bareLinkLine = l => /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ x-]\]\s+)?\[\[[^\]]+\]\]\s*(?:[—–:-].{0,80})?$/.test(String(l));
+  // a table row, and a line that's only links under a short label or an arrow ("**Back:** [[A]] | [[B]]", "← [[A]]"). They're soft too, but
+  // they hold other links or cells, so they're never taken out whole
+  const tableRow = l => /^\s*\|.*\|\s*$/.test(String(l));
+  const linksLine = l => /^\s*(?:>\s*)*(?:\*{0,2}[\p{L} ]{1,24}:\*{0,2}\s*|[←→↑]\s*)?\[\[[^\]]+\]\](?:\s*[|,·]?\s*\[\[[^\]]+\]\])*\s*\.?\s*$/u.test(String(l).replace(/\\\|/g, "/"));
   // how a link is written, softest last: which side of a two-way pair to drop
-  const LINK_KINDS = ["sentence", "list", "frontmatter", "see also"];
-  const linkKindOf = (line, heading) => !bareLinkLine(line) ? "sentence" : /^(see also|references?|links?)\b/i.test(String(heading || "").trim()) ? "see also" : "list";
-  // The note a note should link up to (the rules file's hierarchy): the hub for its first matching tag, else its system's map, from
-  // its folder under system_root. hasNote(name): that note exists. Null when nothing fits.
+  const LINK_KINDS = ["sentence", "table", "links line", "list", "frontmatter", "see also"];
+  const linkKindOf = (line, heading) => bareLinkLine(line) ? (/^(see also|references?|links?)\b/i.test(String(heading || "").trim()) ? "see also" : "list") : tableRow(line) ? "table" : linksLine(line) ? "links line" : "sentence";
+  // Which side of a two-way pair to suggest dropping, "a" or "b", from each side's { kind, inDeg, links } (links: its written links). Never
+  // a note's only written link, which would leave it with no way up; null when that's true of both. Else the softer side, else the
+  // side more notes link to, so the specific note keeps its link up.
+  function twoWayDrop(a, b) {
+    if (a.links <= 1 && b.links <= 1) return null;
+    if (a.links <= 1) return "b"; if (b.links <= 1) return "a";
+    const ra = LINK_KINDS.indexOf(a.kind), rb = LINK_KINDS.indexOf(b.kind);
+    return ra !== rb ? (ra > rb ? "a" : "b") : (a.inDeg >= b.inDeg ? "a" : "b");
+  }
+  // The note a note should link up to (the rules file's hierarchy): what it's about comes first, so a note in a system goes to that
+  // system's map, from its folder under system_root. Elsewhere, the hub for its first matching tag. hasNote(name): that note exists. Null when nothing fits.
   function wayUp(n, hasNote) {
     const H2 = R.hierarchy || {}, tags = n.tags || [], name = n.name || stemCase(n.id);
-    for (const [tag, hub] of Object.entries(H2.tag_hubs || {})) if (tags.includes(tag) && hub !== name && hasNote(hub)) return { hub, why: tag };
     const m = H2.system_root && String(n.id).startsWith(`${H2.system_root}/`) ? String(n.id).slice(H2.system_root.length + 1).split("/") : null;
     if (m && m.length > 1 && m[0] !== name && hasNote(m[0])) return { hub: m[0], why: `in ${m[0]}` };
+    for (const [tag, hub] of Object.entries(H2.tag_hubs || {})) if (tags.includes(tag) && hub !== name && hasNote(hub)) return { hub, why: tag };
     return null;
   }
   // a task and the open subtasks that go with it, as rows for a status change
   const taskRowsOf = it => [{ path: it.path, line: it.line, text: it.text }, ...(it.subs || []).map(s => ({ path: it.path, line: s.line, text: s.text }))];
-  return { taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
