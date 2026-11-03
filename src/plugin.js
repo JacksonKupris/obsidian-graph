@@ -1649,7 +1649,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       for (const w of D.views()) {
         const e0 = errors.length, t0 = performance.now(); D.setView(w); const sw = performance.now() - t0; await sleep(1500);
         const today = q(".vg-today");
-        rows.push(`| ${w} | ${errors.length - e0 ? "❌ " + (errors.length - e0) + " error(s)" : "✅"} | ${Math.round(sw)} ms | ${D.drawMs().toFixed(1)} ms | ${D.P.size} | ${today && !today.hidden ? q(".vg-today-text").textContent.replace(/\|/g, "/") : ""} |`);
+        rows.push(`| ${w} | ${errors.length - e0 ? "❌ " + (errors.length - e0) + " error(s)" : "✅"} | ${Math.round(sw)} ms | ${document.hidden ? "not drawn: window hidden" : `${D.drawMs().toFixed(1)} ms`} | ${D.P.size} | ${today && !today.hidden ? q(".vg-today-text").textContent.replace(/\|/g, "/") : ""} |`);
       }
       const keys = D.lenses();
       for (const k of keys) {

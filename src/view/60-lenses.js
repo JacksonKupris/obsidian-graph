@@ -78,7 +78,7 @@
     body.querySelectorAll("[data-id]").forEach(d => d.onclick = () => { if (!lensBeside()) closeLens(); reveal(d.dataset.id); });
     body.querySelectorAll("[data-cl]").forEach(d => d.onclick = () => { if (!lensBeside()) closeLens(); focusClusters(d.dataset.cl.split(",").map(Number)); });
     wireLens(body);
-    if (l.load && !none) { body.innerHTML = `<div class="vg-empty">Loading…</div>`; l.load().then(html => { if (lensKey === k) { body.innerHTML = html; wireLens(body); } }); }
+    if (l.load && !none) { body.innerHTML = `<div class="vg-empty">Loading…</div>`; l.load().then(html => { if (lensKey === k) { body.innerHTML = html; wireLens(body); } }).catch(err => { console.error(`Vault Graph: ${l.name} didn't load`, err); if (lensKey === k) body.innerHTML = `<div class="vg-empty">${esc(l.name)} didn't load: ${esc((err && err.message) || err)}.</div>`; }); }
   }
   function wireLens(body) {
     // every note row in a lens gets the shared actions behind "⋯", whatever buttons the lens adds itself

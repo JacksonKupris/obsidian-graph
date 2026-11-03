@@ -41,7 +41,7 @@ if (env.rules.hq && env.rules.hq.journal) {
 
 (async () => {
   const links = env.data().links.filter(l => l.kind === "link"), out = {}; links.forEach(l => { (out[l.source] = out[l.source] || {})[l.target] = 1; });
-  const tab = await cdp.open({ html: env.pageWith(`writtenLinks: () => (window.__written || ${JSON.stringify(out)}),`), port: 9395 });
+  const tab = await cdp.open({ html: env.pageWith(`writtenLinks: () => (window.__written || ${JSON.stringify(out)}), driftScan: async () => { if (window.__driftRows === "boom") throw new Error("boom"); return window.__driftRows || []; },`), port: 9395 });
   if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
   const fails = [], check = (ok, what) => { if (!ok) fails.push(what); }, D = "window.vaultGraph._debug";
   try {
@@ -76,6 +76,12 @@ if (env.rules.hq && env.rules.hq.journal) {
     const tw = await tab.ev(`document.querySelector(".vg-lens-body").textContent`);
     check(/two-way pairs/.test(tw) && /Suggested side to drop/.test(tw) && /How to read this/.test(tw), `Two-way links: ${tw.slice(0, 200)}`); check(!/NaN|undefined/.test(tw), "Two-way links shows a broken number");
     await tab.ev(`${D}.closeLens()`); await tab.ev(`void (window.__written = null)`); await tab.ev(`${D}.renewLinks()`);
+    // Version drift on rows from the host, one for a note the graph doesn't hold: both draw. A load that fails says so instead of sitting on Loading.
+    const anId = await tab.ev(`DATA.nodes.find(n => !n.person && !n.ghost && !n.moc).id`);
+    await tab.ev(`(() => { window.__driftRows = [{ path: ${JSON.stringify(anId)}, name: "MySQL", current: "8.4", found: "8.0", text: "Engine MySQL 8.0.40" }, { path: "not/in/the/graph.md", name: "MySQL", current: "8.4", found: "5.7", text: "Old" }]; })()`);
+    await tab.ev(`${D}.openLens("drift")`); check(await tab.waitFor(finished(), 8000), "Version drift never finished");
+    const dr = await tab.ev(`document.querySelector(".vg-lens-body").textContent`); check(/you run 8\.4/.test(dr) && /says 8\.0/.test(dr) && /says 5\.7/.test(dr), `Version drift: ${dr.slice(0, 200)}`);
+    await tab.ev(`void (window.__driftRows = "boom")`); await tab.ev(`${D}.closeLens()`); await tab.ev(`${D}.openLens("drift")`); check(await tab.waitFor(finished(), 8000), "a failing view stayed on Loading"); check(/didn't load/.test(await tab.ev(`document.querySelector(".vg-lens-body").textContent`)), "a failing view didn't say so"); await tab.ev(`${D}.closeLens()`);
     // one menu: every picture and report under Views, by what you want to know, with no word for how it's built
     await tab.ev(`document.querySelector(".vg-pickbtn").click()`); await sleep(200);
     const menu = await tab.ev(`({ tabs: [...document.querySelectorAll(".vg-picker-tab")].map(b => b.textContent.replace(/[0-9]+/g, "")), heads: [...document.querySelectorAll(".vg-picker-tiles .vg-list-h")].map(h => h.textContent), names: [...document.querySelectorAll(".vg-picker-tiles .vg-tile b")].map(b => b.textContent), more: document.querySelector(".vg-picker-body").textContent })`);
