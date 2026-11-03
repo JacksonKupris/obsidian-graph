@@ -12,7 +12,7 @@ function mountVaultHQ(root, data, opts) {
   opts = opts || {};
   const SCREENS = [["home", "Home", "home"], ["today", "Today", "tasks"], ["needs", "Needs you", "inbox"], ["people", "People", "people"], ["projects", "Projects", "folder"], ["calendar", "Calendar", "calendar"]];
   // screens reached from another one (not in the dock): the carried-over sweep, and a report's rows; each has a way back
-  const SUB = { session: ["Focus", "today"], threads: ["Threads", "today"], review: ["Weekly review", "today"], wrap: ["Wrap up", "today"], sweep: ["Sweep", "today"], rows: ["Report rows", "needs"], automations: ["Automations", "needs"] };
+  const SUB = { session: ["Focus", "today"], threads: ["Threads", "today"], review: ["Weekly review", "today"], wrap: ["Wrap up", "today"], sweep: ["Sweep", "today"], rows: ["Report rows", "needs"], automations: ["Automations", "needs"], changes: ["Recent changes", "home"] };
   const known = s => SCREENS.some(x => x[0] === s) || !!SUB[s];
   const api = opts.api || {};
   let DATA = data || { nodes: [], links: [] }, STATE = opts.state || {}, cur = SCREENS.some(s => s[0] === opts.screen) || opts.screen === "automations" ? opts.screen : "home";

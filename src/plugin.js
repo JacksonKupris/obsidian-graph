@@ -533,7 +533,8 @@ const WRITE_ACTIONS = ["setParents", "dropLinkLines", "moveTasks", "planLine", "
 // entry, so every action can be undone from the message that confirms it. tests/test_rules.js fails on a vault write
 // anywhere else (outside STATE_WRITERS).
 const WRITE_PRIMITIVES = ["ioProcess", "ioModify", "ioFrontMatter", "ioCreate", "ioCreateBinary", "ioRename", "ioFolder", "ioTrash", "ioData"];
-const UNDO_KEEP = 20;   // actions that can still be undone (this session)
+const UNDO_KEEP = 20;   // actions that can still be undone
+const UNDO_FILE_MAX = 5 * 1024 * 1024;
 // The plugin's own state files (game/shared state, content log), written outside WRITE_ACTIONS: their file watcher
 // redraws the sidebar. tests/test_rules.js fails if a vault write appears anywhere else.
 const STATE_WRITERS = ["saveContentSoon", "writeShared", "recordLedger", "writeLiveDiag", "setRule"];
@@ -580,6 +581,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     this.registerView(SUGGEST_TYPE, leaf => new VaultGraphSuggestView(leaf, this));
     this.registerView(HQ_TYPE, leaf => new VaultHQView(leaf, this));
     this.addCommand({ id: "open-hq", name: "Open Vault HQ", callback: () => this.openHQ() });
+    this.addCommand({ id: "recent-changes", name: "Recent changes", callback: async () => { const leaf = await this.openHQ(); if (leaf.view.handle) leaf.view.handle.setScreen("changes"); } });
     // from anywhere in Obsidian, without leaving the note you're in; give them a hotkey
     const captureFrom = kind => async () => { const text = await inputModal(this.app, kind === "note" ? "Capture a note" : "Capture a task", kind === "note" ? "It goes in the capture folder." : "It goes in today's journal.", kind === "note" ? "An idea…" : "Something to do…"); if (!text || !text.trim()) return; try { await this.capture(text, kind); new Notice(kind === "note" ? "Note saved" : "Added to today"); } catch (e) { new Notice(`Couldn't save that: ${e.message}`, 8000); } };
     this.addCommand({ id: "capture-task", name: "Capture a task", callback: captureFrom("task") });
@@ -746,6 +748,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
 
   wrapWriteActions() {
     this.undoLog = []; this.undoSeq = 0;
+    this.loadUndoLog();
     // every vault write counts, so an action that wrote nothing (a preview, a check) neither waits for the index nor redraws
     WRITE_PRIMITIVES.forEach(k => { const g = this[k].bind(this); this[k] = (...a) => { this.writes = (this.writes || 0) + 1; return g(...a); }; });
     WRITE_ACTIONS.forEach(k => {
@@ -780,15 +783,33 @@ module.exports = class VaultGraphPlugin extends Plugin {
       const f = this.fileAt(renamedTo(i, o.path));
       o.after = f && !o.binary ? await this.app.vault.read(f) : null;
     }
-    e.id = ++this.undoSeq;
+    e.id = ++this.undoSeq; e.when = Date.now();
     this.undoLog = [...this.undoLog, e].slice(-UNDO_KEEP);
+    await this.saveUndoLog();
   }
+  // The undo list outlives a restart: kept in the cache folder, which Obsidian Sync leaves out, since it holds what a note looked like on this PC.
+  // Oldest entries go first if it grows past the limit; a change it can't keep can still be rolled back from the vault's own history.
+  undoLogPath() { return normalizePath(`${VGRules.folders.cache}/undo-log.json`); }
+  async saveUndoLog() {
+    try { const io = this.app.vault.adapter, dir = normalizePath(VGRules.folders.cache); let keep = this.undoLog, text = JSON.stringify({ seq: this.undoSeq, log: keep });
+      while (text.length > UNDO_FILE_MAX && keep.length) { keep = keep.slice(1); text = JSON.stringify({ seq: this.undoSeq, log: keep }); }
+      if (io.mkdir && !await io.exists(dir)) await io.mkdir(dir); await io.write(this.undoLogPath(), text); }
+    catch (err) { console.error("Vault Graph: the undo list wasn't saved", err); }
+  }
+  async loadUndoLog() {
+    try { const d = JSON.parse(await this.app.vault.adapter.read(this.undoLogPath())); if (Array.isArray(d.log)) { this.undoLog = d.log; this.undoSeq = Math.max(d.seq || 0, ...d.log.map(e => e.id || 0)); } }
+    catch (err) { /* no list yet */ }
+  }
+  // What the message said, so Recent changes reads the same
+  labelUndo(id, label) { const e = this.undoLog.find(x => x.id === id); if (e) { e.label = label; this.saveUndoLog(); } }
+  recentChanges() { return this.undoLog.slice().reverse().map(e => ({ id: e.id, label: e.label || "", when: e.when || 0, files: [...new Set(e.ops.map(o => o.path || o.to).filter(Boolean))] })); }
   lastUndo() { const e = this.undoLog[this.undoLog.length - 1]; return e ? e.id : 0; }
   // Put back what one action changed, its last change first. Nothing is undone if any of its files changed since.
   async undo(id) {
     this.vitalsMemo = null;
     const e = this.undoLog.find(x => x.id === id);
     if (!e) throw new Error("it's no longer in the undo list");
+    if (this.undoCur) this.undoCur.label = `Undid: ${e.label || "a change"}`;
     const renamedTo = (i, p) => e.ops.slice(i + 1).reduce((q, o) => (o.kind === "rename" && o.from === q ? o.to : q), p);
     for (const [i, o] of e.ops.entries()) {
       const p = o.kind === "rename" ? renamedTo(i, o.to) : renamedTo(i, o.path), f = this.fileAt(p);
@@ -800,7 +821,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       else if (o.kind === "create") await this.ioTrash(this.fileAt(o.path));
       else if (o.kind === "rename") await this.ioRename(this.fileAt(o.to), o.from);
     }
-    this.undoLog = this.undoLog.filter(x => x !== e);
+    this.undoLog = this.undoLog.filter(x => x !== e); await this.saveUndoLog();
   }
   // After a write: resolve on Obsidian's next "resolved" (its index has caught up), or after 1.5 s if the write
   // changed nothing it indexes (a JSON file, "Already in…"). Registered before the write so the event can't be missed.
@@ -842,7 +863,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       const data = structuredClone(this.base);
       try { liveMerge(this.app, data, this.dataMtime()); } catch (e) { console.error("Vault Graph: live merge failed", e); }
       data.scenes = await this.sceneBlocks();
-      try { data.hq = await this.hqData(); } catch (e) { console.error("Vault Graph: HQ notes not read", e); data.hq = null; }
+      try { data.hq = await this.hqData(); data.hqError = null; } catch (e) { console.error("Vault Graph: HQ notes not read", e); data.hq = null; data.hqError = (e && e.message) || String(e); }
       this.version = (this.version || 0) + 1;
       if (data.live && data.live.indexNotReady) this.mergeWhenIndexed();
       this.writeLiveDiag(data);
@@ -1277,6 +1298,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
       logWork: text => this.logWork(text),
       setTasksStatus: (rows, status) => this.setTasksStatus(rows, status),
       moveTasks: (items, to) => this.moveTasks(items, to),
+      recentChanges: () => this.recentChanges(),
+      labelUndo: (id, label) => this.labelUndo(id, label),
       setParents: rows => this.setParents(rows),
       vitals: () => this.vitals(),
       setNoteStatus: (notePath, status, reason) => this.setNoteStatus(notePath, status, reason),

@@ -87,11 +87,12 @@ assert.ok(!R.createdFromLine(["A", "B"]).includes("[["), "a stub line links back
 (async () => {
   // ---- the real plugin code: Move and Sweep through viewActions, on a stand-in vault
   if (H.journal) {
+    const undoFile = { text: null };
     const { Plugin, TFile } = stub.load(env.rules), PROJ = "Project.md", files = new Map();
     const mk = (p, t) => files.set(p, { f: Object.assign(new TFile(), { path: p, basename: p.split("/").pop().replace(/\.md$/, ""), name: p.split("/").pop(), extension: "md" }), text: t });
     mk(OLD, text); mk(PROJ, "# Project\n\n## Tasks\n\n- [ ] Existing\n");
     const fileOf = p => (files.get(p) || {}).f || null;
-    const app = { vault: { getAbstractFileByPath: fileOf, process: async (f, fn) => { const e = files.get(f.path); e.text = fn(e.text); return e.text; }, read: async f => files.get(f.path).text, cachedRead: async f => files.get(f.path).text, modify: async (f, t) => { files.get(f.path).text = t; }, adapter: { exists: async () => false, read: async () => "{}", write: async () => {}, mkdir: async () => {}, list: async () => ({ files: [], folders: [] }) }, getMarkdownFiles: () => [...files.keys()].map(fileOf), on() {} },
+    const app = { vault: { getAbstractFileByPath: fileOf, process: async (f, fn) => { const e = files.get(f.path); e.text = fn(e.text); return e.text; }, read: async f => files.get(f.path).text, cachedRead: async f => files.get(f.path).text, modify: async (f, t) => { files.get(f.path).text = t; }, adapter: { exists: async () => false, read: async p => (/undo-log/.test(p) && undoFile.text ? undoFile.text : "{}"), write: async (p, t) => { if (/undo-log/.test(p)) undoFile.text = t; }, mkdir: async () => {}, list: async () => ({ files: [], folders: [] }) }, getMarkdownFiles: () => [...files.keys()].map(fileOf), on() {} },
       metadataCache: { on: () => ({}), offref() {}, getFileCache: () => ({}), resolvedLinks: {}, unresolvedLinks: {} }, workspace: { getLeavesOfType: () => [] }, loadLocalStorage: () => "t", saveLocalStorage() {} };
     const p = Object.assign(Object.create(Plugin.prototype), { app, settings: { sharedPath: "shared.json" } }), a = p.viewActions({});
     assert.strictEqual(typeof a.moveTasks, "function", "the plugin doesn't offer Move"); assert.strictEqual(typeof a.vitals, "function", "the plugin doesn't offer vitals");
@@ -115,6 +116,12 @@ assert.ok(!R.createdFromLine(["A", "B"]).includes("[["), "a stub line links back
       app.fileManager = { processFrontMatter: async (f, fn) => { const e = files.get(f.path), fm = R.frontOf(e.text); fn(fm); const y = Object.entries(fm).map(([k, v]) => (Array.isArray(v) ? [`${k}:`, ...v.map(x => `  - ${x}`)].join("\n") : `${k}: ${v}`)).join("\n"); e.text = e.text.replace(/^---\n[\s\S]*?\n---/, `---\n${y}\n---`); } };
       const n3 = await p.setParents([{ path: "Up.md", hub: "SQL" }, { path: "Has.md", hub: "SQL" }]); assert.strictEqual(n3, 1, "only the note with no parent"); assert.ok(files.get("Up.md").text.includes("parent: [[SQL]]"), files.get("Up.md").text); assert.ok(files.get("Has.md").text.includes("parent: Other"), "an existing parent was replaced");
       if (p.undoLog) { const entry = p.undoLog[p.undoLog.length - 1]; await p.undo(entry.id); assert.strictEqual(files.get("Up.md").text, was, "Undo left the parent"); } }
+    // Recent changes: a message's label, and the list survives a restart with Undo still working
+    if (p.wrapWriteActions) { const was = files.get(OLD).text, still = R.todayList({ nodes: [], links: [], hq: R.hqGather([{ path: OLD, text: was, fm: {} }], { today: "2026-11-02" }) }, { today: "2026-11-02" }).find(i => i.title === "Left behind");
+      assert.ok(still, "a task to change"); await p.moveTasks([still], PROJ); const id = p.lastUndo(); p.labelUndo(id, "Moved 1 task to Project"); const top = p.recentChanges()[0]; assert.strictEqual(top.label, "Moved 1 task to Project"); assert.ok(top.files.includes(OLD) && top.files.includes(PROJ), "the files it changed"); assert.ok(top.when > 0);
+      await new Promise(r => setTimeout(r, 20)); assert.ok(undoFile.text && undoFile.text.includes("Moved 1 task"), "the list wasn't saved");
+      const next = Object.assign(Object.create(Plugin.prototype), { app, settings: { sharedPath: "shared.json" } }); next.publish = async () => {}; next.nextStepSoon = () => {}; next.wrapWriteActions(); await new Promise(r => setTimeout(r, 20)); assert.strictEqual(next.recentChanges()[0].id, id, "a restart lost the list");
+      await next.undo(id); assert.strictEqual(files.get(OLD).text, was, "Undo after a restart didn't put the note back"); assert.strictEqual(next.recentChanges().some(c => c.id === id), false, "an undone change stays listed"); }
     // changed since it was shown: left where it is, and not copied
     const gone = await a.moveTasks([{ ...item, text: "Not the line any more", subs: [] }], PROJ); assert.strictEqual(gone, 0); assert.ok(!files.get(PROJ).text.includes("Not the line"), "a changed line was copied");
   }
@@ -139,6 +146,10 @@ assert.ok(!R.createdFromLine(["A", "B"]).includes("[["), "a stub line links back
     const calls = await tab.ev(`window.__calls`);
     check(calls.some(c => c[0] === "graph" && c[1].lens === "triage"), "the lens button didn't reach the host"); check(calls.some(c => c[0] === "graph" && c[1].view === "foodweb"), "the Food web button didn't reach the host"); check(calls.some(c => c[0] === "stampReviewed" && c[1] === "x.md"), "Still current didn't stamp the note");
     check(await tab.ev(`!!document.querySelector('[data-graphlens="twoway"]')`), "Vitals has no way into Two-way links");
+    // Recent changes on the page: the row, its Undo reaches the host, and nothing to undo has a way on
+    await tab.ev(`(() => { window.vaultHQ.destroy(); const ca = [{ id: 7, label: "Dropped 2 links", when: Date.now(), files: ["a/One.md", "b/Two.md"] }]; window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { state: { review: { hqTour: true } }, ask: async () => true, api: { recentChanges: () => ca, undo: async id => { window.__undone = id; ca.length = 0; } } }); })()`);
+    await tab.ev(`window.vaultHQ.setScreen("changes")`); await sleep(80); const ct = await tab.ev(`document.querySelector(".vg-hq-main").textContent`); check(/Dropped 2 links/.test(ct) && /One, Two/.test(ct), `Recent changes: ${ct.slice(0, 160)}`); check(await click("[data-changeundo]"), "no Undo on a change"); await sleep(80); check((await tab.ev(`window.__undone`)) === 7, "Undo didn't reach the host"); check(/Nothing to undo/.test(await tab.ev(`document.querySelector(".vg-hq-main").textContent`)), "the empty list");
+    await tab.ev(`(() => { window.vaultHQ.destroy(); window.__calls = []; const rec = k => async (...a) => { window.__calls.push([k, ...a]); return 1; }; window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { state: { review: { hqTour: true } }, ask: async () => true, api: { vitals: async () => (${JSON.stringify(V)}), moveTasks: rec("moveTasks"), setTasksStatus: rec("setTasksStatus"), setTaskStatus: rec("setTaskStatus"), openNote: rec("openNote") } }); })()`);
     if (hasCarried) {
       await tab.ev(`window.vaultHQ.setScreen("sweep")`); await sleep(100);
       check(await tab.ev(`!!document.querySelector('[data-one="move"]') && !!document.querySelector('[data-batch="move"]')`), "the Sweep has no Move");

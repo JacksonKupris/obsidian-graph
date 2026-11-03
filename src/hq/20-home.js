@@ -61,7 +61,7 @@
       <button class="vg-hq-tile" data-go="needs"><span class="vg-hq-eyebrow">Needs you</span><span class="vg-hq-big">${needs.length}</span><small>${esc(needsBy || "Nothing waiting on you")}</small></button>
       <button class="vg-hq-tile" data-go="projects"><span class="vg-hq-eyebrow">Projects</span><span class="vg-hq-big">${count("active")}</span><small>in progress · ${count("planned")} planned · ${count("waiting")} waiting</small></button></div>`;
     const upkeep = ofGroup("upkeep").slice(0, 3);
-    const status = `<p class="vg-hq-status">${plural(nodes0(), "note")} · ${plural((DATA.clusters || []).length, "topic")}${DATA.date ? ` · analysed ${esc(shortDate(DATA.date))}` : ""}${opts.openGraph ? ' · <button class="vg-hq-linkbtn" data-graph>Open the graph</button>' : ""}</p>`;
+    const status = `<p class="vg-hq-status">${plural(nodes0(), "note")} · ${plural((DATA.clusters || []).length, "topic")}${DATA.date ? ` · analysed ${esc(shortDate(DATA.date))}` : ""}${api.recentChanges ? ' · <button class="vg-hq-linkbtn" data-go="changes">Recent changes</button>' : ""}${opts.openGraph ? ' · <button class="vg-hq-linkbtn" data-graph>Open the graph</button>' : ""}</p>`;
     const off = new Set((STATE.review || {}).hqHome || []), on = k => !off.has(k);
     if (isNewVault()) return `<h1 class="vg-hq-h1">Welcome</h1>${welcomeHtml()}`;
     return `<h1 class="vg-hq-h1">${greeting()}</h1>${on("brief") ? briefHtml() : ""}${captureBox()}${on("loop") ? flow() : ""}${journalWarning()}${hiddenKindsLine()}${on("cards") ? tiles : ""}${on("vitals") ? vitalsHtml() : ""}${on("momentum") ? momentumHtml() : ""}${on("threads") ? threadsHtml(6) : ""}${on("feed") ? feed : ""}` +

@@ -130,7 +130,7 @@ const VGActions = (() => {
     try {
       const msg = await a.run(n, c, e);
       // the Undo puts back what the plugin recorded for it, and runs the action's own undo (a mark in the shared file)
-      if (msg) { const id = c.api.lastUndo ? c.api.lastUndo() : 0, rec = id && id !== mark && c.api.undo ? id : 0;
+      if (msg) { const id = c.api.lastUndo ? c.api.lastUndo() : 0, rec = id && id !== mark && c.api.undo ? id : 0; if (rec && c.api.labelUndo) c.api.labelUndo(rec, msg);
         c.done(msg, rec || a.undo ? () => undo(rec, msg, c, a.undo && (() => a.undo(n, c))) : null); }
       return msg !== null;
     }
