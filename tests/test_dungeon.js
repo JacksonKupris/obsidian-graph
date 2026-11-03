@@ -61,8 +61,9 @@ const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.a
     check(!await tab.ev(`${A}.solidAt(${G}.L, ${G}.me.x, ${G}.me.y)`), "walked through a wall");
 
     // shooting: face an enemy at close range; the shot hurts it, costs ammo and leaves the graph's selection alone
-    // aim and pull the trigger in one step: a woken enemy walks off the line, so any wait in between makes a slow machine miss
-    const aimed = `(() => { const L = ${G}.L, m = ${G}.me, e = L.enemies.find(o => !o.dead && o !== L.boss) || L.boss; m.x = e.x - 1; m.y = e.y; if (${A}.solidAt(L, m.x, m.y)) { m.x = e.x + 1; if (${A}.solidAt(L, m.x, m.y)) { m.x = e.x; m.y = e.y - 1; } } m.a = Math.atan2(e.y - m.y, e.x - m.x); m.gun = "pistol"; m.vx = m.vy = 0; m.cool = 0; m.swap = 0; m.ammo.bullets = 50; L.doors.forEach(d => { d.open = 1; d.hold = 99; }); ${G}.__t = e; const was = [e.hp, m.ammo.bullets]; ${root}.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true })); ${D}.drawNow(); return was; })()`;
+    // a target with open floor beside it and no other enemy near, everything close by asleep until the shot wakes it: on a slow machine a
+    // late frame otherwise lets one walk off the line or another step into it. Aim and pull the trigger in one step.
+    const aimed = `(() => { const L = ${G}.L, m = ${G}.me, alone = o => !o.dead && !L.enemies.some(x => x !== o && !x.dead && Math.hypot(x.x - o.x, x.y - o.y) < 3), spot = o => [[-1, 0], [1, 0], [0, -1], [0, 1]].find(([dx, dy]) => !${A}.solidAt(L, o.x + dx, o.y + dy)), e = L.enemies.find(o => o !== L.boss && alone(o) && spot(o)) || L.enemies.find(o => !o.dead && spot(o)), at = spot(e); m.x = e.x + at[0]; m.y = e.y + at[1]; L.enemies.forEach(o => { if (!o.dead && Math.hypot(o.x - e.x, o.y - e.y) < 6) { o.awake = false; o.look = 99; } }); L.shots.length = 0; m.a = Math.atan2(e.y - m.y, e.x - m.x); m.gun = "pistol"; m.vx = m.vy = 0; m.cool = 0; m.swap = 0; m.ammo.bullets = 50; L.doors.forEach(d => { d.open = 1; d.hold = 99; }); ${G}.__t = e; const was = [e.hp, m.ammo.bullets]; ${root}.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true })); ${D}.drawNow(); return was; })()`;
     await tab.ev(safe); await tab.ev(`${D}.st.selected = null`);
     const h0 = await tab.ev(aimed);
     await frames(8); await key("keyup", " ", root);
@@ -112,8 +113,9 @@ const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.a
     check(await tab.ev(`${G}.L.enemies.filter(e => e.dead).every(e => e.flash === 0)`), "a corpse is still flashing");
 
     // an enemy's blow costs health; enough of them and you die, named by what killed you; Try again restores the start
-    await tab.ev(`${A}.startLevel(0)`); await frames(1); const hp0 = await tab.ev(`${G}.me.hp`);
-    await tab.ev(`${A}.hurtMe(10, ${G}.me.x + 1, ${G}.me.y, "Some Note")`); check(await tab.ev(`${G}.me.hp`) < hp0, "a hit cost no health");
+    await tab.ev(`${A}.startLevel(0)`); await frames(1);
+    // full health and the blow in one step: on a slow machine what happened in earlier frames can leave you at no health, and a frame between reading and hitting can change it
+    const [hp0, hpHit] = await tab.ev(`(() => { const m = ${G}.me; m.hp = 100; const was = m.hp; ${A}.hurtMe(10, m.x + 1, m.y, "Some Note"); return [was, m.hp]; })()`); check(hpHit < hp0, "a hit cost no health");
     await tab.ev(`${A}.hurtMe(999, ${G}.me.x + 1, ${G}.me.y, "Some Note")`); await frames(2);
     check(await tab.ev(`${G}.state`) === "dead" && await tab.ev(`${G}.killer`) === "Some Note", "dying doesn't say who did it"); await shot("dead");
     await key("keydown", "Enter", root); await key("keyup", "Enter", root); await frames(2);
