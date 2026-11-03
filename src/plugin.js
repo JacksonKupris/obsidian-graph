@@ -1510,7 +1510,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       const lines = texts.get(from), heads = c.headings || [], kinds = [], at = [];
       for (const l of c.links || []) { if (dest(l.link, from) !== to) continue; const ln = l.position.start.line, h = heads.filter(x => x.position.start.line <= ln).pop(), head = h ? h.heading : ""; if (re && re.test(head.trim())) continue; kinds.push(VGRules.linkKindOf(lines[ln], head)); at.push(ln); }
       (c.frontmatterLinks || []).forEach(l => { if (dest(l.link, from) === to) kinds.push("frontmatter"); });
-      const hardest = kinds.map(k => VGRules.LINK_KINDS.indexOf(k)).sort((a, b) => a - b)[0], one = kinds.length === 1 && at.length === 1 && kinds[0] !== "sentence";
+      const hardest = kinds.map(k => VGRules.LINK_KINDS.indexOf(k)).sort((a, b) => a - b)[0], one = kinds.length === 1 && at.length === 1 && VGRules.bareLinkLine(lines[at[0]]);
       out.push({ from, to, kind: VGRules.LINK_KINDS[hardest] || "sentence", ...(one ? { line: at[0], text: lines[at[0]] } : {}) });
     }
     return out;

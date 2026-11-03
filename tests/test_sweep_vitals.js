@@ -53,12 +53,21 @@ const text = [
 { const ids = ["a", "b", "c", "d"], g = S.directedGraph(ids, [["a", "b"], ["b", "a"], ["b", "c"], ["c", "d"]]);
   assert.deepStrictEqual(S.twoWayPairs(g), [[0, 1]], "one two-way pair"); assert.ok(S.trophic(g.adj).incoherence > 0.1, "a loop is disorder"); assert.ok(S.incoherenceWithout(g, [[1, 0]]) < 0.01, `a straight chain once it's gone, got ${S.incoherenceWithout(g, [[1, 0]])}`);
   assert.strictEqual(S.vitals({ rows: [], today: "2026-11-02", notes: ids.map(id => ({ id, name: id, age: 0, stale: false })), pairs: [["a", "b"], ["b", "a"]] }).web.twoWay, 1); }
-for (const [line, yes] of [["- [[Note]]", true], ["  * [[Note|text]] — why it matters", true], ["- [ ] [[Note]]", true], ["See [[Note]] for more.", false], ["- Read [[Note]] first", false], ["- [[A]] and [[B]]", false]]) assert.strictEqual(R.bareLinkLine(line), yes, line);
+for (const [line, yes] of [["- [[Note]]", true], ["  * [[Note|text]] — why it matters", true], ["- [ ] [[Note]]", true], ["See [[Note]] for more.", false], ["- Read [[Note]] first", false], ["- [[A]] and [[B]]", false], ["4. [[Note]]", true], ["2) [[Note]] — why it matters", true], ["| [[Note]] | High |", false], ["**Back:** [[A]] | [[B]]", false]]) assert.strictEqual(R.bareLinkLine(line), yes, line);
 assert.strictEqual(R.linkKindOf("- [[N]]", "See Also"), "see also"); assert.strictEqual(R.linkKindOf("- [[N]]", "Process"), "list"); assert.strictEqual(R.linkKindOf("Read [[N]] now", "See Also"), "sentence");
+for (const [line, kind] of [["4. [[N]]", "list"], ["| [[N]] | High | Brian |", "table"], ["**Back:** [[A]] | [[N]]", "links line"], ["← [[N|Index]]", "links line"], ["> See Also: [[N]] | [[CVR]]", "links line"], ["Related: [[N]]", "links line"], ["> **Back to:** [[N]]", "links line"], ["[[N]]", "links line"],
+  ["Scope and approval: [[N]]. Investigation: [[B]].", "sentence"], ["Parent: [[N]] is a dependency", "sentence"], ["See [[N]] for more", "sentence"], ["A very long label that is really a whole sentence here: [[N]]", "sentence"]]) assert.strictEqual(R.linkKindOf(line, "Body"), kind, line);
+// ---- which side of a two-way pair: never a note's only link, then the softer side, then the side more notes link to
+{ const s = (kind, inDeg, links) => ({ kind, inDeg, links });
+  assert.strictEqual(R.twoWayDrop(s("see also", 0, 1), s("sentence", 0, 5)), "b", "the only link stays, however soft"); assert.strictEqual(R.twoWayDrop(s("sentence", 0, 5), s("list", 0, 1)), "a");
+  assert.strictEqual(R.twoWayDrop(s("list", 3, 1), s("list", 1, 1)), null, "each is the other's only link: neither");
+  assert.strictEqual(R.twoWayDrop(s("table", 0, 3), s("links line", 0, 3)), "b", "a table keeps its row"); assert.strictEqual(R.twoWayDrop(s("list", 0, 3), s("links line", 0, 3)), "a", "a list goes before a way up");
+  assert.strictEqual(R.twoWayDrop(s("list", 5, 3), s("list", 2, 3)), "a", "alike: the busier note drops its link"); }
 assert.ok(!R.createdFromLine(["A", "B"]).includes("[["), "a stub line links back"); assert.ok(R.createdFromLine(["A", "B"]).includes("A, B"));
-// ---- a way up: the first matching tag, else the system's map, never the note itself
+// ---- a way up: the system's map, else the first matching tag, never the note itself
 { const Q = new Function(`${require("../build").rulesSource({ ...env.rules, hierarchy: { system_root: "02-Systems", tag_hubs: { "technology/sql": "SQL", "technology/x": "Missing" } } })}; return VGRules;`)(), has = n => ["SQL", "Kiosk"].includes(n);
-  assert.deepStrictEqual(Q.wayUp({ id: "02-Systems/Kiosk/Guides/A.md", name: "A", tags: ["technology/sql"] }, has), { hub: "SQL", why: "technology/sql" });
+  assert.deepStrictEqual(Q.wayUp({ id: "02-Systems/Kiosk/Guides/A.md", name: "A", tags: ["technology/sql"] }, has), { hub: "Kiosk", why: "in Kiosk" }, "what it's about before what it's written in");
+  assert.deepStrictEqual(Q.wayUp({ id: "03-Resources/A.md", name: "A", tags: ["technology/sql"] }, has), { hub: "SQL", why: "technology/sql" }, "outside a system, the tag");
   assert.deepStrictEqual(Q.wayUp({ id: "02-Systems/Kiosk/Guides/A.md", name: "A", tags: [] }, has), { hub: "Kiosk", why: "in Kiosk" }, "its system's map");
   assert.strictEqual(Q.wayUp({ id: "02-Systems/Kiosk/Kiosk.md", name: "Kiosk", tags: [] }, has), null, "a map isn't its own parent"); assert.strictEqual(Q.wayUp({ id: "x/SQL.md", name: "SQL", tags: ["technology/sql"] }, has), null, "a hub isn't its own parent"); assert.strictEqual(Q.wayUp({ id: "x/B.md", name: "B", tags: ["technology/x"] }, has), null, "a hub that isn't there"); }
 // ---- Today's adopt uses the same suggestion, and Vitals' Still current is the shared action
