@@ -1504,11 +1504,12 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const data = await this.graphData(); if (!data || !data.nodes) return null;
     const out = this.writtenLinks(), pairs = [], day = today(), staleDays = (data.quality || {}).stale_days, inbox = `${VGRules.folders.inbox}/`;
     for (const l of data.links || []) { if (l.kind !== "link") continue; if (out[l.source] && out[l.source][l.target]) pairs.push([l.source, l.target]); if (out[l.target] && out[l.target][l.source]) pairs.push([l.target, l.source]); }
-    const v = VGScience.vitals({ rows: VGScience.taskLives(await this.taskHistory(), day).rows, today: day, pairs,
+    const v = VGScience.vitals({ rows: VGScience.taskLives(await this.taskHistory(), day).rows, today: day, pairs, areaOf: t => VGRules.areaOfText(VGRules.plainTask(t)),
       notes: data.nodes.filter(n => !n.person && !n.ghost && !n.moc).map(n => ({ id: n.id, name: n.name, age: n.age || 0, stale: VGRules.isStale(n, staleDays) })) });
     // what's open is what HQ lists, so the two can't disagree; came in and finished stay the Flow lens's own count
     const sh = await this.loadShared(), carried = VGRules.todayList(data, { review: sh && sh.review, hidden: sh && sh.cosmos && sh.cosmos.hidden, today: day }).filter(i => i.kind === "carried");
     v.sync = await this.syncStorage();
+    try { v.drift = (await this.driftScan()).length; } catch (e) { v.drift = 0; }
     v.pile.open = carried.length; v.pile.old = carried.filter(i => i.age > 30).length;
     v.web.noWayUp = data.nodes.filter(n => !n.person && !n.ghost && !n.moc && !VGRules.isRecord(n) && !n.id.startsWith(inbox) && !Object.keys(out[n.id] || {}).length).length;
     this.vitalsMemo = { t: now, v };

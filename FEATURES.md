@@ -14,7 +14,7 @@ What Vault Graph already does, and where. "Lens" and "scene" below are code word
 | Are things getting better | Vitals, with a daily sample in shared state | `VGScience.vitals`, `src/hq/20-home.js` |
 | The day's end | Wrap up; `VGRules.forStandup` decides what stays out | `src/hq/10-shared.js` |
 | A week back | Weekly review | `src/hq/25-cockpit.js` |
-| The tasks as a queue, and where the pile is | Flow lens (Little's law, location quotient) | `src/view/62-science.js` |
+| The tasks as a queue, what's unusually old, and where the pile is | Flow lens (Little's law, aging WIP, location quotient) | `src/view/62-science.js` |
 | Is this week really different | Control chart lens (Shewhart XmR) | `src/view/62-science.js` |
 | Focused or spread | Attention lens (Hill numbers) | `src/view/62-science.js` |
 | Notes out of step with what you run | Version drift lens (the rules file's `drift`); `ref_lint.py` owns URL rules in the vault | `src/plugin.js`, `src/view/62-science.js` |

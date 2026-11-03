@@ -75,6 +75,7 @@
     person: ["names someone", r => VGRules.hqPeople(DATA, [{ kind: "task", text: r.text, title: r.text }]).some(p => p.items.length)],
     link: ["links a note", r => /\[\[/.test(r.text)],
     short: ["is 8 words or fewer", r => r.text.trim().split(/\s+/).length <= 8],
+    recent: ["written in the last 90 days", r => Date.parse(`${DATA.date || today()}T12:00:00Z`) - Date.parse(`${r.born}T12:00:00Z`) <= 90 * 864e5],
     monday: ["written Monday", r => new Date(`${r.born}T12:00:00`).getDay() === 1],
   };
   const dayWords = d => d == null ? "not reached" : `${d} day${d === 1 ? "" : "s"}`;
@@ -178,6 +179,7 @@
       <p class="vg-sci-key"><i class="is-a"></i>tasks written down, added up <i class="is-b"></i>tasks finished, added up</p>
       ${sciRead("A cumulative flow chart. The height of each line is a running total, and a steeper line means a faster rate. The gap between them is the new work still open from this period: a widening gap means work is arriving faster than it finishes.")}
       <p class="vg-muted vg-lens-note">Little's law: average open = arrival rate × average time open. ${F.L.toFixed(1)} = ${F.lambda.toFixed(2)} a day × ${F.W.toFixed(1)} days. It holds for any queue, so to shorten how long tasks wait you have to take on fewer or finish more. Tasks done with no date and cancelled tasks aren't counted, so the real finish rate is higher than this. A task counts once however many journals repeat it, and subtasks aren't counted, so Sweep in Vault HQ lists more.</p>
+      ${agingHtml()}
       ${flowByArea()}`;
   }
   // ---- Two-way links: what blurs the Food web most. The softer side of each pair is the one to drop; if they're alike, the specific
@@ -213,14 +215,19 @@
     const done = VGActions.run({ label: () => "Drop", title: () => rows.length === 1 ? `${byId[rows[0].id].name} → ${byId[rows[0].toId].name}` : plural(rows.length, "list line"), run: async () => { const n = await opts.dropLinkLines(rows.map(r => ({ path: r.id, line: r.line, text: r.text }))); rows.forEach(r => twDropped.add(`${r.id}|${r.toId}`)); return `Dropped ${plural(n, "link")}`; }, undo: async () => { rows.forEach(r => twDropped.delete(`${r.id}|${r.toId}`)); } }, null, actionCtx(), e);
     return Promise.resolve(done).then(ok => { if (ok) refreshLens(); return ok; });
   }
+  // Aging work in progress: which open tasks are already older than most tasks ever take
+  function agingHtml() {
+    const rows = (survivalLives || { rows: [] }).rows, L = VGScience.serviceLevel(rows, 0.85); if (rows.length < 20 || L.days == null) return "";
+    return `<div class="vg-list-h">Already unusually old <span class="vg-count">${L.late.length}</span></div>${sciRead(`85% of your tasks finish within ${dayWords(L.days)}, counting the ones still open. ${L.late.length ? `These ${plural(L.late.length, "open task")} are past that, so they've outlasted most of what you do: finish them, cancel them or give them a date.` : "No open task is past that."}`)}
+      ${L.late.slice(0, 10).map(r => `<div class="vg-sugg"><button class="vg-item" ${r.path && opts.openNote ? `data-open="${esc(r.path)}"` : ""}><span class="vg-item-main">${esc(VGRules.plainTask(r.text))}<span class="vg-item-sub">${r.t} days open · since ${esc(r.born)}</span></span></button></div>`).join("")}
+      <p class="vg-muted vg-lens-note">Aging work in progress (Vacanti 2015), on the Kaplan-Meier curve so tasks still open count. It says what's unusual for you, not what's unimportant.</p>`;
+  }
   // Where the pile is: each area's share of what's open against its share of what got finished. Areas come from the rules file (thread_areas).
   function flowByArea() {
-    const today0 = DATA.date || today(), since = new Date(Date.parse(`${today0}T12:00:00Z`) - flowDays * 864e5).toISOString().slice(0, 10), parts = {};
-    for (const r of (survivalLives || { rows: [] }).rows) { const a = VGRules.areaOfText(VGRules.plainTask(r.text)); if (!a) continue; const p = parts[a] = parts[a] || { open: 0, done: 0 }; if (!r.event) p.open++; else if (r.done >= since) p.done++; }
-    const list = Object.entries(parts), O = list.reduce((s, [, p]) => s + p.open, 0), D = list.reduce((s, [, p]) => s + p.done, 0); if (list.length < 2 || !O || !D) return "";
-    const rows = list.map(([a, p]) => ({ a, ...p, lq: VGScience.locationQuotient(p.open, O, p.done, D) })).sort((x, y) => (y.lq == null ? 1e9 : y.lq) - (x.lq == null ? 1e9 : x.lq)), top = rows[0];
-    return `<div class="vg-list-h">Where the pile is <span class="vg-count">${rows.length}</span></div>${sciRead(`A location quotient, from regional economics: an area's share of open tasks against its share of what got finished in ${flowDays} days. 1 means in step. Above 1, it's piling up faster than you finish it${top.done ? `: ${top.a} holds ${pct(top.open / O)} of what's open and ${pct(top.done / D)} of what got finished` : `: ${top.a} has open tasks and nothing finished`}. Small counts move this a lot, so read the counts with it.`)}
-      ${rows.map(r => `<div class="vg-sugg"><span class="vg-item-main"><span>${esc(r.a)}</span><span class="vg-item-sub">${r.open} open · ${r.done} finished${r.lq != null ? ` · ${r.lq.toFixed(2)}` : " · none finished"}</span></span></div>`).join("")}`;
+    const B = VGScience.areaBalance((survivalLives || { rows: [] }).rows, DATA.date || today(), flowDays, t => VGRules.areaOfText(VGRules.plainTask(t))), rows = B.rows, O = B.open, D = B.done; if (rows.length < 2 || !O || !D) return "";
+    const top = rows[0];
+    return `<div class="vg-list-h">Where the pile is <span class="vg-count">${rows.length}</span></div>${sciRead(`A location quotient, from regional economics: an area's share of open tasks against its share of what got finished in ${flowDays} days. 1 means in step. Above 1, it's piling up faster than you finish it${top.done ? `: ${top.area} holds ${pct(top.open / O)} of what's open and ${pct(top.done / D)} of what got finished` : `: ${top.area} has open tasks and nothing finished`}. Small counts move this a lot, so read the counts with it.`)}
+      ${rows.map(r => `<div class="vg-sugg"><span class="vg-item-main"><span>${esc(r.area)}</span><span class="vg-item-sub">${r.open} open · ${r.done} finished${r.lq != null ? ` · ${r.lq.toFixed(2)}` : " · none finished"}</span></span></div>`).join("")}`;
   }
   // ---- Debt: what a stale note costs goes up with what rests on it and with how long it's been left. For Stale notes.
   function debtOf() {

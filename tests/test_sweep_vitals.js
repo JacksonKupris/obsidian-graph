@@ -131,7 +131,7 @@ if (H.journal) { const Q = new Function(`${require("../build").rulesSource({ ...
     const gone = await a.moveTasks([{ ...item, text: "Not the line any more", subs: [] }], PROJ); assert.strictEqual(gone, 0); assert.ok(!files.get(PROJ).text.includes("Not the line"), "a changed line was copied");
   }
   // ---- on the page: Vitals and the Sweep's controls
-  const V = { pile: { open: 12, came: 30, left: 18, net: 12, old: 4, wip: [1, 3, 6, 12] }, debt: { total: 40, count: 3, top: { id: "x.md", name: "Old Guide", cost: 20, direct: 4, reach: 9, years: 2.5, }, list: [{ id: "x.md", name: "Old Guide" }] }, web: { incoherence: 0.44, links: 600, twoWay: 90 } };
+  const V = { drift: 16, pile: { open: 12, came: 30, left: 18, net: 12, old: 4, wip: [1, 3, 6, 12], piling: { area: "Security", open: 7, done: 2 } }, debt: { total: 40, count: 3, top: { id: "x.md", name: "Old Guide", cost: 20, direct: 4, reach: 9, years: 2.5, }, list: [{ id: "x.md", name: "Old Guide" }] }, web: { incoherence: 0.44, links: 600, twoWay: 90 } };
   const tab = await cdp.open({ html: env.hqPage("", { today: undefined }), port: 9396 });
   if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
   const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
@@ -145,6 +145,7 @@ if (H.journal) { const Q = new Function(`${require("../build").rulesSource({ ...
     const t = await tab.ev(`document.querySelector(".vg-hq-vitals").textContent`);
     for (const w of ["The pile grew by 12 in 90 days", "30 came in, 18 finished", "12 open from earlier days", "4 older than 30 days", "down 8 in a week", "Review Old Guide first", "4 linked directly", "Your links run partly one way", "Incoherence 0.44", "down 0.26 in a week"]) check(t.includes(w), `Vitals: no "${w}" in: ${t}`);
     check(!/NaN|undefined/.test(t), "Vitals shows a broken number");
+    check(/Security is piling up/.test(t) && /7 open, 2 finished/.test(t), `Vitals doesn't say what's piling up: ${t}`); check(/16 notes name a version/.test(t), "Vitals doesn't show drift"); check(await tab.ev(`!!document.querySelector('[data-graphlens="drift"]') && !!document.querySelector('[data-graphlens="flowlens"]')`), "no way into those views");
     check(!/in Sync/.test(t), "Vitals raised Sync at a third full, with room to spare");
     await tab.ev(`(() => { window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { state: { review: { hqTour: true, vitals: { "2020-01-01": { open: 20 } } } }, api: { vitals: async () => ({ ...${JSON.stringify(V)}, sync: { used: 900 * 1048576, limit: 1073741824 } }) } }); })()`);
     check(await tab.waitFor(`/900 MB of 1.0 GB in Sync/.test((document.querySelector(".vg-hq-vitals") || {}).textContent || "") ? 1 : 0`, 4000), "Vitals didn't raise Sync when it's nearly full");
