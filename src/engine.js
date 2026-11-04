@@ -342,7 +342,7 @@ const VGEngineMake = () => {
   }
   // a note's topic tags from its frontmatter, as the analysis reads them: lower case, without periodic ones
   const frontmatterTags = fm => { let t = fm && typeof fm === "object" ? fm.tags : null; if (typeof t === "string") t = [t]; if (!Array.isArray(t)) return [];
-    return [...new Set(t.filter(x => x).map(x => String(x).trim().replace(/^#/, "").toLowerCase()).filter(x => !x.endsWith("/standup") && x !== "daily"))]; };   // Obsidian's index gives them with the # on
+    return [...new Set(t.filter(x => x).map(x => String(x).trim().replace(/^#/, "").toLowerCase()).filter(x => !x.endsWith("/standup") && x !== "daily"))]; };   // Obsidian's index gives a few with the # on
   // the tags the graph data carries: every status/ and type/ tag (the shared rules read them), plus up to six others
   const nodeTags = tags => { const rule = sorted(tags.filter(t => t.startsWith("status/") || t.startsWith("type/"))), other = sorted(tags.filter(t => !rule.includes(t))); return [...rule, ...other.slice(0, 6)]; };
 
