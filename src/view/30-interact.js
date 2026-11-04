@@ -305,7 +305,7 @@
         ${opts.writeNote ? `<button class="vg-btn" data-act="hub">${icon("hub", 14)} Hub note</button><button class="vg-btn" data-act="map">${icon("file", 14)} Map note</button>` : ""}
       </div>
       <div class="vg-ins-sec">${Object.entries(groups).sort((a, b) => b[1].length - a[1].length).map(([c, ms]) =>
-        `<details class="vg-group" open><summary><span class="vg-dot" style="background:${colorOf(+c)}"></span>${esc(clusterName(+c))} <span class="vg-count">${ms.length}</span></summary>${ms.map(m => noteRow(m)).join("")}</details>`).join("")}</div>`;
+        groupHtml(c, ms, true)).join("")}</div>`;
     box.querySelector(".vg-ins-close").onclick = clearMulti;
     box.querySelector('[data-act="copy"]').onclick = () => copy(ids.map(id => mdLink(id)).join("\n"), `Copied ${plural(ids.length, "link")}`);
     const hub = box.querySelector('[data-act="hub"]'); if (hub) hub.onclick = () => writeSelectionHub(ids);

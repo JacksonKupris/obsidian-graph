@@ -77,7 +77,7 @@
     }
     palIdx = 0;
     const list = $(".vg-palette-list");
-    list.innerHTML = (q ? "" : `<div class="vg-list-h">Most influential</div>`) + palItems.map((it, i) => it.kind === "create"
+    list.innerHTML = (q ? "" : VGParts.heading("Most influential")) + palItems.map((it, i) => it.kind === "create"
       ? `<div class="vg-pitem" role="option" data-create data-i="${i}">${icon("plus", 14)}<span class="vg-item-main"><b>Create “${esc($(".vg-pq").value.trim())}”</b><span class="vg-item-sub">New note in ${esc(FOLDERS.inbox)}</span></span></div>`
       : it.kind === "saved"
       ? `<div class="vg-pitem" role="option" data-i="${i}">${icon("layers", 14)}<span class="vg-item-main"><b>${esc(savedViews[it.i].name)}</b><span class="vg-item-sub">Saved view</span></span></div>`
@@ -103,7 +103,7 @@
       const row = (h, k) => `<div class="vg-pitem vg-recall" role="option" data-i="${at + k}">${icon(h.kind === "code" ? "code" : h.kind === "related" ? "link" : "file", 14)}<span class="vg-item-main"><b>${esc(VGShared.nameOf(h.path))}${h.heading ? ` <span class="vg-muted">§ ${esc(h.heading)}</span>` : ""}</b>`
         + `<span class="vg-item-sub">${esc(h.why.join(" · "))}${h.lang ? " · " + esc(h.lang) : ""}${h.date ? " · " + esc(h.date) : ""}${h.kind === "related" ? "" : " · line " + h.line}</span>${h.snippet ? `<pre class="vg-recall-snip">${esc(h.snippet)}</pre>` : ""}</span></div>`;
       const firstRel = hits.findIndex(h => h.kind === "related");
-      list.insertAdjacentHTML("beforeend", `<div class="vg-list-h">In your notes</div>` + hits.map((h, k) => (k === firstRel ? `<div class="vg-list-h">Related</div>` : "") + row(h, k)).join(""));
+      list.insertAdjacentHTML("beforeend", VGParts.heading("In your notes") + hits.map((h, k) => (k === firstRel ? VGParts.heading("Related") : "") + row(h, k)).join(""));
       list.querySelectorAll(".vg-recall").forEach(el => { el.onmousemove = () => movePal(+el.dataset.i); el.onclick = () => choosePal(+el.dataset.i, false); });
       const cr = list.querySelector("[data-create]"); if (cr) list.appendChild(cr);   // creating stays the last resort
       if (!palItems.slice(0, at).some(x => x.kind !== "create")) movePal(at);   // nothing matched by name: the best place you wrote about it
@@ -275,9 +275,9 @@
     const hit = i => (i.name + " " + i.hint).toLowerCase().includes(q);
     $$(".vg-ppanel").forEach(x => x.hidden = !!q || x.dataset.ppanel !== pickTab);
     $(".vg-picker-tiles").innerHTML = q
-      ? tabs.map(([t, name]) => { const xs = items.filter(i => i.tab === t && hit(i)); return xs.length ? `<div class="vg-list-h">${name}</div><div class="vg-tiles">${xs.map(tile).join("")}</div>` : ""; }).join("") || emptyNext(`No view matches “${esc(q)}”.`, "search:" + q)
-      : pickTab === "views" ? viewGroups(items.filter(i => i.tab === "views")).map(([name, xs]) => `<div class="vg-list-h">${name}</div><div class="vg-tiles">${xs.map(tile).join("")}</div>`).join("")
-      : items.some(i => i.tab === pickTab) ? `${pickTab === "style" ? `<div class="vg-list-h">Styles</div>` : ""}<div class="vg-tiles">${items.filter(i => i.tab === pickTab).map(tile).join("")}</div>` : "";
+      ? tabs.map(([t, name]) => { const xs = items.filter(i => i.tab === t && hit(i)); return xs.length ? `${VGParts.heading(name)}<div class="vg-tiles">${xs.map(tile).join("")}</div>` : ""; }).join("") || emptyNext(`No view matches “${esc(q)}”.`, "search:" + q)
+      : pickTab === "views" ? viewGroups(items.filter(i => i.tab === "views")).map(([name, xs]) => `${VGParts.heading(name)}<div class="vg-tiles">${xs.map(tile).join("")}</div>`).join("")
+      : items.some(i => i.tab === pickTab) ? `${pickTab === "style" ? VGParts.heading("Styles") : ""}<div class="vg-tiles">${items.filter(i => i.tab === pickTab).map(tile).join("")}</div>` : "";
     $$(".vg-picker-tab").forEach(b => b.onclick = () => { pickTab = b.dataset.tab; $(".vg-picker-q").value = ""; renderPicker(); });
     wireNext($(".vg-picker-tiles"));
     $$(".vg-picker-body .vg-tile").forEach(b => b.onclick = () => { const it = items.find(i => i.tab === b.dataset.tab && i.k === b.dataset.k); pickTab = it.tab; closeMenu(); it.run(); });

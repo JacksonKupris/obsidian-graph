@@ -23,6 +23,8 @@ const VGSharedMake = () => {
   const utcNoon = day => Date.parse(day + "T12:00:00Z");
   const shiftDay = (day, n) => new Date(utcNoon(day) + n * DAY_MS).toISOString().slice(0, 10);
   const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / DAY_MS);
+  // "Nov 4", in the reader's language. Words that aren't a date come back as they are.
+  const shortDate = d => { if (!d) return ""; const x = noon(d); return isNaN(x) ? d : x.toLocaleDateString(undefined, { month: "short", day: "numeric" }); };
   const pad2 = n => String(n).padStart(2, "0");
 
   const canUseWorker = () => typeof Worker === "function" && typeof Blob === "function" && typeof URL === "function" && !!URL.createObjectURL;
@@ -43,6 +45,6 @@ const VGSharedMake = () => {
       catch (e) { console.warn(`Vault Graph: ${label} running on the main thread:`, e.message); } }
     stats.via = "here"; return here();
   }
-  return { escapeHtml, escapeRegex, baseOf, nameOf, plural, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, canUseWorker, inWorker, offThread };
+  return { escapeHtml, escapeRegex, baseOf, nameOf, plural, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, shortDate, canUseWorker, inWorker, offThread };
 };
 const VGShared = VGSharedMake();

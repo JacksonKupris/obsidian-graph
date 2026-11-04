@@ -176,7 +176,7 @@ async function page(html, o = {}) {
         if (o.hq === null && s !== "home" && !(s === "automations" && (env.rules.hq.automations || []).length) && !await t.ev(`!!document.querySelector(".vg-hq-empty button")`)) fails.push(`${name}, ${s}: an empty screen with no next step`);
         if (mobile && await t.ev(`document.querySelector(".vg-hq-main").scrollWidth > document.querySelector(".vg-hq-main").clientWidth + 1 || document.documentElement.scrollWidth > innerWidth + 1`)) fails.push(`${name}, ${s}: scrolls sideways`);
         // card-like buttons (projects, tiles, chips) keep their text inside them, under Obsidian's button rules
-        const out = await t.ev(`[...document.querySelectorAll(".vg-hq-proj, .vg-hq-tile, .vg-hq-chip")].filter(c => c.offsetParent).flatMap(c => { const r = c.getBoundingClientRect();
+        const out = await t.ev(`[...document.querySelectorAll(".vg-hq-proj, .vg-hq-tile, .vg-hq-tiles .ds-card, .vg-hq-chip")].filter(c => c.offsetParent).flatMap(c => { const r = c.getBoundingClientRect();
           return [...c.querySelectorAll("b, .vg-hq-sum")].filter(x => { const q = x.getBoundingClientRect(); return q.height === 0 || q.left < r.left - 1 || q.right > r.right + 1 || q.top < r.top - 1 || q.bottom > r.bottom + 1; }).map(x => x.textContent.slice(0, 30)); })`);
         if (out.length) fails.push(`${name}, ${s}: text outside its card: ${out.slice(0, 3).join(" | ")}`);
       }

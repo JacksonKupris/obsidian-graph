@@ -93,7 +93,7 @@
 .vg-hq .vg-hq-dots button.is-on::before { width: 18px; background: var(--hq-accent); }
 
 /* tiles */
-.vg-hq-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--hq-gap); margin: 12px 0; }
+.vg-hq-tiles { display: grid; grid-template-columns: 1fr 2fr; gap: var(--hq-gap); margin: 12px 0; }
 .vg-hq .vg-hq-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 16px; min-height: 0; border: 1px solid var(--hq-line); border-radius: var(--hq-r); background: var(--hq-surface); text-align: left; }
 .vg-hq button.vg-hq-tile:hover { border-color: var(--hq-accent); }
 .vg-hq .vg-hq-tile b { font-size: var(--ds-fs-lg); } .vg-hq .vg-hq-tile small { color: var(--hq-muted); }
@@ -219,7 +219,7 @@
   .vg-hq .vg-hq-chip .vg-hq-ic { display: none; }   /* the words need the room */
   .vg-hq .vg-hq-feedcard { padding: 16px; min-height: 150px; } .vg-hq .vg-hq-feedtxt { max-width: 100%; } .vg-hq .vg-hq-art { width: 100%; height: 90px; opacity: .5; } .vg-hq .vg-hq-feedcard h2 { font-size: var(--ds-fs-xl); }
   .vg-hq .vg-hq-feednav { display: none; }
-  .vg-hq .vg-hq-tiles { grid-template-columns: 1fr; } .vg-hq .vg-hq-tile { min-height: 0; }
+  .vg-hq .vg-hq-tiles { grid-template-columns: 1fr; } .vg-hq .vg-hq-tiles .ds-cards { grid-template-columns: 1fr 1fr; } .vg-hq .vg-hq-tile { min-height: 0; }
   .vg-hq .vg-hq-grid.is-compact .vg-hq-projbody { grid-template-columns: minmax(90px, .6fr) minmax(120px, 1fr); }
   .vg-hq .vg-hq-grid.is-compact .vg-hq-sum { grid-column: 1 / -1; }
   .vg-hq .vg-hq-grid.is-compact .vg-hq-projfoot { grid-column: 1 / -1; }
@@ -463,3 +463,11 @@
 /* what's new: a line goes where the thing is */
 .vg-hq .vg-hq-newsrow { display: block; width: 100%; height: auto; min-height: 32px; padding: 6px 8px; border: 0; border-radius: var(--ds-r-2xs, 4px); background: none; box-shadow: none; color: var(--hq-text); font: inherit; text-align: left; white-space: normal; cursor: pointer; }
 .vg-hq .vg-hq-newsrow:hover, .vg-hq .vg-hq-newsrow:focus-visible { background: color-mix(in srgb, var(--hq-accent) 12%, transparent); }
+
+/* the shared card on the home screen: Do next's height, and as large as the tile beside it */
+.vg-hq .vg-hq-tiles .ds-cards { margin: 0; grid-template-columns: 1fr 1fr; gap: var(--hq-gap); }
+.vg-hq .vg-hq-tiles .ds-card { padding: 16px; gap: 4px; border-radius: var(--hq-r); cursor: pointer; }
+.vg-hq .vg-hq-tiles .ds-card b { font-size: var(--ds-fs-3xl); font-weight: 700; letter-spacing: -.03em; line-height: 1; }
+.vg-hq .vg-hq-tiles .ds-card span { font-size: var(--ds-fs-sm); font-weight: 600; color: var(--hq-text); }
+.vg-hq .vg-hq-tiles .ds-card small { color: var(--hq-muted); }
+.vg-hq .vg-hq-tiles .ds-card:hover { border-color: var(--hq-accent); }

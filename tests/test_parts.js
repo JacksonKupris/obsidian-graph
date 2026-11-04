@@ -23,7 +23,8 @@ assert(P.cards([{ value: "<b>", label: "'" }]).includes("&lt;b&gt;") && P.row({ 
   const js = walk(SRC).filter(f => path.basename(f) !== "parts.js").map(f => [path.relative(SRC, f), fs.readFileSync(f, "utf8")]);
   js.forEach(([f, t]) => check(!/class="ds-(card|cards|more|section|row|rows|detail)\b/.test(t), `${f} writes a shared part by hand: use VGParts`));
   const count = rx => js.reduce((n, [, t]) => n + (t.match(rx) || []).length, 0);
-  const DETAILS_CAP = 11; check(count(/<details\b/g) <= DETAILS_CAP, `${count(/<details\b/g)} hand-written <details>, more than ${DETAILS_CAP}: use VGParts.more`);
+  const DETAILS_CAP = 0; check(count(/<details\b/g) <= DETAILS_CAP, `${count(/<details\b/g)} hand-written <details>: use VGParts.more`);
+  js.forEach(([f, t]) => check(!/vg-list-h|"vg-stat\b|vg-stats|"vg-kv/.test(t), `${f} writes an old tile or list heading: use VGParts`));
   check(!/sciFacts = [^\n]*<div/.test(build.viewSource()) && !/sciRead = [^\n]*<p/.test(build.viewSource()), "the science views' cards and notes should come from VGParts"); }
 
 // ---- on a real page: Task survival's cards open what's behind them. 80 tasks: half finished over time, half still open.
@@ -84,6 +85,12 @@ assert(P.cards([{ value: "<b>", label: "'" }]).includes("&lt;b&gt;") && P.row({ 
     await tab.ev(`window.vaultGraph._debug.openLens("survival")`); await tab.waitFor(`document.querySelector(".vg-lens-body .ds-card") ? 1 : 0`, 15000);
     const kept = await ev(`const more = B.querySelector(".ds-section details.ds-more"), label = more.querySelector("summary").textContent; more.open = true; const c = B.querySelector("button.ds-card"); c.click(); B.querySelectorAll("[data-survival-split]")[2].click(); const again = [...B.querySelectorAll("details.ds-more[open]")].map(d => d.querySelector("summary").textContent); return { label, again, panel: B.querySelectorAll(".ds-detail").length };`);
     check(kept.again.includes(kept.label), `a show more closes on a redraw (${JSON.stringify(kept)})`); check(kept.panel === 1, `a card's panel closes on a redraw (${JSON.stringify(kept)})`);
+    await tab.ev(`window.vaultGraph._debug.closeLens()`); await sleep(100);
+    const side = await tab.ev(`(() => { const P = document.querySelector('[data-panel="insights"]'), stats = P.querySelectorAll("button.ds-card[data-stat]"), hidden = [...P.querySelectorAll("details.ds-more:not([open]) [data-id]")]; if (hidden[0]) hidden[0].click(); return { stats: stats.length, hidden: hidden.length, unwired: hidden.filter(h => !h.onclick).length, opened: !!hidden[0] }; })()`);
+    check(side.stats === 4, `the sidebar's four counts come from the shared card (${side.stats})`); check(side.hidden > 0, "the sidebar's long lists start with their first few"); check(!side.unwired, `${side.unwired} sidebar rows behind a show more don't respond`);
+    await tab.waitFor(`document.querySelector(".vg-inspector .ds-cards.is-small") ? 1 : 0`, 5000);
+    const ins = await tab.ev(`(() => { const I = document.querySelector(".vg-inspector"), c = I && I.querySelector("button.ds-card"); if (!c) return null; c.click(); const d = c.closest(".ds-cards").nextElementSibling, ok = !!(d && d.classList.contains("ds-detail")); c.click(); return { cards: I.querySelectorAll("button.ds-card").length, ok }; })()`);
+    check(ins && ins.cards === 6 && ins.ok, `the inspector's numbers open what they mean (${JSON.stringify(ins)})`);
     console.log(`  ${lenses.length} lenses, ${cardsPressed} cards pressed, ${panelsWired} rows in their panels`);
   } catch (e) { fails.push(e.message); }
   await tab.close();

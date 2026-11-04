@@ -72,8 +72,7 @@
       .map(([k, w, ws]) => [needs.filter(i => i.kind === k).length, w, ws]).filter(([n]) => n).map(([n, w, ws]) => plural(n, w, ws)).join(" · ");
     const tiles = `<div class="vg-hq-tiles">
       <div class="vg-hq-tile"><div class="vg-hq-eyebrow">Do next</div>${next ? `<b>${esc(next.title)}</b><small>${esc(next.why)}</small><div class="vg-hq-row">${buttons(next)}</div>` : `<b>No daily work queued.</b><div class="vg-hq-row">${api.openDaily ? '<button class="vg-hq-btn" data-daily>Open today\'s journal</button>' : ""}</div>`}</div>
-      <button class="vg-hq-tile" data-go="needs"><span class="vg-hq-eyebrow">Needs you</span><span class="vg-hq-big">${needs.length}</span><small>${esc(needsBy || "Nothing waiting on you")}</small></button>
-      <button class="vg-hq-tile" data-go="projects"><span class="vg-hq-eyebrow">Projects</span><span class="vg-hq-big">${count("active")}</span><small>in progress · ${count("planned")} planned · ${count("waiting")} waiting</small></button></div>`;
+      ${VGParts.cards([{ value: needs.length, label: "Needs you", sub: needsBy || "Nothing waiting on you", data: { go: "needs" } }, { value: count("active"), label: "Projects", sub: `in progress · ${count("planned")} planned · ${count("waiting")} waiting`, data: { go: "projects" } }])}</div>`;
     const upkeep = ofGroup("upkeep").slice(0, 3);
     const status = `<p class="vg-hq-status">${plural(nodes0(), "note")} · ${plural((DATA.clusters || []).length, "topic")}${DATA.date ? ` · analysed ${esc(shortDate(DATA.date))}` : ""}${api.recentChanges ? ' · <button class="vg-hq-linkbtn" data-go="changes">Recent changes</button>' : ""}${opts.openGraph ? ' · <button class="vg-hq-linkbtn" data-graph>Open the graph</button>' : ""}</p>`;
     const off = new Set((STATE.review || {}).hqHome || []), on = k => !off.has(k);

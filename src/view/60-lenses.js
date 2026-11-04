@@ -203,7 +203,7 @@
     const W = T.weeks.length, trend = v => { const a = v.slice(-4).reduce((s, x) => s + x, 0) / 4, b = v.slice(-12, -4).reduce((s, x) => s + x, 0) / 8; return a - b; };
     const strip = (v, col) => { const mx = Math.max(1, ...v); return `<span class="vg-tl-strip">${v.map((x, i) => `<i style="${x ? cellBg(col, 0.15 + 0.85 * x / mx) : ""}" title="week of ${T.weeks[i]}: ${x}"></i>`).join("")}</span>`; };
     const tag = v => { const d = trend(v), base = v.slice(-12, -4).reduce((s, x) => s + x, 0) / 8; return d > Math.max(0.4, base * 0.6) ? `<span class="vg-tl-tag is-up">↑ heating</span>` : d < -Math.max(0.4, base * 0.6) ? `<span class="vg-tl-tag is-down">↓ cooling</span>` : ""; };
-    const months = T.weeks.map((w, i) => i % 4 === 0 ? `<span style="grid-column:${i + 1}">${VGShared.noon(w).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>` : "").join("");
+    const months = T.weeks.map((w, i) => i % 4 === 0 ? `<span style="grid-column:${i + 1}">${VGShared.shortDate(w)}</span>` : "").join("");
     const total = T.weeks.map((_, i) => Object.values(T.clusters).reduce((s, v) => s + v[i], 0));
     const cl = Object.entries(T.clusters).filter(([c]) => clusterById[c]).sort((a, b) => b[1].reduce((s, x) => s + x, 0) - a[1].reduce((s, x) => s + x, 0));
     const nt = Object.entries(T.notes).filter(([id]) => byId[id]).sort((a, b) => trend(b[1]) - trend(a[1]));
@@ -301,7 +301,7 @@
       const pk = b.s.indexOf(Math.max(...b.s)), th = hi[pk][1] - lo[pk][1];
       if (b.c != null && Math.abs(th) > 15) labels += `<text x="${Math.min(VW - 80, Math.max(80, x(pk)))}" y="${((hi[pk][1] + lo[pk][1]) / 2 + 4).toFixed(1)}" text-anchor="middle">${esc(shortName(b.c))}</text>`;
     });
-    const ticks = T.weeks.map((w, i) => i % 4 === 0 ? `<text class="vg-rv-tick" x="${x(i).toFixed(1)}" y="${VH - 2}" text-anchor="middle">${esc(VGShared.noon(w).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}</text>` : "").join("");
+    const ticks = T.weeks.map((w, i) => i % 4 === 0 ? `<text class="vg-rv-tick" x="${x(i).toFixed(1)}" y="${VH - 2}" text-anchor="middle">${esc(VGShared.shortDate(w))}</text>` : "").join("");
     const months = {};   // month -> topic -> daily notes
     T.weeks.forEach((w, i) => { const m = w.slice(0, 7); all.forEach(([c, v]) => { if (v[i]) (months[m] = months[m] || {})[c] = (months[m][c] || 0) + v[i]; }); });
     const rows = Object.entries(months).sort((a, b) => b[0].localeCompare(a[0])).map(([m, per]) => {
@@ -387,7 +387,7 @@
       ${lensSec("Most inward-looking folders", insular.map(x => `<div class="vg-fd-row"><button class="vg-fd-name vg-linkish" data-fold="${esc(x.f)}">${esc(x.f)}</button>
         <span class="vg-fd-bar"><i style="flex:${Math.round(100 * x.ratio)};background:var(--vg-ok)"></i><i style="flex:${100 - Math.round(100 * x.ratio)};background:var(--vg-hover)"></i></span><span class="vg-count">${Math.round(100 * x.ratio)}% out</span></div>`), { count: null, first: 6 })}`;
   }
-  const shortDate = d => d ? VGShared.noon(d).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
+  const shortDate = VGShared.shortDate;
   const actBtn = (attr, id, label) => `<button class="vg-btn vg-btn-sm" ${attr}="${esc(id)}">${label}</button>`;
 
   // 1. Important but stale: how much the vault leans on a note vs. how long since it was edited.
