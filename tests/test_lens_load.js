@@ -35,7 +35,7 @@ if (env.rules.hq && env.rules.hq.journal) {
 }
 
 // ---- the plugin hands the view the written links, not Obsidian's raw index
-{ const dir = path.join(__dirname, "..", "src"), plugin = fs.readFileSync(path.join(dir, "plugin.js"), "utf8"), view = fs.readFileSync(path.join(dir, "view", "62-science.js"), "utf8");
+{ const dir = path.join(__dirname, "..", "src"), plugin = require("../build").pluginSource(), view = fs.readFileSync(path.join(dir, "view", "62-science.js"), "utf8");
   assert.ok(/writtenLinks: \(\) => this\.plugin\.writtenLinks\(\)/.test(plugin) && /VGRules\.writtenLinks\(mc\.resolvedLinks/.test(plugin), "the plugin doesn't pass written links");
   assert.ok(!/outLinks/.test(plugin + view), "something still reads every link as reliance"); }
 

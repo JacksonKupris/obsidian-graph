@@ -8,11 +8,11 @@ What Vault Graph already does, and where. "Lens" and "scene" below are code word
 |---|---|---|
 | What to do next | Today list (`VGRules.todayList`), one next step (`hqNextStep`) | `src/rules.js`, `src/actions.js` |
 | Whether a plan item is already done | `planDoneWords`, `hqPlanDone` (by the words, across standups) | `src/rules.js` |
-| A todo's done date, however it's ticked | `VGRules.taskLine`, `taskEdit`; the editor's ticks through `registerDoneDates` | `src/rules.js`, `src/plugin.js` |
+| A todo's done date, however it's ticked | `VGRules.taskLine`, `taskEdit`; the editor's ticks through `registerDoneDates` | `src/rules.js`, `src/plugin/` |
 | What works with nothing else installed | `tests/test_no_python.js`; a view that needs a desktop's data says so through `needsAnalysis` | `tests/`, `src/view/60-lenses.js` |
 | Save a view | `snapshotView` / `applySaved`; in Cosmos it keeps the bodies and switches too (`restoreSky`) | `src/view/40-panels.js`, `src/view/50-cosmos.js` |
-| The written reports | `VGEngine.gapsReport`, `mapReport`, `stateNote`; the commands `gaps-report`, `map-report`, `state-note`; ticked map rows through `applyMapRows` | `src/engine.js`, `src/plugin.js` |
-| Change a note, with Undo | The plugin's write actions (`WRITE_ACTIONS`), run through `VGActions.run` | `src/plugin.js`, `src/actions.js` |
+| The written reports | `VGEngine.gapsReport`, `mapReport`, `stateNote`; the commands `gaps-report`, `map-report`, `state-note`; ticked map rows through `applyMapRows` | `src/engine.js`, `src/plugin/` |
+| Change a note, with Undo | The plugin's write actions (`WRITE_ACTIONS`), run through `VGActions.run` | `src/plugin/`, `src/actions.js` |
 | Open tasks from earlier days | Sweep (by day, by heading, one at a time, Move) | `src/hq/60-sweep.js` |
 | Going through a list one by one | `walkHtml` | `src/hq/30-work.js` |
 | A game of the same tasks | Triage Run | `src/scenes/triage.js` |
@@ -22,7 +22,7 @@ What Vault Graph already does, and where. "Lens" and "scene" below are code word
 | The tasks as a queue, what's unusually old, and where the pile is | Flow lens (Little's law, aging WIP, location quotient) | `src/view/62-science.js` |
 | Is this week really different | Control chart lens (Shewhart XmR) | `src/view/62-science.js` |
 | Focused or spread | Attention lens (Hill numbers) | `src/view/62-science.js` |
-| Notes out of step with what you run | Version drift lens (the rules file's `drift`); `ref_lint.py` owns URL rules in the vault | `src/plugin.js`, `src/view/62-science.js` |
+| Notes out of step with what you run | Version drift lens (the rules file's `drift`); `ref_lint.py` owns URL rules in the vault | `src/plugin/`, `src/view/62-science.js` |
 | How long tasks last | Task survival lens | `src/view/62-science.js` |
 | Old notes: which first, what to do with each | Stale notes lens (`VGScience.debtRanks`); Vitals and Weekly review read the same list | `src/view/60-lenses.js`, `src/view/62-science.js` |
 | Which way notes lean, and notes with no way up | Hierarchy lens (`VGRules.wayUp`, `twoWayPairs`), and `adopt` on Today | `src/view/62-science.js`, `src/rules.js` |
@@ -41,8 +41,8 @@ What Vault Graph already does, and where. "Lens" and "scene" below are code word
 | Find anything | Search and the palette | `src/hq/50-search.js`, `src/hq/65-palette.js` |
 | Say what a note knows | From your notes (rail), Peek | `src/hq/10-shared.js`, `src/hq/45-peek.js` |
 | What changed in an update | `VGRules.NEWS`, shown on Home until Got it | `src/rules.js`, `src/hq/20-home.js` |
-| Undo after the message has gone | Recent changes | `src/hq/60-sweep.js`, `src/plugin.js` |
-| Sync's limit | `syncStorage`, on Automations and in Vitals | `src/plugin.js`, `src/hq/20-home.js` |
+| Undo after the message has gone | Recent changes | `src/hq/60-sweep.js`, `src/plugin/` |
+| Sync's limit | `syncStorage`, on Automations and in Vitals | `src/plugin/`, `src/hq/20-home.js` |
 | Long jobs without blocking | A worker from `VGScienceMake` | `src/science.js` |
 | The notes as pictures | Scenes and map views | `src/scenes/`, `src/view/` |
 

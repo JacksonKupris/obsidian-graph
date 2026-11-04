@@ -7,7 +7,7 @@
 const { checks } = require("./kit");
 const fs = require("fs"), path = require("path"), { execFileSync } = require("child_process");
 const env = require("./env"), S = path.join(env.ROOT, "src"), S_DIR = S, build = require("../build");
-const srcOf = f => (f === "view.js" ? build.viewSource() : fs.readFileSync(path.join(S, f), "utf8"));   // the renderer: src/view/*.js joined
+const srcOf = f => (f === "view.js" ? build.viewSource() : f === "plugin.js" ? build.pluginSource() : fs.readFileSync(path.join(S, f), "utf8"));   // the renderer: src/view/*.js joined
 const PY = process.platform === "win32" ? "python" : "python3";   // Linux has no plain "python"
 const R = env.rules;
 const VGRules = new Function(`${require("../build").rulesSource(R)}; return VGRules;`)();
@@ -288,7 +288,7 @@ for (const f of ["view.js", "plugin.js", "hq"]) {
 // undo) or a STATE_WRITERS method (the plugin's own state files). WRITE_ACTIONS methods (wrapped to announce the
 // change to every surface) write only through the primitives, so every action can be undone.
 {
-  const src = fs.readFileSync(path.join(S, "plugin.js"), "utf8");
+  const src = build.pluginSource();
   const list = name => JSON.parse(src.match(new RegExp(`const ${name} = (\\[[^\\]]*\\])`))[1].replace(/\s+/g, " "));
   const prims = list("WRITE_PRIMITIVES"), allowed = new Set([...prims, ...list("STATE_WRITERS")]);
   const bodies = {};
@@ -337,7 +337,7 @@ for (const f of ["view.js", "plugin.js", "hq"]) {
   // on them). One rule (VGRules.TASK_LINE), which the plugin and HQ's reading of notes share.
   {
     const TL = VGRules.TASK_LINE;
-    check("task lines: the plugin uses the shared rule", /const \{ TASK_LINE \} = VGRules;/.test(fs.readFileSync(path.join(S, "plugin.js"), "utf8")), true);
+    check("task lines: the plugin uses the shared rule", /const \{ TASK_LINE \} = VGRules;/.test(build.pluginSource()), true);
     check("task lines: -, *, +, 1. and 2) count; plain text doesn't", ["- [ ] a", "  * [ ] b", "+ [x] c", "1. [ ] d", "12) [ ] e", "[ ] f", "1. plain"].map(l => TL.test(l)), [true, true, true, true, true, false, false]);
   }
   // Add reference offers holders: any note the graph treats as a map (a system's map has a plain name), or a hub or index
@@ -456,7 +456,7 @@ for (const f of ["view.js", "plugin.js", "hq"]) {
       const again = M(mine, { ...mine, cosmos: { ...mine.cosmos, xp: 140 } }, out);
       check("shared merge: the other device's changes survive the next save", [Object.keys(again.review.skipped).sort(), again.cosmos.hidden, again.cosmos.xp], [["a", "here", "there"], ["h1", "h2"], 160]);
       check("shared merge: no file yet", M(null, mine, null), mine);
-      const plug = fs.readFileSync(path.join(S, "plugin.js"), "utf8");
+      const plug = build.pluginSource();
       check("the graph view saves the shared file through the merge", /mergeShared\(store && store\.base, mine, disk\)/.test(plug), true);
       // device ledgers: a stale device's save (Sync keeps its copy, which never saw the other device's marks) loses nothing
       {
