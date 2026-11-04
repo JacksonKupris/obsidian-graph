@@ -1,4 +1,5 @@
-# A version tag (0.5.0) makes a GitHub release with the files Obsidian and BRAT install, once the tests (test.yml) pass.
+# A version tag (0.5.0) makes a GitHub release with the files Obsidian and BRAT install, once test.yml has passed on the code.
+# The tests aren't run again: the only thing a version commit changes is the number, and these steps check that.
 # The tag must match package.json's version, which manifest.json carries (node build.js manifest). RELEASING.md.
 name: Release
 on:
@@ -6,19 +7,33 @@ on:
     tags: ["*"]
 permissions:
   contents: write
+  actions: read
 jobs:
-  test:
-    uses: ./.github/workflows/test.yml
   release:
-    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
       - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Tag matches the version
         run: test "$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+      - name: manifest.json matches the version
+        run: node build.js manifest && git diff --exit-code manifest.json
+      - name: The tests passed on this code
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          code=HEAD
+          if git log -1 --format=%s | grep -q '^Release '; then
+            test -z "$(git diff --name-only HEAD^ HEAD | grep -vE '^(package\.json|manifest\.json)$')" || { echo "::error::a Release commit changes more than the version"; exit 1; }
+            code=HEAD^
+          fi
+          sha=$(git rev-parse "$code")
+          result=$(gh run list --workflow test.yml --commit "$sha" --event push --json conclusion --jq '.[0].conclusion')
+          test "$result" = "success" || { echo "::error::test.yml on $sha says '$result': release once it has passed"; exit 1; }
       - name: Build
         run: node build.js --out dist
       - name: Release
