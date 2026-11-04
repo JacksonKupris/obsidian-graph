@@ -4,14 +4,14 @@
 // 1. the rules themselves; 3. no surface re-grows its own copy of a shared rule (the drift this module ended);
 // 4. one action path; 6. note actions, scenes, shared state; the graph data and search on the vault under test.
 // (2 and 5, Python parity and the vault's dashboards, are the vault's own tests.)
+const { checks } = require("./kit");
 const fs = require("fs"), path = require("path"), { execFileSync } = require("child_process");
 const env = require("./env"), S = path.join(env.ROOT, "src"), S_DIR = S, build = require("../build");
 const srcOf = f => (f === "view.js" ? build.viewSource() : fs.readFileSync(path.join(S, f), "utf8"));   // the renderer: src/view/*.js joined
 const PY = process.platform === "win32" ? "python" : "python3";   // Linux has no plain "python"
 const R = env.rules;
 const VGRules = new Function(`${require("../build").rulesSource(R)}; return VGRules;`)();
-const fails = [];
-const check = (name, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) fails.push(`${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`); };
+const { fails, check } = checks();
 
 // ---- 1. rules
 const old = { id: "a/Plan.md", name: "Plan", tags: [], age: R.stale_days + 1 };

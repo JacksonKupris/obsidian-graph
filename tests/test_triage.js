@@ -3,8 +3,8 @@
 // on an old task stays out of the standup, Done today goes through completeTask); a real swipe and a real tap work; Delegate
 // asks with the clock stopped and No keeps the card; a failed write earns nothing; the time ends the run; the best is kept.
 //   node tests/test_triage.js [--vault [dir]] [--shots dir]        exit 0 = pass
-const assert = require("assert"), fs = require("fs"), path = require("path"), cdp = require("./cdp"), env = require("./env"), { VGRules: R } = env.notes();
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const { sleep, checks, openPage } = require("./kit");
+const assert = require("assert"), fs = require("fs"), path = require("path"), env = require("./env"), { VGRules: R } = env.notes();
 const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
 
 // the rules
@@ -18,9 +18,8 @@ assert.deepStrictEqual(R.mergeShared({ cosmos: {} }, { cosmos: { triage: { best:
 (async () => {
   const rec = k => `async (...a) => { (window.__calls = window.__calls || []).push(["${k}", ...a]); if (window.__failNext) { window.__failNext = false; throw new Error("the task changed"); } return ${k === "setTasksStatus" ? "a[0].length" : "true"}; }`;
   const stubs = ["completeTask", "setTaskStatus", "setTasksStatus", "setTaskField", "hqMark"].map(k => `${k}: ${rec(k)},`).join(" ");
-  const tab = await cdp.open({ html: env.pageWith(stubs), port: 9369 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const tab = await openPage({ html: env.pageWith(stubs) });
+  const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000)) throw new Error("the graph didn't mount");
     const D = "window.vaultGraph._debug", S = `${D}.scenes().triage`, G = `${S}.state`, A = `${S}.api`;

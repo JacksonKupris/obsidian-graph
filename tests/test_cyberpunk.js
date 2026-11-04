@@ -2,13 +2,12 @@
 // The Cyberpunk view in headless Chrome: every linked note is a tower in its district, a click on one selects its note
 // (the graph's own hit test), a frame stays inside its budget, and it draws on a vault of any size without errors.
 //   node tests/test_cyberpunk.js [--vault [dir]] [--shots dir]        exit 0 = pass
+const { sleep, checks, finish, openPage } = require("./kit");
 const fs = require("fs"), path = require("path"), cdp = require("./cdp"), env = require("./env");
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
 (async () => {
-  const tab = await cdp.open({ html: env.page(), port: 9357 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const tab = await openPage({ html: env.page() });
+  const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000)) throw new Error("the graph didn't mount");
     const D = "window.vaultGraph._debug";
@@ -50,7 +49,7 @@ const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.a
   } catch (e) { fails.push(e.message); }
   await tab.close();
   // a phone: a steady 30 frames a second here and 20 in a heavier view, the kept picture slid while it's moved, and it catches up with the camera by itself
-  const phone = await cdp.open({ html: env.pageWith("mobile: true,"), port: 9358 });
+  const phone = await cdp.open({ html: env.pageWith("mobile: true,") });
   if (phone) { try {
     if (!await phone.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000)) throw new Error("the graph didn't mount on a phone");
     await phone.send("Emulation.setDeviceMetricsOverride", { width: 412, height: 915, deviceScaleFactor: 2, mobile: true }); await phone.send("Emulation.setFocusEmulationEnabled", { enabled: true });
@@ -66,6 +65,5 @@ const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.a
     const after = await phone.ev(`[...${D}.P.values()].filter(p => p.a > 0).map(p => Math.round(p.x)).slice(0, 5).join()`); check(before !== after, "on a phone the city should catch up with the camera");
     check((await phone.ev("window.__errs || []")).length === 0, "page errors on a phone");
   } catch (e) { fails.push(e.message); } await phone.close(); }
-  console.log(fails.length ? "FAIL - cyberpunk: " + fails.join("; ") : "ok - cyberpunk: a tower per note, clicks select, frame budget");
-  process.exit(fails.length ? 1 : 0);
+  finish(fails, "cyberpunk: a tower per note, clicks select, frame budget", "cyberpunk");
 })();

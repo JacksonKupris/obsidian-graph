@@ -3,13 +3,12 @@
 // a pick's button makes the right write and ticks the pick off, Skip replaces a pick with the next item.
 // The page gets recording stand-ins for the plugin's writes.
 //   node tests/test_today.js [--vault [dir]]        exit 0 = pass
-const cdp = require("./cdp"), env = require("./env");
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const { sleep, finish, openPage } = require("./kit");
+const env = require("./env");
 (async () => {
   const rec = k => `async (...a) => { (window.__calls = window.__calls || []).push(["${k}", ...a]); return true; }`;
   const stubs = ["linkNotes", "addToMap", "stampReviewed", "writeNote", "createMap", "dismissPair"].map(k => `${k}: ${rec(k)},`).join(" ");
-  const tab = await cdp.open({ html: env.pageWith(stubs), port: 9340 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
+  const tab = await openPage({ html: env.pageWith(stubs) });
   const fails = [], ev = e => tab.ev(e);
   const keys = sel => ev(`JSON.stringify([...document.querySelectorAll(${JSON.stringify(sel + " [data-tkey]")})].map(r => r.dataset.tkey))`).then(JSON.parse);
   const picksDone = () => ev(`JSON.stringify(window.vaultGraph._debug.cos().daily.quests.map(q => [q.key, !!q.done]))`).then(JSON.parse);
@@ -46,6 +45,5 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     if (JSON.stringify(panel.slice(0, 3)) !== JSON.stringify(card2.slice(0, 3))) fails.push("the game panel's three differ from the card's");
   } catch (e) { fails.push(e.message); }
   await tab.close();
-  console.log(fails.length ? "FAIL - " + fails.join("; ") : "ok - Today: three picks and Next up, actions write and tick off, Skip replaces");
-  process.exit(fails.length ? 1 : 0);
+  finish(fails, "Today: three picks and Next up, actions write and tick off, Skip replaces");
 })();

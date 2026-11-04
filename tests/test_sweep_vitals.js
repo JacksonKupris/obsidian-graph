@@ -2,8 +2,8 @@
 // Closing the loop. Nothing open goes out of sight: a subtask goes with its open parent, and one with no open parent is listed in its own
 // right. A sweep moves a task and its subtasks to a project. Vitals say what the numbers mean, what to do, and whether it's moving.
 //   node tests/test_sweep_vitals.js [--vault [dir]]        exit 0 = pass
-const assert = require("assert"), cdp = require("./cdp"), env = require("./env"), stub = require("./plugin_stub"), { VGRules: R } = env.notes();
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const { sleep, checks, openPage, tools } = require("./kit");
+const assert = require("assert"), env = require("./env"), stub = require("./plugin_stub"), { VGRules: R } = env.notes();
 const H = env.rules.hq || {}, DAILY = env.rules.folders.daily;
 const S = new Function(`${require("../build").scienceSource()}; return VGScience;`)();
 
@@ -146,9 +146,8 @@ assert.ok(R.newsSince("0.6.41").every(n => R.versionAfter(n.since, "0.6.41")) &&
   }
   // ---- on the page: Vitals and the Sweep's controls
   const V = { drift: 16, pile: { open: 12, came: 30, left: 18, net: 12, old: 4, wip: [1, 3, 6, 12], piling: { area: "Security", open: 7, done: 2 } }, debt: { total: 40, count: 3, top: { id: "x.md", name: "Old Guide", cost: 20, direct: 4, reach: 9, years: 2.5, }, list: [{ id: "x.md", name: "Old Guide" }] }, web: { incoherence: 0.44, links: 600, twoWay: 90 } };
-  const tab = await cdp.open({ html: env.hqPage("", { today: undefined }), port: 9396 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const tab = await openPage({ html: env.hqPage("", { today: undefined }) });
+  const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     const hasCarried = (await tab.ev(`window.vaultHQ.items().filter(i => i.kind === "carried").length`)) > 0;
@@ -165,7 +164,7 @@ assert.ok(R.newsSince("0.6.41").every(n => R.versionAfter(n.since, "0.6.41")) &&
     check(await tab.waitFor(`/900 MB of 1.0 GB in Sync/.test((document.querySelector(".vg-hq-vitals") || {}).textContent || "") ? 1 : 0`, 4000), "Vitals didn't raise Sync when it's nearly full");
     await tab.ev(`window.vaultHQ.setScreen("automations")`); await sleep(60); check(/900 MB of 1.0 GB in Sync/.test(await tab.ev(`document.querySelector(".vg-hq-main").textContent`)), "Automations doesn't show Sync");
     await tab.ev(`(() => { window.vaultHQ.destroy(); window.__calls = []; const rec = k => async (...a) => { window.__calls.push([k, ...a]); return 1; }; window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { state: { review: { hqTour: true, vitals: { "2020-01-01": { open: 20, debt: 40, incoherence: 0.7 } } } }, ask: async () => true, openGraph: to => window.__calls.push(["graph", to]), api: { vitals: async () => (${JSON.stringify(V)}), moveTasks: rec("moveTasks"), setTasksStatus: rec("setTasksStatus"), setTaskStatus: rec("setTaskStatus"), stampReviewed: rec("stampReviewed"), openNote: rec("openNote") } }); })()`); await tab.waitFor(`document.querySelector(".vg-hq-vitals") ? 1 : 0`, 4000);
-    const click = sel => tab.ev(`(() => { const b = document.querySelector(${JSON.stringify(sel)}); if (!b) return false; b.click(); return true; })()`);
+    const click = sel => tools(tab).click(sel);
     check(await click('[data-graphlens="triage"]'), "no way into Stale notes"); check(await click('[data-graphview="foodweb"]'), "no way into the Food web");
     check(await click('[data-vital-current]'), "no Still current"); await sleep(100);
     const calls = await tab.ev(`window.__calls`);

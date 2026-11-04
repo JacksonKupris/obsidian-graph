@@ -2,8 +2,8 @@
 // HQ's calendar, focus sessions, project board and picking several tasks: each works by mouse and by keyboard, writes only
 // through the shared actions, fits a phone, and leaves a way forward when it's empty.
 //   node tests/test_hq_features.js [--vault [dir]] [--shots dir]        exit 0 = pass
-const assert = require("assert"), fs = require("fs"), path = require("path"), cdp = require("./cdp"), env = require("./env"), { VGRules: R } = env.notes();
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const { sleep, checks, openPage, tools } = require("./kit");
+const assert = require("assert"), fs = require("fs"), path = require("path"), env = require("./env"), { VGRules: R } = env.notes();
 const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
 
 // rules
@@ -21,9 +21,8 @@ R.BOARD_GROUPS.forEach(g => { const s = R.statusForGroup(g); if (s) assert.stric
 assert.strictEqual(R.statusForGroup("nowhere"), null);
 
 (async () => {
-  const tab = await cdp.open({ html: env.hqPage(""), port: 9371 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const tab = await openPage({ html: env.hqPage("") });
+  const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     await tab.ev(`window.__errs = []; addEventListener("error", e => __errs.push(String(e.message)))`);
@@ -31,9 +30,9 @@ assert.strictEqual(R.statusForGroup("nowhere"), null);
     const API = ["setTaskStatus", "completeTask", "setTaskField", "setNoteStatus", "setProjectStatus", "hqMark", "hqFocus", "hqSession", "logWork"].map(k => rec(k, k === "setProjectStatus" ? "0" : "true")).join(", ");
     const mount = () => tab.ev(`(() => { window.__calls = []; window.vaultHQ.destroy(); window.__calls = []; window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { state: {}, ask: async () => true, api: { ${API}, setTasksStatus: async (rows, s) => { window.__calls.push(["setTasksStatus", rows.length, s]); return rows.length; }, openNote: p => window.__calls.push(["open", p]), openDaily: async d => window.__calls.push(["daily", d]), openStandup: async d => window.__calls.push(["standup", d]), searchNotes: async () => [] } }); })()`);
     const calls = () => tab.ev(`window.__calls`), size = async (width, mobile = false) => { await tab.send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile }); await sleep(120); };
-    const screen = async s => { await tab.ev(`window.vaultHQ.setScreen("${s}")`); await sleep(60); };
-    const click = sel => tab.ev(`(() => { const b = document.querySelector(${JSON.stringify(sel)}); if (!b) return false; b.click(); return true; })()`);
-    const shot = async name => { if (!SHOTS) return; fs.mkdirSync(SHOTS, { recursive: true }); const r = await tab.send("Page.captureScreenshot", { format: "png" }); fs.writeFileSync(path.join(SHOTS, name + ".png"), Buffer.from(r.result.data, "base64")); };
+    const screen = s => tools(tab, { wait: 60 }).screen(s);
+    const click = sel => tools(tab).click(sel);
+    const shot = name => tools(tab, { shots: SHOTS }).shot(name);
     const key = (k, o = "{}") => tab.ev(`document.querySelector(".vg-hq").dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(k)}, bubbles: true, ...${o} }))`);
     await mount(); await size(1500); await screen("today");
 

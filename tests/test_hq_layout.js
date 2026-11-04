@@ -2,8 +2,8 @@
 // HQ's layout at the widths people use: nothing runs off the side or out of a card, the dock never sits on a row on a wide
 // pane, a row's buttons wait for the pointer without moving anything, Do next isn't shown twice, and the accent is readable.
 //   node tests/test_hq_layout.js [--vault [dir]]        exit 0 = pass
-const assert = require("assert"), cdp = require("./cdp"), env = require("./env"), { VGRules } = env.notes();
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const { sleep, checks, openPage, tools } = require("./kit");
+const assert = require("assert"), env = require("./env"), { VGRules } = env.notes();
 assert.strictEqual(VGRules.systemLabel("project/route-planner"), "Route planner", "a tag with no system in the rules reads as words");
 
 // contrast of the light accent, as text and behind its ink (WCAG AA is 4.5)
@@ -11,13 +11,12 @@ const lum = hex => { const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 
 const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 
 (async () => {
-  const tab = await cdp.open({ html: env.hqPage(""), port: 9368 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const tab = await openPage({ html: env.hqPage("") });
+  const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     const size = async (width, mobile = false) => { await tab.send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile }); await sleep(120); };
-    const screen = async s => { await tab.ev(`window.vaultHQ.setScreen("${s}")`); await sleep(120); };
+    const screen = s => tools(tab, { wait: 120 }).screen(s);
     for (const [width, mobile] of [[390, true], [800, false], [1500, false]]) {
       await size(width, mobile);
       for (const s of ["home", "today", "needs", "projects", "threads", "people"]) {

@@ -9,11 +9,11 @@
 //      text cut off mid-word, the page scrolling sideways, and (phone) buttons too small to tap
 //   4. --full: the click-everything test at both sizes (about 10 minutes)
 // The audit's findings are kept in .out/polish/last.json, so the next report can compare.
+const { sleep } = require("./kit");
 const fs = require("fs"), path = require("path"), { execFileSync } = require("child_process"), cdp = require("./cdp");
 const env = require("./env"), FULL = process.argv.includes("--full");
 const now = new Date(), day = new Date(now - now.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);   // the local day, like the time
 const stamp = day + " " + now.toTimeString().slice(0, 5).replace(":", "");
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 const run = (script, args = []) => {   // a test script's last line, and whether it passed
   try { const out = execFileSync("node", [path.join(__dirname, script), ...args, ...env.args], { encoding: "utf8", timeout: 20 * 60 * 1000 }); return { ok: true, out: out.trim() }; }
   catch (e) { return { ok: false, out: String(e.stdout || e.message).trim() }; }
@@ -46,7 +46,7 @@ const AUDIT = String.raw`(mobile => {
 
 async function audit(mobile) {
   const html = env.pageWith(mobile ? "mobile: true," : "");
-  const tab = await cdp.open({ html, port: 9337, mobile });
+  const tab = await cdp.open({ html, mobile });
   if (!tab) return null;
   await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000); await sleep(1500);
   const D = "window.vaultGraph._debug", found = new Map();

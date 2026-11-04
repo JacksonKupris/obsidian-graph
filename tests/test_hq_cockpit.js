@@ -3,8 +3,8 @@
 // goes somewhere from every step. And it scales: a vault of 20,000 notes with thousands of open items stays quick to draw,
 // long lists come a page at a time, and the costly list is worked out once per change of data, not once per drawing.
 //   node tests/test_hq_cockpit.js [--vault [dir]]        exit 0 = pass
-const assert = require("assert"), cdp = require("./cdp"), env = require("./env"), { VGRules } = env.notes();
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const { sleep, checks, finish, openPage } = require("./kit");
+const assert = require("assert"), env = require("./env"), { VGRules } = env.notes();
 // threads
 const P = [{ path: "a.md", title: "Service Alarm Webhooks", name: "Scope" }, { path: "b.md", title: "Sticker Audit Page" }, { path: "c.md", title: "Scope of Work One" }, { path: "d.md", title: "Scope of Work Two" }, { path: "e.md", title: "Scope of Work Three" }];
 const T = VGRules.hqThreads([{ key: "1", title: "Test the service alarm on the console" }, { key: "2", text: "Check [[Sticker Audit Page]] totals" }, { key: "3", title: "Buy milk" }, { key: "4", title: "Finish the scope of work" }], P);
@@ -24,9 +24,8 @@ assert(brief.some(s => s.startsWith("1 done yesterday")), "brief: " + brief); as
 assert.deepStrictEqual(VGRules.hqBrief({}, [], {}, "2026-10-28", []), [], "an empty vault should have no brief, not invented sentences");
 
 (async () => {
-  const tab = await cdp.open({ html: env.hqPage(""), port: 9362 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const tab = await openPage({ html: env.hqPage("") });
+  const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     const mount = (data = "DATA") => tab.ev(`(() => { window.__calls = []; window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), ${data}, { now: new Date("2026-10-28T12:00:00"), ask: async () => true, openGraph: () => window.__calls.push(["graph"]),
@@ -90,6 +89,5 @@ assert.deepStrictEqual(VGRules.hqBrief({}, [], {}, "2026-10-28", []), [], "an em
     const errs = await tab.ev("typeof __errs === 'undefined' ? [] : __errs"); check(!errs.length, "errors: " + errs);
   } catch (e) { fails.push(e.message); }
   await tab.close();
-  console.log(fails.length ? "FAIL - cockpit:\n    " + fails.join("\n    ") : "ok - cockpit: rail, palette, threads, brief, review, phone width, and 20,000 notes");
-  process.exit(fails.length ? 1 : 0);
+  finish(fails, "cockpit: rail, palette, threads, brief, review, phone width, and 20,000 notes", "cockpit");
 })();

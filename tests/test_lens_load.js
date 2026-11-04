@@ -3,8 +3,8 @@
 // link really changes; the picture slows behind an open lens; generated Related sections don't count as one note relying on another;
 // and a journal with an open task stays in HQ whatever its age.
 //   node tests/test_lens_load.js [--vault [dir]]        exit 0 = pass
-const assert = require("assert"), fs = require("fs"), path = require("path"), cdp = require("./cdp"), env = require("./env"), { VGRules: R } = env.notes();
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const { sleep, checks, openPage } = require("./kit");
+const assert = require("assert"), fs = require("fs"), path = require("path"), env = require("./env"), { VGRules: R } = env.notes();
 
 // ---- written links, through the rule the plugin calls, on the rules file under test
 assert.ok(env.rules.generated_link_sections, "the rules file has no generated_link_sections");
@@ -41,9 +41,8 @@ if (env.rules.hq && env.rules.hq.journal) {
 
 (async () => {
   const links = env.data().links.filter(l => l.kind === "link"), out = {}; links.forEach(l => { (out[l.source] = out[l.source] || {})[l.target] = 1; });
-  const tab = await cdp.open({ html: env.pageWith(`writtenLinks: () => (window.__written || ${JSON.stringify(out)}), driftScan: async () => { if (window.__driftRows === "boom") throw new Error("boom"); return window.__driftRows || []; },`), port: 9395 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); }, D = "window.vaultGraph._debug";
+  const tab = await openPage({ html: env.pageWith(`writtenLinks: () => (window.__written || ${JSON.stringify(out)}), driftScan: async () => { if (window.__driftRows === "boom") throw new Error("boom"); return window.__driftRows || []; },`) });
+  const { fails, ok: check } = checks(), D = "window.vaultGraph._debug";
   try {
     if (!await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000)) throw new Error("the graph didn't mount");
     await sleep(1500);

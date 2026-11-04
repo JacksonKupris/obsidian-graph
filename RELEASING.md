@@ -126,4 +126,4 @@ It ships everything committed since the last release.
 | `no Chrome on this CI runner` | GitHub's machine changed. Add a Chrome install step to `.github/workflows/test.yml`. |
 | `Obsidian has 0.6.14, not 0.6.15` | Turn Vault Graph off and on in Settings > Community plugins. |
 
-Browser tests need Chrome. To run two suites at once (two worktrees), give each a different `VG_PORT_OFFSET`.
+Browser tests need Chrome. Each picks a free port, so two suites can run at once.

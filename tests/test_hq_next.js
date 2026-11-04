@@ -3,8 +3,8 @@
 // same thing. It moves when the day does. It settles instead of pulsing forever, and it's still there with motion turned off.
 // Also snoozing to next week.
 //   node tests/test_hq_next.js [--vault [dir]] [--shots dir]        exit 0 = pass
+const { sleep, checks, openPage, tools } = require("./kit");
 const assert = require("assert"), fs = require("fs"), path = require("path"), cdp = require("./cdp"), env = require("./env"), { VGRules: R } = env.notes();
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
 
 // the rule, in its order
@@ -42,23 +42,22 @@ assert(open(null, day), "the task is listed"); assert(!open("until:2026-11-09", 
 
 (async () => {
   // the graph's toolbar names it and leads there
-  { const page = await cdp.open({ html: env.pageWith(`goNextStep: async () => { window.__went = true; },`).replace("const DATA =", "const DATA ="), port: 9374 });
+  { const page = await cdp.open({ html: env.pageWith(`goNextStep: async () => { window.__went = true; },`).replace("const DATA =", "const DATA =") });
     if (page) { try { await page.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000); const hasHq = await page.ev(`!!window.vaultGraph._debug.rules`);
       await page.ev(`document.querySelectorAll('.vg-tour, .vg-tour-card').forEach(x => x.remove())`);
       const state = await page.ev(`(() => { const b = document.querySelector(".vg-nextbtn"); return { there: !!b, hidden: b ? b.hidden : null, text: b ? b.textContent : "" }; })()`);
       if (!state.there) { console.log("FAIL - the graph has no next step button"); process.exit(1); }
       if (!state.hidden) { await page.ev(`document.querySelector(".vg-nextbtn").click()`); await sleep(40); if (!(await page.ev(`!!window.__went`))) { console.log("FAIL - the graph's next step does nothing"); process.exit(1); } }
     } finally { await page.close(); } } }
-  const tab = await cdp.open({ html: env.hqPage(""), port: 9373 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const tab = await openPage({ html: env.hqPage("") });
+  const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     await tab.ev(`window.__errs = []; addEventListener("error", e => __errs.push(String(e.message)))`);
-    const shot = async name => { if (!SHOTS) return; fs.mkdirSync(SHOTS, { recursive: true }); const r = await tab.send("Page.captureScreenshot", { format: "png" }); fs.writeFileSync(path.join(SHOTS, name + ".png"), Buffer.from(r.result.data, "base64")); };
+    const shot = name => tools(tab, { shots: SHOTS }).shot(name);
     const size = async (width, mobile = false) => { await tab.send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile }); await sleep(120); };
-    const screen = async s => { await tab.ev(`window.vaultHQ.setScreen("${s}")`); await sleep(60); };
-    const click = sel => tab.ev(`(() => { const b = document.querySelector(${JSON.stringify(sel)}); if (!b) return false; b.click(); return true; })()`);
+    const screen = s => tools(tab, { wait: 60 }).screen(s);
+    const click = sel => tools(tab).click(sel);
     const chip = () => tab.ev(`document.querySelector(".vg-hq-nextchip b").textContent`), marked = () => tab.ev(`[...document.querySelectorAll(".is-nextstep")].length`);
     // a noon clock, so the evening's standup doesn't change what this checks
     let mount = (state = "{}", hour = 12) => tab.ev(`(() => { window.vaultHQ.destroy(); window.__calls = []; const rec = k => async (...a) => { window.__calls.push([k, ...a]); return true; }; const when = new Date(); when.setHours(${hour}, 0, 0, 0); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { now: when, state: ${state}, ask: async () => true, api: { hqFocus: rec("hqFocus"), hqMark: rec("hqMark"), hqSession: rec("hqSession"), setTaskStatus: rec("setTaskStatus"), completeTask: rec("completeTask"), setTasksStatus: rec("setTasksStatus"), capture: rec("capture"), openNote() {}, openStandup: rec("openStandup"), searchNotes: async () => [] } }); })()`);

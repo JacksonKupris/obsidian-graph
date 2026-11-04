@@ -2,8 +2,8 @@
 // Where a task goes, focus time per project, Needs you in bulk and one at a time, the tour, and what HQ owes someone on a
 // keyboard or a screen reader: every control named, readable text in both themes, focus kept through a redraw, dialogs that hold it.
 //   node tests/test_hq_a11y.js [--vault [dir]] [--shots dir]        exit 0 = pass
+const { sleep, checks, openPage, tools } = require("./kit");
 const assert = require("assert"), fs = require("fs"), path = require("path"), cdp = require("./cdp"), env = require("./env"), { VGRules: R } = env.notes();
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
 
 // a task in a project's note: under its task heading, or a section of its own, never inside a code block or the frontmatter
@@ -43,7 +43,7 @@ const AUDIT = `(() => {
 
 (async () => {
   // the graph's tour runs on the same code as HQ's
-  { const page = await cdp.open({ html: env.page(), port: 9376 });
+  { const page = await cdp.open({ html: env.page() });
     if (page) { try {
       if (!await page.waitFor("window.vaultGraph ? 1 : 0", 30000)) throw new Error("the graph didn't mount");
       if (!await page.waitFor("document.querySelector('.vg-tour-card') ? 1 : 0", 8000)) throw new Error("the graph's tour didn't start");
@@ -51,16 +51,15 @@ const AUDIT = `(() => {
       if (titles.length < 3 || !titles.includes("Search")) throw new Error(`the graph's tour steps: ${titles}`);
       if (await page.ev("!!document.querySelector('.vg-tour')")) throw new Error("the graph's tour should end");
     } catch (e) { console.log(`FAIL - ${e.message}`); process.exit(1); } finally { await page.close(); } } }
-  const tab = await cdp.open({ html: env.hqPage(""), port: 9375 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const tab = await openPage({ html: env.hqPage("") });
+  const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     await tab.ev(`window.__errs = []; addEventListener("error", e => __errs.push(String(e.message)))`);
     const size = async (width, mobile = false) => { await tab.send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile }); await sleep(100); };
-    const shot = async name => { if (!SHOTS) return; fs.mkdirSync(SHOTS, { recursive: true }); const r = await tab.send("Page.captureScreenshot", { format: "png" }); fs.writeFileSync(path.join(SHOTS, name + ".png"), Buffer.from(r.result.data, "base64")); };
-    const screen = async s => { await tab.ev(`window.vaultHQ.setScreen("${s}")`); await sleep(50); };
-    const click = sel => tab.ev(`(() => { const b = document.querySelector(${JSON.stringify(sel)}); if (!b) return false; b.click(); return true; })()`);
+    const shot = name => tools(tab, { shots: SHOTS }).shot(name);
+    const screen = s => tools(tab, { wait: 50 }).screen(s);
+    const click = sel => tools(tab).click(sel);
     const calls = () => tab.ev("window.__calls"), active = () => tab.ev(`(() => { const a = document.activeElement; return a ? (a.className || a.tagName) : ""; })()`);
     const key = (k, more = "") => tab.ev(`document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(k)}, bubbles: true, cancelable: true${more} }))`);
     const mount = (state = "{}", extra = "") => tab.ev(`(() => { window.vaultHQ.destroy(); window.__calls = []; const rec = k => async (...a) => { window.__calls.push([k, ...a]); return true; }; const when = new Date(); when.setHours(12, 0, 0, 0); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { now: when, state: ${state}, ask: async () => true, api: { hqFocus: rec("hqFocus"), hqMark: rec("hqMark"), hqSession: rec("hqSession"), setTaskStatus: rec("setTaskStatus"), completeTask: rec("completeTask"), setTasksStatus: async (r, s) => { window.__calls.push(["setTasksStatus", r, s]); return r.length; }, capture: rec("capture"), openNote() {}, openDaily: rec("openDaily"), openStandup: rec("openStandup"), searchNotes: async () => [], setNoteStatus: rec("setNoteStatus"), moveNote: rec("moveNote"), ${extra} } }); })()`);

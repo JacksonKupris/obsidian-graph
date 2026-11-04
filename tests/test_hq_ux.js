@@ -2,8 +2,8 @@
 // Note preview, search filters, time per project, the week's write-up, and the UX fixes that go with them: the rail takes no
 // room when it has nothing to say, thread bars differ, report names read as words, the graph's task counts wait until you zoom.
 //   node tests/test_hq_ux.js [--vault [dir]] [--shots dir]        exit 0 = pass
-const assert = require("assert"), fs = require("fs"), path = require("path"), cdp = require("./cdp"), env = require("./env"), { VGRules: R } = env.notes();
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const { sleep, checks, openPage, tools } = require("./kit");
+const assert = require("assert"), fs = require("fs"), path = require("path"), env = require("./env"), { VGRules: R } = env.notes();
 const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
 
 // report names
@@ -59,16 +59,15 @@ assert.deepStrictEqual(R.followMoves({ sessionFor: { "old.md": 5 } }, { "old.md"
   }).catch(e => { console.log(`FAIL - the plugin's side: ${e.message}`); process.exit(1); }); }
 
 (async () => {
-  const tab = await cdp.open({ html: env.hqPage(""), port: 9372 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const tab = await openPage({ html: env.hqPage("") });
+  const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     await tab.ev(`window.__errs = []; addEventListener("error", e => __errs.push(String(e.message)))`);
-    const shot = async name => { if (!SHOTS) return; fs.mkdirSync(SHOTS, { recursive: true }); const r = await tab.send("Page.captureScreenshot", { format: "png" }); fs.writeFileSync(path.join(SHOTS, name + ".png"), Buffer.from(r.result.data, "base64")); };
+    const shot = name => tools(tab, { shots: SHOTS }).shot(name);
     const size = async (width, mobile = false) => { await tab.send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile }); await sleep(120); };
-    const screen = async s => { await tab.ev(`window.vaultHQ.setScreen("${s}")`); await sleep(60); };
-    const click = sel => tab.ev(`(() => { const b = document.querySelector(${JSON.stringify(sel)}); if (!b) return false; b.click(); return true; })()`);
+    const screen = s => tools(tab, { wait: 60 }).screen(s);
+    const click = sel => tools(tab).click(sel);
     const calls = () => tab.ev(`window.__calls`);
     const mount = (state = "{}") => tab.ev(`(() => { window.vaultHQ.destroy(); window.__calls = []; const rec = k => async (...a) => { window.__calls.push([k, ...a]); return true; }; window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { state: ${state}, ask: async () => true, input: async () => window.__say, notify: m => window.__calls.push(["notify", m]), onSession: s => { window.__focus = s; }, api: { resolveLink: (t, from) => (t === "Dir/Other" && from !== "Dir/Other.md" ? "Dir/Other.md" : t === "Linked" ? "Linked.md" : null), hqFocus: rec("hqFocus"), hqMark: rec("hqMark"), setTaskStatus: rec("setTaskStatus"), completeTask: rec("completeTask"), setTasksStatus: rec("setTasksStatus"), hqSession: rec("hqSession"), writeNote: rec("writeNote"), openNote: p => window.__calls.push(["open", p]), readNote: async p => { if (p === "gone.md") throw new Error("missing"); if (p === "Linked.md") return "Start [[Dir/Other|the other]] and [[Nowhere]] and ![[pic.png]] end.\\n\\n- see [[Dir/Other#Part|the part]]\\n"; if (p === "Dir/Other.md") return "Back to [[Linked]].\\n"; return "---\\ntags: [x]\\n---\\n# In the note\\n\\nSome words.\\n\\n- a point\\n"; }, searchNotes: async q => { window.__calls.push(["search", q]); return [{ path: "Old fix.md", heading: "How it was solved", snippet: "We did this" }, { path: "Dir/Other.md", heading: "Other" }]; } } }); })()`);
     await mount(); await size(1500);

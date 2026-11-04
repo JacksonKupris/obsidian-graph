@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Real pointer clicks, including nested labels/icons: each shortcut must reach a distinct screen.
-const assert = require("assert"), cdp = require("./cdp"), env = require("./env");
+const { openPage } = require("./kit");
+const assert = require("assert"), env = require("./env");
 
 (async () => {
   for (const mobile of [false, true]) {
-    const tab = await cdp.open({ html: env.hqPage(""), port: 9352, mobile });
-    if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
+    const tab = await openPage({ html: env.hqPage(""), mobile });
     try {
       assert(await tab.waitFor("window.vaultHQ ? 1 : 0", 20000), "HQ did not mount");
       await tab.ev(`window.__navigationErrors = []; addEventListener("error", e => window.__navigationErrors.push(e.message))`);

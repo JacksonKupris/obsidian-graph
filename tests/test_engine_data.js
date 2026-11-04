@@ -3,9 +3,10 @@
 // top). Drives the built plugin over the sample vault's notes with a stand-in Obsidian, and checks the engine's topics
 // against the Python analysis's for the same notes (fixtures/sample-graph.json).
 //   node tests/test_engine_data.js        exit 0 = pass
+const { checks } = require("./kit");
 const env = require("./env"), stub = require("./plugin_stub");
 const cdp = require("./cdp"), fs = require("fs"), path = require("path");
-const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) fails.push(`${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`); };
+const { fails, check } = checks();
 (async () => {
   const { Plugin, TFile, VGEngine } = stub.load(env.rules);
   const app = stub.fakeVault(env.dir(), TFile);
@@ -18,7 +19,7 @@ const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSO
   if (data) {
     // the slow step really runs off the main thread in a browser, and gives the same answer as running it here
     if (p.jobs && p.jobs.analyseJob) { const source = require("../build").engineSource();
-      const tab = await cdp.open({ html: `<!doctype html><script>${source.replace(/<\/script/gi, "<\\/script")}</script>`, port: 9372 });
+      const tab = await cdp.open({ html: `<!doctype html><script>${source.replace(/<\/script/gi, "<\\/script")}</script>` });
       if (tab) { for (const name of ["analyseJob"]) { const r = await tab.ev(`(async () => { const input = ${env.inlineJson(p.jobs[name])}, here = VGEngine[${JSON.stringify(name)}](input), there = await VGEngine.run(${JSON.stringify(name)}, input); return JSON.stringify({ via: VGEngine.stats.via, same: JSON.stringify(here) === JSON.stringify(there), has: Object.keys(there).length }); })()`);
           const R = JSON.parse(r); check(`${name} ran in a worker`, R.via, "worker"); check(`${name}: the worker's answer is the same as running it here`, R.same, true); check(`${name} returned something`, R.has > 0, true); }
         await tab.close(); } }
