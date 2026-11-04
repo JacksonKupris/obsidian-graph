@@ -511,10 +511,27 @@ const VGEngineMake = () => {
   // Plain-text mentions count too, but only on lines new since the last few dailies of the same kind, so carried-over
   // tasks and template text don't count again every day. A daily whose links repeat the previous one's is boilerplate.
   const CARRY_OVER_DAYS = 3;
+  // a daily split into the units that are about one thing: each top-level list item with its nested lines, or each paragraph
+  function blocksOf(text) {
+    const t = bodyOf(text).replace(/```[\s\S]*?```/g, ""), blocks = []; let cur = [];
+    const flush = () => { if (cur.length) { blocks.push(cur); cur = []; } };
+    for (const line of t.split(PY_LINES)) { const s = line.trim();
+      if (!s || s.startsWith("#") || s.startsWith("|") || s === "---") { flush(); continue; }
+      if (/^(?:[-*+]|\p{Nd}+[.)])\s/u.test(line)) flush();
+      cur.push(line); }
+    flush();
+    return blocks;
+  }
+  const normLine = l => l.replace(LINK_OR_URL, " ").replace(LINE_MARK, "").trim().toLowerCase().replace(/\s+/g, " ");
+  // what a block links to, by the daily's own links (d.linkOf: lower-case target -> the note it resolves to)
+  const blockLinks = (lines, linkOf) => { const out = new Set(); if (!linkOf) return out;
+    for (const l of lines) { for (const m of l.matchAll(/\[\[([^\]|#]+)/g)) { let t = m[1].trim().replace(/\\+$/, "").trim().replace(/\\/g, "/"); if (t.toLowerCase().endsWith(".md")) t = t.slice(0, -3); const r = linkOf[t.toLowerCase()]; if (r) out.add(r); }
+      for (const m of l.matchAll(/\]\(([^)\s#]+\.md)\)/g)) { let t = m[1]; try { t = decodeURIComponent(t); } catch (e) { /* as written */ } const r = linkOf[t.toLowerCase()]; if (r) out.add(r); } }
+    return out; };
   function mentionPass({ dailies, knowledge, people, terms, recentSince }) {
     const K = new Set(knowledge), P = new Set(people), alts = Object.keys(terms).sort((a, b) => cpLen(b) - cpLen(a)).map(regexEscape);
     const matcher = alts.length ? new RegExp(`(?<![\\p{L}\\p{N}\\p{M}_-])(?:${alts.join("|")})(?![\\p{L}\\p{N}\\p{M}_-])`, "giu") : null;
-    const earlier = {}, previous = {}, mentions = {}, recent = {}, said = {}, saidDays = {}, mentionDays = {}, personMentions = {}; let used = 0;
+    const earlier = {}, previous = {}, mentions = {}, recent = {}, said = {}, saidDays = {}, mentionDays = {}, personMentions = {}, comention = {}, pairDays = {}; let used = 0;
     const add = (o, k) => { o[k] = (o[k] || 0) + 1; }, list = (o, k, v) => { (o[k] = o[k] || []).push(v); };
     for (const d of [...dailies].sort((a, b) => pyCmp(a.day, b.day) || pyCmp(a.path, b.path))) {
       const kind = d.path.toLowerCase().includes("standup") ? "standup" : "journal", lines = contentLines(d.text), seen = earlier[kind] = earlier[kind] || [];
@@ -531,8 +548,13 @@ const VGEngineMake = () => {
       for (const n of named) if (!(K.has(n) && resolved.has(n))) { add(said, n); list(saidDays, n, d.path); }
       for (const n of here) { add(mentions, n); list(mentionDays, n, d.day); if (d.day >= recentSince) add(recent, n); }
       for (const p of who) personMentions[p] = (personMentions[p] || 0) + here.length;
+      const hereSet = new Set(here), freshSet = new Set(fresh), blockPairs = new Set();
+      for (const lines of blocksOf(d.text)) { const inBlk = new Set([...blockLinks(lines, d.linkOf)].filter(r => hereSet.has(r)));
+        if (matcher) for (const l of lines) if (freshSet.has(normLine(l))) for (const m of l.matchAll(matcher)) (terms[m[0].toLowerCase()] || []).forEach(n => { if (hereSet.has(n)) inBlk.add(n); });
+        const s = sorted(inBlk); for (let i = 0; i < s.length; i++) for (let j = i + 1; j < s.length; j++) blockPairs.add(`${s[i]}\n${s[j]}`); }
+      for (const k of blockPairs) { comention[k] = (comention[k] || 0) + 1; list(pairDays, k, [d.day, d.path]); }
     }
-    return { mentions, recent, said, saidDays, mentionDays, personMentions, used };
+    return { mentions, recent, said, saidDays, mentionDays, personMentions, comention, pairDays, used };
   }
   // real task ages: the first journal or standup a task appears in (journals carry tasks forward), else the note's birth
   const taskKey = t => cpTake(t.toLowerCase().replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\d{4}-\d{2}-\d{2}|https?:\/\/\S+|[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).join(" "), 60);
@@ -624,9 +646,10 @@ what when where which while who how why each other same see set use used using w
     return out.sort((x, y) => y[2] - x[2] || pyCmp(x[0], y[0]) || pyCmp(x[1], y[1]));
   }
   // same-name copies resolve together: one pair per pair of names, best first. skip(a, b): a pair not to offer (dismissed)
-  function byName(pairs, limit, skip) {
+  function byName(pairs, limit, skip, rank) {
     const seen = new Set(), out = [];
-    for (const x of [...pairs].sort((p, q) => q[2] - p[2] || pyCmp(p[0], q[0]) || pyCmp(p[1], q[1]))) {
+    const score = rank || (x => x[2]);
+    for (const x of [...pairs].sort((p, q) => score(q) - score(p) || pyCmp(p[0], q[0]) || pyCmp(p[1], q[1]))) {
       const a = stemOf(x[0]).toLowerCase(), b = stemOf(x[1]).toLowerCase(), key = pyCmp(a, b) < 0 ? `${a}\n${b}` : `${b}\n${a}`;
       if (a !== b && !seen.has(key) && !(skip && skip(x[0], x[1]))) { seen.add(key); out.push([x[0], x[1], x[2]]); }
       if (out.length === limit) break;
@@ -637,16 +660,16 @@ what when where which while who how why each other same see set use used using w
   // dismissed pairs are known.
   function similarPairs(vectors, adj, quiet) {
     const top = topNeighbours(vectors, SEMANTIC_TOP_K, false), pairs = [], tight = t => stemOf(t).toLowerCase().replace(SERIES_G, "");
-    const names = r => new Set(Object.keys(adj[r] || {}).map(t => stemOf(t).toLowerCase()));
-    const linked = (a, b) => names(a).has(stemOf(b).toLowerCase()) || names(b).has(stemOf(a).toLowerCase());
+    const linked = nameLinked(adj);
     for (const p of sorted(vectors.keys())) for (const [s, q] of top.get(p)) {
       if (pyCmp(p, q) < 0 && !quiet.has(p) && !quiet.has(q) && top.get(q).some(x => x[1] === p) && !linked(p, q) && tight(p) !== tight(q) && !(seriesKey(p) && seriesKey(p) === seriesKey(q))) pairs.push([p, q, pyRound(s, 3)]); }
     return pairs;
   }
-  function notesJob({ dailies, dailyDays, knowledge, people, terms, recentSince, raw, born, adj, quiet, smart, standups, today, planHead, doneHead }) {
+  const vectorsOf = (smart, knowledge) => (smart ? embeddings({ sources: smart.sources, models: smart.models, blob: f => smart.blobs[f] }, knowledge) : new Map());
+  function notesJob({ dailies, dailyDays, knowledge, people, terms, recentSince, raw, born, adj, quiet, smart, vectors: given, standups, today, planHead, doneHead }) {
     const M = mentionPass({ dailies, knowledge, people, terms, recentSince }), q = new Set(quiet);
     const counts = {}; for (const r of knowledge) counts[r] = noteCounts(raw[r] || "");
-    const vectors = smart ? embeddings({ sources: smart.sources, models: smart.models, blob: f => smart.blobs[f] }, knowledge) : new Map();
+    const vectors = given || vectorsOf(smart, knowledge);
     const codey = knowledge.filter(r => mostlyCode(raw[r] || ""));
     return { ...M, counts, tasks: taskAges(dailyDays, raw, born, knowledge), series: datedSeries(knowledge), follow: followThrough({ standups, today, planHead, doneHead }),
       twins: textTwins(knowledge, raw, q), similar: vectors.size ? similarPairs(vectors, adj, q) : [], codey };
@@ -654,13 +677,151 @@ what when where which while who how why each other same see set use used using w
 
   // ---- the topics, from what the plugin has gathered (the graph, the notes' text and tags, the Smart Connections files):
   // the slow part of building the graph, as one step with no Obsidian in it, so it can run off the main thread.
-  function topicsJob({ graph, knowledge, smart, raw, tags, prev, stack }) {
-    const vectors = smart ? embeddings({ sources: smart.sources, models: smart.models, blob: f => smart.blobs[f] }, knowledge) : new Map();
+  function topicsJob({ graph, adj, knowledge, smart, vectors: given, raw, tags, prev, stack }) {
+    graph = graph || adj;
+    const vectors = given || vectorsOf(smart, knowledge);
     const coh = cohesionGraph(graph, knowledge, vectors), topics = topicsOf(absorbSmall(louvain(coh), coh));
     const ids = stableIds(topics, prev || {}), kw = topicWords(topics, raw), labels = topics.map(m => label(m, graph, tags)), st = stacks(topics, tags, stack);
     const names = readableNames(topics, kw, labels.map(l => l.core)).map((n, i) => withStack(n, st[i]));
     return { topics: topics.map((m, i) => ({ id: ids[i], size: m.length, name: names[i], stack: st[i], keywords: kw[i], ...labels[i], members: m })), bc: betweenness(graph), vectors: vectors.size };
   }
+  // ---- everything keyed by topics, worked out together so its numbers agree (vault_gaps.analyze, moc_align.graph_mocs,
+  // vault_graph.timeline, rhythm and closest_passages). A topic's id is what a gap, a map or a week of the timeline points at.
+  const MIN_COMENTIONS = 2, MIN_ASSOC = 0.05, TOP_GAPS = 8, TOP_COMENTIONS = 20, EVIDENCE_PER_PAIR = 3;
+  const TOPIC_TAG = /^(project|technology|feature|hardware)\//;
+  const nameLinked = adj => { const memo = new Map(), names = r => { if (!memo.has(r)) memo.set(r, new Set(Object.keys(adj[r] || {}).map(t => stemOf(t).toLowerCase()))); return memo.get(r); };
+    return (a, b) => names(a).has(stemOf(b).toLowerCase()) || names(b).has(stemOf(a).toLowerCase()); };
+  const dismissTest = keys => { const off = new Set(keys || []); return (a, b) => { const x = stemOf(a).toLowerCase(), y = stemOf(b).toLowerCase(); return off.has(x < y ? `${x}|${y}` : `${y}|${x}`); }; };
+  // the line of a daily note that best shows two notes together (both named > either)
+  function snippet(text, ta, tb) {
+    let best = "", bestScore = 0;
+    for (const line of bodyOf(text).split(PY_LINES)) { const s = line.trim(); if (cpLen(s) < 6 || s.startsWith("```") || s.startsWith("|")) continue;
+      const low = s.toLowerCase(), has = set => [...set].some(x => low.includes(x)), score = (has(ta) ? 1 : 0) + (has(tb) ? 1 : 0);
+      if (score > bestScore) { best = s; bestScore = score; if (score === 2) break; } }
+    best = best.replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/^\s*(?:[-*+]\s*(?:\[.\]\s*)?|\d+[.)]\s*|#+\s*)/u, "").split("**").join("").split("__").join("").trim();
+    return cpLen(best) > 160 ? cpSlice(best, 0, 157) + "…" : best;
+  }
+  // where two notes meet: the two passages with the most words in common (tf-idf cosine), not meaning
+  const CODE_SPANS = /```[\s\S]*?```|`[^`\n]*`/g, METADATA_LINE = /^(-{3,}|\*{3,}|[-*+]?\s*\**[\p{L}\p{N}\p{M}_ /&-]{2,30}\**\s*:\**\s|#[\p{L}\p{N}\p{M}_/-]+(\s+#[\p{L}\p{N}\p{M}_/-]+)*$|\|)/u;
+  const SKIP_SECTION = /^(related|references|links|see also|backlinks|sources|tags)\b/i, SQL_WORD = /\b(?:SELECT|INSERT|UPDATE|CREATE|DELETE|ALTER|DECLARE|BEGIN|COLLATE)\b|SET @/g, WIKILINK = /\[\[[^\]]*\]\]/g;
+  function paragraphs(text) {
+    const lines = bodyOf(text).replace(CODE_SPANS, " ").split(PY_LINES), out = []; let heading = "", buf = [];
+    const flush = () => { const para = buf.join(" ").trim(); if (cpLen(para) >= 40) out.push([heading, para]); buf = []; };
+    for (const line of lines) { const s = line.trim();
+      if (s.startsWith("#") && !s.startsWith("#meta") && s.includes(" ")) { flush(); heading = s.replace(/^#+/, "").trim(); }
+      else if (!s || METADATA_LINE.test(s)) flush();
+      else buf.push(s.replace(/^[-+]\s*(\[.\]\s*)?|^\*\s+(\[.\]\s*)?|^\p{Nd}+[.)]\s*/u, "").split("**").join("")); }
+    flush();
+    const keep = [];
+    for (const [h, p] of out) { if (SKIP_SECTION.test(h) || (p.match(SQL_WORD) || []).length >= 2) continue;
+      const prose = p.replace(WIKILINK, " "); if (cpLen(prose.trim()) < 0.5 * cpLen(p) || (prose.match(/[A-Za-z]{3,}/g) || []).length < 6) continue;
+      keep.push([h, p.replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1")]); }
+    return keep;
+  }
+  function closestPassages(pairs, raw) {
+    const tok = s => (s.toLowerCase().match(/[a-z][a-z0-9]{2,}/g) || []).filter(w => !TEXT_STOP.has(w)), out = {}, clip = t => (cpLen(t) <= 160 ? t : cpSlice(t, 0, 157) + "…");
+    for (const [x, y] of pairs) { const px = paragraphs(raw[x] || "").slice(0, 120), py = paragraphs(raw[y] || "").slice(0, 120); if (!px.length || !py.length) continue;
+      const docs = [...px, ...py].map(([, p]) => { const c = new Map(); tok(p).forEach(w => bump(c, w)); return c; }), df = new Map(); docs.forEach(d => d.forEach((_, w) => bump(df, w)));
+      const n = docs.length, vec = docs.map(d => new Map([...d].map(([w, c]) => [w, c * Math.log(1 + n / df.get(w))]))), norm = vec.map(d => Math.sqrt([...d.values()].reduce((s, v) => s + v * v, 0)) || 1);
+      let best = 0, bi = 0, bj = 0;
+      for (let i = 0; i < px.length; i++) for (let j = 0; j < py.length; j++) { const a = vec[i], b = vec[px.length + j]; let s = 0; a.forEach((v, w) => { s += v * (b.get(w) || 0); }); s /= norm[i] * norm[px.length + j]; if (s > best) { best = s; bi = i; bj = j; } }
+      if (best >= 0.12) out[`${x}|${y}`] = { a: [px[bi][0], clip(px[bi][1])], b: [py[bj][0], clip(py[bj][1])] }; }
+    return out;
+  }
+  // daily-note mentions per week for the last half year: per topic, and for the 40 most-mentioned notes
+  const TIMELINE_WEEKS = 26;
+  function timeline(mentionDays, cid, paths, today) {
+    const dayN = d => Math.floor(Date.parse(`${d}T12:00:00Z`) / 864e5), iso = n => new Date(n * 864e5 + 432e5).toISOString().slice(0, 10), t0 = dayN(today), weekday = (new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7;
+    const start = t0 - weekday - 7 * (TIMELINE_WEEKS - 1), weeks = Array.from({ length: TIMELINE_WEEKS }, (_, i) => iso(start + 7 * i)), clusters = {}, notes = {}, P = new Set(paths);
+    for (const [r, days] of Object.entries(mentionDays)) { if (!P.has(r)) continue; const row = new Array(TIMELINE_WEEKS).fill(0);
+      for (const d of days) { const i = Math.floor((dayN(d) - start) / 7); if (i >= 0 && i < TIMELINE_WEEKS) row[i]++; }
+      if (!row.some(Boolean)) continue; notes[r] = row; const c = cid[r];
+      if (c != null && c >= 0) clusters[c] = (clusters[c] || new Array(TIMELINE_WEEKS).fill(0)).map((v, i) => v + row[i]); }
+    const total = r => notes[r].reduce((a, b) => a + b, 0), top = Object.keys(notes).map((r, i) => [r, i]).sort((a, b) => total(b[0]) - total(a[0]) || a[1] - b[1]).slice(0, 40).map(x => x[0]);
+    return { weeks, clusters, notes: Object.fromEntries(top.map(r => [r, notes[r]])) };
+  }
+  function rhythm(mentionDays, cid) {
+    const out = {};
+    for (const [r, days] of Object.entries(mentionDays)) { const c = cid[r]; if (c == null) continue; const t = out[c] = out[c] || { wd: new Array(7).fill(0), mo: new Array(12).fill(0) };
+      for (const d of days) { const dt = new Date(`${String(d).slice(0, 10)}T12:00:00Z`); if (isNaN(dt)) continue; t.wd[(dt.getUTCDay() + 6) % 7]++; t.mo[dt.getUTCMonth()]++; } }
+    return out;
+  }
+  // ---- maps: which topics each map claims, what it lists and what it misses
+  const DQL_BLOCK = /```dataview\s*\n([\s\S]*?)```/gi, DQL_FROM = /\bFROM\s+([\s\S]+?)(?=\s+(?:WHERE|SORT|LIMIT|GROUP|FLATTEN)\b|\s*$)/gi;
+  const NAV_SPREAD = 0.35, NAV_MIN = 60;
+  function dataviewMembers(text, tagsOf) {
+    const out = new Set();
+    for (const block of unixLines(text).matchAll(DQL_BLOCK)) for (const from of block[1].matchAll(DQL_FROM)) for (let term of from[1].trim().split(/\s+(?:OR|AND)\s+/i)) {
+      term = stripChars(term.trim(), ["(", ")"]); if (term.startsWith("-") || term.startsWith("!")) continue;
+      if (term.startsWith('"') && term.endsWith('"')) { const folder = stripChars(term, ['"']).replace(/\/+$/, "") + "/"; for (const r of Object.keys(tagsOf)) if (r.startsWith(folder)) out.add(r); }
+      else if (term.startsWith("#")) { const tag = term.slice(1).toLowerCase(); for (const [r, ts] of Object.entries(tagsOf)) if (ts.some(t => t === tag || t.startsWith(tag + "/"))) out.add(r); } }
+    return out;
+  }
+  const mapTitle = (r, text) => { const m = /^# (.+)$/m.exec(unixLines(text)), t = (m ? m[1] : stemOf(r)).replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1"); return t.replace(/\s*[-–]?\s*(MOC|Hub|Map of Content.*)$/i, "").trim() || stemOf(r); };
+  const GENERATED = "%% vault-graph:generated";
+  function mapsOf({ maps, tags, knowledge, clusters, ids, names, keywords, bc, cid, mapRules, bridgeNotes }) {
+    const K = new Set(knowledge), tagsOf = {}; knowledge.forEach(r => { tagsOf[r] = tags[r] || []; });
+    const sizes = new Map(clusters.map((m, i) => [ids[i], m.length])), membersOf = new Map(ids.map(id => [id, []])); Object.entries(cid).forEach(([r, c]) => { if (membersOf.has(c)) membersOf.get(c).push(r); });
+    const claims = (n, size) => n >= mapRules.min_claim && n >= mapRules.min_cover * size;
+    const mocs = maps.map(m => { const fixed = m.links.filter(t => K.has(t)), query = dataviewMembers(m.text, tagsOf), members = new Set([...fixed, ...query]), per = new Map();
+      members.forEach(x => { if (cid[x] != null) bump(per, cid[x]); });
+      const all = [...per.values()].reduce((a, b) => a + b, 0), most = per.size ? Math.max(...per.values()) : 0;
+      return { path: m.path, title: mapTitle(m.path, m.text), members, per, nav: per.size > 0 && members.size >= NAV_MIN && most < NAV_SPREAD * all && per.size >= 6, mocFor: m.mocFor != null, generated: unixLines(m.text).includes(GENERATED) }; });
+    const claim = new Map(), owner = new Map(), better = (a, b, c, withFor) => (withFor && a.mocFor !== b.mocFor ? a.mocFor : a.per.get(c) !== b.per.get(c) ? a.per.get(c) > b.per.get(c) : pyCmp(a.path, b.path) > 0);
+    const pick = (list, c, withFor) => list.reduce((best, m) => (!best || better(m, best, c, withFor) ? m : best), null);
+    for (const c of sizes.keys()) { let best = pick(mocs.filter(m => !m.nav && (m.per.get(c) || 0) >= mapRules.min_claim), c, true);
+      if (!(best && claims(best.per.get(c), sizes.get(c)))) best = pick(mocs.filter(m => m.nav && (m.per.get(c) || 0) >= mapRules.min_claim), c, false);
+      if (best && claims(best.per.get(c), sizes.get(c))) { owner.set(c, best); if (!claim.has(best.path)) claim.set(best.path, []); claim.get(best.path).push(c); } }
+    const out = [];
+    for (const m of mocs) { const cl = claim.get(m.path) || []; if (!cl.length && !m.nav) continue;
+      out.push({ id: m.path, title: m.title, nav: m.nav && !cl.length, clusters: cl, generated: m.generated, members: sorted([...m.members].filter(x => K.has(x))),
+        missing: Object.fromEntries(cl.map(c => [String(c), membersOf.get(c).filter(r => !m.members.has(r)).sort((a, b) => (bc[b] || 0) - (bc[a] || 0) || pyCmp(a, b))])) }); }
+    const byStem = new Map(mocs.map(m => [stemOf(m.path).toLowerCase(), m.path])), bridges = {};
+    for (const [r, targets] of Object.entries(bridgeNotes || {})) bridges[r] = targets.map(x => byStem.get(String(x).replace(/^\[\[|\]\]$|\|.*$/g, "").split("/").pop().toLowerCase())).filter(Boolean);
+    const labels = {}, wordsIn = t => new Set(t.toLowerCase().match(/[\p{L}\p{N}\p{M}_]+/gu) || []);
+    owner.forEach((m, c) => { if (claim.get(m.path).length === 1) { labels[c] = m.title; return; }
+      const i = ids.indexOf(c), own = names[i].split(" · ")[0], title = wordsIn(m.title), words = (keywords[i] || names[i]).split(" · ");
+      const tag = ![...wordsIn(own)].some(w => title.has(w)) ? own : (words.find(w => !title.has(w.toLowerCase())) || words[0]); labels[c] = `${m.title} · ${tag}`; });
+    return { mocs: out, bridges, labels };
+  }
+  function topicParts({ T, N, graph, adj, tags, quiet, raw, dailies, terms, dismissed, today, maps, mapRules, bridgeNotes, knowledge }) {
+    const clusters = T.topics.map(t => t.members), ids = T.topics.map(t => t.id), cid = {}, index = {}; clusters.forEach((m, i) => m.forEach(r => { cid[r] = ids[i]; index[r] = i; }));
+    const linked = nameLinked(adj), skip = dismissTest(dismissed), q = new Set(quiet), M = N.mentions, com = Object.entries(N.comention).map(([k, n]) => { const [a, b] = k.split("\n"); return [a, b, n]; });
+    const assoc = x => x[2] / Math.sqrt(Math.max(M[x[0]] || 0, 1) * Math.max(M[x[1]] || 0, 1)), significant = x => x[2] >= MIN_COMENTIONS && assoc(x) >= MIN_ASSOC;
+    const key2 = (i, j) => (i < j ? `${i},${j}` : `${j},${i}`), links = new Map(), related = new Map(), relAssoc = new Map(), examples = new Map();
+    for (const r of Object.keys(graph)) for (const [t, w] of Object.entries(graph[r])) if (pyCmp(r, t) < 0 && index[r] != null && index[t] != null && index[r] !== index[t]) bump(links, key2(index[r], index[t]), w);
+    for (const x of com) { const [a, b, n] = x; if (index[a] != null && index[b] != null && index[a] !== index[b] && !linked(a, b) && significant(x)) { const p = key2(index[a], index[b]);
+        bump(related, p, n); bump(relAssoc, p, assoc(x)); if (!examples.has(p)) examples.set(p, []); examples.get(p).push(x); } }
+    const tagSets = clusters.map(m => new Set(m.flatMap(r => (tags[r] || []).filter(t => TOPIC_TAG.test(t))))), gaps = [];
+    for (let i = 0; i < clusters.length; i++) for (let j = i + 1; j < clusters.length; j++) { const p = `${i},${j}`, shared = [...tagSets[i]].filter(t => tagSets[j].has(t)).length, score = 10 * (relAssoc.get(p) || 0) + 0.5 * shared; if (score < 2) continue;
+      const density = (links.get(p) || 0) / (clusters[i].length * clusters[j].length);
+      gaps.push({ clusters: [i, j], a: ids[i], b: ids[j], links: links.get(p) || 0, comentions: related.get(p) || 0, score: Math.round((score / (1 + 25 * density)) * 100) / 100,
+        suggest: byName((examples.get(p) || []).filter(x => !q.has(x[0]) && !q.has(x[1])), 3, skip, assoc) }); }
+    gaps.sort((x, y) => y.score - x.score || x.clusters[0] - y.clusters[0] || x.clusters[1] - y.clusters[1]);
+    const top = gaps.slice(0, TOP_GAPS), unlinked = byName(com.filter(x => !linked(x[0], x[1]) && significant(x) && !q.has(x[0]) && !q.has(x[1])), TOP_COMENTIONS, skip, assoc);
+    // the daily notes behind a co-mention: its most recent days, and the line in each that names the two
+    const termsOf = {}; Object.entries(terms).forEach(([t, ns]) => ns.forEach(n => { (termsOf[n] = termsOf[n] || new Set()).add(t); })), dailyText = new Map(dailies.map(d => [d.path, d.text])), evidence = {};
+    for (const [a, b] of [...unlinked, ...top.flatMap(g => g.suggest)]) { const [x, y] = N.pairDays[`${a}\n${b}`] ? [a, b] : [b, a], days = [...(N.pairDays[`${x}\n${y}`] || [])].sort((p, s) => pyCmp(s[0], p[0]) || pyCmp(s[1], p[1])).slice(0, EVIDENCE_PER_PAIR);
+      const ta = new Set([...(termsOf[x] || []), stemOf(x).toLowerCase()]), tb = new Set([...(termsOf[y] || []), stemOf(y).toLowerCase()]);
+      evidence[`${x}|${y}`] = days.map(([day, p]) => [day, p, snippet(dailyText.get(p) || "", ta, tb)]); }
+    // suggested links, each pair once: co-mentions, a gap's suggestions, then similar in meaning
+    const code = new Set(N.codey), near = byName(N.similar.filter(x => x[2] >= DUPLICATE_SIMILARITY), TOP_SEMANTIC, skip), rel = byName(N.similar.filter(x => x[2] < DUPLICATE_SIMILARITY && !(code.has(x[0]) && code.has(x[1]))), TOP_SEMANTIC, skip);
+    const seen = new Set(), out = [], edge = (x, y, kind, why) => { const k = x < y ? `${x}\n${y}` : `${y}\n${x}`; if (seen.has(k) || x === y) return; seen.add(k); const e = { source: x, target: y, w: 1, kind, why }, ev = evidence[`${x}|${y}`] || evidence[`${y}|${x}`]; if (ev) e.ev = ev; out.push(e); };
+    unlinked.forEach(([x, y, n]) => edge(x, y, "gap", `${n}× together in daily notes`));
+    top.forEach(g => g.suggest.forEach(([x, y, n]) => edge(x, y, "gap", `${n}× together in daily notes`)));
+    rel.forEach(([x, y, s]) => edge(x, y, "similar", `similar meaning (${s})`));
+    const passages = closestPassages(out.map(l => [l.source, l.target]), raw);
+    out.forEach(l => { const p = passages[`${l.source}|${l.target}`]; if (p) { l.pa = p.a; l.pb = p.b; } });
+    const pairs = []; for (let i = 0; i < clusters.length; i++) for (let j = i + 1; j < clusters.length; j++) { const p = `${i},${j}`, l = links.get(p) || 0, r = related.get(p) || 0; if (l || r) pairs.push([ids[i], ids[j], l, r]); }
+    const mp = mapsOf({ maps, tags, knowledge, clusters, ids, names: T.topics.map(t => t.name), keywords: T.topics.map(t => t.keywords), bc: T.bc, cid, mapRules, bridgeNotes });
+    return { cid, gaps: top, pairs, links: out, near, timeline: timeline(N.mentionDays, cid, knowledge, today), rhythm: rhythm(N.mentionDays, cid), ...mp };
+  }
+  // the whole analysis in one step, for a desktop that owns topics and for a vault with no analysis file
+  function analyseJob(input) {
+    const vectors = vectorsOf(input.smart, input.knowledge), T = topicsJob({ ...input, vectors }), N = notesJob({ ...input, vectors });
+    return { T, N, parts: topicParts({ ...input, T, N, graph: input.adj }) };
+  }
+
   // A job in a worker, so the app stays free while it runs (seconds on a big vault; a phone is slower). If a worker can't
   // start, it runs here. stats.via says which, so a test can tell. The worker gets this whole engine from its own source.
   const stats = { via: null };
@@ -672,14 +833,14 @@ what when where which while who how why each other same see set use used using w
       w.postMessage({ name, input });
     });
   }
-  const JOBS = { topicsJob, notesJob };
+  const JOBS = { topicsJob, notesJob, analyseJob };
   async function run(name, input) {
     if (typeof Worker === "function" && typeof Blob === "function" && typeof URL === "function" && URL.createObjectURL) {
       try { const r = await inWorker(name, input); stats.via = "worker"; return r; } catch (e) { console.warn(`Vault Graph: ${name} is running on the main thread:`, e.message); } }
     stats.via = "here"; return JOBS[name](input);
   }
 
-  return { run, stats, topicsJob, notesJob, mentionPass, taskAges, datedSeries, followThrough, textTwins, similarPairs, byName, mostlyCode, pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
+  return { run, stats, topicsJob, notesJob, analyseJob, topicParts, closestPassages, timeline, rhythm, mapsOf, mentionPass, taskAges, datedSeries, followThrough, textTwins, similarPairs, byName, mostlyCode, pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
     noteWords, topicWords, topicsOf, topicGraph, frontmatterTags, wantedNotes, sharedPairs, cleanTitle, readableNames, stacks, withStack, label, stableIds, titleCase };
 };
 const VGEngine = VGEngineMake();

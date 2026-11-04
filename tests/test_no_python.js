@@ -9,8 +9,8 @@
 const env = require("./env"), stub = require("./plugin_stub"), cdp = require("./cdp");
 const EXPECT = {
   missing: ["code"],                                                  // needs git, and the analysis's list of repositories
-  blank: ["attention", "river", "timeline"],      // need the topics moved (stage 2)
-  thinner: ["blind", "matrix"],                    // gaps and maps need the topics moved (stage 2)
+  blank: [],
+  thinner: [],
 };
 const THINNER = 0.8;   // under this share of the text the analysis's version has
 // read Obsidian directly (the same on both sides), and the sample has nothing for them to show
@@ -27,7 +27,7 @@ async function readLenses(data, hooks, port) {
       const body = () => document.querySelector(".vg-lens:not([hidden]) .vg-lens-body");
       for (let i = 0; i < 60; i++) { await wait(100); const b = body(); if (b && b.innerText.trim() && !/^Loading/.test(b.innerText.trim())) break; }
       const b = body(), first = b && b.firstElementChild;
-      o[k] = { error, len: b ? b.innerText.length : 0, empty: !!(first && first.classList.contains("vg-empty")), text: b ? b.innerText.replace(/\\s+/g, " ").slice(0, 120) : "" }; }
+      o[k] = { error, len: b ? b.innerText.length : 0, empty: !!(first && first.classList.contains("vg-empty")), text: b ? b.innerText.replace(/\\s+/g, " ").slice(0, 2000) : "" }; }
     return JSON.stringify(o); })()`);
   await tab.close();
   return JSON.parse(out);
@@ -43,7 +43,8 @@ async function readLenses(data, hooks, port) {
   const hq = env.hqData(), history = await p.taskHistory(), written = p.writtenLinks(), drift = await p.driftScan();
   if (!history.length || !Object.keys(written).length) fails.push(`the sample has no journals (${history.length}) or written links, so views reading them compare nothing`);
   const hooks = `taskHistory: async () => ${env.inlineJson(history)}, writtenLinks: () => (${env.inlineJson(written)}), driftScan: async () => ${env.inlineJson(drift)},`;
-  const full = await readLenses({ ...env.data(), hq }, hooks, 9351);
+  const q = Object.assign(Object.create(Plugin.prototype), { app, base: env.data(), settings: p.settings }); q.saveSettings = p.saveSettings; q.writeLiveDiag = p.writeLiveDiag; q.sceneBlocks = p.sceneBlocks;
+  const full = await readLenses({ ...await q.graphData(), hq }, hooks, 9351);
   if (!full) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
   const own = await readLenses({ ...engine, hq }, hooks, 9352);
   const got = { missing: [], blank: [], thinner: [] }, rows = [];
@@ -51,7 +52,7 @@ async function readLenses(data, hooks, port) {
     if (a.error || (b && b.error)) fails.push(`${k} threw: ${a.error || b.error}`);
     const state = !b ? "missing" : b.empty && !a.empty ? "blank" : !a.empty && b.len < a.len * THINNER ? "thinner" : NOT_COMPARED[k] ? "not compared" : a.empty ? "sample too small" : "same";
     if (got[state]) got[state].push(k);
-    rows.push(`  ${state.padEnd(17)}${k.padEnd(11)}${String(a.len).padStart(6)}${String(b ? b.len : "-").padStart(6)}  ${b ? b.text : ""}`); }
+    rows.push(`  ${state.padEnd(17)}${k.padEnd(11)}${String(a.len).padStart(6)}${String(b ? b.len : "-").padStart(6)}  ${b ? b.text.slice(0, 120) : ""}`); if (process.argv.includes("--show") && process.argv.includes(k)) console.log(`--- ${k} with the analysis:\n${a.text}\n--- without:\n${b && b.text}`); }
   for (const k of Object.keys(own)) if (!full[k]) fails.push(`${k} shows only without the analysis`);
   // the analysis's side has to show something, or "same" means nothing here
   const tooSmall = Object.keys(full).filter(k => full[k].empty && !NOT_COMPARED[k]);
