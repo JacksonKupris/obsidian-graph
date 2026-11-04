@@ -38,7 +38,7 @@ Vault HQ reads your daily notes from where Obsidian's Daily notes or Periodic No
 ## Optional extras
 
 - **Smart Connections**: if that plugin has indexed your vault, Vault Graph uses its note similarity too, for topics and for "these two notes mean the same thing" suggestions.
-- **The analysis** (`analysis/`, Python 3 with PyYAML, desktop only): adds what Obsidian's index alone can't give, mostly from daily notes: which notes you mention together, timelines, follow-through on plans. Without it the plugin still finds the topics and suggestions itself. Without it, only Code ↔ docs is missing. The analysis is moving into the plugin, so this list is shrinking (`tests/test_no_python.js` keeps it honest).
+- **Git** (desktop only): the Code ↔ docs view reads your repositories' history, file paths and dates only. Without git that view isn't offered.
 - **Your own views**: a ```` ```vault-graph-scene ```` block in any note becomes a view. The **New view** tile writes one for you.
 
 ## Develop
@@ -50,7 +50,7 @@ Release prerequisites, manual steps and recovery: [RELEASING.md](RELEASING.md).
 npm test                      # build + rules/code checks + every view and lens on the sample vault
 npm run test:vault            # the same on a real vault (local.json's "vault", or --vault <dir>)
 npm run build                 # dist/: main.js, styles.css, manifest.json, rules.js, engine.js (sample rules)
-npm run deploy                # test on the vault, install the analysis and its check files there (--plugin: this build too, until the next release)
+npm run deploy                # test on the vault, install its check file there (--plugin: this build too, until the next release)
 npm run release [-- minor]    # bump, test, tag and push from main; CI publishes the release, then it's installed in local.json's vault
 npm run sync                  # this computer and GitHub the same, on any branch (before work, after each commit)
 npm run install-release       # install the latest release (or -- 0.6.15, -- --vault <dir>) into a vault
@@ -60,7 +60,7 @@ Setting up a computer, branches and pull requests, `npm run sync`: [CONTRIBUTING
 
 ```sh
 npm run page -- --data <graph.json> [--rules <file>]   # the standalone graph page, in .out/
-npm run sample -- --analyse   # regenerate fixtures/ with analysis/ (uses the vault's _System/vault_lib.py)
+npm run sample -- --analyse   # regenerate fixtures/ with the plugin's own analysis
 ```
 
 Slower checks, by hand: `node tests/click_all.js [--mobile]` (every control, about 5 minutes), `node tests/layout_random.js`, `node tests/shots.js [--mobile]`, `node tests/polish_loop.js [--full]`. Each takes `--vault` too. They need Chrome.
@@ -89,4 +89,4 @@ Optional: `"rules"`, the vault's rules file relative to the vault (default `_scr
 
 HQ filter dropdowns use theme colors, a visible chevron, 14px text and a minimum 44px touch height. Search placeholders use the theme's muted text color; forced-colors mode retains the native select arrow.
 
-Requirements for development: Node 22 or later; Python 3 with PyYAML for the analysis and its parity tests.
+Requirements for development: Node 22 or later.

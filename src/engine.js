@@ -1,10 +1,9 @@
-// engine.js - the analysis, moving here from analysis/*.py one part at a time (ROADMAP phase 4), so the plugin can
-// analyse on every device and each step exists once. A part moves when its parity test shows it gives what the Python
-// gives on a real vault (the vault's _scripts/tests/test_graph_vault.js). The build puts this after rules.js.
+// engine.js - the analysis: topics, mentions, gaps, maps, reports. It runs on Obsidian's index on every device, with nothing
+// else to install; the slow parts run in a worker.
 //
-// Graphs are plain objects {node: {neighbour: weight}} in a fixed key order. Every loop below goes through keys in the
-// same order as the Python it mirrors (dicts keep insertion order there too), so floating-point sums and ties come out
-// the same.
+// Graphs are plain objects {node: {neighbour: weight}} in a fixed key order, so floating-point sums and ties come out the same
+// on every run and every device. It was moved from a Python analysis, whose results it matched on a real vault before that was
+// retired (git history: analysis/), which is why it keeps Python's string order, random numbers and rounding.
 const VGEngineMake = () => {
   // Python's string order (code points); JS compares UTF-16 units, which differs only around surrogate pairs
   const SURR = /[\uD800-\uDFFF]/;
@@ -51,7 +50,7 @@ const VGEngineMake = () => {
     };
   }
 
-  // ---- topics (vault_gaps.louvain / _louvain_level / absorb_small)
+  // ---- topics
   // Louvain modularity clustering (weighted, undirected): node -> community number
   function louvain(adj, seed = 7) {
     const rng = pyRandom(seed);
@@ -123,7 +122,7 @@ const VGEngineMake = () => {
     return Object.fromEntries(comm);
   }
 
-  // ---- influence (vault_gaps.betweenness): Brandes betweenness on the unweighted link graph, normalised
+  // ---- influence: Brandes betweenness on the unweighted link graph, normalised
   function betweenness(adj) {
     const nodes = Object.keys(adj), bc = Object.fromEntries(nodes.map(n => [n, 0]));
     for (const s of nodes) {
@@ -173,7 +172,7 @@ const VGEngineMake = () => {
   }
   const dot = (a, b) => { const p = new Array(a.length); for (let i = 0; i < a.length; i++) p[i] = a[i] * b[i]; return fsum(p); };
 
-  // ---- note names (vault_gaps._name, _series_key): Python's \d is any Unicode digit, so \p{Nd} here
+  // ---- note names: Python's \d is any Unicode digit, so \p{Nd} here
   const stemOf = r => { const base = String(r).split("/").pop(), i = base.lastIndexOf("."); return i > 0 ? base.slice(0, i) : base; };
   const DATED = /\p{Nd}{4}-\p{Nd}{2}(-\p{Nd}{2})?/u, DATED_G = /\p{Nd}{4}-\p{Nd}{2}(-\p{Nd}{2})?/gu, SERIES_G = /[\p{Nd}\s_\-–—()]+/gu;
   // the series a dated note belongs to: what its title says before the date ("Transaction Updates 2026-05-05" ->
@@ -182,7 +181,7 @@ const VGEngineMake = () => {
     const lead = name.slice(0, m.index).replace(SERIES_G, " ").trim().toLowerCase();
     return lead || name.replace(DATED_G, " ").replace(SERIES_G, " ").trim().toLowerCase(); };
 
-  // ---- embeddings (vault_gaps.load_embeddings): the Smart Connections plugin's index, if it has one.
+  // ---- embeddings: the Smart Connections plugin's index, if it has one.
   // *.ajson files are append-only logs of `"<key>": {...},` lines (the last one wins; null = deleted). Each source's
   // embedding.default.<file>.file_i is a slot in the binary file <file>: float32 vectors of the model's dims.
   function parseAjson(text) {
@@ -227,7 +226,7 @@ const VGEngineMake = () => {
     return out;
   }
 
-  // ---- the graph topics are found in (vault_gaps.cohesion_graph): links, plus weaker ties links miss: consecutive
+  // ---- the graph topics are found in: links, plus weaker ties links miss: consecutive
   // notes of a dated series, mutual nearest-in-meaning notes, and each note's two closest notes in the same folder
   const SERIES_W = 1.0, SEMANTIC_W = 0.45, FOLDER_W = 0.3, FOLDER_MAX = 60, SEMANTIC_TOP_K = 5;
   function cohesionGraph(graph, knowledge, vectors) {
@@ -264,7 +263,7 @@ const VGEngineMake = () => {
     return out;
   }
 
-  // ---- the notes topics are found among, and their links (vault_gaps.load_vault, the topic part)
+  // ---- the notes topics are found among, and their links
   // notes: [{ path, tags }] (tags as frontmatterTags gives them); links: { path: [resolved .md targets] };
   // o: { kind(path, tags) (VGRules.noteKind), isHub(path, tags), joinsWhenLinked(path, tags) } from this vault's rules.
   // Not daily notes, skipped folders, people or hubs; an inbox note joins once a topic note links to it; catch-all
@@ -295,7 +294,7 @@ const VGEngineMake = () => {
     for (const r of linked) { graph[r] = {}; for (const t of sorted(adj.get(r).keys())) if (inLinked.has(t)) graph[r][t] = adj.get(r).get(t); }
     return { knowledge: sorted(knowledge), hubs: sorted(hubs), graph };
   }
-  // notes linked to but never written (vault_graph.link_health): unresolved: { path: { target: links } } (Obsidian's
+  // notes linked to but never written: unresolved: { path: { target: links } } (Obsidian's
   // unresolvedLinks); notes: the topic notes. Ranked by how many topic notes link each, the 40 most linked.
   const ATTACHMENT = /\.(png|jpe?g|gif|svg|webp|bmp|pdf|mp4|mov|mp3|csv|xlsx?|docx?|pptx?|zip|canvas|excalidraw)$/i;
   const PLACEHOLDER = /^(resource|link|note|page|item|example|placeholder)\s*\d*$|['",]/i, FILENAME_BAD = /[\\/:*?"<>|#^[\]]/;
@@ -346,7 +345,7 @@ const VGEngineMake = () => {
   // the tags the graph data carries: every status/ and type/ tag (the shared rules read them), plus up to six others
   const nodeTags = tags => { const rule = sorted(tags.filter(t => t.startsWith("status/") || t.startsWith("type/"))), other = sorted(tags.filter(t => !rule.includes(t))); return [...rule, ...other.slice(0, 6)]; };
 
-  // ---- topic names (vault_gaps._cluster_names, _readable_names, _stacks, _label, stable_cluster_ids)
+  // ---- topic names
   // Python counts characters by code point (slices, len); these helpers do the same
   const cps = t => Array.from(String(t)), cpLen = t => cps(t).length, cpSlice = (t, a, b) => cps(t).slice(a, b).join("");
   const isUpperIn = t => /\p{Lu}/u.test(t);
@@ -396,7 +395,7 @@ const VGEngineMake = () => {
   }
   const NAME_LEAD = /^(?:[^\p{L}\p{N}_]|\p{Nd}|_)+/u, PHRASE_STOP = new Set("the and for with from into how to of in on a an vs via md readme context draft final copy".split(" "));
   // a title as a phrase source: no dates, brackets, "- Context", leading numbering; dashes inside words become spaces
-  // "... Part VI - The Greatest Generation": one part of a whole; the whole's name is what comes before (vault_gaps.PART_RE)
+  // "... Part VI - The Greatest Generation": one part of a whole; the whole's name is what comes before
   const PART = /\s+(?:Part|Pt\.?)\s+(?:[IVXL]+|\d+|one|two|three|four|five|six|seven|eight|nine|ten)\b.*$/i;
   const cleanTitle = r => {
     let t = stemOf(r).replace(PART, "").replace(DATED_G, " ").replace(/\(.*?\)|\s-\s*Context$|\s+Context$/g, " ").replace(/(?<=[\p{L}\p{N}_])[-_](?=[\p{L}\p{N}_])/gu, " ");
@@ -473,7 +472,7 @@ const VGEngineMake = () => {
       tags: [...tc].sort((a, b) => b[1] - a[1] || pyCmp(a[0], b[0])).slice(0, 3).map(([t]) => t) };
   }
   // the topics: notes grouped by community, topics of fewer than minSize left out, each topic's notes in order and
-  // the biggest topic first (vault_gaps.analyze)
+  // the biggest topic first
   function topicsOf(comm, minSize = 3) {
     const by = new Map(); for (const [r, c] of Object.entries(comm)) { if (!by.has(c)) by.set(c, []); by.get(c).push(r); }
     return [...by.values()].filter(m => m.length >= minSize).map(m => sorted(m)).sort((a, b) => b.length - a.length || pyCmp(a[0], b[0]));
@@ -491,7 +490,7 @@ const VGEngineMake = () => {
     return out.map(o => (o !== null ? o : free()));
   }
 
-  // ---- what notes and daily notes say, apart from topics (vault_gaps.load_vault's daily loop, text_twins and
+  // ---- what notes and daily notes say, apart from topics's daily loop, text_twins and
   // similar_unlinked; vault_graph.dated_series, task_ages, note_quality and followthrough). No Obsidian in here: the
   // plugin gathers the text and links (notesJob's input) and this runs off the main thread.
   const unixLines = t => String(t).replace(/\r\n?/g, "\n");   // Python reads text with universal newlines
@@ -687,7 +686,7 @@ what when where which while who how why each other same see set use used using w
     const names = readableNames(topics, kw, labels.map(l => l.core)).map((n, i) => withStack(n, st[i]));
     return { topics: topics.map((m, i) => ({ id: ids[i], size: m.length, name: names[i], stack: st[i], keywords: kw[i], ...labels[i], members: m })), bc: betweenness(graph), vectors: vectors.size };
   }
-  // ---- everything keyed by topics, worked out together so its numbers agree (vault_gaps.analyze, moc_align.graph_mocs,
+  // ---- everything keyed by topics, worked out together so its numbers agree
   // vault_graph.timeline, rhythm and closest_passages). A topic's id is what a gap, a map or a week of the timeline points at.
   const MIN_COMENTIONS = 2, MIN_ASSOC = 0.05, TOP_GAPS = 8, TOP_COMENTIONS = 20, EVIDENCE_PER_PAIR = 3;
   const TOPIC_TAG = /^(project|technology|feature|hardware)\//;
@@ -833,7 +832,7 @@ what when where which while who how why each other same see set use used using w
     return { T, N, parts: topicParts({ ...input, T, N, graph: input.adj }) };
   }
 
-  // ---- code and notes (vault_graph.code_docs): git history, file paths and dates only, against the files and components
+  // ---- code and notes: git history, file paths and dates only, against the files and components
   // notes mention. repos: [{ name, log, files }] from git (gitArgs); docs: [{ rel, text, edit }]. No git, no repos: the view isn't offered.
   const CODE_DAYS = 365, CODE_EXT = "(?:jsx?|tsx?|py|java|sql|sh|cjs|mjs|css)", CODE_FILE = new RegExp(`\\.${CODE_EXT}$`);
   const SKIP_CODE = /(^|\/)(node_modules|\.next|dist|build|__pycache__|coverage|\.git)\/|package-lock\.json$|\.min\.js$/;
@@ -874,7 +873,7 @@ what when where which while who how why each other same see set use used using w
     const hot = stable([...touches].map(([f, d]) => [f, d.length, d.filter(x => x >= d90).length, [...d].sort(pyCmp).pop(), docsOf.get(f) || []]), (x, y) => y[2] - x[2] || y[1] - x[1]).slice(0, 60);
     return { repos, days: CODE_DAYS, areas: areaOut, behind: stable(behind, (x, y) => y[2] - x[2]).slice(0, 60), hot, docs: Object.keys(docFiles).length, files: files.size };
   }
-  // ---- what changed since the last run (vault_graph.snapshot_and_changes)
+  // ---- what changed since the last run
   function snapshotOf(data) {
     const nodes = data.nodes.filter(n => !n.ghost && !n.person), ids = sorted(nodes.map(n => n.id));
     return { date: data.date, clusters: Object.fromEntries(data.clusters.map(c => [String(c.id), c.name])), gaps: sorted(data.gaps.map(g => `${g.a}|${g.b}`)),
@@ -891,7 +890,7 @@ what when where which while who how why each other same see set use used using w
       quiet: minus(P("recent"), cr).slice(0, 20), active: minus(cr, P("recent")).slice(0, 20) };
   }
 
-  // ---- the written reports (vault_gaps.report_md, moc_align.report, vault_graph.state_note): text only. The plugin writes
+  // ---- the written reports: text only. The plugin writes
   // them, and a row a person ticks in the map report is applied by the plugin's own actions.
   const noteLink = r => `[[${stemOf(r)}]]`, pyFloat = x => (Number.isInteger(x) ? x.toFixed(1) : String(x));
   const pyJson = v => (Array.isArray(v) ? `[${v.map(pyJson).join(", ")}]` : v && typeof v === "object" ? `{${Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${pyJson(x)}`).join(", ")}}` : JSON.stringify(v));

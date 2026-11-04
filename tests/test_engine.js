@@ -28,6 +28,9 @@ check("a missing picture isn't a broken note link", [E.isAttachment("shot.png"),
   check("a new section", E.appendSection("# T\n", "## H", ["- a"]), "# T\n\n## H\n\n- a\n"); check("a section already there grows", E.appendSection("# T\n\n## H\n\n- a\n\n# Next\n", "## H", ["- b"]), "# T\n\n## H\n\n- a\n- b\n\n# Next\n");
   check("under the frontmatter", E.underFrontmatter("---\na: 1\n---\nbody", "> c\n"), "---\na: 1\n---\n> c\nbody"); check("no frontmatter", E.underFrontmatter("body", "> c\n"), "> c\nbody");
   check("a map note has the marker", E.mapNote("N", ["a/b.md"], "2026-11-03").includes("%% vault-graph:generated"), true); check("a bridge note names its maps", E.bridgeNote({ moc_a: "m/A.md", moc_b: null, name_a: "A", name_b: "B", core_a: [], core_b: [], suggest: [] }, "Bridge", "2026-11-03").includes('"[[A]]"'), true); }
+{ const long = i => Array.from({ length: 60 }, (_, k) => `word${k}x${i}`).join(" "), same = long(0), raw = { "a/One.md": same, "b/Two.md": `---\ntags:\n  - x\n---\n${same}`, "c/Other.md": long(1), "d/Log 2026-01-01.md": long(2), "d/Log 2026-02-01.md": long(2), "e/Short.md": "few words" };
+  check("copies by their text; a dated series isn't", E.textTwins(Object.keys(raw), raw, new Set()).map(x => [x[0], x[1], x[3]]), [["a/One.md", "b/Two.md", "text"]]); check("a quiet note isn't offered", E.textTwins(Object.keys(raw), raw, new Set(["a/One.md"])).length, 0);
+  check("mostly code, by its lines", [E.mostlyCode("```sql\nSELECT 1\nSELECT 2\nSELECT 3\nSELECT 4\nSELECT 5\n```"), E.mostlyCode("Words here\nand more\nand more\nand more\nand more\nand more")], [true, false]); }
 const r = E.pyRandom(7);
 check("random.Random(7).getrandbits(32) x3", [r.uint32(), r.uint32(), r.uint32()], [1390851128, 4071050724, 647892279]);
 check("random.Random(7).shuffle(range(10))", E.pyRandom(7).shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]), [8, 3, 1, 4, 7, 0, 9, 6, 2, 5]);

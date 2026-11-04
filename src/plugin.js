@@ -10,9 +10,7 @@ const HQ_TYPE = "vault-graph-hq";   // Vault HQ: the vault's home screen (src/hq
 const STATE_VIEWS = () => [VIEW_TYPE, LOCAL_TYPE, HQ_TYPE];
 const MARKER = "%% vault-graph:generated";   // regenerated notes keep everything above this line
 const DEFAULTS = {
-  dataPath: VGRules.files.data,               // written by the analysis (files in vault_graph_rules.json)
-  script: VGRules.files.analysis,
-  python: "",                                  // empty = "python" on Windows, "python3" elsewhere
+  dataPath: VGRules.files.data,               // written by the analysis
   dismissedPath: VGRules.files.dismissed,
   sharedPath: VGRules.files.shared,           // cosmos + saved views + review state, synced with the vault
   rulesPath: `${VGRules.folders.scripts}/vault_graph_rules.json`,   // this vault's rules (the analysis reads it too)
@@ -349,7 +347,7 @@ class VaultGraphSuggestView extends ItemView {
     const items = [];
     if (n) {
       const said = (data.said_unlinked || []).find(([id]) => id === n.id);
-      // same rule as appendSection's "Already in…" (shared, vault_graph_rules.js)
+      // same rule as appendSection's "Already in…"
       const inMap = moc ? VGRules.onMap(moc, n.id) : null;
       if (said && moc && !inMap) items.push({ icon: "sun", title: `Named in ${said[1]} daily notes but never linked`, sub: `Add it to ${moc.title} so its topic map links it`, btn: "Add to map", run: () => run("map") });
       else if (said) items.push({ icon: "sun", title: `Named in ${said[1]} daily notes but never linked`, sub: "Turn the first plain mention in each into a link", btn: "Link mentions", run: () => run("mentions") });
@@ -662,19 +660,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // surface before returning, so the caller (a button) and everything else see the same, current state
   // The outermost action opens an undo entry; actions it calls (addToMap -> appendSection) add to it. Two actions
   // running at the same moment share one entry, so undoing it undoes both.
-  pythonCmd() { return this.settings.python || (process.platform === "win32" ? "python" : "python3"); }   // the setting, else the platform's
-  // Run one of the vault's Python scripts: the one way the plugin starts Python, so every failure reads the same.
-  // Resolves stdout; rejects with an Error whose message says what went wrong in words (no Python, timed out, its error).
-  runPython(script, args = []) {
-    const { execFile } = require("child_process"), python = this.pythonCmd();
-    return new Promise((resolve, reject) => execFile(python, [script, ...args], { cwd: this.app.vault.adapter.getBasePath(), timeout: 300000 }, (err, stdout, stderr) => {
-      if (!err) return resolve(stdout || "");
-      const why = err.code === "ENOENT" ? `"${python}" wasn't found. Install Python 3, or set its command in Settings > Vault Graph > Python command`
-        : err.killed ? "it ran for 5 minutes without finishing"
-        : (String(stderr || "").trim().split(/\r?\n/).pop() || err.message);
-      reject(new Error(why.slice(0, 300)));
-    }));
-  }
+
 
   wrapWriteActions() {
     this.undoLog = []; this.undoSeq = 0;
@@ -785,8 +771,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
         try { this.base = JSON.parse(await this.app.vault.adapter.read(normalizePath(this.settings.dataPath))); }
         catch (e) {   // no analysis file: the engine builds the data from Obsidian's index (and the analysis runs too, where there is one)
           this.base = null;
-          if (Platform.isDesktopApp && VGRules.engineWritesFile()) { if (!this.refreshing) this.refresh(true); }
-          else if (await this.hasAnalysis()) { if (!this.refreshing) this.refresh(true); }
+          if (Platform.isDesktopApp && !this.refreshing) this.refresh(true);
           try { this.base = await this.engineData(); } catch (err) { console.error("Vault Graph: the engine didn't run", err); }
         }
       }
@@ -895,7 +880,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
 
   async refresh(quiet = false) {
     if (this.refreshing) { this.queued = true; return; }
-    if (Platform.isDesktopApp && VGRules.engineWritesFile()) {
+    if (!Platform.isDesktopApp) { this.base = null; this.cache = null; this.engineNotesDone = null; this.reloadSoon(); return; }   // a phone reads what a desktop wrote
+    {
       this.refreshing = true; this.updateStatus();
       if (!quiet) new Notice("Vault Graph: analysing the vault…");
       try { const kept = await this.writeGraphFile(); if (!quiet) new Notice(kept ? `Vault Graph: kept the analysis from ${kept}, built from newer notes` : "Vault Graph refreshed"); }
@@ -904,23 +890,6 @@ module.exports = class VaultGraphPlugin extends Plugin {
       this.base = null; this.cache = null; this.reloadSoon(); setTimeout(() => this.updateStatus(), 1000);
       return;
     }
-    if (!(await this.hasAnalysis())) {   // no Python analysis in this vault: the engine finds the topics again
-      this.base = null; this.cache = null; this.reloadSoon();
-      return;
-    }
-    this.refreshing = true;
-    this.updateStatus();
-    if (!quiet) new Notice("Vault Graph: analysing the vault…");
-    this.runPython(this.settings.script).then(stdout => [null, stdout], err => [err, ""]).then(([err, stdout]) => {
-        this.refreshing = false;
-        if (this.queued) { this.queued = false; this.scheduleAutoRefresh(); }   // edits made while it ran
-        if (err) { new Notice(`Vault Graph refresh failed: ${err.message}`, 10000); this.updateStatus(); return; }
-        const kept = (stdout || "").match(/^Kept \S+ from (\S+):/m);   // vault_graph.newer_analysis: another PC's is newer
-        if (!quiet) new Notice(kept ? `Vault Graph: kept the analysis from ${kept[1]}, built from newer notes` : "Vault Graph refreshed");
-        this.base = null; this.cache = null; this.engineNotesDone = null;
-        this.mergeContentFromDisk().then(() => this.reloadSoon());   // the run rewrote the content log too
-        setTimeout(() => this.updateStatus(), 1000);
-      });
   }
 
   // Edits that don't count toward "the data is behind": the analysis's own output and reports, plugin files, trash.
@@ -1553,7 +1522,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // Self-test: opens every view and lens in the main graph, watching for errors and timing each, and writes a
   // short report. A view that breaks shows up here instead of as a blank pane found by hand weeks later.
   // ---- the analysis engine on this vault's live index (ROADMAP phase 4): topics from Obsidian's own links and
-  // frontmatter and the Smart Connections index, with no Python. Topic ids carry on from the last analysis's topics.
+  // frontmatter and the Smart Connections index. Topic ids carry on from the last run's topics.
   // what the engine reads from Obsidian: the notes it treats as topic notes, their links, tags and text
   async engineGather() {
     const ignored = [].concat((this.app.vault.getConfig && this.app.vault.getConfig("userIgnoreFilters")) || []).map(p => String(p).replace(/\/?$/, "/"));
@@ -1572,7 +1541,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const J = await VGEngine.run("topicsJob", { graph: T.graph, knowledge: T.knowledge, smart: await this.smartFiles(), raw, tags, prev: prev || {}, stack: VGRules.RULES.stack });
     return { topics: J.topics, bc: J.bc, knowledge: T.knowledge.length, vectors: J.vectors, notes: T.knowledge, graph: T.graph, raw, tags, files, gathered };
   }
-  // The graph data when this vault has no analysis file (no Python, a phone, a new vault): the engine's topics and
+  // The graph data: the engine's topics and
   // influence over Obsidian's index, in the analysis's shape; liveMerge adds the live fields over it as it does over the
   // analysis's. Topic ids carry on from the last engine run (kept in the plugin's settings).
   async engineData(gathered, known) {
@@ -1610,7 +1579,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     return out;
   }
   // Notes changed while this device wasn't watching (another device, a script): the file's date is the best guess. New notes get
-  // what the notes themselves say; bulk touches don't change the fingerprint, so they don't count. (vault_graph.content_dates)
+  // what the notes themselves say; bulk touches don't change the fingerprint, so they don't count.
   reconcileContent(G, data) {
     const seen = new Set(); let changed = false;
     for (const n of data.nodes) { if (n.person || n.moc || !(n.id in G.raw)) continue; seen.add(n.id); const h = fingerprint(G.raw[n.id]), e = CONTENT.log[n.id];
@@ -1635,7 +1604,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // The graph data every device reads, written by this desktop. Not over what another PC built from newer notes: until its
   // edits sync here, this run would bring back suggestions already acted on. Returns that PC's name when it kept theirs.
   async writeGraphFile() {
-    const A = this.app.vault.adapter, file = normalizePath(this.settings.dataPath), dir = file.slice(0, file.lastIndexOf("/")), snaps = `${dir}/snapshots`, readJson = async p => { try { return JSON.parse(await A.read(p)); } catch (e) { return null; } };
+    const A = this.app.vault.adapter, file = normalizePath(this.settings.dataPath), dir = file.slice(0, file.lastIndexOf("/")), snaps = `${dir}/snapshots`, mkdirs = async p => { const parts = p.split("/"); for (let i = 1; i <= parts.length; i++) { const d = parts.slice(0, i).join("/"); if (d && !await A.exists(d)) await A.mkdir(d); } }, readJson = async p => { try { return JSON.parse(await A.read(p)); } catch (e) { return null; } };
     const old = await readJson(file), G = await this.engineGather(), known = new Map(), names = {};
     ((old && old.nodes) || []).forEach(n => { const b = n.id.split("/").pop(); names[b] = (names[b] || 0) + 1; });
     ((old && old.nodes) || []).forEach(n => { if (n.born) { known.set(n.id, n.born); const b = n.id.split("/").pop(); if (names[b] === 1) known.set(b, n.born); } });
@@ -1644,7 +1613,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     data.nodes.forEach(n => { if (n.person || n.moc) return; const was = [known.get(n.id), known.get(n.id.split("/").pop())].filter(Boolean); if (n.born || was.length) n.born = [n.born, ...was].filter(Boolean).sort()[0]; });   // what an earlier run, on any PC, found
     this.reconcileContent(G, data);
     data.code = await this.engineCode(G, data.date);
-    if (!await A.exists(snaps)) await A.mkdir(snaps);
+    await mkdirs(snaps);
     const cur = VGEngine.snapshotOf(data), list = ((await A.list(snaps)).files || []).map(f => f.split("/").pop()).filter(f => f.endsWith(".json")).map(f => f.slice(0, -5)).sort(), earlier = list.filter(d => d < data.date).pop();
     await A.write(`${snaps}/${data.date}.json`, JSON.stringify(cur));
     data.snapshots = [...new Set([...list, data.date])].sort(); data.changes = VGEngine.changesFrom(cur, earlier ? await readJson(`${snaps}/${earlier}.json`) : null, data.links);
@@ -1654,8 +1623,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
     if (before !== text) await A.write(file, text);
     return null;
   }
-  // What notes and daily notes say, apart from topics (VGEngine.notesJob), in the graph data's words. A desktop with the
-  // analysis takes the parts the rules file's engine_owns lists (VGRules.applyEngineNotes); the rest stay the analysis's.
+  // What notes and daily notes say (VGEngine.notesJob and analyseJob), in the graph data's words. A desktop writes it all to
+  // the file every device reads; a phone also works out what doesn't rest on meaning, so it needn't wait for a desktop.
   async engineNotes(gathered, o = {}) {
     const G = gathered || await this.engineGather(), mc = this.app.metadataCache, read = f => this.app.vault.cachedRead(f), day0 = VGRules.today();
     const shift = n => new Date(Date.parse(`${day0}T12:00:00Z`) - n * 864e5).toISOString().slice(0, 10), since = shift(365), recentSince = shift(30);
@@ -1692,11 +1661,6 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const owns = VGRules.engineOwns(!Platform.isDesktopApp), withTopics = owns.includes("topics");
     let prev = this.settings.engineTopics; if (withTopics && !prev && this.base) { prev = {}; (this.base.nodes || []).forEach(n => { if (!n.person && !n.moc && !n.ghost && n.cluster >= 0) (prev[n.cluster] = prev[n.cluster] || []).push(n.id); }); }   // the file's topic numbers and colours carry on
     this.engineNotes(null, { topics: withTopics, prev }).then(async N => { this.engineNotesDone = N; if (N.T) { this.settings.engineTopics = Object.fromEntries(N.T.topics.map(t => [t.id, t.members])); await this.saveSettings(); } this.cacheStale = true; this.reloadSoon(); }, e => { console.error("Vault Graph: the engine's notes didn't run; the analysis's stand", e); }).finally(() => { this.engineNotesRunning = false; });
-  }
-  // the vault has the analysis to run (its script and Python): otherwise the engine is the analysis
-  async hasAnalysis() {
-    if (!Platform.isDesktopApp) return false;
-    try { return !!(await this.app.vault.adapter.exists(normalizePath(this.settings.script))); } catch (e) { return false; }
   }
   // the Smart Connections index (.smart-env), read for the engine: its logs, then each vector file they name
   async smartFiles() {
@@ -2210,7 +2174,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     return path;
   }
 
-  // read by vault_gaps.py: dismissed pairs are never suggested again (graph or weekly report)
+  // read by: dismissed pairs are never suggested again (graph or weekly report)
   async dismiss(a, b, kind) {
     const path = normalizePath(this.settings.dismissedPath), adapter = this.app.vault.adapter;
     let data = { version: 1, pairs: [] };
@@ -2231,7 +2195,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 // Real "last edited" dates. File dates mean nothing here (bulk link and tag passes and Obsidian Sync touched nearly
 // every note), so a note's age is days since its *content* changed: a fingerprint of the body without frontmatter,
 // Related / Merged-from sections, "Possible duplicate" / "Overlaps with" lines, generated hub lists or whitespace.
-// Same fingerprint as vault_graph.py (content_body + FNV-1a over UTF-16 code units); the log is
+// A note's fingerprint: its body without generated sections (FNV-1a over UTF-16 code units); the log is
 // .obsidian/plugins/jk-vault-graph/content-log.json ({path: {h, since}}), kept current here as you edit and checked by every analysis run.
 const CONTENT = { log: {}, path: VGRules.files.content_log, dirty: false };   // in the plugin folder: not indexed, so it stays out of recent-files lists
 const GEN_MARK = "%% vault-graph:generated", DROP_SECTION = /^#{1,6}\s*(related\b|merged from\b)/i, DROP_LINE = /possible duplicate:|overlaps with/i;
@@ -2259,11 +2223,11 @@ function contentAge(app, path, fallback) {
   return since ? daysSince(since) : fallback;
 }
 
-// Live link sync. Clusters, influence, gaps and evidence come from the weekly analysis (vault_graph.py),
+// Live link sync. Clusters, influence, gaps and evidence come from the weekly analysis,
 // but links change every day, so the link edges are rebuilt from Obsidian's own index on every open:
 // new links show at once, removed links disappear, notes created since the run join the cluster most of
 // their neighbours are in, deleted notes drop out, and suggestions you've since linked stop showing.
-// this vault's folders (vault_graph_rules.json folders), worked out again whenever the rules change (ruleConsts)
+// this vault's folders, worked out again whenever the rules change (ruleConsts)
 let DAILY_TOP, PEOPLE_TOP, SKIP_TOP, EXCLUDE_PREFIXES;   // EXCLUDE_PREFIXES: never analysed (vault_lib.EXCLUDE_PREFIXES)
 function ruleConsts() {
   DAILY_TOP = VGRules.folders.daily; PEOPLE_TOP = VGRules.folders.people;
@@ -2276,8 +2240,8 @@ ruleConsts();   // the built-in rules until onload's loadRules brings this vault
 const SCENE_LANG = "vault-graph-scene", SCENE_BLOCK = /^```vault-graph-scene[^\S\n]*\n([\s\S]*?)^```/gm, SCENE_BLOCK_START = /^```vault-graph-scene/gm;
 const hasOpenTask = fc => (fc.listItems || []).some(i => i.task === " ");
 const DISMISSED = new Set();   // dismissed pairs by note name (dismissKey); kept current by the plugin, applied in liveMerge
-// Shared rules (vault_graph_rules.js, built in ahead of this file): records are never "stale"; dismissals match
-// by note name like the analysis (vault_gaps._dismissed), so a same-name copy counts as dismissed too
+// Shared rules: records are never "stale"; dismissals match
+// by note name like the analysis, so a same-name copy counts as dismissed too
 const { dismissKey } = VGRules, staleFor = (n, days) => VGRules.isStale(n, days);   // the current rules' stale
 function liveMerge(app, data, since) {
   const vault = app.vault, cache = app.metadataCache, resolved = cache.resolvedLinks || {};
@@ -2362,7 +2326,7 @@ function liveMerge(app, data, since) {
     n.age = contentAge(app, n.id, 0);
   }
   // Maps the analysis hasn't seen yet (Create map, or by hand) are maps at once -- the Today list, City's town halls
-  // and "no map" all see them. Same rules as the analysis (VGRules.isMapCandidate + claims, from vault_graph_rules.json),
+  // and "no map" all see them. Same rules as the analysis,
   // so a map never shows here and then vanishes at the next refresh. Its topic is the cluster most of its links point
   // into, and only a topic with no map yet: one map per topic.
   // a map deleted or renamed since the analysis is no map any more (renamed, it's found again below at its new path)
@@ -2471,8 +2435,6 @@ class VaultGraphSettings extends PluginSettingTab {
       .addText(t => t.setPlaceholder(placeholder).setValue(this.plugin.settings[key])
         .onChange(async v => { this.plugin.settings[key] = v.trim() || DEFAULTS[key]; await this.plugin.saveSettings(); }));
     text("Graph data file", "JSON the plugin writes, relative to the vault.", "dataPath", DEFAULTS.dataPath);
-    text("Analysis script", `Runs after a pause in editing, at most every ${ANALYSE_EVERY_MS / 3600000} hours (desktop only). Re-analyse now runs it at once.`, "script", DEFAULTS.script);
-    text("Python command", "Leave empty for python (Windows) / python3 (Linux, macOS).", "python", "python");
     text("Rules file", "This vault's folder names and thresholds, relative to the vault.", "rulesPath", DEFAULTS.rulesPath);
   }
 }

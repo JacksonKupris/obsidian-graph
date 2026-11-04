@@ -1,19 +1,12 @@
 #!/usr/bin/env node
-// A note's birth date must not depend on which PC ran the analysis: Linux's st_ctime is the last change, not the creation
-// (the reorganization on Ubuntu made 352 notes look a week old), so it counts only on Windows, and a date an earlier run
-// found is kept. A month in the note's name counts too. Time-lapse is only as true as these dates.
+// A note's birth date must not depend on which PC worked it out. It's the earliest of what the note says and when it was made, and a
+// date an earlier run found is kept, so a run on a PC with worse file dates can't lose it (the reorganization on Ubuntu once made
+// 352 notes look a week old). A month in the note's name counts too. Time-lapse is only as true as these dates.
 //   node tests/test_born_date.js        exit 0 = pass
-const fs = require("fs"), path = require("path"), { spawnSync } = require("child_process");
-const fails = [], src = fs.readFileSync(path.join(__dirname, "..", "analysis", "vault_graph.py"), "utf8");
-const body = src.slice(src.indexOf("def born_date("), src.indexOf("TIMELINE_WEEKS = "));
-if (!/sys\.platform == "win32"/.test(body)) fails.push("st_ctime isn't limited to Windows");
-if (!/known_born\(r\)/.test(body)) fails.push("born_date ignores what earlier analyses found");
-// name_month on its own, without loading a vault
-const fn = src.slice(src.indexOf("MONTH_NAMES = "), src.indexOf("_known_born = None"));
-const cases = { "Dispatch Console Release Notes 2025-01": "2025-01-01", "Backup RTI Database April 2025": "2025-04-01", "Sep 2024 review": "2024-09-01", "Notes 2025-13": null, "Kiosk 2025-01-02 log": null, "Plain name": null, "Ticket 2025-01234": null };
-const py = `import re, json\n${fn}\nprint(json.dumps({k: name_month(k) for k in ${JSON.stringify(Object.keys(cases))}}))`;
-const r = ["python3", "python"].map(c => spawnSync(c, ["-c", py], { encoding: "utf8" })).find(x => x.status === 0);
-if (!r) { console.log("  (skipped name_month: no Python)"); }
-else { const got = JSON.parse(r.stdout); for (const [k, want] of Object.entries(cases)) if (got[k] !== want) fails.push(`name_month("${k}"): got ${got[k]}, want ${want}`); }
-console.log(fails.length ? "FAIL - " + fails.join("; ") : "ok - birth dates: creation time only where it exists, earlier finds kept, months in names count");
+const env = require("./env"), stub = require("./plugin_stub");
+const { VGRules: R } = stub.load(env.rules), fails = [], check = (name, got, want) => { if (got !== want) fails.push(`${name}: got ${got}, want ${want}`); };
+for (const [name, want] of Object.entries({ "Dispatch Console Release Notes 2025-01": "2025-01-01", "Backup RTI Database April 2025": "2025-04-01", "Sep 2024 review": "2024-09-01", "Notes 2025-13": "2026-06-01", "Kiosk 2025-01-02": "2025-01-02" })) check(`a date in "${name}"`, R.bornDate(name, null, "2026-06-01"), want);
+check("created wins when it's earliest", R.bornDate("Note", "2020-02-03T10:00:00", "2026-06-01"), "2020-02-03");
+check("the file's date when that's all there is", R.bornDate("Note", null, "2026-06-01"), "2026-06-01");
+console.log(fails.length ? "FAIL - " + fails.join("; ") : "ok - birth dates: the earliest the note gives, months in names count");
 process.exit(fails.length ? 1 : 0);
