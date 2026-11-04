@@ -209,6 +209,15 @@
     const px = parent ? parent.x : 0, py = parent ? parent.y : 0, dx = b.x - px, dy = b.y - py, r = Math.max(60, Math.hypot(dx, dy));
     setOrbit(b, parent, r, 0, Math.atan2(dy, dx), b.type === "repulsor" ? -1 : 1);
   }
+  // A saved view's sky, in place of the current one. A copy, so moving bodies around doesn't change the view. Bodies with
+  // no orbit yet (a view written by hand) get arranged.
+  function restoreSky(sky) {
+    cos.bodies = structuredClone(sky.bodies || []); cos.auto = { ...cos.auto, ...(sky.auto || {}) };
+    if (st.body) { st.body = null; $(".vg-inspector").hidden = true; root.classList.remove("has-inspector"); }
+    $$(".vg-autobtn").forEach(b => b.setAttribute("aria-pressed", !!cos.auto[b.dataset.auto]));
+    trails.clear(); noteTrails.clear();
+    if (cos.bodies.some(b => b.rx == null)) { cos.bodies.forEach(b => { b.x = b.x || 0; b.y = b.y || 0; }); arrangeOrbits(false); } else { cos.bodies.forEach(placeFromOrbit); cosmosCapture(); persistSoon(); kick(); }
+  }
   function arrangeOrbits(announce) {
     const ring = cos.bodies.filter(b => b.type === "star" || b.type === "binary").sort((a, b) => gmOf(b) - gmOf(a) || (a.id < b.id ? -1 : 1));
     ring.forEach((b, i) => { const k = Math.floor(i / 3); setOrbit(b, null, RING0 * Math.pow(RING_RATIO, k), 0.04, (i % 3) * 2 * Math.PI / 3 + k * Math.PI / 3, 1); });
@@ -514,7 +523,7 @@
     }
     // constellations: your saved views, traced in gold across the background
     constSpots = [];
-    savedViews.forEach(v => {
+    savedViews.filter(v => !v.cosmos).forEach(v => {
       const set = v.focus && byId[v.focus] ? [v.focus, ...nb[v.focus]] : active.filter(n => !special(n) && !(v.hiddenClusters || []).includes(n.cluster)).map(n => n.id);
       const stars = set.filter(id => P.has(id)).sort((a, b) => byId[b].bc - byId[a].bc).slice(0, 7);
       if (stars.length < 2) return;
