@@ -3,6 +3,9 @@
 // Edit here, never a generated main.js.
 const { Plugin, ItemView, MarkdownView, Notice, PluginSettingTab, Setting, Platform, TFile, normalizePath, MarkdownRenderChild, parseYaml, moment, editorInfoField } = require("obsidian");
 
+// One way to look up a note, read its frontmatter and read a JSON file. fileIn gives a note or null, whatever else is at the path.
+const fileIn = (vault, p) => { const f = vault.getAbstractFileByPath(normalizePath(p)); return f instanceof TFile ? f : null; };
+const fmIn = (cache, file) => (cache.getFileCache(file) || {}).frontmatter;
 const VIEW_TYPE = "vault-graph";
 const LOCAL_TYPE = "vault-graph-local";
 const HQ_TYPE = "vault-graph-hq";   // Vault HQ: the vault's home screen (src/hq.js)
@@ -169,7 +172,7 @@ class VaultGraphLocalView extends ItemView {
       onViewChange: view => { if (this.plugin.settings.localView !== view) { this.plugin.settings.localView = view; this.plugin.saveSettings(); } },
       ...this.plugin.viewActions(this),
       openNote: (notePath, newPane) => {
-        const file = this.app.vault.getAbstractFileByPath(notePath);
+        const file = this.plugin.fileAt(notePath);
         if (file instanceof TFile) this.app.workspace.getLeaf(newPane ? "tab" : false).openFile(file);
       },
       onHoverNote: (notePath, event) => this.app.workspace.trigger("hover-link", {
@@ -188,7 +191,7 @@ class VaultGraphLocalView extends ItemView {
     if (!file || file.extension !== "md" || data.nodes.some(n => n.id === file.path)) return false;   // topic notes: graph neighbours only
     const resolved = this.app.metadataCache.resolvedLinks || {}, byId = new Map(data.nodes.map(n => [n.id, n]));
     const linkable = id => id !== file.path && id.endsWith(".md") && ![".trash", VGRules.folders.templates, VGRules.folders.system].some(f => id.startsWith(f + "/"))
-      && this.app.vault.getAbstractFileByPath(id) instanceof TFile;
+      && this.plugin.fileAt(id) instanceof TFile;
     const neighbours = id => [...new Set([
       ...Object.keys(resolved[id] || {}),
       ...Object.entries(resolved).filter(([src, t]) => t[id]).map(([src]) => src),
@@ -200,7 +203,7 @@ class VaultGraphLocalView extends ItemView {
     const ranked = nbrs.sort((x, y) => (byId.has(y) - byId.has(x)) || x.localeCompare(y)).slice(0, MAX);
     const temp = id => {
       if (byId.has(id)) return byId.get(id);
-      const f = this.app.vault.getAbstractFileByPath(id);
+      const f = this.plugin.fileAt(id);
       const n = { id, name: f.basename, cluster: -1, bc: 0, folder: f.parent ? f.parent.path : "", mentions: 0, recent: 0,
         inlinks: 0, outlinks: 0, broken: 0, tasks: 0, words: 0,
         age: Math.max(0, Math.round((Date.now() - f.stat.mtime) / VGShared.DAY_MS)), refs: true, isolated: false, live: true };
@@ -380,7 +383,7 @@ class VaultGraphSuggestView extends ItemView {
         const acts = card.createDiv({ cls: "vg-s-acts" });
         if (it.btn) { const b = acts.createEl("button", { text: it.btn, cls: i === 0 ? "mod-cta" : "" }); b.onclick = () => it.run(); }
         if (it.ghost) { const b = acts.createEl("button", { text: it.ghost }); b.onclick = () => it.dismiss(); }
-        if (it.open) { const b = acts.createEl("button", { text: "Open" }); b.onclick = () => { const f = this.app.vault.getAbstractFileByPath(it.open); if (f instanceof TFile) this.app.workspace.getLeaf(false).openFile(f); }; }
+        if (it.open) { const b = acts.createEl("button", { text: "Open" }); b.onclick = () => { const f = this.plugin.fileAt(it.open); if (f instanceof TFile) this.app.workspace.getLeaf(false).openFile(f); }; }
         if (it.tasks) {
           const box = card.createDiv({ cls: "vg-s-tasks" });
           // same task actions as the graph views: complete or cancel one, or close the whole note
@@ -420,7 +423,7 @@ class VaultGraphSuggestView extends ItemView {
     // close every open task in a note (the same setNoteTasks the graph's task lists use)
     const taskAll = (id, how) => { const tn = byId.get(id), a = VGActions.ACTIONS.find(x => x.key === (how === "-" ? "cancel" : "complete"));
       return [a.label(tn, ctx), () => run(a.key, tn)]; };
-    const openNote = id => ["Open", () => { const f = this.app.vault.getAbstractFileByPath(id); if (f instanceof TFile) this.app.workspace.getLeaf(false).openFile(f); }];
+    const openNote = id => ["Open", () => { const f = this.plugin.fileAt(id); if (f instanceof TFile) this.app.workspace.getLeaf(false).openFile(f); }];
     // one row per item: its action (VGActions.runToday, as in the graph), Open, Not related for a pair, and hide
     const row = (it, pick) => {
       const done = pick && liveDone(it), noteId = it.id || (it.ids || [])[0], tn = noteId && byId.get(noteId);
@@ -492,7 +495,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     await this.loadDismissed();   // dismissed pairs stop showing at once (the analysis drops them at its next run)
     CONTENT.log = {};
     for (const p of [CONTENT.path, VGRules.files.content_backup]) {   // the backup when a reinstall removed the plugin folder
-      try { CONTENT.log = JSON.parse(await this.app.vault.adapter.read(normalizePath(p))); break; } catch (e) { /* try the next */ }
+      const log = await this.readJson(p); if (log) { CONTENT.log = log; break; }
     }
     // keep the content log current: a note's "since" moves only when its fingerprint changes
     this.registerEvent(this.app.vault.on("modify", file => { if (file instanceof TFile && file.extension === "md" && !this.ignoreEdit(file.path)) this.noteContent(file); }));
@@ -675,7 +678,11 @@ module.exports = class VaultGraphPlugin extends Plugin {
   }
 
   // ---- the vault writes (WRITE_PRIMITIVES): each records its change in the open undo entry, then writes
-  fileAt(p) { const f = this.app.vault.getAbstractFileByPath(normalizePath(p)); return f instanceof TFile ? f : null; }
+  fileAt(p) { return fileIn(this.app.vault, p); }
+  pathTaken(p) { return !!this.app.vault.getAbstractFileByPath(normalizePath(p)); }   // a note, another file or a folder
+  fmOf(file) { return fmIn(this.app.metadataCache, file); }
+  // a JSON file's contents, or fallback when it's missing or doesn't parse (another device may be writing it)
+  async readJson(p, fallback = null) { try { return JSON.parse(await this.app.vault.adapter.read(normalizePath(p))); } catch (e) { return fallback; } }
   async noteBefore(file) {
     const e = this.undoCur;
     if (e && !e.ops.some(o => o.kind === "text" && o.path === file.path)) e.ops.push({ kind: "text", path: file.path, before: await this.app.vault.read(file) });
@@ -713,8 +720,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     catch (err) { console.error("Vault Graph: the undo list wasn't saved", err); }
   }
   async loadUndoLog() {
-    try { const d = JSON.parse(await this.app.vault.adapter.read(this.undoLogPath())); if (Array.isArray(d.log)) { this.undoLog = d.log; this.undoSeq = Math.max(d.seq || 0, ...d.log.map(e => e.id || 0)); } }
-    catch (err) { /* no list yet */ }
+    const d = await this.readJson(this.undoLogPath()); if (d && Array.isArray(d.log)) { this.undoLog = d.log; this.undoSeq = Math.max(d.seq || 0, ...d.log.map(e => e.id || 0)); }
   }
   // What the message said, so Recent changes reads the same
   labelUndo(id, label) { const e = this.undoLog.find(x => x.id === id); if (e) { e.label = label; this.saveUndoLog(); } }
@@ -811,7 +817,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       initialView: (o.view || "").toLowerCase() || undefined,
       ...this.viewActions(null),
       openNote: (notePath, newPane) => {
-        const file = this.app.vault.getAbstractFileByPath(notePath);
+        const file = this.fileAt(notePath);
         if (file instanceof TFile) this.app.workspace.getLeaf(newPane ? "tab" : false).openFile(file);
       },
       onHoverNote: (notePath, event) => this.app.workspace.trigger("hover-link", {
@@ -935,9 +941,9 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // Only the dailies the analysis counted (said_unlinked's third field): the day a mention is new, not every later
   // standup whose task table carries the same row, nor the rollups that copy it.
   async linkMentions(notePath, dryRun) {
-    const f = this.app.vault.getAbstractFileByPath(normalizePath(notePath)); if (!(f instanceof TFile)) throw new Error("missing note");
+    const f = this.fileAt(notePath); if (!(f instanceof TFile)) throw new Error("missing note");
     // every way the analysis counts a mention (title, "<Topic> - Context" topic, aliases): shared rule
-    const names = VGRules.mentionNames(f.basename, ((this.app.metadataCache.getFileCache(f) || {}).frontmatter || {}).aliases);
+    const names = VGRules.mentionNames(f.basename, (this.fmOf(f) || {}).aliases);
     if (!names.length) return [];   // a generic title with no aliases: prose never names it
     const pat = names.map(VGShared.escapeRegex).join("|"), re = new RegExp(`(^|[^\\w\\[|/#])(${pat})(?![\\w\\]])`, "i");
     const resolved = this.app.metadataCache.resolvedLinks || {}, out = [];
@@ -964,7 +970,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     return out;
   }
   async linkNotes(fromPath, toPath, why) {
-    const from = this.app.vault.getAbstractFileByPath(fromPath), to = this.app.vault.getAbstractFileByPath(toPath);
+    const from = this.fileAt(fromPath), to = this.fileAt(toPath);
     if (!(from instanceof TFile) || !(to instanceof TFile)) { new Notice("Note not found (renamed since the last refresh?)"); throw new Error("missing note"); }
     const resolved = this.app.metadataCache.resolvedLinks;
     if ((resolved[from.path] || {})[to.path] || (resolved[to.path] || {})[from.path]) {
@@ -1012,8 +1018,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
     o = o || {};
     let path = normalizePath(notePath);
     const folder = path.split("/").slice(0, -1).join("/");
-    if (folder && !this.app.vault.getAbstractFileByPath(folder)) await this.ioFolder(folder);
-    let file = this.app.vault.getAbstractFileByPath(path);
+    if (folder && !this.pathTaken(folder)) await this.ioFolder(folder);
+    let file = this.fileAt(path);
     if (file instanceof TFile && o.mode === "regen") {
       const cut = md.indexOf(MARKER);
       await this.ioProcess(file, text => {
@@ -1043,7 +1049,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
 
   // Append lines under a heading (adds to it if it's already there, e.g. a second add the same day). Line endings kept.
   async appendSection(notePath, heading, lines) {
-    const file = this.app.vault.getAbstractFileByPath(normalizePath(notePath));
+    const file = this.fileAt(notePath);
     if (!(file instanceof TFile)) { new Notice(`Not found: ${notePath}`); throw new Error("missing note"); }
     // Never add a link the note already has: by resolved path, or by a same-name copy (wikilinks resolve by name)
     const cache = this.app.metadataCache, have = cache.resolvedLinks[file.path] || {};
@@ -1079,12 +1085,12 @@ module.exports = class VaultGraphPlugin extends Plugin {
 
   // Move a note into a folder. Obsidian's renameFile rewrites links to it, so nothing breaks; nothing is deleted.
   async moveNote(notePath, folder) {
-    const file = this.app.vault.getAbstractFileByPath(normalizePath(notePath));
+    const file = this.fileAt(notePath);
     if (!(file instanceof TFile)) { new Notice(`Not found: ${notePath}`); throw new Error("missing note"); }
     const dir = normalizePath(folder);
-    if (!this.app.vault.getAbstractFileByPath(dir)) await this.ioFolder(dir);
+    if (!this.pathTaken(dir)) await this.ioFolder(dir);
     const dest = normalizePath(`${dir}/${file.name}`);
-    if (this.app.vault.getAbstractFileByPath(dest)) { new Notice(`${dest} already exists — not moved`); throw new Error("exists"); }
+    if (this.pathTaken(dest)) { new Notice(`${dest} already exists — not moved`); throw new Error("exists"); }
     await this.ioRename(file, dest);
     new Notice(`Moved to ${dir}/`);
     return dest;
@@ -1092,7 +1098,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
 
   // Unchecked tasks in a note: [{line, text}]
   async readTasks(notePath) {
-    const file = this.app.vault.getAbstractFileByPath(normalizePath(notePath));
+    const file = this.fileAt(notePath);
     if (!(file instanceof TFile)) return [];
     const lines = (await this.app.vault.cachedRead(file)).split(/\r?\n/);
     return lines.map((l, i) => { const m = l.match(/^\s*[-*+] \[ \] (.+)$/); return m ? { line: i, text: m[1] } : null; }).filter(Boolean);
@@ -1108,9 +1114,9 @@ module.exports = class VaultGraphPlugin extends Plugin {
       if (!file) {
         const prepared = await this.dailyTemplate(date, kind), engine = prepared.engine;
         const folder = path.slice(0, path.lastIndexOf("/"));
-        if (!this.app.vault.getAbstractFileByPath(folder)) {
+        if (!this.pathTaken(folder)) {
           try { await this.ioFolder(folder); }
-          catch (error) { if (!this.app.vault.getAbstractFileByPath(folder)) throw error; }
+          catch (error) { if (!this.pathTaken(folder)) throw error; }
         }
         file = existing();
         if (!file) {
@@ -1188,7 +1194,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     return {
       openNote: (notePath, newPane) => {
         const target = String(notePath || "");
-        const file = this.app.vault.getAbstractFileByPath(target) ||
+        const file = this.fileAt(target) ||
           (this.app.metadataCache.getFirstLinkpathDest && this.app.metadataCache.getFirstLinkpathDest(target.replace(/\.md$/i, ""), ""));
         if (file instanceof TFile) this.app.workspace.getLeaf(newPane ? "tab" : false).openFile(file);
         else new Notice(`Not found (renamed since the last refresh?): ${notePath}`);
@@ -1226,7 +1232,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       resolveLink: (target, from) => { const f = this.app.metadataCache.getFirstLinkpathDest(target, from || ""); return f ? f.path : null; },
       hqFocus: keys => this.hqFocus(keys),
       hqSession: (day, minutes, project) => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.sessions = VGRules.sessionAdded(sh.review, day, minutes); if (project) sh.review.sessionFor = { ...(sh.review.sessionFor || {}), [project]: VGRules.projectMinutes(sh.review, project) + minutes }; return sh; }),
-      readNote: async notePath => { const f = this.app.vault.getAbstractFileByPath(normalizePath(notePath)); if (!(f instanceof TFile)) throw new Error("missing note"); return this.app.vault.cachedRead(f); },
+      readNote: async notePath => { const f = this.fileAt(notePath); if (!(f instanceof TFile)) throw new Error("missing note"); return this.app.vault.cachedRead(f); },
       hqHome: hidden => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.hqHome = hidden; return sh; }),
       planLine: text => this.planLine(text),
       searchMeaning: (q, n) => this.searchMeaning(q, n),
@@ -1245,7 +1251,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
 
   // Add a map/hub/reference holder to the note's `references:` property (quoted wikilinks, per Link Conventions)
   async addReference(notePath, holder) {   // holder: its path (or the file)
-    const file = this.app.vault.getAbstractFileByPath(notePath);
+    const file = this.fileAt(notePath);
     if (!(file instanceof TFile)) throw new Error("missing note");
     const link = this.linkText(typeof holder === "string" ? holder : holder.path, notePath);
     const indexed = this.waitIndexed(file);
@@ -1299,14 +1305,14 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // renamed through Obsidian, so links to it follow; its heading takes the new name and its list is made again
   async renameMap(mapPath, clusterId) {
     const data = await this.graphData(), c = data && data.clusters.find(k => k.id === clusterId);
-    const file = this.app.vault.getAbstractFileByPath(normalizePath(mapPath));
+    const file = this.fileAt(mapPath);
     if (!c) throw new Error("that topic is gone");
     if (!(file instanceof TFile)) throw new Error("the map isn't there");
     const dir = file.parent && file.parent.path && file.parent.path !== "/" ? file.parent.path + "/" : "";
     const dest = normalizePath(`${dir}${VGRules.safeName(c.name)} Hub.md`), old = file.basename.replace(/ Hub$/, "");
-    if (dest !== file.path && this.app.vault.getAbstractFileByPath(dest)) throw new Error(`${dest} already exists`);
+    if (dest !== file.path && this.pathTaken(dest)) throw new Error(`${dest} already exists`);
     if (dest !== file.path) await this.ioRename(file, dest);
-    const renamed = this.app.vault.getAbstractFileByPath(dest);
+    const renamed = this.fileAt(dest);
     await this.ioProcess(renamed, text => text.split("\n").map(l => (l.replace(/\r$/, "") === `# ${old} Hub` ? `# ${c.name} Hub${l.endsWith("\r") ? "\r" : ""}` : l)).join("\n"));
     await this.writeNote(dest, this.mapNote(data, c, dest, c.name), { mode: "regen" });
     return dest;
@@ -1315,7 +1321,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // The one way to write a link to a note: Obsidian's own link text, so a same-name copy elsewhere (a root
   // dashboard, a duplicate in another folder) never takes the link -- that left suggestions that never cleared
   linkText(id, fromPath) {
-    const f = this.app.vault.getAbstractFileByPath(normalizePath(id));
+    const f = this.fileAt(id);
     if (!(f instanceof TFile)) return `[[${VGShared.nameOf(id)}]]`;
     return `[[${this.app.metadataCache.fileToLinktext(f, typeof fromPath === "string" ? fromPath : "", true)}]]`;
   }
@@ -1353,7 +1359,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     }));
   }
   async setTaskStatus(notePath, line, text, status = "x") {
-    const file = this.app.vault.getAbstractFileByPath(normalizePath(notePath));
+    const file = this.fileAt(notePath);
     if (!(file instanceof TFile)) throw new Error("missing note");
     let done = false;
     await this.ioProcess(file, data => {
@@ -1508,7 +1514,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // Close a whole note: every open task in it gets the status, and the note's status tag follows (complete ->
   // status/done, cancelled -> status/cancelled), so the shared rules count it as a record and it stops showing as stale.
   async setNoteTasks(notePath, status = "x") {
-    const file = this.app.vault.getAbstractFileByPath(normalizePath(notePath));
+    const file = this.fileAt(notePath);
     if (!(file instanceof TFile)) throw new Error("missing note");
     const n = await this.markOpenTasks(file, status), tag = NOTE_STATUS[status];
     if (tag && n) await this.ioFrontMatter(file, fm => {   // only a note whose tasks did change is marked done or cancelled
@@ -1527,12 +1533,12 @@ module.exports = class VaultGraphPlugin extends Plugin {
   async engineGather() {
     const ignored = [].concat((this.app.vault.getConfig && this.app.vault.getConfig("userIgnoreFilters")) || []).map(p => String(p).replace(/\/?$/, "/"));
     const files = this.app.vault.getMarkdownFiles().filter(f => ![...EXCLUDE_PREFIXES, ...ignored].some(p => f.path.startsWith(p)));
-    const notes = files.map(f => ({ path: f.path, tags: VGEngine.frontmatterTags((this.app.metadataCache.getFileCache(f) || {}).frontmatter) }));
+    const notes = files.map(f => ({ path: f.path, tags: VGEngine.frontmatterTags(this.fmOf(f)) }));
     const resolved = this.app.metadataCache.resolvedLinks || {};
     const links = Object.fromEntries(files.map(f => [f.path, Object.keys(resolved[f.path] || {}).filter(t => t.endsWith(".md") && t !== f.path)]));
     const T = VGEngine.topicGraph(notes, links, { kind: VGRules.noteKind, isHub: VGRules.isHub, joinsWhenLinked: VGRules.joinsWhenLinked });
     const raw = {};   // every topic note's text: topic keywords and word counts
-    for (const r of T.knowledge) { const f = this.app.vault.getAbstractFileByPath(r); if (f instanceof TFile) raw[r] = await this.app.vault.cachedRead(f); }
+    for (const r of T.knowledge) { const f = this.fileAt(r); if (f instanceof TFile) raw[r] = await this.app.vault.cachedRead(f); }
     const tags = Object.fromEntries(notes.map(n => [n.path, n.tags]));
     return { T, raw, tags, files, links };
   }
@@ -1551,11 +1557,11 @@ module.exports = class VaultGraphPlugin extends Plugin {
     E.topics.forEach(t => t.members.forEach(r => at.set(r, t.id)));
     const words = r => (VGShared.stripFrontmatter(E.raw[r] || "").match(/[A-Za-z0-9]+/g) || []).length;
     const day = t => VGRules.localDay(new Date(t));
-    const nodes = E.notes.map(r => { const f = this.app.vault.getAbstractFileByPath(r), st = f instanceof TFile ? f.stat : { ctime: Date.now(), mtime: Date.now() };
+    const nodes = E.notes.map(r => { const f = this.fileAt(r), st = f instanceof TFile ? f.stat : { ctime: Date.now(), mtime: Date.now() };
       return { id: r, name: f instanceof TFile ? f.basename : VGShared.nameOf(r), cluster: at.has(r) ? at.get(r) : -1, bc: Math.round((E.bc[r] || 0) * 1e5) / 1e5,
         folder: r.includes("/") ? r.slice(0, r.lastIndexOf("/")) : "", mentions: 0, recent: 0, inlinks: 0, outlinks: 0,
         broken: Object.keys(unresolved[r] || {}).filter(t => !VGEngine.isAttachment(t)).length, tasks: 0, words: words(r), age: 0, refs: false, isolated: !E.graph[r], tags: VGEngine.nodeTags(E.tags[r] || []),
-        born: VGRules.bornDate(f instanceof TFile ? f.basename : r, f instanceof TFile && this.app.metadataCache.getFileCache ? ((this.app.metadataCache.getFileCache(f) || {}).frontmatter || {}).created : null, day(st.ctime)), edited: day(st.mtime) }; });
+        born: VGRules.bornDate(f instanceof TFile ? f.basename : r, f instanceof TFile && this.app.metadataCache.getFileCache ? (this.fmOf(f) || {}).created : null, day(st.ctime)), edited: day(st.mtime) }; });
     const links = [];
     for (const [r, nb] of Object.entries(E.graph)) for (const [t, w] of Object.entries(nb)) if (VGEngine.pyCmp(r, t) < 0) links.push({ source: r, target: t, w, kind: "link" });
     const wanted = VGEngine.wantedNotes(unresolved, E.notes);
@@ -1566,14 +1572,14 @@ module.exports = class VaultGraphPlugin extends Plugin {
       gaps: [], quality: { stub_words: VGRules.RULES.stub_words, stale_days: VGRules.RULES.stale_days }, pairs: [], snapshots: [],
       timeline: { weeks: [], clusters: {}, notes: {} }, near_dupes: [] };
     VGRules.applyEngineNotes(out, N, VGRules.ENGINE_PARTS); out.since = null;
-    out.nodes.forEach(n => { if (n.person || n.moc || CONTENT.log[n.id]) return; const f = this.app.vault.getAbstractFileByPath(n.id), fm = (f instanceof TFile && (this.app.metadataCache.getFileCache(f) || {}).frontmatter) || {};
+    out.nodes.forEach(n => { if (n.person || n.moc || CONTENT.log[n.id]) return; const f = this.fileAt(n.id), fm = (f instanceof TFile && this.fmOf(f)) || {};
       const dates = ["modified", "updated", "date modified", "reviewed"].map(k => String(fm[k] || "").slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
       n.edited = [n.born, ...dates, ...(N.mentionDays[n.id] || [])].filter(d => d && d <= out.date).sort().pop() || n.edited; n.age = daysSince(n.edited); });
     // links between graph notes, the count liveMerge makes; references; a note's last edit from the content log
     { const ids = new Set(out.nodes.filter(n => !n.person && !n.moc).map(n => n.id)), inl = new Map(), mc = this.app.metadataCache;
       for (const r of ids) for (const t of G.links[r] || []) if (ids.has(t)) inl.set(t, (inl.get(t) || 0) + 1);
       out.nodes.forEach(n => { if (n.person || n.moc) return; n.inlinks = inl.get(n.id) || 0; n.outlinks = (G.links[n.id] || []).filter(t => ids.has(t)).length;
-        const f = this.app.vault.getAbstractFileByPath(n.id), fm = (f instanceof TFile && (mc.getFileCache(f) || {}).frontmatter) || {}; n.refs = !!(fm.references && [].concat(fm.references).length);
+        const f = this.fileAt(n.id), fm = (f instanceof TFile && this.fmOf(f)) || {}; n.refs = !!(fm.references && [].concat(fm.references).length);
         const e = CONTENT.log[n.id], rv = /^\d{4}-\d{2}-\d{2}/.test(String(fm.reviewed || "")) ? String(fm.reviewed).slice(0, 10) : ""; if (e) { n.edited = [e.since, rv].filter(Boolean).sort().pop(); n.age = daysSince(n.edited); } }); }
     out.since = VGEngine.dayShift(out.date, 365); out.dailies_used = N.used;
     return out;
@@ -1584,8 +1590,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const seen = new Set(); let changed = false;
     for (const n of data.nodes) { if (n.person || n.moc || !(n.id in G.raw)) continue; seen.add(n.id); const h = fingerprint(G.raw[n.id]), e = CONTENT.log[n.id];
       if (e && e.h === h) continue;
-      const f = this.app.vault.getAbstractFileByPath(n.id); CONTENT.log[n.id] = { h, since: e ? [VGRules.localDay(new Date(f.stat.mtime)), data.date].sort()[0] : n.edited }; changed = true; }
-    for (const p of Object.keys(CONTENT.log)) if (!seen.has(p) && !this.app.vault.getAbstractFileByPath(p)) { delete CONTENT.log[p]; changed = true; }
+      const f = this.fileAt(n.id); CONTENT.log[n.id] = { h, since: e ? [VGRules.localDay(new Date(f.stat.mtime)), data.date].sort()[0] : n.edited }; changed = true; }
+    for (const p of Object.keys(CONTENT.log)) if (!seen.has(p) && !this.pathTaken(p)) { delete CONTENT.log[p]; changed = true; }
     if (changed) this.saveContentSoon();
   }
   // Which of the code roots' folders are git repositories, and what git says: desktop only, and nothing without git
@@ -1604,7 +1610,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // The graph data every device reads, written by this desktop. Not over what another PC built from newer notes: until its
   // edits sync here, this run would bring back suggestions already acted on. Returns that PC's name when it kept theirs.
   async writeGraphFile() {
-    const A = this.app.vault.adapter, file = normalizePath(this.settings.dataPath), dir = file.slice(0, file.lastIndexOf("/")), snaps = `${dir}/snapshots`, mkdirs = async p => { const parts = p.split("/"); for (let i = 1; i <= parts.length; i++) { const d = parts.slice(0, i).join("/"); if (d && !await A.exists(d)) await A.mkdir(d); } }, readJson = async p => { try { return JSON.parse(await A.read(p)); } catch (e) { return null; } };
+    const A = this.app.vault.adapter, file = normalizePath(this.settings.dataPath), dir = file.slice(0, file.lastIndexOf("/")), snaps = `${dir}/snapshots`, mkdirs = async p => { const parts = p.split("/"); for (let i = 1; i <= parts.length; i++) { const d = parts.slice(0, i).join("/"); if (d && !await A.exists(d)) await A.mkdir(d); } }, readJson = p => this.readJson(p);
     const old = await readJson(file), G = await this.engineGather(), known = new Map(), names = {};
     ((old && old.nodes) || []).forEach(n => { const b = VGShared.baseOf(n.id); names[b] = (names[b] || 0) + 1; });
     ((old && old.nodes) || []).forEach(n => { if (n.born) { known.set(n.id, n.born); const b = VGShared.baseOf(n.id); if (names[b] === 1) known.set(b, n.born); } });
@@ -1629,7 +1635,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const G = gathered || await this.engineGather(), mc = this.app.metadataCache, read = f => this.app.vault.cachedRead(f), day0 = VGRules.today();
     const shift = n => VGShared.shiftDay(day0, -n), since = shift(365), recentSince = shift(30);
     const knowledge = G.T.knowledge, K = new Set(knowledge), resolved = mc.resolvedLinks || {}, terms = {}, quiet = [], born = {}, personLinks = {};
-    for (const r of knowledge) { const f = this.app.vault.getAbstractFileByPath(r); if (!(f instanceof TFile)) continue; const fm = (mc.getFileCache(f) || {}).frontmatter;
+    for (const r of knowledge) { const f = this.fileAt(r); if (!(f instanceof TFile)) continue; const fm = this.fmOf(f);
       VGRules.mentionNames(f.basename, fm && fm.aliases).forEach(k => { const key = k.toLowerCase(); (terms[key] = terms[key] || []).push(r); });
       if (VGRules.isPrivate(r, fm)) quiet.push(r);
       born[r] = VGRules.bornDate(f.basename, fm && fm.created, VGRules.localDay(new Date(f.stat.ctime)));
@@ -1646,7 +1652,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const H = VGRules.RULES.hq || {}, smart = await this.smartFiles(), input = { dailies, dailyDays, knowledge, people, terms, recentSince, raw: G.raw, born, adj: G.T.graph, quiet, smart, standups, today: day0, planHead: H.plan_heading, doneHead: H.completed_heading };
     let J;
     if (o.topics) { const maps = [], bridgeNotes = {};
-      for (const f of G.files) { const fm = (mc.getFileCache(f) || {}).frontmatter; if (fm && String(fm.type || "").toLowerCase() === "bridge" && K.has(f.path)) bridgeNotes[f.path] = [].concat(fm.bridges || []).map(String);
+      for (const f of G.files) { const fm = this.fmOf(f); if (fm && String(fm.type || "").toLowerCase() === "bridge" && K.has(f.path)) bridgeNotes[f.path] = [].concat(fm.bridges || []).map(String);
         if (!VGRules.isMapCandidate(f.path, fm) || (G.T.hubs.includes(f.path) && !VGRules.isHub(f.path, G.tags[f.path]))) continue;
         maps.push({ path: f.path, text: await read(f), links: G.links[f.path] || [], mocFor: fm ? fm.moc_for : null }); }
       const hubDegree = Object.fromEntries(G.T.hubs.map(h => [h, (G.links[h] || []).length]));
@@ -1758,7 +1764,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // The content log on disk (the analysis rewrites it each run; Sync brings another device's) merged into this one:
   // the later change date wins for each note
   async mergeContentFromDisk() {
-    let disk = {}; try { disk = JSON.parse(await this.app.vault.adapter.read(normalizePath(CONTENT.path))); } catch (e) { return; }
+    const disk = await this.readJson(CONTENT.path); if (!disk) return;
     for (const [k, v] of Object.entries(disk)) if (!CONTENT.log[k] || (v.since > CONTENT.log[k].since)) CONTENT.log[k] = v;
   }
   saveContentSoon() {
@@ -1769,7 +1775,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     }, 4000);
   }
   async stampReviewed(notePath) {
-    const file = this.app.vault.getAbstractFileByPath(normalizePath(notePath));
+    const file = this.fileAt(notePath);
     if (!(file instanceof TFile)) throw new Error("missing note");
     await this.ioFrontMatter(file, fm => { fm.reviewed = today(); });
   }
@@ -1788,8 +1794,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // ---- this vault's rules: the built-in defaults, then what its Obsidian settings say (detectRules), then its rules
   // file where that has a value. The analysis reads the same file; the settings tab edits it (setRule).
   async loadRules() {
-    let file = null;
-    try { file = JSON.parse(await this.app.vault.adapter.read(normalizePath(this.settings.rulesPath))); } catch (e) { /* no rules file: Obsidian's settings and the defaults */ }
+    const file = await this.readJson(this.settings.rulesPath);   // none: Obsidian's settings and the defaults
     this.rulesFile = file;
     this.detected = this.detectRules(file);
     VGRules.configure(VGRules.mergeRules(BUILT_RULES, { folders: this.detected, ...this.detectJournal(file) }, file || {}));
@@ -1848,11 +1853,10 @@ module.exports = class VaultGraphPlugin extends Plugin {
     STATE_VIEWS().flatMap(t => this.app.workspace.getLeavesOfType(t)).forEach(l => l.view.render && l.view.render());
     this.app.workspace.getLeavesOfType(SUGGEST_TYPE).forEach(l => l.view.renderSoon && l.view.renderSoon());
   }
-  dataMtime() { const f = this.app.vault.getAbstractFileByPath(normalizePath(this.settings.dataPath)); return f instanceof TFile ? f.stat.mtime : 0; }
+  dataMtime() { const f = this.fileAt(this.settings.dataPath); return f instanceof TFile ? f.stat.mtime : 0; }
   // The shared game file with every device's ledger folded in (VGRules.applyLedgers): the one read path
   async loadShared() {
-    let sh = null;
-    try { sh = JSON.parse(await this.app.vault.adapter.read(normalizePath(this.settings.sharedPath))); } catch (e) { /* no file yet */ }
+    let sh = await this.readJson(this.settings.sharedPath);
     return VGRules.followLedgers(sh, await this.loadLedgers(), this.pathExists);
   }
   // A note moved or was renamed (a folder move is one of these per note). Batched, since a move can be hundreds of notes.
@@ -1869,8 +1873,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // The one write for moves: on record in this device's ledger, then every saved mark rewritten to the new paths.
   async recordMoves(moves) {
     const io = this.app.vault.adapter, dir = normalizePath(VGRules.files.device_ledgers), path = `${dir}/${this.deviceId()}.json`;
-    let mine = null;
-    try { mine = JSON.parse(await io.read(path)); } catch (e) { /* this device's first mark */ }
+    let mine = await this.readJson(path);   // none: this device's first mark
     if (!(await io.exists(dir))) await io.mkdir(dir);
     await io.write(path, JSON.stringify(VGRules.ledgerMoved(mine, moves, new Date().toISOString(), this.pathExists), null, 1) + "\n");
     const shared = await this.loadShared();
@@ -1884,7 +1887,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     if (this.settings.view) { this.settings.view = this.followSaved(this.settings.view); await this.saveSettings(); }
     this.refreshHQViews();
   }
-  get pathExists() { return p => !!this.app.vault.getAbstractFileByPath(p); }
+  get pathExists() { return p => this.pathTaken(p); }
   followSaved(v) { return VGRules.followMoves(v, this.moves || {}, this.pathExists); }
   // The one write path for the shared file outside a graph view (sidebar actions): change a copy of it and save
   // through the same three-way merge as saveShared, re-read just before writing so another device's save isn't lost
@@ -1911,14 +1914,13 @@ module.exports = class VaultGraphPlugin extends Plugin {
     try {
       if (!(await io.exists(dir))) return [];
       const files = (await io.list(dir)).files.filter(f => f.endsWith(".json"));
-      return (await Promise.all(files.map(async f => { try { return JSON.parse(await io.read(f)); } catch (e) { return null; } }))).filter(Boolean);
+      return (await Promise.all(files.map(f => this.readJson(f)))).filter(Boolean);
     } catch (e) { return []; }
   }
   // Add this device's marks (from a shared state it saved, and pairs it dismissed) to its own ledger
   async recordLedger(shared, dismissed) {
     const io = this.app.vault.adapter, dir = normalizePath(VGRules.files.device_ledgers), path = `${dir}/${this.deviceId()}.json`;
-    let mine = null;
-    try { mine = JSON.parse(await io.read(path)); } catch (e) { /* this device's first mark */ }
+    let mine = await this.readJson(path);   // none: this device's first mark
     const next = VGRules.ledgerAdd(mine, shared, dismissed, today());
     if (mine && JSON.stringify(next) === JSON.stringify(mine)) return;
     try { if (!(await io.exists(dir))) await io.mkdir(dir); await io.write(path, JSON.stringify(next, null, 1) + "\n"); }
@@ -1926,8 +1928,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   }
   // Dismissed pairs from the dismissals file and every device's ledger (a dismissal Sync dropped from the file still counts)
   async loadDismissed() {
-    let pairs = [];
-    try { pairs = JSON.parse(await this.app.vault.adapter.read(normalizePath(this.settings.dismissedPath))).pairs || []; } catch (e) { /* no dismissals yet */ }
+    const pairs = ((await this.readJson(this.settings.dismissedPath)) || {}).pairs || [];
     const ledgers = await this.loadLedgers(); this.moves = VGRules.ledgerMoves(ledgers);
     [...pairs, ...VGRules.ledgerDismissed(ledgers)].map(p => this.followSaved(p)).forEach(p => p && p.a && p.b && DISMISSED.add(dismissKey(p.a, p.b)));
   }
@@ -1955,8 +1956,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
     if (to) { const note = this.fileAt(to); if (!note) throw new Error(`${to} isn't there any more`); await this.ioProcess(note, t => VGRules.addProjectTask(t, text)); return note.path; }
     if (kind === "note") {
       const folder = (VGRules.HQ && VGRules.HQ.capture_folder) || VGRules.folders.inbox, title = text.split(/\r?\n/)[0].replace(/[\\/:*?"<>|#^\[\]]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60).trim() || "Capture";
-      let path = normalizePath(`${folder}/${title}.md`); for (let i = 2; this.app.vault.getAbstractFileByPath(path); i++) path = normalizePath(`${folder}/${title} ${i}.md`);
-      if (!this.app.vault.getAbstractFileByPath(folder)) await this.ioFolder(folder);
+      let path = normalizePath(`${folder}/${title}.md`); for (let i = 2; this.pathTaken(path); i++) path = normalizePath(`${folder}/${title} ${i}.md`);
+      if (!this.pathTaken(folder)) await this.ioFolder(folder);
       await this.ioCreate(path, `---\ncreated: ${today()}\n---\n\n${text}\n`);
       return path;
     }
@@ -2026,7 +2027,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const io = this.app.vault.adapter, dir = H.automation_status && normalizePath(H.automation_status);
     try {
       if (dir && await io.exists(dir)) for (const p of (await io.list(dir)).files.filter(x => x.endsWith(".json")))
-        try { files.push({ path: p, json: JSON.parse(await io.read(p)) }); } catch (e) { /* a record being written */ }
+        { const json = await this.readJson(p); if (json) files.push({ path: p, json }); }   // none: a record being written
     } catch (e) { /* no run records on this device */ }
     return VGRules.hqGather(files, { today: day });
   }
@@ -2114,14 +2115,14 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // A ticked row of the map report, written through the same writes as every action, so it can be undone. Each row checks
   // what's there now: a report can be days old, and topics move between runs.
   async applyMapRows(file) {
-    const V = this.app.vault, today0 = VGRules.today(), done = []; let skipped = 0, already = 0; const adds = new Map(), at = p => { const f = V.getAbstractFileByPath(p); return f instanceof TFile ? f : null; }, E = VGEngine;
+    const V = this.app.vault, today0 = VGRules.today(), done = []; let skipped = 0, already = 0; const adds = new Map(), at = p => this.fileAt(p), E = VGEngine;
     for (const row of E.rowsOf(await V.read(file))) { if (!/[xX]/.test(row.state)) { skipped++; continue; } const act = row.act; if (!act) { done.push(`skipped a row that can't be read: ${row.label.slice(0, 60)}`); continue; }
       if (act.op === "add") { if (!adds.has(act.moc)) adds.set(act.moc, []); adds.get(act.moc).push(act.note); continue; }
       if (act.op === "tag") { let f = at(act.path); if (!f) { const name = VGShared.baseOf(act.path), same = V.getMarkdownFiles().filter(x => x.name === name); if (same.length !== 1) { done.push(`skipped tag on ${act.path} (not found)`); continue; } f = same[0]; }   // moved since: follow it by name
-        const has = VGEngine.frontmatterTags((this.app.metadataCache.getFileCache(f) || {}).frontmatter).includes(act.tag); if (has) { already++; continue; }
+        const has = VGEngine.frontmatterTags(this.fmOf(f)).includes(act.tag); if (has) { already++; continue; }
         await this.ioFrontMatter(f, fm => { const list = fm.tags == null ? [] : [].concat(fm.tags); fm.tags = [...list, act.tag]; }); done.push(`tagged ${act.path} ${act.tag}`);
       } else if (act.op === "move") { const f = at(act.path), dest = `${act.to}/${VGShared.baseOf(act.path)}`; if (at(dest) && !f) { already++; continue; } if (at(dest)) { done.push(`skipped move of ${act.path} (${dest} already exists)`); continue; } if (!f) { done.push(`skipped move of ${act.path} (not found)`); continue; }
-        if (!V.getAbstractFileByPath(act.to)) await this.ioFolder(act.to); await this.ioRename(f, dest); done.push(`moved ${act.path} to ${act.to}/`);
+        if (!this.pathTaken(act.to)) await this.ioFolder(act.to); await this.ioRename(f, dest); done.push(`moved ${act.path} to ${act.to}/`);
       } else if (act.op === "merge") { const src = at(act.path), dst = at(act.into); if (!src || !dst) { done.push(`skipped merge of ${act.path} (not found)`); continue; } const s = await V.read(src), d = await V.read(dst), fresh = act.links.filter(r => !E.linkedIn(d, r));
         if (s.includes("Superseded by") && !fresh.length) { already++; continue; } const into = VGShared.nameOf(act.into);
         if (!s.includes("Superseded by")) await this.ioModify(src, E.underFrontmatter(s, `> [!note] Superseded by [[${into}]] (${today0}) — keep using that one.\n\n`));
@@ -2131,7 +2132,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
         const [cid, hits] = [...votes].sort((a, b) => b[1] - a[1])[0] || [null, 0], members = cid == null ? [] : data.nodes.filter(n => n.cluster === cid && !n.person && !n.moc && !n.ghost), mapped = cid != null && (data.mocs || []).find(m => (m.clusters || []).includes(cid));
         if (cid == null || hits < Math.max(2, Math.floor(((act.core || []).length + 1) / 2)) || members.length < 3) { done.push(`skipped create ${act.path} (its topic changed since the report: write a new report for a fresh row)`); continue; }
         if (mapped) { done.push(`skipped create ${act.path} (that topic is now covered by ${mapped.title})`); continue; }
-        const folder = act.path.slice(0, act.path.lastIndexOf("/")); if (folder && !V.getAbstractFileByPath(folder)) await this.ioFolder(folder); const ms = members.sort((a, b) => (b.bc || 0) - (a.bc || 0)).map(n => n.id); await this.ioCreate(act.path, E.mapNote(act.name, ms, today0)); done.push(`created ${act.path} (${ms.length} notes)`);
+        const folder = act.path.slice(0, act.path.lastIndexOf("/")); if (folder && !this.pathTaken(folder)) await this.ioFolder(folder); const ms = members.sort((a, b) => (b.bc || 0) - (a.bc || 0)).map(n => n.id); await this.ioCreate(act.path, E.mapNote(act.name, ms, today0)); done.push(`created ${act.path} (${ms.length} notes)`);
       } else if (act.op === "bridge") { if (act.name_a === act.name_b) { done.push(`skipped bridge ${act.name_a} with itself`); continue; } const name = `Bridge — ${act.name_a} ↔ ${act.name_b}`, path = `${VGRules.folders.inbox}/${name.replace(/[\\/:*?"<>|#^\[\]]/g, "")}.md`;
         if (at(path)) { done.push(`skipped ${path} (exists)`); continue; } await this.ioCreate(path, E.bridgeNote(act, name, today0)); done.push(`drafted ${path}`);
       } else done.push(`skipped a row with an unknown kind: ${act.op}`); }
@@ -2141,9 +2142,9 @@ module.exports = class VaultGraphPlugin extends Plugin {
   }
   // A report in the reports folder. One a person has ticked is never overwritten: that's their decisions.
   async writeReport(name, text) {
-    const folder = VGRules.folders.reports, V = this.app.vault, stamp = () => { const d = new Date(); return `${VGShared.pad2(d.getHours())}${VGShared.pad2(d.getMinutes())}`; }; if (!V.getAbstractFileByPath(folder)) await this.ioFolder(folder);
-    const path = `${folder}/${name}.md`, f = V.getAbstractFileByPath(path); if (!(f instanceof TFile)) { await this.ioCreate(path, text); return path; }
-    if (/^\s*- \[[xX\-]\]/m.test(await V.read(f))) { const other = `${folder}/${name} ${stamp()}.md`; const o = V.getAbstractFileByPath(other); if (o instanceof TFile) await this.ioModify(o, text); else await this.ioCreate(other, text); return other; }
+    const folder = VGRules.folders.reports, V = this.app.vault, stamp = () => { const d = new Date(); return `${VGShared.pad2(d.getHours())}${VGShared.pad2(d.getMinutes())}`; }; if (!this.pathTaken(folder)) await this.ioFolder(folder);
+    const path = `${folder}/${name}.md`, f = this.fileAt(path); if (!(f instanceof TFile)) { await this.ioCreate(path, text); return path; }
+    if (/^\s*- \[[xX\-]\]/m.test(await V.read(f))) { const other = `${folder}/${name} ${stamp()}.md`; const o = this.fileAt(other); if (o instanceof TFile) await this.ioModify(o, text); else await this.ioCreate(other, text); return other; }
     await this.ioModify(f, text); return path;
   }
   async reportInputs() { const G = await this.engineGather(), N = await this.engineNotes(G, { topics: true, prev: this.settings.engineTopics }), date = VGRules.today(); return { G, N, date, input: { R: N.parts.report, T: N.T, date, since: VGEngine.dayShift(date, 365), used: N.used } }; }
@@ -2153,8 +2154,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const stem = VGShared.nameOf(path); for (const f of this.app.vault.getMarkdownFiles()) { if (f.path === path || !f.path.startsWith(`${VGRules.folders.reports}/MOC Alignment `)) continue; const t = await this.app.vault.read(f); if (t.includes("Superseded by [[")) continue;
       await this.ioModify(f, VGEngine.underFrontmatter(t, `> [!warning] Superseded by [[${stem}]] (${date})\n> Topics were re-clustered since this report. Ticked rows here were applied or skipped already; tick in the new report instead.\n\n`)); }
     new Notice(`Wrote ${path}`); return path; }
-  async writeStateNote() { const d = await this.graphData(), date = VGRules.today(), md = VGEngine.stateNote(d, { levels: VGRules.trophicLevels, isRecord: VGRules.isRecord }), folder = VGRules.folders.reports, base = `${folder}/State of the Vault ${date}.md`, V = this.app.vault; if (!V.getAbstractFileByPath(folder)) await this.ioFolder(folder);
-    let path = base; if (V.getAbstractFileByPath(base)) { const n = new Date(); path = `${folder}/State of the Vault ${date} ${VGShared.pad2(n.getHours())}${VGShared.pad2(n.getMinutes())}.md`; } if (V.getAbstractFileByPath(path)) await this.ioModify(V.getAbstractFileByPath(path), md); else await this.ioCreate(path, md); new Notice(`Wrote ${path}`); return path; }
+  async writeStateNote() { const d = await this.graphData(), date = VGRules.today(), md = VGEngine.stateNote(d, { levels: VGRules.trophicLevels, isRecord: VGRules.isRecord }), folder = VGRules.folders.reports, base = `${folder}/State of the Vault ${date}.md`, V = this.app.vault; if (!this.pathTaken(folder)) await this.ioFolder(folder);
+    let path = base; if (this.pathTaken(base)) { const n = new Date(); path = `${folder}/State of the Vault ${date} ${VGShared.pad2(n.getHours())}${VGShared.pad2(n.getMinutes())}.md`; } if (this.fileAt(path)) await this.ioModify(this.fileAt(path), md); else await this.ioCreate(path, md); new Notice(`Wrote ${path}`); return path; }
   applyMocReport() {
     return this.mocReportFile().then(file => {
       if (!file) throw new Error("no report");
@@ -2167,8 +2168,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
   async saveBinary(notePath, buf) {
     let path = normalizePath(notePath);
     const folder = path.split("/").slice(0, -1).join("/");
-    if (folder && !this.app.vault.getAbstractFileByPath(folder)) await this.ioFolder(folder);
-    for (let i = 2; this.app.vault.getAbstractFileByPath(path); i++) path = notePath.replace(/(\.\w+)$/, ` ${i}$1`);
+    if (folder && !this.pathTaken(folder)) await this.ioFolder(folder);
+    for (let i = 2; this.pathTaken(path); i++) path = notePath.replace(/(\.\w+)$/, ` ${i}$1`);
     await this.ioCreateBinary(path, buf);
     new Notice(`Saved ${path}`);
     return path;
@@ -2177,8 +2178,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // read by: dismissed pairs are never suggested again (graph or weekly report)
   async dismiss(a, b, kind) {
     const path = normalizePath(this.settings.dismissedPath), adapter = this.app.vault.adapter;
-    let data = { version: 1, pairs: [] };
-    try { data = JSON.parse(await adapter.read(path)); } catch (e) { /* first dismissal creates the file */ }
+    const data = (await this.readJson(path)) || { version: 1, pairs: [] };   // the first dismissal creates the file
     data.pairs = data.pairs || [];
     DISMISSED.add(dismissKey(a, b));
     this.cacheStale = true;
@@ -2217,8 +2217,8 @@ function fingerprint(text) {
 const daysSince = iso => Math.max(0, Math.round((Date.parse(today() + "T12:00") - Date.parse(iso + "T12:00")) / VGShared.DAY_MS));
 // age = days since the content changed, or since it was last confirmed current ("Still current" stamps `reviewed:`)
 function contentAge(app, path, fallback) {
-  const e = CONTENT.log[path], f = app.vault.getAbstractFileByPath(path);
-  const rv = f && ((app.metadataCache.getFileCache(f) || {}).frontmatter || {}).reviewed;
+  const e = CONTENT.log[path], f = fileIn(app.vault, path);
+  const rv = f && (fmIn(app.metadataCache, f) || {}).reviewed;
   const since = [e && e.since, rv && /^\d{4}-\d{2}-\d{2}/.test(String(rv)) ? String(rv).slice(0, 10) : null].filter(Boolean).sort().pop();
   return since ? daysSince(since) : fallback;
 }
@@ -2246,19 +2246,19 @@ const { dismissKey } = VGRules, staleFor = (n, days) => VGRules.isStale(n, days)
 function liveMerge(app, data, since) {
   const vault = app.vault, cache = app.metadataCache, resolved = cache.resolvedLinks || {};
   const byId = new Map(data.nodes.map(n => [n.id, n]));
-  const exists = id => vault.getAbstractFileByPath(id) instanceof TFile;
+  const exists = id => !!fileIn(vault, id);
   const knowledge = file => {   // a topic note (VGRules.noteKind, the engine's and the analysis's rule; catch-all hubs aside)
     if (file.extension !== "md" || SKIP_TOP.has(file.path.split("/")[0]) || EXCLUDE_PREFIXES.some(x => file.path.startsWith(x)) || file.path.split("/").includes("node_modules")) return false;
-    return VGRules.noteKind(file.path, VGEngine.frontmatterTags((cache.getFileCache(file) || {}).frontmatter)) === "note";
+    return VGRules.noteKind(file.path, VGEngine.frontmatterTags(fmIn(cache, file))) === "note";
   };
   // Inbox notes a topic note links to join (VGRules.joinsWhenLinked): a note you just created for a wanted link
   const linkedFromTopics = new Set();
   for (const [src, targets] of Object.entries(resolved)) {
-    const f = vault.getAbstractFileByPath(src);
+    const f = fileIn(vault, src);
     if ((byId.has(src) && !byId.get(src).person && !byId.get(src).moc) || (f instanceof TFile && knowledge(f))) Object.keys(targets).forEach(t => linkedFromTopics.add(t));
   }
   const joins = file => linkedFromTopics.has(file.path) && !VGRules.isHubName(file.path)
-    && VGRules.joinsWhenLinked(file.path, ((cache.getFileCache(file) || {}).frontmatter || {}).tags);
+    && VGRules.joinsWhenLinked(file.path, (fmIn(cache, file) || {}).tags);
   const removed = data.nodes.filter(n => !n.person && !exists(n.id)).map(n => n.id);   // MOCs too
   removed.forEach(id => byId.delete(id));
   const added = [];
@@ -2302,7 +2302,7 @@ function liveMerge(app, data, since) {
   { const nbs = new Map(), put = (a, b) => { if (!nbs.has(a)) nbs.set(a, new Set()); nbs.get(a).add(b); };
     now.forEach(([s, t]) => { put(s, t); put(t, s); });
     const offered = new Set(data.links.filter(l => VGRules.isSuggestion(l)).map(l => key(l.source, l.target)));
-    const fm = id => { const f = vault.getAbstractFileByPath(id); return f instanceof TFile ? (cache.getFileCache(f) || {}).frontmatter : undefined; };
+    const fm = id => { const f = fileIn(vault, id); return f instanceof TFile ? fmIn(cache, f) : undefined; };
     const series = id => VGEngine.seriesKey(id), title = id => VGEngine.cleanTitle(id).toLowerCase();
     // two notes with one title (dates and brackets aside) are copies or one name for two things: not a pair to link
     VGEngine.sharedPairs(nbs, { skip: (a, b) => offered.has(key(a, b)) || DISMISSED.has(dismissKey(a, b)) || VGRules.linkedByName(resolved, a, b) || title(a) === title(b)
@@ -2314,7 +2314,7 @@ function liveMerge(app, data, since) {
     if (n.person || n.moc) continue;
     n.inlinks = inl.get(n.id) || 0; n.outlinks = outl.get(n.id) || 0; n.isolated = !deg.has(n.id);
     n.age = contentAge(app, n.id, n.age);   // real edits since the analysis count ("stale" goes away when you edit); bulk touches don't
-    const f = vault.getAbstractFileByPath(n.id);   // tasks checked off or added since the analysis (the run counts "- [ ]" lines the same way)
+    const f = fileIn(vault, n.id);   // tasks checked off or added since the analysis (the run counts "- [ ]" lines the same way)
     if (f instanceof TFile && (!since || f.stat.mtime > since)) n.tasks = ((cache.getFileCache(f) || {}).listItems || []).filter(li => li.task === " ").length;
   }
   for (const n of added) {   // a new note joins its neighbours' most common cluster
@@ -2322,7 +2322,7 @@ function liveMerge(app, data, since) {
     (deg.get(n.id) || []).forEach(m => { const c = byId.get(m).cluster; if (c >= 0) votes[c] = (votes[c] || 0) + 1; });
     const best = Object.entries(votes).sort((a, b) => b[1] - a[1])[0];
     if (best) n.cluster = +best[0];
-    const f = vault.getAbstractFileByPath(n.id);
+    const f = fileIn(vault, n.id);
     n.age = contentAge(app, n.id, 0);
   }
   // Maps the analysis hasn't seen yet (Create map, or by hand) are maps at once -- the Today list, City's town halls
@@ -2334,7 +2334,7 @@ function liveMerge(app, data, since) {
   const known = new Set(data.mocs.map(m => m.id)), mapped = new Set(data.mocs.flatMap(m => m.clusters));
   const sizeOf = new Map((data.clusters || []).map(k => [k.id, k.size]));
   for (const file of vault.getMarkdownFiles()) {
-    if (known.has(file.path) || !VGRules.isMapCandidate(file.path, (cache.getFileCache(file) || {}).frontmatter)) continue;
+    if (known.has(file.path) || !VGRules.isMapCandidate(file.path, fmIn(cache, file))) continue;
     const targets = Object.keys(resolved[file.path] || {}).filter(id => isNote(id));
     const votes = {}; targets.forEach(id => { const c = byId.get(id).cluster; if (c >= 0) votes[c] = (votes[c] || 0) + 1; });
     const best = Object.entries(votes).sort((a, b) => b[1] - a[1])[0]; if (!best || !VGRules.claims(best[1], sizeOf.get(+best[0]) || 0)) continue;
@@ -2353,8 +2353,8 @@ function liveMerge(app, data, since) {
   // your link synced there still has it, and linking is how you say the two are separate notes
   // a pair with the same text ("text") stays a duplicate even when one links the other
   data.near_dupes = (data.near_dupes || []).filter(([a, b, , how]) => byId.has(a) && byId.has(b) && !DISMISSED.has(dismissKey(a, b)) && (how === "text" || !VGRules.linkedByName(resolved, a, b)));
-  for (const n of byId.values()) { const f = vault.getAbstractFileByPath(n.id);   // "Add reference"
-    if (!n.person && f instanceof TFile && (!since || f.stat.mtime > since)) { const fm = (cache.getFileCache(f) || {}).frontmatter || {}, r = fm.references; n.refs = !!(r && [].concat(r).length);
+  for (const n of byId.values()) { const f = fileIn(vault, n.id);   // "Add reference"
+    if (!n.person && f instanceof TFile && (!since || f.stat.mtime > since)) { const fm = fmIn(cache, f) || {}, r = fm.references; n.refs = !!(r && [].concat(r).length);
       // tags too ("Complete all", a status edit by hand): the shared rules read status/ and type/ tags, so stale clears at once
       n.tags = [].concat(fm.tags || []).map(t => String(t).replace(/^#/, "").trim()).filter(Boolean); } }
   data.nodes = [...byId.values()];
