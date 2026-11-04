@@ -408,7 +408,7 @@
         <line class="vg-st-axis" x1="${x(STALE_AFTER)}" x2="${x(STALE_AFTER)}" y1="${P}" y2="${VH - P}"/><line class="vg-st-axis" x1="${P}" x2="${VW - P}" y1="${y(cut)}" y2="${y(cut)}"/>
         <text class="vg-rv-tick" x="${VW - P}" y="${P - 8}" text-anchor="end">relied on · stale</text><text class="vg-rv-tick" x="${P}" y="${P - 8}">relied on · fresh</text>
         ${dots}${ticks}</svg>
-      <p class="vg-muted vg-lens-note">Up = relied on (links in, daily mentions, influence${DATA.has_usage ? ", opens" : ", recent mentions"}). Right = days since the last edit (log scale). The shaded corner is relied on and not edited in ${STALE_AFTER}+ days. Click a dot to find it.</p>`;
+      <p class="vg-muted vg-lens-note">Up = relied on (links in, daily mentions, influence, recent mentions). Right = days since the last edit (log scale). The shaded corner is relied on and not edited in ${STALE_AFTER}+ days. Click a dot to find it.</p>`;
   }
 
   // 2. Write these next: links pointing at notes that don't exist, and short notes many others lean on
@@ -575,7 +575,7 @@
   function lensAdjacent() {
     const ns = nodes.filter(n => !special(n) && !n.ghost), adj = {};
     links.forEach(l => { if (l.kind !== "link") return; (adj[l.s.id] = adj[l.s.id] || new Set()).add(l.t.id); (adj[l.t.id] = adj[l.t.id] || new Set()).add(l.s.id); });
-    const active = ns.filter(n => (n.recent || 0) > 0 || (n.opens90 || 0) > 2), seen = new Set(active.map(n => n.id));
+    const active = ns.filter(n => (n.recent || 0) > 0), seen = new Set(active.map(n => n.id));
     active.forEach(n => (adj[n.id] || []).forEach(m => seen.add(m)));
     const reach = {};
     active.forEach(n => (adj[n.id] || []).forEach(m => (adj[m] || []).forEach(x => {

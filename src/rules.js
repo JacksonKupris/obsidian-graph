@@ -706,7 +706,7 @@ const VGRules = (() => {
     const q = String(query).trim(); if (!q) return projects;
     const graph = {
       links: (data.links || []).filter(l => l.kind === "link" || l.kind === "similar").map(l => [l.source, l.target, l.kind]),
-      use: Object.fromEntries((data.nodes || []).map(n => [n.id, (n.inlinks || 0) + (n.opens90 || 0)])),
+      use: Object.fromEntries((data.nodes || []).map(n => [n.id, n.inlinks || 0])),
     };
     const notes = projects.map(p => ({ path: p.path, date: p.created || "", chunks: p.chunks || [["section", p.title, 1, p.summary || p.title, ""]] }));
     const hits = q.length >= 3 ? recallSearch(notes, q, { n: Math.max(1, projects.length * (RC.per_note || 2)), graph, today: o.today }) : [];
@@ -941,7 +941,7 @@ const VGRules = (() => {
     (data.wanted || []).filter(w => w.creatable && (w.refs || []).length >= 3).forEach(w =>
       add({ key: `write|${w.id}`, kind: "write", id: w.id, name: w.name, refs: w.refs, ids: [w.id], title: `Write “${w.name}”`, why: `${w.refs.length} notes link to it, but it doesn't exist`, score: 1 + w.refs.length / 3 }));
     (review.pinned || []).filter(id => byId.get(id)).forEach(id => add({ key: `pin|${id}`, kind: "hub", id, name: name(id), ids: [id], title: `Review ${name(id)}`, why: "You asked to review this", score: 9 }));
-    ranked.slice(0, 60).map(id => byId.get(id)).filter(n => n.recent === 0 && (!data.has_usage || n.opens90 === 0)).slice(0, 8).forEach(n =>
+    ranked.slice(0, 60).map(id => byId.get(id)).filter(n => n.recent === 0).slice(0, 8).forEach(n =>
       add({ key: `review|${n.id}`, kind: "hub", id: n.id, name: n.name, ids: [n.id], title: `Review ${n.name}`, why: `#${rank.get(n.id)} most connecting note, quiet for ${data.recent_days || 30}+ days`, score: 1.5 }));
     (data.clusters || []).filter(c => c.size >= 6 && !mapForCluster(mocs, c.id)).slice(0, 3).forEach(c =>
       add({ key: `chart|${c.id}`, kind: "chart", c: c.id, name: c.label || c.name, ids: nodes.filter(n => n.cluster === c.id).map(n => n.id), title: `Give ${c.label || c.name} a map`, why: `${c.size} notes, and no map lists them`, score: 2.5 }));

@@ -30,26 +30,7 @@ import moc_align  # noqa: E402
 OUT = (vg.vl.VAULT / vg.rules.RULES["files"]["data"]).parent   # files.data in vault_graph_rules.json
 
 
-USAGE_LOG = vg.vl.VAULT / ".obsidian" / "plugins" / "graph-insight" / "data" / "usage.json"   # Advanced Graph View
 ATTACHMENT_RE = re.compile(r"\.(png|jpe?g|gif|svg|webp|bmp|pdf|mp4|mov|mp3|csv|xlsx?|docx?|pptx?|zip|canvas|excalidraw)$")
-
-
-def note_opens(paths: set[str]) -> tuple[dict, bool]:
-    """Opens per note from Advanced Graph View's local usage log: {path: (all-time, last 90 days)}.
-    Format: {path: {total, days: {YYYY-MM-DD: n}, months, years}} (days kept ~90 days, then compacted)."""
-    if not USAGE_LOG.is_file():
-        return {}, False
-    try:
-        log = json.loads(USAGE_LOG.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}, False
-    since = (date.today() - timedelta(days=90)).isoformat()
-    out = {}
-    for path, u in log.items():
-        if path in paths and isinstance(u, dict):
-            days = u.get("days") or {}
-            out[path] = (int(u.get("total") or 0), sum(int(n) for d, n in days.items() if d >= since))
-    return out, True
 
 
 WANTED_MAX = 40          # ghost nodes shown for notes linked to but never written
@@ -718,7 +699,6 @@ def graph_data(a: dict) -> dict:
     g = a["_graph"]
     adj, bc, cid = g["adj"], g["betweenness"], g["cluster_of"]
     paths = set(adj) | set(g["isolated"])
-    opens, has_usage = note_opens(paths)
     health, wanted = link_health(paths)
     series = dated_series(paths)
     edited = content_dates(paths, g["raw"], g["mention_days"])
@@ -729,7 +709,6 @@ def graph_data(a: dict) -> dict:
         "id": r, "name": vg._name(r), "cluster": cid.get(r, -1),
         "bc": round(bc.get(r, 0.0), 5), "folder": "/".join(r.split("/")[:-1]),
         "mentions": g["mentions"].get(r, 0), "recent": g["recent"].get(r, 0),
-        "opens": opens.get(r, (0, 0))[0], "opens90": opens.get(r, (0, 0))[1],
         "inlinks": health[r][0], "outlinks": health[r][1], "broken": health[r][2],
         "tasks": quality[r][0], "words": quality[r][1], "age": quality[r][2], "refs": quality[r][3],
         "isolated": r not in adj, "tags": node_tags(vg._tags(g["raw"].get(r, ""))),
@@ -740,7 +719,7 @@ def graph_data(a: dict) -> dict:
     for p, notes in sorted(g["people"].items()):
         nodes.append({"id": p, "name": vg._name(p), "person": True, "cluster": -1, "bc": 0, "folder": "/".join(p.split("/")[:-1]),
                       "mentions": sum(n for (pp, _), n in g["person_comention"].items() if pp == p), "recent": 0,
-                      "opens": 0, "opens90": 0, "inlinks": 0, "outlinks": len(notes), "broken": 0,
+                      "inlinks": 0, "outlinks": len(notes), "broken": 0,
                       "tasks": 0, "words": 0, "age": 0, "refs": True, "isolated": False})
     links = [{"source": r, "target": t, "w": w, "kind": "link"}
              for r in sorted(adj) for t, w in sorted(adj[r].items()) if r < t]
@@ -781,7 +760,7 @@ def graph_data(a: dict) -> dict:
             continue
         own = {r for r in m["members"] if cid.get(r, -1) in m["clusters"]}
         nodes.append({"id": m["id"], "name": m["title"], "moc": True, "cluster": m["clusters"][0], "bc": 0, "folder": "/".join(m["id"].split("/")[:-1]),
-                      "mentions": 0, "recent": 0, "opens": 0, "opens90": 0, "inlinks": 0, "outlinks": len(own), "broken": 0,
+                      "mentions": 0, "recent": 0, "inlinks": 0, "outlinks": len(own), "broken": 0,
                       "tasks": 0, "words": 0, "age": 0, "refs": True, "isolated": False})
         links.extend({"source": m["id"], "target": r, "w": 1, "kind": "moc"} for r in sorted(own))
     for r, targets in gm["bridges"].items():
@@ -790,7 +769,6 @@ def graph_data(a: dict) -> dict:
             by_id[r]["bridges"] = targets
     out = {
         "vault": vg.vl.VAULT.name, "date": a["date"], "since": a["since"], "recent_days": vg.RECENT_DAYS,
-        "has_usage": has_usage,
         "dailies_used": a["dailies_used"],
         "said_unlinked": [x for x in a["said_unlinked"] if x[0] in paths],
         "wanted": wanted, "series": series, "rhythm": rhythm(g),

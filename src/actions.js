@@ -1,5 +1,5 @@
 // vault_graph_actions.js - the actions a note offers, defined once for every surface: the graph's inspector (a side
-// panel, or a bottom sheet in narrow panes), the local pane, home cards and the suggestions sidebar. Each surface
+// panel, or a bottom sheet in narrow panes), the local pane and the suggestions sidebar. Each surface
 // renders VGActions.forNote(...) with VGActions.render(...), so a button that exists in one place exists in all of
 // them, with the same label, confirmation and result. The build puts this after vault_graph_rules.js.
 //

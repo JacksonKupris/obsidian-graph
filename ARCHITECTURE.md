@@ -31,7 +31,7 @@ One system, not bolted-on parts: one state, shared rules, one action path, share
 ## One action path
 
 - **Writes go through the plugin's `WRITE_ACTIONS`**, and those touch the vault only through `WRITE_PRIMITIVES` (`ioProcess`, `ioModify`, `ioFrontMatter`, `ioCreate`, `ioRename`…), which record each change. So every action can be undone: `VGActions.run` puts an Undo button on the message that confirms it (graph toast, sidebar notice), and an undo is refused if a file changed since. The undo list is this session's last 20 actions.
-- Each action waits for Obsidian to re-index the change, re-merges the state once and redraws every surface (graphs, local pane, home cards, note embeds, sidebar) before it returns.
+- Each action waits for Obsidian to re-index the change, re-merges the state once and redraws every surface (graphs, local pane, note embeds, sidebar) before it returns.
 - A note in the inbox joins the graph once a topic note links to it, unless it's tagged `meta/*` or `type/report`. Links are written with `linkText()`, so same-name notes don't steal them.
 
 ## One state

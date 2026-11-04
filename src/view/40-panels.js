@@ -105,7 +105,7 @@
   function applySaved(v) {
     if (st.focus) exitFocus();
     if (st.view !== v.view) setView(v.view);
-    st.sizeBy = v.sizeBy; st.colorBy = v.colorBy; st.gaps = v.gaps; st.isolated = !!v.isolated;
+    st.sizeBy = $(`.vg-size option[value="${v.sizeBy}"]`) ? v.sizeBy : "bc"; st.colorBy = $(`.vg-color option[value="${v.colorBy}"]`) ? v.colorBy : "cluster"; st.gaps = v.gaps; st.isolated = !!v.isolated;
     $(".vg-size").value = st.sizeBy; $(".vg-color").value = st.colorBy; $(".vg-gaps").checked = st.gaps; $(".vg-isolated").checked = st.isolated;
     Object.entries(v.layers || {}).forEach(([k, on]) => k in st.layers && setLayer(k, on, true));
     st.hiddenClusters = new Set(v.hiddenClusters || []); st.overlays = new Set(v.overlays || []);
@@ -172,7 +172,7 @@
         saidUnlinked.slice(0, 6).map(([id, n]) => noteRow(id, `${n} daily notes`)).join("")) : "") +
       (ghosts.length ? card("Notes to write", "linked from your notes but never created",
         ghosts.slice(0, 6).map(g => noteRow(g.id, `linked from ${plural(g.from.length, "note")}`)).join("")) : "") +
-      (coolingHubs.length ? card("Cooling hubs", DATA.has_usage ? "influential, not opened or mentioned lately" : "influential, not mentioned lately",
+      (coolingHubs.length ? card("Cooling hubs", "influential, not mentioned lately",
         coolingHubs.slice(0, 6).map(n => noteRow(n.id, `#${rankOf[n.id]} most connecting · quiet ${DATA.recent_days}+ days`)).join("")) : "") +
       `<p class="vg-muted vg-foot">Data from ${esc(DATA.date)} · ${DATA.dailies_used || "?"} daily notes since ${esc(DATA.since || "the start")}</p>`;
     const panel = $('[data-panel="insights"]');
@@ -300,7 +300,7 @@
       <div class="vg-kvs">
         ${stat(nb[id].size, "links")}${stat(rankOf[id] ? "#" + rankOf[id] : "—", "influence")}
         ${stat(n.mentions, "daily mentions")}${stat(n.recent, `last ${DATA.recent_days} days`)}
-        ${stat(n.tasks, "open tasks")}${DATA.has_usage ? stat(n.opens90, "opens · 90d") : stat(n.age + "d", n.edited ? `unchanged · since ${n.edited.slice(2)}` : "since edit")}
+        ${stat(n.tasks, "open tasks")}${stat(n.age + "d", n.edited ? `unchanged · since ${n.edited.slice(2)}` : "since edit")}
       </div>
       ${mapLine(id)}
       <div class="vg-ins-sec vg-needs" hidden><div class="vg-ins-h">Needs attention <span class="vg-count"></span></div><div class="vg-needs-rows"></div></div>
