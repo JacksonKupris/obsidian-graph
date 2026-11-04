@@ -988,11 +988,6 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-canvas { overflow: hidden; }
 
 /* the science lenses: one chart, its key, and the facts above it */
-.vg-sci-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 4px 0 10px; }
-.vg-sci-facts > div { display: flex; flex-direction: column; padding: 8px 10px; border: 1px solid var(--vg-line); border-radius: var(--vg-r-sm); background: var(--vg-raised); }
-.vg-sci-facts b { font-size: var(--vg-fs-xl); font-weight: 650; font-variant-numeric: tabular-nums; }
-.vg-sci-facts span { font-size: var(--vg-fs-xs); color: var(--vg-muted); }
-.vg-sci-hazard { grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); }
 .vg-sci-chart { display: block; width: 100%; height: auto; }
 .vg-sci-grid { stroke: var(--vg-line); stroke-width: 1; opacity: .6; }
 .vg-sci-line { fill: none; stroke: var(--vg-fg); stroke-width: 2; stroke-linejoin: round; }
@@ -1011,8 +1006,6 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-gl { position: absolute; inset: 0; display: block; pointer-events: none; } .vg-gl[hidden] { display: none; }
 .vg-sci-verdict { margin: 8px 0 12px; padding: 10px 12px; border-left: 2px solid var(--vg-accent); background: var(--vg-raised); border-radius: var(--vg-r-sm); font-size: var(--vg-fs-sm); line-height: 1.45; }
 .vg-root .vg-sci-split .vg-btn.is-on { border-color: var(--vg-accent); color: var(--vg-accent-text); }
-.vg-sci-facts small { margin-top: 4px; font-size: var(--vg-fs-xs); line-height: 1.35; color: var(--vg-muted); }
-.vg-sci-read { margin: 6px 0 10px; font-size: var(--vg-fs-xs); line-height: 1.45; color: var(--vg-fg); } .vg-sci-read b { font-weight: 650; margin-right: 4px; }
 /* how to read a view: a button over the picture and the card it opens, in every view with real results */
 .vg-root .vg-viewhelp:not([hidden]) { position: absolute; z-index: 3; top: var(--vg-under-bar); left: 12px; min-height: 28px; padding: 3px 10px; font: 600 var(--ds-fs-xs) var(--vg-font, inherit); color: var(--vg-hud-text); background: var(--vg-hud-panel); border: 1px solid var(--vg-hud-line); border-radius: var(--ds-r-sm); }
 .vg-root .vg-viewcard:not([hidden]) { position: absolute; z-index: 3; top: calc(var(--vg-under-bar) + 34px); left: 12px; width: min(380px, calc(100% - 24px)); max-height: calc(100% - 180px); overflow: auto; padding: 10px 12px; color: var(--vg-hud-text); background: var(--vg-hud-panel); border: 1px solid var(--vg-hud-line); border-radius: var(--ds-r-md); backdrop-filter: blur(10px); font-size: var(--ds-fs-xs); line-height: 1.45; }

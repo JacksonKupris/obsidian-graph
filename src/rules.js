@@ -477,7 +477,7 @@ const VGRules = (() => {
   const taskField = (line, key, value) => new RegExp(`\\[${key}::`).test(line) ? line : `${String(line).replace(/\s+$/, "")} [${key}:: ${value}]`;
   // a task's words without its inline fields, links as their text, bold and code marks gone
   const stripAnsi = t => String(t).replace(/\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001b\\))/g, "");
-  const plainTask = t => VGShared.plainLinks(stripAnsi(t).replace(/\[[\w-]+::[^\]]*\]/g, "")).replace(/\*\*|__|`/g, "").replace(/\s+/g, " ").trim();
+  const plainTask = t => VGShared.plainLinks(stripAnsi(t).replace(/\[[\w-]+::[^\]]*\]/g, "").replace(/✅ ?\d{4}-\d{2}-\d{2}/g, "")).replace(/\*\*|__|`/g, "").replace(/\s+/g, " ").trim();
   const inlineField = (t, key) => { const m = String(t).match(new RegExp(`\\[${key}::\\s*([^\\]]*)\\]`)); return m ? m[1].trim() : ""; };
   // frontmatter as plain values: scalars and lists, enough for type, status, dates and tags
   function frontOf(text) {
