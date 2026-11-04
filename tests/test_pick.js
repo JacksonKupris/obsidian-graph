@@ -2,11 +2,10 @@
 // A note you can see, you can click: map views draw unlinked notes (Cyberpunk's street stalls),
 // and a real click on one selects it. Real mouse events over the DevTools protocol.
 //   node tests/test_pick.js [--vault [dir]]        exit 0 = pass
-const cdp = require("./cdp"), env = require("./env");
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const { sleep, finish, openPage } = require("./kit");
+const env = require("./env");
 (async () => {
-  const tab = await cdp.open({ html: env.page(), port: 9339 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
+  const tab = await openPage({ html: env.page() });
   const fails = [];
   try {
     await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000); await sleep(1500);
@@ -24,6 +23,5 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     }
   } catch (e) { fails.push(e.message); }
   await tab.close();
-  console.log(fails.length ? "FAIL - " + fails.join("; ") : "ok - unlinked notes in map views can be clicked");
-  process.exit(fails.length ? 1 : 0);
+  finish(fails, "unlinked notes in map views can be clicked");
 })();

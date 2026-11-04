@@ -4,15 +4,15 @@
 // can be clicked; an empty vault, a vault with no HQ notes and a phone-width pane have no dead ends and no sideways
 // scroll. The page gets recording stand-ins for the plugin's actions.
 //   node tests/test_hq.js [--vault [dir]]        exit 0 = pass
-const cdp = require("./cdp"), env = require("./env");
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const { sleep, finish, openPage } = require("./kit");
+const env = require("./env");
 const rec = k => `${k}: async (...a) => { (window.__calls = window.__calls || []).push(["${k}", ...a]); return true; },`;
 const OPTS = `api: { ${["setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "hqMark", "openNote", "openDaily"].map(rec).join(" ")} },
   ask: async (...a) => { (window.__asked = window.__asked || []).push(a); return true; }, input: async () => "Not what we need", openGraph: () => { (window.__calls = window.__calls || []).push(["openGraph"]); },
   __errs: (addEventListener("error", e => (window.__errs = window.__errs || []).push(e.message)), addEventListener("unhandledrejection", e => (window.__errs = window.__errs || []).push(String(e.reason))), 0),`;
 
 async function page(html, o = {}) {
-  const tab = await cdp.open({ html, port: 9350, mobile: o.mobile });
+  const tab = await openPage({ html, mobile: o.mobile });
   if (!tab) return null;
   await tab.waitFor("window.vaultHQ ? 1 : 0", 20000);
   return tab;
@@ -20,7 +20,6 @@ async function page(html, o = {}) {
 (async () => {
   const fails = [];
   const tab = await page(env.hqPage(OPTS));
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
   const ev = e => tab.ev(e), calls = async () => JSON.parse(await ev("JSON.stringify(window.__calls || [])"));
   const errs = async () => JSON.parse(await ev("JSON.stringify(window.__errs || [])"));
   const screen = async s => { await ev(`window.vaultHQ.setScreen(${JSON.stringify(s)})`); await sleep(150); };
@@ -185,6 +184,5 @@ async function page(html, o = {}) {
     } catch (err) { fails.push(`${name}: ${err.message}`); }
     await t.close();
   }
-  console.log(fails.length ? "FAIL - " + fails.join("\n  ") : "ok - Vault HQ: every screen (with the sweep and report rows), each kind's buttons write, every button clicks, no dead ends, phone width");
-  process.exit(fails.length ? 1 : 0);
+  finish(fails, "Vault HQ: every screen (with the sweep and report rows), each kind's buttons write, every button clicks, no dead ends, phone width");
 })();

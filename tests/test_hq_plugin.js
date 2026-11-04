@@ -4,8 +4,9 @@
 // own journal, Delegate adds the field, Accept/Reject set the draft's status and reason, a task that changed since is
 // refused), and its marks (Later, a plan item Done) go in the shared file and can be taken back.
 //   node tests/test_hq_plugin.js [--vault [dir]]        exit 0 = pass
+const { checks, finish } = require("./kit");
 const fs = require("fs"), path = require("path"), env = require("./env"), stub = require("./plugin_stub");
-const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) fails.push(`${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`); };
+const { fails, check } = checks();
 const { Plugin, VGRules, TFile } = stub.load(env.rules);
 const H = env.rules.hq;
 
@@ -92,6 +93,5 @@ const H = env.rules.hq;
   await p.hqMark("task|a", null);
   check("Undo takes a mark back", JSON.parse(shared["shared.json"]).review.hq, { "plan|b": `done:${day}` });
 
-  console.log(fails.length ? "FAIL - " + fails.join("\n  ") : "ok - HQ in the plugin: same notes as the rules, Done/Delegate/Reject write the note, marks in the shared file");
-  process.exit(fails.length ? 1 : 0);
+  finish(fails, "HQ in the plugin: same notes as the rules, Done/Delegate/Reject write the note, marks in the shared file");
 })().catch(e => { console.log("FAIL - " + (e && e.stack || e)); process.exit(1); });

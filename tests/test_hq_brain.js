@@ -2,8 +2,8 @@
 // Vault HQ as a second brain: capture from the box (Enter a task, Shift+Enter a note), what your notes know about an item,
 // People, the keyboard, and a task landing under the journal's task heading without touching anything else.
 //   node tests/test_hq_brain.js [--vault [dir]]        exit 0 = pass
-const assert = require("assert"), cdp = require("./cdp"), env = require("./env"), { VGRules } = env.notes();
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const { sleep, checks, finish, openPage } = require("./kit");
+const assert = require("assert"), env = require("./env"), { VGRules } = env.notes();
 const heading = VGRules.RULES.hq.journal_tasks_heading;
 const j = `# Day\n\n### ${heading}\n- [ ] one\n- [x] two\n\n### Later\n- [ ] not here\n`;
 assert.strictEqual(VGRules.addTaskLine(j, "new"), `# Day\n\n### ${heading}\n- [ ] one\n- [x] two\n- [ ] new\n\n### Later\n- [ ] not here\n`, "the task isn't under the heading");
@@ -23,9 +23,8 @@ const plan0 = `## Work Completed Today\n\n1. a\n\n## ${VGRules.RULES.hq.plan_hea
 assert(VGRules.addWorkLine(plan0, "second", VGRules.RULES.hq.plan_heading).includes("1. first\n2. second"), "a plan line didn't go under tomorrow's heading");
 assert.strictEqual(VGRules.hqKind(`${VGRules.folders.inbox}/Idea.md`, {}, day0), "inbox", "an inbox note isn't seen");
 (async () => {
-  const tab = await cdp.open({ html: env.hqPage(""), port: 9355 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const tab = await openPage({ html: env.hqPage("") });
+  const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     await tab.ev(`(() => { window.__calls = []; window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { now: new Date("2026-10-28T12:00:00"), ask: async () => true,
@@ -72,6 +71,5 @@ assert.strictEqual(VGRules.hqKind(`${VGRules.folders.inbox}/Idea.md`, {}, day0),
     check(await tab.ev(`/People/.test(document.querySelector(".vg-hq-main").textContent) && document.querySelectorAll(".vg-hq-main button").length > 0`), "People is a dead end");
   } catch (e) { fails.push(e.message); }
   await tab.close();
-  console.log(fails.length ? "FAIL - hq brain: " + fails.join("; ") : "ok - HQ: capture, context from your notes, keyboard, People");
-  process.exit(fails.length ? 1 : 0);
+  finish(fails, "HQ: capture, context from your notes, keyboard, People", "hq brain");
 })();

@@ -3,8 +3,8 @@
 // hidden and it can be shown again; the buttons reach the host and say what happened with an Undo; and typing in HQ's
 // search never rebuilds the box being typed in. Also the plugin's birth-date rule.
 //   node tests/test_hq_reactions.js [--vault [dir]]        exit 0 = pass
-const assert = require("assert"), cdp = require("./cdp"), env = require("./env"), { VGRules } = env.notes();
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const { sleep, checks, finish, openPage } = require("./kit");
+const assert = require("assert"), env = require("./env"), { VGRules } = env.notes();
 const data = { nodes: [{ id: "a.md", name: "A", bc: 0.5 }, { id: "b.md", name: "B", bc: 0.4 }], links: [{ source: "a.md", target: "b.md", kind: "similar", why: "x", score: 1 }], mocs: [], clusters: [] };
 const weight = VGRules.reactionNudge({ reactions: { link: { more: 1 } } }, "link");
 assert(weight > 0, "a reaction moves nothing");
@@ -26,9 +26,8 @@ assert.strictEqual(VGRules.nameDate("Release Notes 2025-01"), "2025-01-01"); ass
 assert.strictEqual(VGRules.bornDate("Backup April 2025", null, "2026-10-26"), "2025-04-01"); assert.strictEqual(VGRules.bornDate("Plain", "2024-02-03T10:00", "2026-10-26"), "2024-02-03"); assert.strictEqual(VGRules.bornDate("Plain", null, "2026-10-26"), "2026-10-26");
 
 (async () => {
-  const tab = await cdp.open({ html: env.hqPage(""), port: 9354 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const tab = await openPage({ html: env.hqPage("") });
+  const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     await tab.ev(`(() => { window.__calls = []; window.__state = { review: { reactions: { link: { less: 2 } } } }; window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { state: window.__state, ask: async () => { window.__asked = true; return true; }, now: new Date("2026-10-28T12:00:00"),
@@ -61,6 +60,5 @@ assert.strictEqual(VGRules.bornDate("Backup April 2025", null, "2026-10-26"), "2
     await tab.ev(`window.__calls = []; document.querySelector('[data-showkind="link"]').click()`); check((await tab.ev("window.__calls")).some(x => x[0] === "link" && x[1] === "show"), "Show didn't reach the host");
   } catch (e) { fails.push(e.message); }
   await tab.close();
-  console.log(fails.length ? "FAIL - hq reactions: " + fails.join("; ") : "ok - More/Less: capped, merged across devices, hide with a way back; typing keeps the search box");
-  process.exit(fails.length ? 1 : 0);
+  finish(fails, "More/Less: capped, merged across devices, hide with a way back; typing keeps the search box", "hq reactions");
 })();

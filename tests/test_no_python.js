@@ -6,7 +6,8 @@
 // EXPECT is a ratchet: it fails if a view gets worse, and also if one gets better without the list being updated, so
 // the list is always the honest state. When a stage moves data into the engine, shorten it.
 //   node tests/test_no_python.js [--list]        exit 0 = pass; --list prints every view
-const env = require("./env"), stub = require("./plugin_stub"), cdp = require("./cdp");
+const { sleep, finish, openPage } = require("./kit");
+const env = require("./env"), stub = require("./plugin_stub");
 const EXPECT = {
   missing: ["code"],                                                  // needs git, and the analysis's list of repositories
   blank: [],
@@ -15,12 +16,10 @@ const EXPECT = {
 const THINNER = 0.8;   // under this share of the text the analysis's version has
 // read Obsidian directly (the same on both sides), and the sample has nothing for them to show
 const NOT_COMPARED = { control: "needs six weeks of dated tasks", drift: "the sample names no old versions" };
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // every lens's state: what it says, whether it's an empty state, and how much is in it. Async lenses settle first.
-async function readLenses(data, hooks, port) {
-  const tab = await cdp.open({ html: env.pageWith(hooks, data), port });
-  if (!tab) return null;
+async function readLenses(data, hooks) {
+  const tab = await openPage({ html: env.pageWith(hooks, data) });
   if (!await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000)) throw new Error("the page did not mount"); await sleep(800);
   const out = await tab.ev(`(async () => { const D = window.vaultGraph._debug, o = {}, wait = ms => new Promise(r => setTimeout(r, ms));
     for (const k of D.lenses()) { let error = null; try { D.openLens(k); } catch (e) { error = e.message; }
@@ -44,9 +43,8 @@ async function readLenses(data, hooks, port) {
   if (!history.length || !Object.keys(written).length) fails.push(`the sample has no journals (${history.length}) or written links, so views reading them compare nothing`);
   const hooks = `taskHistory: async () => ${env.inlineJson(history)}, writtenLinks: () => (${env.inlineJson(written)}), driftScan: async () => ${env.inlineJson(drift)},`;
   const q = Object.assign(Object.create(Plugin.prototype), { app, base: env.data(), settings: p.settings }); q.saveSettings = p.saveSettings; q.writeLiveDiag = p.writeLiveDiag; q.sceneBlocks = p.sceneBlocks;
-  const full = await readLenses({ ...await q.graphData(), hq }, hooks, 9351);
-  if (!full) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const own = await readLenses({ ...engine, hq }, hooks, 9352);
+  const full = await readLenses({ ...await q.graphData(), hq }, hooks);
+  const own = await readLenses({ ...engine, hq }, hooks);
   const got = { missing: [], blank: [], thinner: [] }, rows = [];
   for (const k of Object.keys(full)) { const a = full[k], b = own[k];
     if (a.error || (b && b.error)) fails.push(`${k} threw: ${a.error || b.error}`);
@@ -64,6 +62,5 @@ async function readLenses(data, hooks, port) {
   for (const k of got.blank) if (!/needs the analysis/.test(own[k].text)) fails.push(`${k} is blank and says: "${own[k].text}"`);
   if (process.argv.includes("--list") || fails.length) console.log(rows.join("\n"));
   const n = Object.keys(full).length;
-  console.log(fails.length ? "FAIL - no-Python:\n  " + fails.join("\n  ") : `ok - no-Python scoreboard: of ${n} views, ${got.missing.length + got.blank.length} blank or missing and ${got.thinner.length} thinner without the analysis`);
-  process.exit(fails.length ? 1 : 0);
+  finish(fails, `no-Python scoreboard: of ${n} views, ${got.missing.length + got.blank.length} blank or missing and ${got.thinner.length} thinner without the analysis`, "no-Python");
 })().catch(e => { console.log("FAIL - no-Python: " + e.message); process.exit(1); });

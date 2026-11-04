@@ -2,6 +2,7 @@
 // Randomize / Reset layout in every view, in headless Chrome: randomizing moves the notes, resetting brings back
 // the exact default layout (2D/3D: the arrangement you had). Cosmos is skipped (you place its bodies yourself).
 //   node tests/layout_random.js [--vault [dir]]        exit 0 = pass
+const { openPage } = require("./kit");
 const cdp = require("./cdp"), page = require("./env").page();
 const probe = `<script>
 setTimeout(async () => {
@@ -33,8 +34,7 @@ setTimeout(async () => {
 // in real time over the DevTools protocol (tests/cdp.js), as the smoke test does
 (async () => {
   let tab;
-  try { tab = await cdp.open({ html: page.replace("</body>", () => probe + "</body>"), port: 9336 }); } catch (e) { console.log("FAIL - " + e.message); process.exit(1); }
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
+  try { tab = await openPage({ html: page.replace("</body>", () => probe + "</body>") }); } catch (e) { console.log("FAIL - " + e.message); process.exit(1); }
   let why = "the page crashed or took over 15 minutes";
   const got = await tab.waitFor("window.__layout || null", 15 * 60 * 1000).catch(e => { why = e.message; return null; });
   await tab.close();

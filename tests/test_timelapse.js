@@ -2,12 +2,11 @@
 // The one time-lapse in every view: it opens from the toolbar's tool, plays, pauses, the slider jumps to any point, and
 // at that point no view draws a note that didn't exist yet; the end is the whole vault, and Close comes back to now.
 //   node tests/test_timelapse.js [--vault [dir]]        exit 0 = pass
-const cdp = require("./cdp"), env = require("./env");
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const { sleep, checks, finish, openPage } = require("./kit");
+const env = require("./env");
 (async () => {
-  const tab = await cdp.open({ html: env.page(), port: 9358 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const tab = await openPage({ html: env.page() });
+  const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000)) throw new Error("the graph didn't mount");
     const D = "window.vaultGraph._debug", q = s => `document.querySelector(${JSON.stringify(s)})`;
@@ -54,6 +53,5 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     console.log(`  time-lapse: ${views.length} views`);
   } catch (e) { fails.push(e.message); }
   await tab.close();
-  console.log(fails.length ? "FAIL - time-lapse:\n    " + fails.join("\n    ") : "ok - time-lapse: one control, every view, nothing from the future, Close comes back to now");
-  process.exit(fails.length ? 1 : 0);
+  finish(fails, "time-lapse: one control, every view, nothing from the future, Close comes back to now", "time-lapse");
 })();

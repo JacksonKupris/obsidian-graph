@@ -3,9 +3,10 @@
 // random.Random(7)), Louvain on two linked cliques, betweenness on a path, small topics joining their neighbour.
 // Parity with the Python analysis on a real vault is the vault's test (_scripts/tests/test_graph_vault.js).
 //   node tests/test_engine.js        exit 0 = pass
+const { checks, finish } = require("./kit");
 const fs = require("fs"), path = require("path");
 const E = new Function(`${require("../build").engineSource()}; return VGEngine;`)();
-const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) fails.push(`${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`); };
+const { fails, check } = checks();
 
 // what changed since the last run, and code against notes
 { const data = { date: "2026-11-03", nodes: [{ id: "a.md", recent: 2, cluster: 1, isolated: false }, { id: "b.md", recent: 0, cluster: -1, isolated: true }, { id: "p.md", person: true, recent: 1 }], clusters: [{ id: 1, name: "One" }], gaps: [{ a: 1, b: 2 }], links: [{ kind: "gap", source: "a.md", target: "c.md" }, { kind: "link", source: "c.md", target: "a.md" }] };
@@ -76,5 +77,4 @@ check("series of a dated note", [E.seriesKey("02-Systems/Reporting/Transaction U
   const v = E.embeddings({ sources, models: '"m": {"dims": 2},', blob: () => blob }, ["n/A.md", "n/B.md", "n/C.md"]);
   check("embeddings: each note's slot (a slot past the end is skipped)", [...v].map(([k, x]) => [k, [...x]]), [["n/A.md", [1, 0]], ["n/B.md", [0.5, 0.5]]]); }
 
-console.log(fails.length ? "FAIL - " + fails.join("\n  ") : "ok - engine: Python's random and fsum, embeddings, Louvain, absorbing, betweenness");
-process.exit(fails.length ? 1 : 0);
+finish(fails, "engine: Python's random and fsum, embeddings, Louvain, absorbing, betweenness");

@@ -5,9 +5,10 @@
 // may change), a branch carried from one computer to the other with its pull request link, main moving ahead of a branch,
 // a branch deleted on GitHub, a rebase left unfinished.
 //   node tests/test_sync.js        exit 0 = pass
+const { checks, finish } = require("./kit");
 const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
 const { sync } = require("../scripts/sync");
-const fails = [], check = (what, ok, detail) => { if (!ok) fails.push(what + (detail ? `\n      ${detail}` : "")); };
+const { fails, that: check } = checks();
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "vg-sync-")), URL = "https://github.com/someone/project.git";
 const git = (dir, ...a) => { const r = spawnSync("git", a, { cwd: dir, encoding: "utf8" });
   if (r.status) throw new Error(`git ${a.join(" ")} in ${path.basename(dir)}: ${r.stderr}`); return (r.stdout || "").trim(); };
@@ -81,5 +82,4 @@ try {
   spawnSync("git", ["rebase", "--abort"], { cwd: B });
 } catch (e) { fails.push(e.message); }
 fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5 });
-console.log(fails.length ? "FAIL - sync:\n  " + fails.join("\n  ") : "ok - sync: push, take, keep uncommitted work, conflicts change nothing, branches travel with a pull request link");
-process.exit(fails.length ? 1 : 0);
+finish(fails, "sync: push, take, keep uncommitted work, conflicts change nothing, branches travel with a pull request link", "sync");

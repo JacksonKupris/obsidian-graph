@@ -12,6 +12,7 @@
 //              settings aren't saved, and the real actions come back at the end. One pass (the write pass).
 //              --resume: after the USB link dropped (Samsung's Auto Blocker turns USB commands off again after 30 min),
 //              collect the result of the run still going on the phone, and put the real actions back.
+const { openPage } = require("./kit");
 const fs = require("fs"), path = require("path");
 const VERBOSE = process.argv.includes("--verbose");
 // --mobile: a phone (420 x 900, touch, 2x pixels) with the page's mobile layout, which is where most overlaps show up
@@ -21,7 +22,7 @@ const MOBILE = process.argv.includes("--mobile"), PHONE = process.argv.includes(
 const probe = String.raw`<script>
 (run => (async () => {
 const live = () => window.__VG_RUN__ === run;
-const sleep = ms => new Promise(r => setTimeout(r, ms)), out = { clicks: 0, contexts: 0, errors: [], covered: [], notices: [], noEffect: [], wired: {}, wiredAct: {}, unwired: [], slow: [] };
+const { sleep } = require("./kit"), out = { clicks: 0, contexts: 0, errors: [], covered: [], notices: [], noEffect: [], wired: {}, wiredAct: {}, unwired: [], slow: [] };
 // a frame should fit 30 fps on a slow machine; headless Chrome draws without a GPU, so the budget is loose
 const FRAME_BUDGET = 60;
 let errs = [];
@@ -228,10 +229,9 @@ const progress = a => { if (typeof a !== "string" || !a.startsWith("CA ")) retur
   console.log(`  ${x.mode.padEnd(5)} ${x.ctx.padEnd(46)} ${String(x.kinds).padStart(3)} controls ${String(x.s).padStart(5)} s ${String(x.frame).padStart(5)} ms/frame${x.errors ? `  (${x.errors} errors so far)` : ""}`); };
 (async () => {
   try {
-    tab = await cdp.open({ html: PHONE ? null : html, port: PHONE ? 9335 : 9334,   /* the phone has its own port: a desktop run can go at the same time */ mobile: MOBILE, phone: PHONE, fresh: PHONE && !RESUME, onConsole: progress,
+    tab = await openPage({ html: PHONE ? null : html, port: PHONE ? 9335 : 9334,   /* the phone has its own port: a desktop run can go at the same time */ mobile: MOBILE, phone: PHONE, fresh: PHONE && !RESUME, onConsole: progress,
       onClose: () => { if (!finished) { console.log("FAIL - the debug connection closed" + (PHONE ? ". The probe keeps running in Obsidian on the phone: reconnect (USB debugging, Auto Blocker off) and run --phone --resume to collect its result and put the real actions back." : "")); process.exit(1); } } });
   } catch (e) { console.log("FAIL - " + e.message); process.exit(1); }
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
   if (PHONE) {   // the probe runs in Obsidian's page (no navigation): the setup, then the probe's script itself
     restore = () => tab.ev("window.__VG_PHONE_RESTORE__ ? window.__VG_PHONE_RESTORE__() : 'nothing to restore'");
     if (RESUME) { if (!await tab.ev("!!window.__VG_PHONE_RESTORE__")) { console.log("FAIL - no phone run to resume (Obsidian restarted?)"); restore = null; await done(1); } }   // the probe already in the page

@@ -2,10 +2,10 @@
 // A saved view keeps its Cosmos sky: the bodies and the switches come back, a copy so moving them doesn't change the view, and a
 // view saved before this leaves the current sky alone. A body with no orbit yet (a view written by hand) gets one.
 //   node tests/test_cosmos_views.js        exit 0 = pass
-const env = require("./env"), cdp = require("./cdp");
+const { openPage } = require("./kit");
+const env = require("./env");
 (async () => {
-  const tab = await cdp.open({ html: env.page(), port: 9373 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
+  const tab = await openPage({ html: env.page() });
   if (!await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000)) { console.log("FAIL - cosmos views: the page did not mount"); process.exit(1); }
   const r = JSON.parse(await tab.ev(`(async () => { const D = window.vaultGraph._debug, S = D.saved, out = {}, wait = ms => new Promise(r => setTimeout(r, ms)), note = D.nodes.find(n => !n.person && !n.moc && !n.ghost && !n.isolated).id;
     D.setView("cosmos"); await wait(400);

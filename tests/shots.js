@@ -2,7 +2,8 @@
 // Screenshots of the built graph page: every view, lens and picker tab, at desktop and phone size, for reviewing the
 // look and comparing builds (before/after a polish change).
 //   node tests/shots.js [out-folder] [--mobile] [--only view,lens,...] [--vault [dir]]     default out: .out/shots/<date>[-mobile]
-const fs = require("fs"), path = require("path"), cdp = require("./cdp");
+const { sleep, openPage } = require("./kit");
+const fs = require("fs"), path = require("path");
 const env = require("./env"), MOBILE = process.argv.includes("--mobile");
 const onlyArg = process.argv.indexOf("--only"), ONLY = onlyArg > 0 ? new Set(process.argv[onlyArg + 1].split(",")) : null;
 const outArg = process.argv.slice(2).find(a => !a.startsWith("--") && !["--only", "--vault"].includes(process.argv[process.argv.indexOf(a) - 1]));
@@ -12,10 +13,8 @@ const OUT = outArg || env.out("shots", new Date().toISOString().slice(0, 10) + (
 const RECALL_Q = env.VAULT ? "connect exchange online" : "backup restore near server backup";
 const recall = (() => { const { VGRules, list } = env.notes(); return env.inlineJson(VGRules.recallSearch(list, RECALL_Q, { n: 5, today: new Date().toISOString().slice(0, 10) })); })();
 const html = env.pageWith(`${MOBILE ? "mobile: true, " : ""}recall: async () => ${recall},`);
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 (async () => {
-  const tab = await cdp.open({ html, port: 9332, mobile: MOBILE });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
+  const tab = await openPage({ html, mobile: MOBILE });
   fs.mkdirSync(OUT, { recursive: true });
   await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000); await sleep(1500);
   await tab.ev("document.querySelectorAll('.vg-tour').forEach(x => x.remove())");

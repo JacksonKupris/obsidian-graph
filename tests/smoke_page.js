@@ -2,6 +2,7 @@
 // Smoke test of the built graph page in headless Chrome: opens every view, every palace floor and every lens, and opens the task
 // list of a note with open tasks, collecting page errors.
 //   node tests/smoke_page.js [--vault [dir]]        exit 0 = no errors
+const { openPage } = require("./kit");
 const fs = require("fs"), path = require("path"), cdp = require("./cdp");
 const page = require("./env").page();
 const probe = `<script>
@@ -94,8 +95,7 @@ setTimeout(async () => {
 // budget), which renders every animated frame of the budget in software: over 10 minutes once the scenes animated.
 (async () => {
   let tab;
-  try { tab = await cdp.open({ html: page.replace("</body>", probe + "</body>"), port: 9333 }); } catch (e) { console.log("FAIL - " + e.message); process.exit(1); }
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
+  try { tab = await openPage({ html: page.replace("</body>", probe + "</body>") }); } catch (e) { console.log("FAIL - " + e.message); process.exit(1); }
   let why = "the page crashed or took over 5 minutes";
   const res = await tab.waitFor("window.__smoke || null", 5 * 60 * 1000).catch(e => { why = e.message; return null; });
   await tab.close();

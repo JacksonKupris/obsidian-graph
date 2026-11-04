@@ -3,13 +3,12 @@
 // reached, keys walk and stop when they come up anywhere, walls hold, shots kill without touching the graph's selection,
 // enemies can kill you, the boss opens the exit and the exit ends the level, and a frame stays inside its budget.
 //   node tests/test_dungeon.js [--vault [dir]] [--shots dir]        exit 0 = pass
-const fs = require("fs"), path = require("path"), cdp = require("./cdp"), env = require("./env");
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const { sleep, checks, finish, openPage } = require("./kit");
+const fs = require("fs"), path = require("path"), env = require("./env");
 const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
 (async () => {
-  const tab = await cdp.open({ html: env.page(), port: 9356 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const tab = await openPage({ html: env.page() });
+  const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000)) throw new Error("the graph didn't mount");
     const D = "window.vaultGraph._debug", S = `${D}.scenes().dungeon`, G = `${S}.state`, A = `${S}.api`;
@@ -137,6 +136,5 @@ const shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.a
     check(!errs.length, "page errors: " + errs.join("; "));
   } catch (e) { fails.push(e.message); }
   await tab.close();
-  console.log(fails.length ? "FAIL - dungeon: " + fails.join("; ") : "ok - dungeon: a level per topic, an enemy per note, walking, shooting, dying, the boss and the exit");
-  process.exit(fails.length ? 1 : 0);
+  finish(fails, "dungeon: a level per topic, an enemy per note, walking, shooting, dying, the boss and the exit", "dungeon");
 })();

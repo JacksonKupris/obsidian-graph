@@ -2,15 +2,15 @@
 // The 3D layer and the science lenses in a real browser: a nearer thing really hides a farther one whatever order they're drawn in,
 // the camera flies, clicks land on what's drawn, the brain has its shape, its neurons fire, and each lens opens with real content.
 //   node tests/test_depth.js [--vault [dir]] [--shots dir]        exit 0 = pass; --shots saves what it checked as pictures
-const cdp = require("./cdp"), env = require("./env");
+const { checks, openPage, tools } = require("./kit");
+const env = require("./env");
 const fs = require("fs"), path = require("path"), sleep = ms => new Promise(r => setTimeout(r, ms)), shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
 (async () => {
   // a task history for the survival lens: the page has no plugin to read journals with, so 80 tasks: half finished over time, half still open
   const history = Array.from({ length: 80 }, (_, i) => { const d = String(1 + i % 28).padStart(2, "0"), done = String(Math.min(28, 2 + i % 28 + (i % 9))).padStart(2, "0"); return { date: `2026-08-${d}`, path: "j.md", tasks: [{ mark: i % 2 ? " " : "x", text: `Task ${i}${i % 4 === 0 ? " with [[A link]]" : ""}${i % 2 ? "" : ` ✅ 2026-08-${done}`}` }] }; });
   const links = env.data().links.filter(l => l.kind === "link"), out = {}; links.forEach(l => { (out[l.source] = out[l.source] || {})[l.target] = 1; });   // the page has no Obsidian index, so direction comes from the data's own order: enough to run the real path
-  const tab = await cdp.open({ html: env.pageWith(`taskHistory: async () => ${JSON.stringify(history)}, writtenLinks: () => (window.__noDir ? null : ${JSON.stringify(out)}),`), port: 9393 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); }, shot = async name => { if (!SHOTS) return; fs.mkdirSync(SHOTS, { recursive: true }); const r = await tab.send("Page.captureScreenshot", { format: "png" }); fs.writeFileSync(path.join(SHOTS, name + ".png"), Buffer.from(r.result.data, "base64")); };
+  const tab = await openPage({ html: env.pageWith(`taskHistory: async () => ${JSON.stringify(history)}, writtenLinks: () => (window.__noDir ? null : ${JSON.stringify(out)}),`) });
+  const { fails, ok: check } = checks(), shot = name => tools(tab, { shots: SHOTS }).shot(name);
   try {
     if (!await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000)) throw new Error("the graph didn't mount");
     await tab.send("Emulation.setDeviceMetricsOverride", { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false }); await sleep(1000);

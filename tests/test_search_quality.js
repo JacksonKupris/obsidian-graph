@@ -3,6 +3,7 @@
 // The scores are a floor: a change that makes search worse fails here, however good it looks on one query. It also times
 // a search on a vault 10 times the size, so slowness shows before it's felt.
 //   node tests/test_search_quality.js --vault [dir]     without a vault there's nothing to measure, and it says so
+const { finish } = require("./kit");
 const assert = require("assert"), env = require("./env");
 if (!env.VAULT) { console.log("ok - search quality: runs on a real vault (--vault)"); process.exit(0); }
 const { VGRules, list } = env.notes(), today = VGRules.today();
@@ -31,5 +32,4 @@ if (process.argv.includes("--show")) res.filter(r => r.rank !== 0).forEach(r => 
 const fails = [];
 if (top1 < FLOOR.top1) fails.push(`first ${top1.toFixed(2)} < ${FLOOR.top1}`); if (top3 < FLOOR.top3) fails.push(`top 3 ${top3.toFixed(2)} < ${FLOOR.top3}`); if (top10 < FLOOR.top10) fails.push(`top 10 ${top10.toFixed(2)} < ${FLOOR.top10}`);
 if (ms > FLOOR.ms) fails.push(`${ms.toFixed(0)} ms a search`);
-console.log(fails.length ? "FAIL - search quality: " + fails.join("; ") : "ok - search quality: the right notes, fast");
-process.exit(fails.length ? 1 : 0);
+finish(fails, "search quality: the right notes, fast", "search quality");

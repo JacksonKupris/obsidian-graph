@@ -167,7 +167,7 @@ function templater(app) {
       openNote: async p => { window.__dailyCalls.push(["open", p]); }
     }`;
     const emptyHQ = { ...env.hqData("2026-10-29"), journals: [], standups: [] };
-    const tab = await cdp.open({ html: env.hqPage(options, { hq: emptyHQ }), port: 9358, mobile });
+    const tab = await cdp.open({ html: env.hqPage(options, { hq: emptyHQ }), mobile });
     assert(tab, "week creation regression requires Chrome");
     try {
       assert(await tab.waitFor("window.vaultHQ ? 1 : 0", 20000));

@@ -1,15 +1,18 @@
 // cdp.js - the one way the browser tests drive a page, in real time over the Chrome DevTools Protocol: headless Chrome
 // on this PC (.out/ profile and a debug port), or Obsidian on a phone plugged in or paired over adb (its WebView's
 // debug socket, forwarded to the port). Used by smoke_page.js and click_all.js.
-//   const page = await open({ html, port, mobile, phone, fresh, onConsole, onClose })   null when there's no Chrome
+//   const page = await open({ html, port, mobile, phone, fresh, onConsole, onClose })   null when there's no Chrome. Tests use openPage in kit.js.
+//     port       the debug port; a free one if not given
 //     html       the page to load (written temporarily under .out/); not with phone
 //     mobile     a 420 x 900 touch phone in Chrome's device mode
 //     phone      attach to Obsidian on the phone instead (adb: REA_ADB_PATH or adb on the PATH)
 //     fresh      drop the page's earlier console lines before listening (a page that ran a probe before replays them)
 //     onConsole  (firstArg) for each console.log in the page; onClose() if the connection drops
 //   page.send(method, params) · page.ev(expr) -> value · page.waitFor(expr, limitMs) -> value | null · page.close()
-const fs = require("fs"), path = require("path"), { spawn, execFileSync } = require("child_process");
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fs = require("fs"), net = require("net"), path = require("path"), { spawn, execFileSync } = require("child_process");
+const { sleep } = require("./kit");
+// a port nothing is using, so runs side by side and a leftover Chrome or adb forward can't get in the way
+const freePort = () => new Promise((res, rej) => { const s = net.createServer(); s.on("error", rej); s.listen(0, "127.0.0.1", () => { const { port } = s.address(); s.close(() => res(port)); }); });
 // Chrome (or Chromium, or Edge, which speaks the same protocol) wherever this computer has it; CHROME_PATH overrides
 const CHROME = [process.env.CHROME_PATH,
   "C:/Program Files/Google/Chrome/Application/chrome.exe", "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
@@ -35,7 +38,7 @@ function forwardPhone(port) {
 }
 
 async function open(o) {
-  const port = (o.port || 9334) + Number(process.env.VG_PORT_OFFSET || 0);   // VG_PORT_OFFSET: two runs side by side (two worktrees)
+  let port = o.port || await freePort();
   let proc = null, tmp = null, prof = null;
   if (o.phone) forwardPhone(port);
   else {
@@ -58,7 +61,7 @@ async function open(o) {
   let target;
   for (let tries = 0; tries < (o.phone ? 1 : 3) && !target; tries++) {
     let dead = false;   // exited, or never started (a spawn error comes as an event, not an exit code)
-    if (!o.phone) { await stop(); proc = launch(); proc.once("error", () => { dead = true; }); proc.once("exit", () => { dead = true; }); }
+    if (!o.phone) { await stop(); if (tries && !o.port) port = await freePort(); proc = launch(); proc.once("error", () => { dead = true; }); proc.once("exit", () => { dead = true; }); }
     for (let i = 0; i < 80 && !target; i++) { target = await findPage(); if (!target) { if (dead) break; await sleep(250); } }
   }
   if (!target) { await stop(); try { if (tmp) fs.unlinkSync(tmp); } catch (e) {}

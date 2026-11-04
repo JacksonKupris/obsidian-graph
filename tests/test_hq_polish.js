@@ -3,8 +3,8 @@
 // titles not veiled by hidden buttons, scripts kept out of search and Peek, statuses and code names in words, a Focus screen
 // that can start something, and a header that stays put.
 //   node tests/test_hq_polish.js [--vault [dir]]        exit 0 = pass
+const { sleep, checks, openPage } = require("./kit");
 const assert = require("assert"), cdp = require("./cdp"), env = require("./env"), { VGRules: R } = env.notes();
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // the counts: every kind of node lands in exactly one, and they add up
 const mix = [{}, { isolated: true }, { moc: true }, { person: true }, { ghost: true }, { person: true, isolated: true }, { ghost: true, isolated: true }, { moc: true, isolated: true }];
@@ -44,9 +44,8 @@ assert.strictEqual(R.codeNameWords("Sticker Audit Page"), "Sticker Audit Page", 
 assert.strictEqual(R.hqNextStep({ list: [{ key: "j", group: "needs", kind: "job", title: "backup: late" }], day: "2026-11-04" }).label, "Check backup: late");
 
 (async () => {
-  const tab = await cdp.open({ html: env.hqPage(""), port: 9391 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const tab = await openPage({ html: env.hqPage("") });
+  const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     await tab.send("Emulation.setDeviceMetricsOverride", { width: 1500, height: 900, deviceScaleFactor: 1, mobile: false }); await sleep(150);
@@ -111,7 +110,7 @@ assert.strictEqual(R.hqNextStep({ list: [{ key: "j", group: "needs", kind: "job"
     check(await tab.ev(`document.querySelector(".vg-hq-lede").textContent.includes("Ticks")`), "the ticks on project cards should say what they are");
     const raw = await tab.ev(`[...document.querySelectorAll(".vg-hq-pill")].map(p => p.textContent).filter(t => /-/.test(t))`); check(!raw.length, `raw statuses: ${[...new Set(raw)].join(", ")}`);
     // the graph: a tile's number sits over its label, and the status says what the total holds
-    const g = await cdp.open({ html: env.page(), port: 9392 });
+    const g = await cdp.open({ html: env.page() });
     await g.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000); await g.send("Emulation.setDeviceMetricsOverride", { width: 1500, height: 900, deviceScaleFactor: 1, mobile: false }); await sleep(1200);
     await g.ev(`document.querySelectorAll(".vg-tour").forEach(x => x.remove())`);
     check(await g.ev(`getComputedStyle(document.querySelector(".vg-stat")).display`) === "block", "a stat tile isn't set to stack, so Obsidian's button styles run its number into its label");

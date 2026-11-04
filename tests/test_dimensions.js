@@ -3,12 +3,11 @@
 // lands on the note under the pointer. Time-lapse runs the same way in 2D and 3D. A retired view in a saved state or a
 // link opens the map instead of a blank page; the game has no switch.
 //   node tests/test_dimensions.js [--vault [dir]]        exit 0 = pass
-const cdp = require("./cdp"), env = require("./env");
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+const { sleep, checks, finish, openPage } = require("./kit");
+const env = require("./env");
 (async () => {
-  const tab = await cdp.open({ html: env.page(), port: 9359 });
-  if (!tab) { console.log("  (skipped: no Chrome found)"); process.exit(0); }
-  const fails = [], check = (ok, what) => { if (!ok) fails.push(what); };
+  const tab = await openPage({ html: env.page() });
+  const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000)) throw new Error("the graph didn't mount");
     const D = "window.vaultGraph._debug", q = s => `document.querySelector(${JSON.stringify(s)})`;
@@ -58,6 +57,5 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     console.log(`  dimensions: ${views.length} views`);
   } catch (e) { fails.push(e.message); }
   await tab.close();
-  console.log(fails.length ? "FAIL - dimensions:\n    " + fails.join("\n    ") : "ok - 2D/3D: one switch in every view, the 3 key, Time-lapse in both, clicks land in 3D, retired views open the map");
-  process.exit(fails.length ? 1 : 0);
+  finish(fails, "2D/3D: one switch in every view, the 3 key, Time-lapse in both, clicks land in 3D, retired views open the map", "dimensions");
 })();

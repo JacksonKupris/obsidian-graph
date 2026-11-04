@@ -3,8 +3,9 @@
 // vault's rules file over what Obsidian's settings say over the defaults; the settings tab's setRule changes one value
 // in the file and leaves the rest as written; every rule and action follows at once.
 //   node tests/test_plugin_rules.js        exit 0 = pass
+const { checks, finish } = require("./kit");
 const env = require("./env");
-const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) fails.push(`${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`); };
+const { fails, check } = checks();
 
 // the plugin as built, under a stand-in Obsidian (tests/plugin_stub.js)
 const { Plugin, VGRules, VGActions, TFile } = require("./plugin_stub").load(env.rules);
@@ -113,6 +114,5 @@ function fakePlugin(files, { daily, newFolder, people = [] } = {}) {
   { const m = VGRules.mergeShared({ cosmos: { viewOpens: { city: 5 } } }, { cosmos: { dungeon: { reached: 3, best: 900, bestRun: 0, hunt: "2026-11-01" }, viewOpens: { city: 7, sand: 1 } } }, { cosmos: { dungeon: { reached: 5, best: 100, bestRun: 40, hunt: "2026-10-30" }, viewOpens: { city: 6 } } }).cosmos;
     check("shared Dungeon progress keeps the higher", m.dungeon, { reached: 5, best: 900, bestRun: 40, hunt: "2026-11-01" });
     check("view opens add both devices' gains", m.viewOpens, { city: 8, sand: 1 }); }
-  console.log(fails.length ? "FAIL - " + fails.join("\n  ") : "ok - the vault's rules: file over Obsidian's settings over defaults, edited in place; guarded HQ refresh");
-  process.exit(fails.length ? 1 : 0);
+  finish(fails, "the vault's rules: file over Obsidian's settings over defaults, edited in place; guarded HQ refresh");
 })().catch(e => { console.log("FAIL - " + (e && e.stack || e)); process.exit(1); });
