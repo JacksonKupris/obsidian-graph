@@ -1,7 +1,7 @@
 // vault_graph_rules.js - the Vault Graph's shared rulebook: what "stale", "on a map", "quest done" and
 // "mission still worth showing" mean. One copy, used by the graph view (page and plugin) and the plugin's
 // sidebar; the build puts it ahead of both. Rule data (thresholds, patterns) lives in vault_graph_rules.json,
-// which Python reads too.
+// which a vault can edit.
 //
 // Rules are pure: they never read a surface's private state. Each caller passes a graph `g`, usually
 // VGRules.graph(data); the view passes its own live adapter with the same shape:
@@ -34,8 +34,8 @@ const VGRules = (() => {
   const stemCase = id => String(id || "").split("/").pop().replace(/\.md$/i, "");
   const stem = id => stemCase(id).toLowerCase();
   const pairKey = (a, b) => (a < b ? a + "|" + b : b + "|" + a);
-  const dismissKey = (a, b) => pairKey(stem(a), stem(b));   // vault_gaps._dismissed matches by name too
-  // a and b linked either way in Obsidian's resolvedLinks ({path: {target: n}}), a same-name copy counting (vault_gaps._linked)
+  const dismissKey = (a, b) => pairKey(stem(a), stem(b));   //
+  // a and b linked either way in Obsidian's resolvedLinks ({path: {target: n}}), a same-name copy counting
   const linkedByName = (resolved, a, b) => [[a, b], [b, a]].some(([x, y]) => Object.keys((resolved || {})[x] || {}).some(t => stem(t) === stem(y)));
 
   // On a map = the map links the note or a same-name copy of it (the plugin's "Already in..." rule). linkedNames:
@@ -52,7 +52,7 @@ const VGRules = (() => {
   }
   // first topic map listing the cluster (nav maps never count)
   const mapForCluster = (mocs, c) => (mocs || []).find(m => !m.nav && m.clusters.includes(c));
-  // Could this note be a topic map? (moc_align.is_moc / vault_graph_rules.is_map_candidate: same rule.) 00-Inbox
+  // Could this note be a topic map? 00-Inbox
   // is allowed, since Create map writes there; the analysis then claims the topic with `claims`.
   const HUB_NAME = new RegExp(R.hub_name, "i"), NOT_MAP_NAME = new RegExp(R.not_map_name, "i"), NOT_MAP_TOPS = new Set(R.not_map_tops);
   function isMapCandidate(id, frontmatter) {
@@ -65,14 +65,14 @@ const VGRules = (() => {
   // a pair the graph suggests linking: daily co-mentions (gap), meaning (similar, Smart Connections), or many notes linking
   // both (shared). Every surface asks this, so a new kind of suggestion reaches all of them.
   const SUGGESTION_KINDS = new Set(["gap", "similar", "shared"]);
-  // a private note (private_name in the rules file, or private: true): never offered as a link (vault_gaps._private)
+  // a private note (private_name in the rules file, or private: true): never offered as a link
   const PRIVATE = R.private_name ? new RegExp(R.private_name, "i") : null;
   const isPrivate = (id, fm) => (!!PRIVATE && PRIVATE.test(stemCase(id))) || (!!fm && fm.private === true);
   const isSuggestion = l => !!l && SUGGESTION_KINDS.has(l.kind);
   // a hub: shown, never clustered (a map or hub by tag, a hub by name, a dashboard at the vault's top level)
   const ROOT_HUBS = new Set(R.root_hubs || []);
   const isHub = (id, tags) => [].concat(tags || []).some(t => /^#?meta\/(hub|moc)$/i.test(String(t))) || ROOT_HUBS.has(id) || isHubName(id);
-  // what a note is to the graph (vault_gaps.load_vault): "daily", "skip" (a folder no analysis reads), "hub" (shown,
+  // what a note is to the graph: "daily", "skip" (a folder no analysis reads), "hub" (shown,
   // never clustered), "person" or "note" (a topic note). The engine and the plugin's live merge both ask this.
   const SKIP_TOPS = new Set(R.folders.skip || []);
   const noteKind = (id, tags) => { const top = String(id).split("/")[0];
@@ -80,12 +80,12 @@ const VGRules = (() => {
     if (SKIP_TOPS.has(top)) return "skip";
     if (isHub(id, tags)) return "hub";
     return top === R.folders.people ? "person" : "note"; };
-  // How prose names a note (vault_gaps._mention_matcher counts these, "Link mentions" links them): its title,
+  // How prose names a note: its title,
   // the topic of a "<Topic> - Context" note, and its aliases
   const CONTEXT_SUFFIX = new RegExp(R.context_suffix, "i");
   const isContextNote = name => CONTEXT_SUFFIX.test(name), contextTopic = name => name.replace(CONTEXT_SUFFIX, "");
   // A title counts only when it's distinctive (2+ words, or an acronym, CamelCase, digit or underscore word) and not
-  // too generic (mention_stop); an alias always counts. vault_graph_rules.mention_names is the same rule.
+  // too generic (mention_stop); an alias always counts.
   const MENTION_STOP = new Set((R.mention_stop || []).map(s => s.toLowerCase()));
   const distinctive = k => k.length >= 4 && (k.split(/\s+/).length >= 2 || /[A-Z].*[A-Z]|\d|_/.test(k)) && !MENTION_STOP.has(k.toLowerCase());
   const mentionNames = (name, aliases) => [...new Set([...[name, name.replace(CONTEXT_SUFFIX, "")].map(s => s.trim()).filter(distinctive),
@@ -105,7 +105,7 @@ const VGRules = (() => {
     return out;
   }
   // A note in a provisional folder (00-Inbox) joins the graph once a topic note links to it, unless it's vault
-  // maintenance or a report (vault_graph_rules.joins_when_linked: same rule)
+  // maintenance or a report
   const PROVISIONAL = new Set(R.provisional_tops), PROVISIONAL_SKIP = new RegExp(R.provisional_skip_tags);
   const joinsWhenLinked = (id, tags) => PROVISIONAL.has(String(id).split("/")[0]) && ![].concat(tags || []).some(t => PROVISIONAL_SKIP.test(String(t).replace(/^#/, "")));
   // a map claims a topic when it lists enough of it
@@ -903,7 +903,7 @@ const VGRules = (() => {
   // More / Less like this: each reaction moves that kind of item up or down the list, by a small and capped amount, so one
   // kind can't bury everything. Upkeep suggestions can also be hidden outright; your own work can't.
   const REACTION_CAP = 3;
-  // When a note came into being, the plugin's side of analysis/vault_graph.py's born_date: the earliest of its frontmatter
+  // When a note came into being, the earliest of its frontmatter
   // date, a date or month in its name, and its file's creation date
   const MONTH_NUM = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
   function nameDate(name) {
@@ -912,17 +912,15 @@ const VGRules = (() => {
     m = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? +(20\d\d)\b/i.exec(name);
     return m ? `${m[2]}-${String(MONTH_NUM[m[1].toLowerCase()]).padStart(2, "0")}-01` : null;
   }
-  // ---- what the engine (VGEngine.notesJob) says, put into the graph data. A part is applied whole; each is listed in the
-  // rules file's engine_owns once it matches the analysis on that vault.
+  // ---- what the engine (VGEngine.notesJob) says, put into the graph data. A part is applied whole.
   const ENGINE_PARTS = ["mentions", "tasks", "people", "series", "follow", "dupes", "topics"];
   // a phone has its own Smart Connections index, which can be far behind: what rests on meaning stays the desktop's
   // the self-test watches the whole app for a while: an error whose stack never passes through this plugin isn't its own.
   // No stack says nothing, so that counts as ours; better a false alarm than a hidden failure.
   const errorIsElsewhere = (stack, id) => !!stack && !String(stack).includes(`plugin:${id}`);
   const ENGINE_DESKTOP_ONLY = new Set(["dupes", "topics"]);
-  // "file" in engine_owns: a desktop writes the graph data itself instead of running the analysis, so its file needs nothing over it
-  const engineWritesFile = () => (R.engine_owns || []).includes("file");
-  const engineOwns = mobile => (!mobile && engineWritesFile() ? [] : ENGINE_PARTS.filter(p => (R.engine_owns || []).includes(p) && !(mobile && ENGINE_DESKTOP_ONLY.has(p))));
+  // a desktop writes the whole file, so nothing goes over it; a phone works out what doesn't need its own index
+  const engineOwns = mobile => (mobile ? ENGINE_PARTS.filter(p => !ENGINE_DESKTOP_ONLY.has(p)) : []);
   function applyEngineNotes(data, N, parts) {
     const on = new Set(parts), byId = new Map(data.nodes.map(n => [n.id, n])), skip = N.skip || (() => false), notes = data.nodes.filter(n => !n.person && !n.moc && !n.ghost);
     const pyOrder = VGEngine.pyCmp;
@@ -1460,7 +1458,7 @@ const VGRules = (() => {
   }
   // a task and the open subtasks that go with it, as rows for a status change
   const taskRowsOf = it => [{ path: it.path, line: it.line, text: it.text }, ...(it.subs || []).map(s => ({ path: it.path, line: s.line, text: s.text }))];
-  return { engineWritesFile, errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

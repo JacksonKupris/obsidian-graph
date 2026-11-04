@@ -394,7 +394,7 @@
 
   // 1. Important but stale: how much the vault leans on a note vs. how long since it was edited.
   // Top-left = notes your work depends on that may have drifted out of date.
-  const STALE_AFTER = Q.stale_days;   // the shared rule (vault_graph_rules.json stale_days): one meaning of stale everywhere
+  const STALE_AFTER = Q.stale_days;   // the shared rule: one meaning of stale everywhere
   function staleChart() {
     const ns = nodes.filter(n => !special(n) && !n.ghost && n.cluster >= 0);
     if (!ns.length) return "";

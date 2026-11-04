@@ -120,7 +120,7 @@ function mountVaultGraph(root, DATA, opts) {
   // maps of content: which MOC maps each cluster, and what it misses
   const mocs = (DATA.mocs || []).filter(m => !m.nav), mocOf = {};
   mocs.forEach(m => m.clusters.forEach(c => { if (!(c in mocOf)) mocOf[c] = VGRules.mapForCluster(mocs, c); }));   // first map wins (shared rule)
-  // On a map = the map links the note or a same-name copy of it (shared rule, vault_graph_rules.js), so the
+  // On a map = the map links the note or a same-name copy of it, so the
   // graph never keeps suggesting a note the map already has
   const onMap = VGRules.onMap;
   const inMoc = id => { const n = byId[id], m = n && mocOf[n.cluster]; return m ? onMap(m, id) : null; };
@@ -156,7 +156,7 @@ function mountVaultGraph(root, DATA, opts) {
   const ranked = nodes.filter(n => !n.isolated && !special(n)).sort(byInfluence).map(n => n.id);
   const rankOf = Object.fromEntries(ranked.map((id, i) => [id, i + 1]));
   const Q = DATA.quality || { stub_words: 80, stale_days: 180 };
-  // Records are never "stale": shared rule (vault_graph_rules.js), same as the plugin's sidebar and the weekly note
+  // Records are never "stale": shared rule, same as the plugin's sidebar and the weekly note
   const { isRecord } = VGRules, staleFor = VGRules.isStale, FOLDERS = VGRules.folders;   // this vault's folder names
   const OVERLAYS = {
     orphans: { label: "Orphans", hint: "Nothing links to these notes", test: n => !special(n) && n.inlinks === 0 },

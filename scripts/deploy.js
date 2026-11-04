@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Test the plugin on a vault's data and install the analysis and its check files into that vault. The plugin itself
+// Test the plugin on a vault's data and install its check file into that vault. The plugin itself
 // comes from the GitHub releases through BRAT (npm run release); --plugin installs this build over it for a trial, and
 // reloads it in a running Obsidian (BRAT replaces it with the next release).
 //   node scripts/deploy.js [--vault <dir>] [--no-tests] [--plugin]        vault: local.json's "vault" when not given
@@ -25,10 +25,10 @@ if (!process.argv.includes("--no-tests")) {
   if (r.status) { console.log("Not installed: tests failed"); process.exit(1); }
 }
 
-// 3. the plugin folder is BRAT's: the release's main.js, styles.css and manifest.json. The rulebook and engine on their
-// own (with this vault's rules built in) are for the vault's checks against its Python, so they go beside the analysis.
+// 3. the plugin folder is BRAT's: the release's main.js, styles.css and manifest.json. The rulebook on its own (with this
+// vault's rules built in) is for the vault's own checks.
 const id = build.pluginId(env.rules), dir = path.join(env.VAULT, path.dirname(env.rules.files.content_log));
-const built = build.buildPlugin(env.rules), CHECK_FILES = { "rules.js": "vault_graph_rules.js", "engine.js": "vault_graph_engine.js" };
+const built = build.buildPlugin(env.rules), CHECK_FILES = { "rules.js": "vault_graph_rules.js" };
 let changed = [];
 if (process.argv.includes("--plugin")) {
   changed = ["main.js", "styles.css", "manifest.json"].filter(f => build.writeIfChanged(path.join(dir, f), built[f]));
@@ -36,28 +36,12 @@ if (process.argv.includes("--plugin")) {
 }
 for (const f of Object.keys(CHECK_FILES)) if (fs.existsSync(path.join(dir, f))) fs.unlinkSync(path.join(dir, f));   // where they went before BRAT
 
-// 3b. the analysis (analysis/*.py: the graph data the plugin reads, the vault's MOC and gap reports) goes into the
-// vault's scripts folder, where the desktop plugin runs it and Sync carries it to every PC. This repo is its only
-// source: a vault copy that was edited since the last deploy is left alone and reported, so that change isn't lost.
-const crypto = require("crypto"), sha = t => crypto.createHash("sha256").update(t.replace(/\r\n/g, "\n")).digest("hex").slice(0, 16);
-const ANALYSIS = path.join(__dirname, "..", "analysis"), scriptsDir = path.join(env.VAULT, env.rules.folders.scripts);
-const checks = Object.entries(CHECK_FILES).filter(([f, to]) => build.writeIfChanged(path.join(scriptsDir, to), built[f])).map(([, to]) => to);
-const recordFile = path.join(scriptsDir, "vault-graph-deployed.json");
-let record = {}; try { record = JSON.parse(fs.readFileSync(recordFile, "utf8")); } catch (e) { /* first deploy */ }
-const edited = [], installed = [];
-for (const f of fs.readdirSync(ANALYSIS).filter(f => f.endsWith(".py")).sort()) {
-  const src = fs.readFileSync(path.join(ANALYSIS, f), "utf8"), dest = path.join(scriptsDir, f);
-  const cur = fs.existsSync(dest) ? fs.readFileSync(dest, "utf8") : null;
-  if (cur !== null && sha(cur) !== sha(src) && sha(cur) !== record[f]) { edited.push(f); continue; }   // changed in the vault
-  if (build.writeIfChanged(dest, src)) installed.push(f);
-  record[f] = sha(src);
-}
-build.writeIfChanged(recordFile, JSON.stringify(record, null, 1) + "\n");
-if (checks.length) installed.push(...checks);
+// 3b. the check file goes in the vault's scripts folder
+const scriptsDir = path.join(env.VAULT, env.rules.folders.scripts), installed = Object.entries(CHECK_FILES).filter(([f, to]) => build.writeIfChanged(path.join(scriptsDir, to), built[f])).map(([, to]) => to);
 if (installed.length) console.log(`Installed ${installed.join(", ")} in ${path.relative(env.VAULT, scriptsDir)}`);
-if (edited.length) console.log(`Not installed: ${edited.join(", ")} changed in the vault since the last deploy. Bring that change into analysis/ (diff the two), then deploy again.`);
 
-// 4. the vault's own checks on the installed plugin (its notes, its Python analysis, its dashboards), when it has them
+// 4. the vault's own checks on the installed plugin (its notes, its dashboards), when it has them. These and the reload below
+// use the vault's own Python tools, which are separate from the plugin; a vault without them skips both.
 const vaultTests = path.join(env.VAULT, env.rules.folders.scripts, "tests", "run.py");
 if (!process.argv.includes("--no-tests") && fs.existsSync(vaultTests)) {
   const r = spawnSync(process.platform === "win32" ? "python" : "python3", [vaultTests], { stdio: "inherit" });

@@ -49,21 +49,18 @@ const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSO
     if (share < 0.9) fails.push(`topics agree with the analysis on ${Math.round(share * 100)}% of notes, want 90%+`);
     console.log(fails.length ? "FAIL - " + fails.join("\n  ") : `ok - no analysis file: the plugin's own graph (${notes.length} notes, ${data.clusters.length} topics, ${Math.round(share * 100)}% as the analysis)`);
   } else console.log("FAIL - " + fails.join("\n  "));
-  // engine_owns: a desktop takes what the rules file lists over the analysis's file, the rest stays; a phone takes the same, except what rests on meaning
-  { const rules = { ...env.rules, engine_owns: ["mentions", "series", "dupes"] }, py = env.data(), real = py.nodes.filter(x => !x.person && !x.moc && !x.ghost), n0 = real[0], n1 = real[1];
-    const N = { mentions: { [n0.id]: 4321 }, recent: {}, said: {}, saidDays: {}, mentionDays: {}, used: 7, personMentions: {}, counts: {}, tasks: {}, series: [{ name: "from the engine", notes: [] }], follow: { items: ["never"] }, twins: [[n0.id, n1.id, 1, "text"]], similar: [], codey: [], personLinks: {} };
-    const on = async platform => { const L = stub.load(rules, { Platform: platform }), a = stub.fakeVault(env.dir(), L.TFile), q = Object.assign(Object.create(L.Plugin.prototype), { app: a, settings: { dataPath: "_scripts/out/vault-graph.json", script: "_scripts/vault_graph.py", rulesPath: "_scripts/vault_graph_rules.json" } });
+  // a desktop draws its file as it is; a phone also works out what doesn't rest on meaning
+  { const py = env.data(), real = py.nodes.filter(x => !x.person && !x.moc && !x.ghost), n0 = real[0], n1 = real[1];
+    const N = { mentions: { [n0.id]: 4321 }, recent: {}, said: {}, saidDays: {}, mentionDays: {}, used: 7, personMentions: {}, counts: {}, tasks: {}, series: [{ name: "from the engine", notes: [] }], follow: { items: [] }, twins: [[n0.id, n1.id, 1, "text"]], similar: [], codey: [], personLinks: {}, parts: {}, T: {} };
+    const on = async platform => { const L = stub.load(env.rules, { Platform: platform }), a = stub.fakeVault(env.dir(), L.TFile), q = Object.assign(Object.create(L.Plugin.prototype), { app: a, settings: { dataPath: "_scripts/out/vault-graph.json", rulesPath: "x" } });
       q.saveSettings = async () => {}; q.writeLiveDiag = () => {}; q.sceneBlocks = async () => []; q.base = JSON.parse(JSON.stringify(py)); q.engineNotesDone = N; return q.graphData(); };
-    const desk = await on({ isDesktopApp: true }), phone = await on({ isMobile: true }), of = d => d.nodes.find(x => x.id === n0.id);
-    check("a desktop takes the mentions it owns", of(desk).mentions, 4321); check("a desktop takes the series it owns", desk.series[0].name, "from the engine");
-    check("a part not listed stays the analysis's", JSON.stringify(desk.followthrough) === JSON.stringify(py.followthrough), true);
-    check("a phone takes the mentions too", of(phone).mentions, 4321); check("a phone takes the series too", phone.series[0].name, "from the engine");
-    const twin = d => d.near_dupes.some(x => x[0] === n0.id && x[1] === n1.id); check("a desktop takes duplicates", twin(desk), true); check("a phone keeps the desktop's duplicates, which rest on meaning", twin(phone), false);
-    // the self-test only fails on this plugin's own errors; an error with no stack counts as ours
+    const desk = await on({ isDesktopApp: true }), phone = await on({ isMobile: true }), of = d => d.nodes.find(x => x.id === n0.id), twin = d => d.near_dupes.some(x => x[0] === n0.id && x[1] === n1.id);
+    check("a desktop draws its file", of(desk).mentions, n0.mentions); check("a phone takes the mentions", of(phone).mentions, 4321); check("a phone takes the series", phone.series[0].name, "from the engine");
+    check("a phone keeps the desktop's duplicates, which rest on meaning", twin(phone), false); check("a phone keeps the desktop's topics", phone.clusters.length, py.clusters.length);
     const VR = stub.load(env.rules).VGRules; check("an error from elsewhere", VR.errorIsElsewhere("Error: Disconnected\n at app.js:1:1", "jk-vault-graph"), true); check("this plugin's error", VR.errorIsElsewhere("Error\n at x (plugin:jk-vault-graph:5:1)", "jk-vault-graph"), false); check("no stack", VR.errorIsElsewhere(undefined, "jk-vault-graph"), false);
     if (fails.length) console.log("FAIL - " + fails.join("\n  ")); }
-  // "file" in engine_owns: a desktop writes the whole file itself, keeps what an earlier run found, and won't overwrite newer work
-  { const rules = { ...env.rules, engine_owns: ["file"] }, L = stub.load(rules, { Platform: { isDesktopApp: true } }), a = stub.fakeVault(env.dir(), L.TFile), written = {}, DP = "_scripts/out/vault-graph.json";
+  // a desktop writes the whole file itself, keeps what an earlier run found, and won't overwrite newer work
+  { const L = stub.load(env.rules, { Platform: { isDesktopApp: true } }), a = stub.fakeVault(env.dir(), L.TFile), written = {}, DP = "_scripts/out/vault-graph.json";
     const py = env.data(), first = py.nodes.find(x => !x.person && !x.moc && !x.ghost);
     const disk = { [DP]: JSON.stringify({ ...py, nodes: py.nodes.map(n => (n.id === first.id ? { ...n, born: "2016-01-01" } : n)), built: { host: "other-pc", newest: 1 } }) }, read0 = a.vault.adapter.read;
     a.vault.adapter.read = async p => (p in disk ? disk[p] : read0(p)); a.vault.adapter.exists = async p => p in disk; a.vault.adapter.write = async (p, t) => { disk[p] = t; written[p] = true; };
@@ -74,7 +71,8 @@ const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSO
     const n1 = out.nodes.find(n => n.id === first.id); check("an earlier run's birth date is kept", n1.born, "2016-01-01"); check("today's snapshot is written", Object.keys(disk).some(p => p.includes("/snapshots/" + out.date)), true);
     check("links are counted in the file", out.nodes.some(n => n.inlinks > 0), true); check("people are in the file", out.nodes.some(n => n.person), true);
     const before = disk[DP]; disk[DP] = JSON.stringify({ ...JSON.parse(before), date: "kept", built: { host: "other-pc", newest: 9e12 } }); check("newer work on another PC stays", await q.writeGraphFile(), "other-pc"); check("and isn't overwritten", JSON.parse(disk[DP]).date, "kept");
-    let ran = 0; q.runPython = () => { ran++; return Promise.resolve(""); }; q.reloadSoon = () => {}; q.updateStatus = () => 0; q.writeGraphFile = async () => null; await q.refresh(true); check("a refresh doesn't run Python", ran, 0);
+    let wrote = 0; q.reloadSoon = () => {}; q.updateStatus = () => 0; q.writeGraphFile = async () => { wrote++; return null; }; await q.refresh(true); check("a refresh writes the file", wrote, 1);
+    check("nothing in the plugin can run Python", ["runPython", "pythonCmd", "hasAnalysis"].filter(k => k in q), []);
     if (fails.length) console.log("FAIL - " + fails.join("\n  ")); }
   process.exit(fails.length ? 1 : 0);
 })().catch(e => { console.log("FAIL - " + (e && e.stack || e)); process.exit(1); });

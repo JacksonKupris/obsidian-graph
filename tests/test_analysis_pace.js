@@ -22,7 +22,7 @@ async function fire(ageMs, edits = 1) {
   assert.deepStrictEqual((await fire(4 * HOUR)).calls, [true], "four hours on it should run, quietly");
   const none = await fire(4 * HOUR, 0); assert.deepStrictEqual([none.calls, none.again], [[], []], "with no edits there's nothing to run");
   // the command runs straight away: refresh itself has no wait in it
-  const p = Object.create(Plugin.prototype); let ran = 0; Object.assign(p, { settings: { script: "x" }, refreshing: false, hasAnalysis: async () => true, updateStatus() {}, runPython: async () => { ran++; return ""; }, mergeContentFromDisk: async () => {}, reloadSoon() {} });
+  const p = Object.create(Plugin.prototype); let ran = 0; Object.assign(p, { settings: {}, refreshing: false, updateStatus() {}, reloadSoon() {}, writeGraphFile: async () => { ran++; return null; } });
   await p.refresh(true); await tick(); assert.strictEqual(ran, 1, "Re-analyse now should run at once");
   console.log("ok - background analysis: after a pause, at most every 3 hours, shared through the synced file; Re-analyse now at once");
   process.exit(0);

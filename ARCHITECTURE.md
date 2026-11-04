@@ -20,13 +20,13 @@ One system, not bolted-on parts: one state, shared rules, one action path, share
 | `build.js` | Joins the sources into `main.js` (rules + actions + view + scenes + plugin), `styles.css`, `manifest.json`, and `rules.js` (the rulebook alone, for a vault's own checks). Also builds the standalone page. |
 | `tests/` | `run.js` (fast: build, `test_rules.js`, `smoke_page.js`), plus `click_all.js`, `layout_random.js`, `shots.js`, `polish_loop.js`. All run on `fixtures/` by default, or a real vault with `--vault`. `env.js` decides which. |
 | `fixtures/` | `make_sample.js` generates the sample vault and, with `--analyse`, its graph data (`sample-graph.json`). |
-| `analysis/` | The Python analysis (graph data, map and gap analysis), installed into the vault by deploy. |
+| `src/engine.js` | `VGEngine`: the analysis. Topics, mentions, gaps, maps and the written reports, with nothing about Obsidian in them; the slow parts run in a worker. |
 | `scripts/deploy.js` | Build with a vault's rules, test on its data, install, run the vault's own checks, reload in Obsidian. |
 
 ## Rules
 
-- **Rules live in one place.** Rule data is a vault's rules file; rule code is `src/rules.js`. The analysis (`analysis/vault_graph_rules.py`) reads the same rules file. Change a rule there, never in a view.
-- **Folder and file names** (inbox, daily, people, archive, skip, reports, scenes, cache, tooling folders, excluded folders; the data, analysis, dismissed and shared files) are in the rules file's `folders` and `files`. A test fails on a vault folder name in the code. Another vault edits that one block.
+- **Rules live in one place.** Rule data is a vault's rules file; rule code is `src/rules.js`. The engine gets what it needs from them. Change a rule there, never in a view.
+- **Folder and file names** (inbox, daily, people, archive, skip, reports, scenes, cache, tooling folders, excluded folders; the data, dismissed and shared files) are in the rules file's `folders` and `files`. A test fails on a vault folder name in the code. Another vault edits that one block.
 
 ## One action path
 
@@ -36,7 +36,7 @@ One system, not bolted-on parts: one state, shared rules, one action path, share
 
 ## One state
 
-- **Data is always live.** The plugin keeps one merged state (`graphData()`) that every surface redraws from: the analysis output plus Obsidian's own index (`liveMerge`), so links, tasks, tags, maps, new and deleted notes show at once. The desktop plugin re-runs the analysis 30 s after the last edit. There is no manual refresh step.
+- **Data is always live.** The plugin keeps one merged state (`graphData()`) that every surface redraws from: the engine's output plus Obsidian's own index (`liveMerge`), so links, tasks, tags, maps, new and deleted notes show at once. A desktop re-runs the engine after a pause in editing. There is no manual refresh step.
 - **Shared state across devices** (review skips, today's three, XP, saved views) is one synced file. Each save merges with the file on disk (`VGRules.mergeShared`, three-way, against what this view last read or wrote), and each device also keeps a ledger of its marks (`ledgerAdd` / `applyLedgers`), so a device whose copy Sync dropped loses nothing. Marks are keyed by path, so they follow a note when it moves: a rename goes in this device's ledger (`recordMoves`, `moved`), and every read goes through `followLedgers`, since Sync shows another device a move as a delete and a create.
 
 ## Shared parts, not per-surface copies
@@ -57,8 +57,10 @@ One system, not bolted-on parts: one state, shared rules, one action path, share
 
 ## The analysis
 
-**It's moving into the plugin** (`src/engine.js`; plan in the vault: `Vault Graph One System Plan 2026-11-03`). Today a vault with no analysis file gets the engine's whole graph (`graphData` → `engineData`), and a desktop with the analysis takes the parts its rules file lists in `engine_owns` over the file (`VGRules.applyEngineNotes`: mentions, tasks, people, series, follow, dupes, topics). A phone takes the same parts except dupes and topics, which rest on meaning: each device has its own Smart Connections index, and a phone's can be far behind. `topics` covers everything keyed by a topic's number (gaps, the matrix, maps, bridges, Timeline, rhythm, suggested links) and switches in one step. The slow steps run in a worker (`VGEngine.run`). `tests/test_no_python.js` scores every view without the analysis and fails if the list of what's missing changes, in either direction. Topic counts move with ordinary edits (Louvain: removing one link moved 6 of 537 notes), so compare the engine with the analysis on the same graph, as the vault's `test_graph_vault.js` does, not on counts taken at different moments. Where the two read a link differently, Obsidian wins: the analysis accepts `[[Old Folder/Note]]` by its last part, Obsidian calls it unresolved; and a `[[Note|alias]]` in a table row with a raw pipe is no link to Obsidian, while the analysis counted it on every day the row was carried forward.
+`src/engine.js` works everything out, and a desktop writes it to the data file every device reads (`writeGraphFile`), after a pause in editing and at most every few hours. A phone reads that file and also works out what doesn't rest on meaning (mentions, tasks, people, series, follow-through). Topics and everything keyed by a topic's number stay the desktop's: each device has its own Smart Connections index, and a phone's can be far behind. `graphData` lays Obsidian's live index over it all (`liveMerge`).
 
-`analysis/` is the Python analysis: `vault_graph.py` writes the graph data every device reads (topics, gaps, bridges, follow-through, the weekly State of the Vault note with `--state`); `vault_gaps.py` and `moc_align.py` are the gap and map analysis the vault's reports also use; `vault_graph_rules.py` reads the same rules file as `src/rules.js`. Deploy installs them into the vault's scripts folder, where the desktop plugin runs them (`files.analysis`) and Sync carries them to every PC; it refuses to overwrite a vault copy edited since the last deploy (`vault-graph-deployed.json` records what it installed).
+The written reports come from the same step: `gapsReport`, `mapReport` and `stateNote`, through the commands `gaps-report`, `map-report` and `state-note`. A ticked map row applies through the write primitives (`applyMapRows`), so it can be undone.
 
-They still use the vault's `_System/vault_lib.py` (file listing, link patterns, the cache folder), which the vault's other tools share. Making the analysis stand alone (that small core here, vault-specific choices as plugin settings) is what using the plugin in another vault needs next.
+Topic counts move with ordinary edits (Louvain: removing one link moved 6 of 537 notes), so don't compare runs by their counts. Where a link is in doubt, Obsidian's reading stands: `[[Old Folder/Note]]` that doesn't resolve isn't a link, and neither is a `[[Note|alias]]` in a table row with a raw pipe.
+
+This was a Python analysis until 2026-11 (git history: `analysis/`). `tests/test_no_python.js` still compares every view against the sample data from its last run, `fixtures/sample-graph.json`.
