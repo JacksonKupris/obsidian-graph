@@ -170,7 +170,8 @@ const VGEngineMake = () => {
     }
     return hi;
   }
-  const dot = (a, b) => { const p = new Array(a.length); for (let i = 0; i < a.length; i++) p[i] = a[i] * b[i]; return fsum(p); };
+  // two notes' closeness: word lists (a Map, wordVectors) or an index's vectors
+  const dot = (a, b) => { if (a instanceof Map) { let s = 0; const [x, y] = a.size < b.size ? [a, b] : [b, a]; for (const [k, v] of x) { const w = y.get(k); if (w) s += v * w; } return s; } const p = new Array(a.length); for (let i = 0; i < a.length; i++) p[i] = a[i] * b[i]; return fsum(p); };
 
   // ---- note names: Python's \d is any Unicode digit, so \p{Nd} here
   const stemOf = r => { const base = VGShared.baseOf(r), i = base.lastIndexOf("."); return i > 0 ? base.slice(0, i) : base; };
@@ -219,8 +220,17 @@ const VGEngineMake = () => {
   // sameName false leaves out same-name copies (the similar-notes report).
   function topNeighbours(vectors, k, sameName = true) {
     const paths = sorted(vectors.keys()), scores = new Map(paths.map(p => [p, []]));
+    if (paths.length && vectors.get(paths[0]) instanceof Map) {
+      const has = new Map(); paths.forEach((p, i) => { for (const w of vectors.get(p).keys()) { if (!has.has(w)) has.set(w, []); has.get(w).push(i); } });
+      paths.forEach((p, i) => { const sum = new Map(), vp = vectors.get(p); for (const [w, x] of vp) for (const j of has.get(w)) if (j > i) sum.set(j, (sum.get(j) || 0) + x * vectors.get(paths[j]).get(w));
+        for (const [j, d] of sum) { const q = paths[j]; scores.get(p).push([d, q]); scores.get(q).push([d, p]); } });
+      return nearestOf(scores, k, sameName);
+    }
     for (let i = 0; i < paths.length; i++) { const p = paths[i], vp = vectors.get(p), sp = scores.get(p);
       for (let j = i + 1; j < paths.length; j++) { const q = paths[j], d = dot(vp, vectors.get(q)); sp.push([d, q]); scores.get(q).push([d, p]); } }
+    return nearestOf(scores, k, sameName);
+  }
+  function nearestOf(scores, k, sameName) {
     const low = p => stemOf(p).toLowerCase(), out = new Map();
     for (const [p, list] of scores) out.set(p, list.filter(x => sameName || low(x[1]) !== low(p)).sort((a, b) => b[0] - a[0] || pyCmp(b[1], a[1])).slice(0, k));
     return out;
@@ -315,7 +325,7 @@ const VGEngineMake = () => {
     });
   }
   // Notes that many of the same notes link to but that don't link each other: a pair worth linking in any vault, from
-  // its own links (co-mentions need daily notes, meaning needs Smart Connections). nb: Map note -> Set of linked notes.
+  // its own links (co-mentions need daily notes). nb: Map note -> Set of linked notes.
   // Scored by how much of both notes' links they share (shared / sqrt(links a * links b)), so two busy notes aren't
   // paired just for being busy; a note with more than `busy` links (a hub, a catch-all list) doesn't make pairs.
   // -> [{ a, b, n, score }] best first, n = notes linking both, at least `min`.
@@ -652,35 +662,67 @@ what when where which while who how why each other same see set use used using w
     const score = rank || (x => x[2]);
     for (const x of [...pairs].sort((p, q) => score(q) - score(p) || pyCmp(p[0], q[0]) || pyCmp(p[1], q[1]))) {
       const a = stemOf(x[0]).toLowerCase(), b = stemOf(x[1]).toLowerCase(), key = pyCmp(a, b) < 0 ? `${a}\n${b}` : `${b}\n${a}`;
-      if (a !== b && !seen.has(key) && !(skip && skip(x[0], x[1]))) { seen.add(key); out.push([x[0], x[1], x[2]]); }
+      if (a !== b && !seen.has(key) && !(skip && skip(x[0], x[1]))) { seen.add(key); out.push(x); }
       if (out.length === limit) break;
     }
     return out;
   }
-  // mutual nearest in meaning with no direct link. Returned unranked: byName ranks them on the main thread, where the
+  // mutual nearest with no direct link, from word lists or an index. Word lists also say which words the two share. Returned unranked: byName ranks them on the main thread, where the
   // dismissed pairs are known.
   function similarPairs(vectors, adj, quiet) {
     const top = topNeighbours(vectors, SEMANTIC_TOP_K, false), pairs = [], tight = t => stemOf(t).toLowerCase().replace(SERIES_G, "");
     const linked = nameLinked(adj);
     for (const p of sorted(vectors.keys())) for (const [s, q] of top.get(p)) {
-      if (pyCmp(p, q) < 0 && !quiet.has(p) && !quiet.has(q) && top.get(q).some(x => x[1] === p) && !linked(p, q) && tight(p) !== tight(q) && !(seriesKey(p) && seriesKey(p) === seriesKey(q))) pairs.push([p, q, pyRound(s, 3)]); }
+      if (pyCmp(p, q) < 0 && !quiet.has(p) && !quiet.has(q) && top.get(q).some(x => x[1] === p) && !linked(p, q) && tight(p) !== tight(q) && !(seriesKey(p) && seriesKey(p) === seriesKey(q)) && s > 0) pairs.push(vectors.get(p) instanceof Map ? [p, q, pyRound(s, 3), sharedWords(vectors.get(p), vectors.get(q))] : [p, q, pyRound(s, 3)]); }
     return pairs;
   }
+  const sharedWords = (a, b) => [...a].filter(([w]) => b.has(w)).map(([w, x]) => [w, x * b.get(w)]).sort((x, y) => y[1] - x[1] || pyCmp(x[0], y[0])).slice(0, 4).map(x => x[0]);
+  // ---- word matching: every note reduced to the unusual words it uses, the same on any device, with nothing to install. Log word count × idf, at unit
+  // length, so dot is cosine. Generated sections, code, IDs and links' targets say nothing about what a note is about; a word in over a quarter of the
+  // notes, or only this one, can't connect two.
+  const WORD_MAX_SHARE = 0.25, WORD_TITLE = 3, WORD_TOKEN = /[A-Za-z0-9_-]+/g;
+  const WORD_STOP = new Set("diagram diagrams drawing excalidraw legend arrow arrows box boxes dashed dotted solid dark light red orange yellow green blue purple pink grey gray black white".split(" "));
+  const CREATED_FROM = /^>\s*Created from Vault Graph\b/;
+  function withoutGenerated(text, generated) {
+    const re = generated ? new RegExp(generated, "i") : null, out = []; let skip = 0;
+    for (const l of String(text).replace(FRONTMATTER, "").split(/\r?\n/)) { if (CREATED_FROM.test(l)) continue; const m = /^(#{1,6})\s+(.*)/.exec(l); if (m) { if (skip && m[1].length <= skip) skip = 0; if (!skip && re && re.test(m[2])) { skip = m[1].length; continue; } } if (!skip) out.push(l); }
+    return out.join("\n");
+  }
+  function wordVectors(knowledge, raw, generated) {
+    const counts = new Map(), df = new Map(), words = t => (t.match(WORD_TOKEN) || []).filter(w => w.length >= 3 && !/[0-9_]/.test(w) && !TEXT_STOP.has(w.toLowerCase()) && !WORD_STOP.has(w.toLowerCase())).map(wordStem);
+    for (const r of knowledge) { const c = new Map(), clean = withoutGenerated(raw[r] || "", generated).replace(/```[\s\S]*?```|`[^`]*`|\]\([^)]*\)|https?:\/\/\S+/g, " ");
+      words(clean).forEach(w => bump(c, w)); words(stemOf(r)).forEach(w => bump(c, w, WORD_TITLE)); counts.set(r, c); for (const w of c.keys()) bump(df, w); }
+    const n = knowledge.length, out = new Map();
+    for (const [r, c] of counts) { const v = new Map(); let sq = 0; for (const [w, k] of c) { const d = df.get(w); if (d < 2 || d > WORD_MAX_SHARE * n) continue; const x = (1 + Math.log(k)) * Math.log(n / d); v.set(w, x); sq += x * x; } if (sq) { const len = Math.sqrt(sq); for (const [w, x] of v) v.set(w, x / len); out.set(r, v); } }
+    return out;
+  }
+  // What the graph suggests linking, from word matching, with an index's pairs as an extra where one is installed. Pairs both found first; one note in at most
+  // SIMILAR_CAP pairs, so one busy note doesn't fill the list; two dated records aren't suggested, since they stay as written. -> { near, rel: [[a, b, score, why]] }
+  const SIMILAR_CAP = 3, TOP_MEANING = 5;
+  function similarLinks({ similar = [], meaning = [], codey = [], records = [], twins = [], skip }) {
+    const key = x => [x[0], x[1]].sort().join("\n"), code = new Set(codey), rec = new Set(records), copies = new Set(twins.map(key)), oneOf = new Map(twins.map(x => [x[1], x[0]])), same = r => oneOf.get(r) || r, keep = x => !copies.has(key(x)) && !(code.has(x[0]) && code.has(x[1])) && !(rec.has(x[0]) && rec.has(x[1]));
+    const inMeaning = new Set(meaning.map(key)), inWords = new Set(similar.map(key)), both = x => inMeaning.has(key(x));
+    const pairsSeen = new Set(), capped = (list, limit, seen = new Map()) => { const out = []; for (const x of list) { if (out.length === limit) break; const k = key([same(x[0]), same(x[1])]); if (pairsSeen.has(k)) continue; if ((seen.get(x[0]) || 0) >= SIMILAR_CAP || (seen.get(x[1]) || 0) >= SIMILAR_CAP) continue; pairsSeen.add(k); bump(seen, x[0]); bump(seen, x[1]); out.push(x); } return out; };
+    const seen = new Map(), near = byName(meaning.filter(x => x[2] >= DUPLICATE_SIMILARITY), TOP_SEMANTIC, skip);
+    const words = capped(byName(similar.filter(keep), Infinity, skip, x => (both(x) ? 10 : 0) + x[2]), TOP_SEMANTIC, seen).map(x => [x[0], x[1], x[2], `shared words: ${(x[3] || []).join(", ")}${both(x) ? " · similar meaning" : ""}`]);
+    const extra = capped(byName(meaning.filter(x => x[2] < DUPLICATE_SIMILARITY && keep(x) && !inWords.has(key(x))), Infinity, skip), TOP_MEANING, seen).map(x => [x[0], x[1], x[2], `similar meaning (${x[2]})`]);
+    return { near, rel: [...words, ...extra] };
+  }
   const vectorsOf = (smart, knowledge) => (smart ? embeddings({ sources: smart.sources, models: smart.models, blob: f => smart.blobs[f] }, knowledge) : new Map());
-  function notesJob({ dailies, dailyDays, knowledge, people, terms, recentSince, raw, born, adj, quiet, smart, vectors: given, standups, today, planHead, doneHead }) {
+  function notesJob({ dailies, dailyDays, knowledge, people, terms, recentSince, raw, born, adj, quiet, smart, vectors: given, generated, records, standups, today, planHead, doneHead }) {
     const M = mentionPass({ dailies, knowledge, people, terms, recentSince }), q = new Set(quiet);
     const counts = {}; for (const r of knowledge) counts[r] = noteCounts(raw[r] || "");
-    const vectors = given || vectorsOf(smart, knowledge);
+    const vectors = given || wordVectors(knowledge, raw, generated), index = vectorsOf(smart, knowledge);
     const codey = knowledge.filter(r => mostlyCode(raw[r] || ""));
     return { ...M, counts, tasks: taskAges(dailyDays, raw, born, knowledge), series: datedSeries(knowledge), follow: followThrough({ standups, today, planHead, doneHead }),
-      twins: textTwins(knowledge, raw, q), similar: vectors.size ? similarPairs(vectors, adj, q) : [], codey };
+      twins: textTwins(knowledge, raw, q), similar: vectors.size ? similarPairs(vectors, adj, q) : [], meaning: index.size ? similarPairs(index, adj, q) : [], records: records || [], codey };
   }
 
-  // ---- the topics, from what the plugin has gathered (the graph, the notes' text and tags, the Smart Connections files):
+  // ---- the topics, from what the plugin has gathered (the graph, the notes' text and tags):
   // the slow part of building the graph, as one step with no Obsidian in it, so it can run off the main thread.
-  function topicsJob({ graph, adj, knowledge, smart, vectors: given, raw, tags, prev, stack }) {
+  function topicsJob({ graph, adj, knowledge, vectors: given, generated, raw, tags, prev, stack }) {
     graph = graph || adj;
-    const vectors = given || vectorsOf(smart, knowledge);
+    const vectors = given || wordVectors(knowledge, raw, generated);
     const coh = cohesionGraph(graph, knowledge, vectors), topics = topicsOf(absorbSmall(louvain(coh), coh));
     const ids = stableIds(topics, prev || {}), kw = topicWords(topics, raw), labels = topics.map(m => label(m, graph, tags)), st = stacks(topics, tags, stack);
     const names = readableNames(topics, kw, labels.map(l => l.core)).map((n, i) => withStack(n, st[i]));
@@ -806,12 +848,12 @@ what when where which while who how why each other same see set use used using w
     for (const [a, b] of [...unlinked, ...top.flatMap(g => g.suggest)]) { const [x, y] = N.pairDays[`${a}\n${b}`] ? [a, b] : [b, a], days = [...(N.pairDays[`${x}\n${y}`] || [])].sort((p, s) => pyCmp(s[0], p[0]) || pyCmp(s[1], p[1])).slice(0, EVIDENCE_PER_PAIR);
       const ta = new Set([...(termsOf[x] || []), stemOf(x).toLowerCase()]), tb = new Set([...(termsOf[y] || []), stemOf(y).toLowerCase()]);
       evidence[`${x}|${y}`] = days.map(([day, p]) => [day, p, snippet(dailyText.get(p) || "", ta, tb)]); }
-    // suggested links, each pair once: co-mentions, a gap's suggestions, then similar in meaning
-    const code = new Set(N.codey), near = byName(N.similar.filter(x => x[2] >= DUPLICATE_SIMILARITY), TOP_SEMANTIC, skip), rel = byName(N.similar.filter(x => x[2] < DUPLICATE_SIMILARITY && !(code.has(x[0]) && code.has(x[1]))), TOP_SEMANTIC, skip);
+    // suggested links, each pair once: co-mentions, a gap's suggestions, then similar notes
+    const { near, rel } = similarLinks({ ...N, skip });
     const seen = new Set(), out = [], edge = (x, y, kind, why) => { const k = x < y ? `${x}\n${y}` : `${y}\n${x}`; if (seen.has(k) || x === y) return; seen.add(k); const e = { source: x, target: y, w: 1, kind, why }, ev = evidence[`${x}|${y}`] || evidence[`${y}|${x}`]; if (ev) e.ev = ev; out.push(e); };
     unlinked.forEach(([x, y, n]) => edge(x, y, "gap", `${n}× together in daily notes`));
     top.forEach(g => g.suggest.forEach(([x, y, n]) => edge(x, y, "gap", `${n}× together in daily notes`)));
-    rel.forEach(([x, y, s]) => edge(x, y, "similar", `similar meaning (${s})`));
+    rel.forEach(([x, y, , why]) => edge(x, y, "similar", why));
     const passages = closestPassages(out.map(l => [l.source, l.target]), raw);
     out.forEach(l => { const p = passages[`${l.source}|${l.target}`]; if (p) { l.pa = p.a; l.pb = p.b; } });
     const pairs = []; for (let i = 0; i < clusters.length; i++) for (let j = i + 1; j < clusters.length; j++) { const p = `${i},${j}`, l = links.get(p) || 0, r = related.get(p) || 0; if (l || r) pairs.push([ids[i], ids[j], l, r]); }
@@ -828,7 +870,7 @@ what when where which while who how why each other same see set use used using w
   }
   // the whole analysis in one step, for a desktop that owns topics and for a vault with no analysis file
   function analyseJob(input) {
-    const vectors = vectorsOf(input.smart, input.knowledge), T = topicsJob({ ...input, vectors }), N = notesJob({ ...input, vectors });
+    const vectors = wordVectors(input.knowledge, input.raw, input.generated), T = topicsJob({ ...input, vectors }), N = notesJob({ ...input, vectors });
     return { T, N, parts: topicParts({ ...input, T, N, graph: input.adj }) };
   }
 
@@ -911,11 +953,11 @@ what when where which while who how why each other same see set use used using w
     for (const [r, score, c] of R.bridges) L.push(`- ${noteLink(r)} — ${pyFloat(score)}${c != null ? ` (C${c})` : ""}`);
     L.push("", "## Frequently co-mentioned, never linked", "_Pairs linked from the same daily notes again and again, with no direct link between them._", "");
     for (const [x, y, n] of R.unlinked) L.push(`- [ ] ${noteLink(x)} ↔ ${noteLink(y)} — ${n}×`, ...evidenceLine(R.evidence, x, y, "  "));
-    L.push("", "## Similar meaning, never linked (Smart Connections)");
-    if (R.embedded) { L.push(`_Each note is in the other's top ${SEMANTIC_TOP_K} by embedding similarity (${R.embedded} knowledge notes embedded), with no direct link. Catches related notes that never show up in the same daily note._`, "");
-      if (R.similar.length) R.similar.forEach(([x, y, s]) => L.push(`- [ ] ${noteLink(x)} ↔ ${noteLink(y)} — ${pyFloat(s)}`)); else L.push("- none");
+    L.push("", "## Similar notes, never linked");
+    if (R.embedded) { L.push(`_Each note is in the other's top ${SEMANTIC_TOP_K} by the unusual words they share (${R.embedded} notes compared), with no direct link. Catches related notes that never show up in the same daily note._`, "");
+      if (R.similar.length) R.similar.forEach(([x, y, , why]) => L.push(`- [ ] ${noteLink(x)} ↔ ${noteLink(y)} — ${why}`)); else L.push("- none");
       if (R.near.length) L.push("", "## Possible duplicates under different names", `_Similarity ≥ ${DUPLICATE_SIMILARITY} (same-name copies score 0.93–0.999). The duplicate scan only compares same-name files, so these are new. Judgment only — never merged automatically._`, "", ...R.near.map(x => `- [ ] \`${x[0]}\` ↔ \`${x[1]}\` — ${x[3] === "text" ? "same text, " : ""}${pyFloat(x[2])}`));
-    } else L.push("- Smart Connections index not found (`.smart-env/`); section skipped.");
+    } else L.push("- none");
     if (R.said.length) L.push("", "## Mentioned in dailies, never linked there", "_Daily notes that name a topic in plain text (title, context name or alias) without linking it — the topic's note never hears about that work. Linking the first mention in a standup fixes it._", "", ...R.said.slice(0, 12).map(([r, n]) => `- ${noteLink(r)} — named in ${n} daily notes without a link`));
     if (R.personTopics.length) L.push("", "## People ↔ topics, unlinked", "_Person and note named together in ≥3 daily notes, but neither links the other. Candidates for the person's \"Current Projects & Relations\" section._", "", ...R.personTopics.map(([p, r, n]) => `- [ ] ${noteLink(p)} ↔ ${noteLink(r)} — ${n}×`));
     if (R.neglected.length) L.push("", "## Talked about, but isolated", "_Mentioned in ≥3 daily notes yet linked to no other knowledge note._", "", ...R.neglected.map(([r, n]) => `- ${noteLink(r)} — ${n} daily mentions`));
@@ -1024,7 +1066,7 @@ what when where which while who how why each other same see set use used using w
   const JOBS = { topicsJob, notesJob, analyseJob, codeDocs };
   const run = (name, input) => VGShared.offThread({ makers: { VGEngineMake }, listen: "e => { postMessage(VGEngineMake()[e.data.name](e.data.input)); }", message: { name, input }, here: () => JOBS[name](input), label: `${name} is`, stats });
 
-  return { gapsReport, mapReport, stateNote, rowsOf, linkedIn, appendSection, underFrontmatter, mapNote, bridgeNote, nodeTags, isAttachment: t => ATTACHMENT.test(t), dayShift, codeDocs, gitArgs, snapshotOf, changesFrom, run, stats, topicsJob, notesJob, analyseJob, topicParts, closestPassages, timeline, rhythm, mapsOf, mentionPass, taskAges, datedSeries, followThrough, textTwins, similarPairs, byName, mostlyCode, pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
+  return { wordVectors, similarLinks, gapsReport, mapReport, stateNote, rowsOf, linkedIn, appendSection, underFrontmatter, mapNote, bridgeNote, nodeTags, isAttachment: t => ATTACHMENT.test(t), dayShift, codeDocs, gitArgs, snapshotOf, changesFrom, run, stats, topicsJob, notesJob, analyseJob, topicParts, closestPassages, timeline, rhythm, mapsOf, mentionPass, taskAges, datedSeries, followThrough, textTwins, similarPairs, byName, mostlyCode, pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
     noteWords, topicWords, topicsOf, topicGraph, frontmatterTags, wantedNotes, sharedPairs, cleanTitle, readableNames, stacks, withStack, label, stableIds, titleCase };
 };
 const VGEngine = VGEngineMake();
