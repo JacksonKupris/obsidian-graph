@@ -9,6 +9,7 @@ What Vault Graph already does, and where. "Lens" and "scene" below are code word
 | What to do next | Today list (`VGRules.todayList`), one next step (`hqNextStep`) | `src/rules.js`, `src/actions.js` |
 | Whether a plan item is already done | `planDoneWords`, `hqPlanDone` (by the words, across standups) | `src/rules.js` |
 | A todo's done date, however it's ticked | `VGRules.taskLine`, `taskEdit`; the editor's ticks through `registerDoneDates` | `src/rules.js`, `src/plugin.js` |
+| What works with no analysis file | `tests/test_no_python.js` (the scoreboard); a view says what it needs through `needsAnalysis` | `tests/`, `src/view/60-lenses.js` |
 | Change a note, with Undo | The plugin's write actions (`WRITE_ACTIONS`), run through `VGActions.run` | `src/plugin.js`, `src/actions.js` |
 | Open tasks from earlier days | Sweep (by day, by heading, one at a time, Move) | `src/hq/60-sweep.js` |
 | Going through a list one by one | `walkHtml` | `src/hq/30-work.js` |

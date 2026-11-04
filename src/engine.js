@@ -5,7 +5,7 @@
 // Graphs are plain objects {node: {neighbour: weight}} in a fixed key order. Every loop below goes through keys in the
 // same order as the Python it mirrors (dicts keep insertion order there too), so floating-point sums and ties come out
 // the same.
-const VGEngine = (() => {
+const VGEngineMake = () => {
   // Python's string order (code points); JS compares UTF-16 units, which differs only around surrogate pairs
   const SURR = /[\uD800-\uDFFF]/;
   const pyCmp = (a, b) => { if (a === b) return 0;
@@ -489,6 +489,34 @@ const VGEngine = (() => {
     return out.map(o => (o !== null ? o : free()));
   }
 
-  return { pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
+  // ---- the topics, from what the plugin has gathered (the graph, the notes' text and tags, the Smart Connections files):
+  // the slow part of building the graph, as one step with no Obsidian in it, so it can run off the main thread.
+  function topicsJob({ graph, knowledge, smart, raw, tags, prev, stack }) {
+    const vectors = smart ? embeddings({ sources: smart.sources, models: smart.models, blob: f => smart.blobs[f] }, knowledge) : new Map();
+    const coh = cohesionGraph(graph, knowledge, vectors), topics = topicsOf(absorbSmall(louvain(coh), coh));
+    const ids = stableIds(topics, prev || {}), kw = topicWords(topics, raw), labels = topics.map(m => label(m, graph, tags)), st = stacks(topics, tags, stack);
+    const names = readableNames(topics, kw, labels.map(l => l.core)).map((n, i) => withStack(n, st[i]));
+    return { topics: topics.map((m, i) => ({ id: ids[i], size: m.length, name: names[i], stack: st[i], keywords: kw[i], ...labels[i], members: m })), bc: betweenness(graph), vectors: vectors.size };
+  }
+  // A job in a worker, so the app stays free while it runs (seconds on a big vault; a phone is slower). If a worker can't
+  // start, it runs here. stats.via says which, so a test can tell. The worker gets this whole engine from its own source.
+  const stats = { via: null };
+  function inWorker(name, input) {
+    return new Promise((resolve, reject) => {
+      const source = `const VGEngineMake = ${VGEngineMake.toString()};\nconst E = VGEngineMake();\nonmessage = e => { postMessage(E[e.data.name](e.data.input)); };`;
+      const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" })), w = new Worker(url), end = () => { w.terminate(); URL.revokeObjectURL(url); };
+      w.onmessage = e => { end(); resolve(e.data); }; w.onerror = e => { end(); reject(new Error(e.message || "worker failed")); };
+      w.postMessage({ name, input });
+    });
+  }
+  const JOBS = { topicsJob };
+  async function run(name, input) {
+    if (typeof Worker === "function" && typeof Blob === "function" && typeof URL === "function" && URL.createObjectURL) {
+      try { const r = await inWorker(name, input); stats.via = "worker"; return r; } catch (e) { console.warn(`Vault Graph: ${name} is running on the main thread:`, e.message); } }
+    stats.via = "here"; return JOBS[name](input);
+  }
+
+  return { run, stats, topicsJob, pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
     noteWords, topicWords, topicsOf, topicGraph, frontmatterTags, wantedNotes, sharedPairs, cleanTitle, readableNames, stacks, withStack, label, stableIds, titleCase };
-})();
+};
+const VGEngine = VGEngineMake();

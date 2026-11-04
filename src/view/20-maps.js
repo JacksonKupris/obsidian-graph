@@ -23,13 +23,13 @@
   let geoCache = null, mapCache = {}, impMax = null;
   // how much the vault leans on a note, 0-1 (links in, daily mentions, influence)
   // One measure everywhere (City, Subway, Terrain, the Important-but-stale lens): links in, daily mentions,
-  // influence, and opens when usage data exists (recent mentions otherwise)
+  // influence, and recent mentions
   const importance = n => {
     if (!impMax) { const ns = nodes.filter(m => !special(m) && !m.ghost), mx = f => Math.max(1e-9, ...ns.map(f));
       impMax = { i: mx(m => Math.log1p(m.inlinks || 0)), m: mx(m => Math.log1p(m.mentions || 0)), b: mx(m => m.bc || 0),
-        o: mx(m => Math.log1p(m.opens90 || 0)), r: mx(m => Math.log1p(m.recent || 0)) }; }
+        r: mx(m => Math.log1p(m.recent || 0)) }; }
     return 0.4 * Math.log1p(n.inlinks || 0) / impMax.i + 0.3 * Math.log1p(n.mentions || 0) / impMax.m + 0.2 * (n.bc || 0) / impMax.b
-      + 0.1 * (DATA.has_usage ? Math.log1p(n.opens90 || 0) / impMax.o : Math.log1p(n.recent || 0) / impMax.r);
+      + 0.1 * Math.log1p(n.recent || 0) / impMax.r;
   };
   // Where notes sit on the familiar 2D map (saved layout, or the 2D view just left); topics round a circle otherwise
   function geography() {

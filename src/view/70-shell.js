@@ -31,16 +31,11 @@
   }
   $(".vg-today-x").onclick = () => { todayHidden.add(st.view); renderToday(); };
 
-  // ---------------------------------------------------------------- save the current view in one click; cycle favourites in home cards
+  // ---------------------------------------------------------------- save the current view in one click
   $(".vg-savebtn").onclick = () => {
     const name = `${MAPS[st.view] || { "2d": "2D", "3d": "3D", neural: "Neural", cosmos: "Cosmos" }[st.view] || st.view}${st.focus && byId[st.focus] ? " · " + byId[st.focus].name : ""} · ${new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
     savedViews = savedViews.filter(v => v.name !== name).concat([snapshotView(name)]); renderSaved(); persistSoon(); toast(`Saved “${name}”`, "ok");
   };
-  function syncCycle() { const nm = $(".vg-cycle-name"); if (nm) nm.textContent = MAPS[st.view] || { "2d": "2D", "3d": "3D", neural: "Neural", cosmos: "Cosmos" }[st.view] || st.view; }
-  if (opts.favourites) {
-    const step = d => { const f = opts.favourites, i = f.indexOf(st.view); setView(f[((i < 0 ? 0 : i + d) + f.length) % f.length]); };
-    $(".vg-cycle-prev").onclick = () => step(-1); $(".vg-cycle-next").onclick = () => step(1);
-  }
 
   // ---------------------------------------------------------------- search palette
   const fuzzy = VGRules.fuzzyScore;
@@ -190,8 +185,8 @@
   // ---------------------------------------------------------------- presets
   const PRESETS = {
     explore: { name: "Explore", hint: "Clusters, influence and gaps", apply: () => ({ sizeBy: "bc", colorBy: "cluster", gaps: true, overlays: [] }) },
-    attention: { name: "Attention map", hint: DATA.has_usage ? "Big + grey = important but not opened lately" : "Big + grey = important but not mentioned lately",
-      apply: () => ({ sizeBy: "bc", colorBy: DATA.has_usage ? "opens90" : "recent", gaps: false, overlays: [] }) },
+    attention: { name: "Attention map", hint: "Big + grey = important but not mentioned lately",
+      apply: () => ({ sizeBy: "bc", colorBy: "recent", gaps: false, overlays: [] }) },
     recent: { name: "Recent work", hint: `What your dailies talked about in the last ${DATA.recent_days} days`, apply: () => ({ sizeBy: "recent", colorBy: "recent", gaps: false, overlays: [] }) },
     gaps: { name: "Gaps", hint: "Only notes with suggested links stay lit", apply: () => ({ sizeBy: "bc", colorBy: "cluster", gaps: true, overlays: [], highlight: "gaps" }) },
     health: { name: "Link health", hint: "Orphans, dead ends and broken links", apply: () => ({ sizeBy: "bc", colorBy: "cluster", gaps: false, overlays: ["orphans", "deadends", "broken"] }) },
@@ -390,7 +385,7 @@
         toast("Cosmos — your maps are stars; drop bodies from the dock to reorganise the graph");
       }
     }
-    rebuild(false); renderLegend(); renderHud(); persistSoon(); renderToday(); syncCycle();
+    rebuild(false); renderLegend(); renderHud(); persistSoon(); renderToday();
     if (triage && view !== "radar") stopTriage();
     if (opts.onViewChange) opts.onViewChange(view);
   }
@@ -547,7 +542,7 @@
 
   // ---------------------------------------------------------------- start
   renderInsights(); renderOverlays();
-  // Small panes (local graph, home card, embeds) don't keep a layout of their own: they borrow the main
+  // Small panes (local graph, embeds) don't keep a layout of their own: they borrow the main
   // graph's saved one, so opening them skips the ~0.2 s physics pre-settle that made them stutter.
   const seeded = () => { try { const s = opts.layoutSeed && opts.layoutSeed(); if (!s) return false; Object.assign(layouts["2d"], s["2d"] || {}); Object.assign(layouts["3d"], s["3d"] || {}); return applyLayout(); } catch (e) { return false; } };
   // Panes that don't save their own state can still open straight into a view (no 2D layout first, then a switch)
@@ -572,7 +567,7 @@
     gameTimer = window.requestIdleCallback ? requestIdleCallback(run, { timeout: 2000 }) : setTimeout(run, 900);
   }
   updateGameSoon();
-  setTimeout(() => { if (!destroyed) { renderToday(); syncCycle(); } }, 400);
+  setTimeout(() => { if (!destroyed) { renderToday(); } }, 400);
   if (!opts.compact && opts.store && !tourSeen) setTimeout(() => { if (!destroyed && W) startTour(); }, 1800);   // once, on first open
   if (opts.sharedStore && !opts.compact) opts.sharedStore.load().then(sh => {   // the vault copy wins: it's what other devices wrote
     if (!sh || sh.v !== 1 || destroyed) return;

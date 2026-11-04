@@ -31,7 +31,7 @@ One system, not bolted-on parts: one state, shared rules, one action path, share
 ## One action path
 
 - **Writes go through the plugin's `WRITE_ACTIONS`**, and those touch the vault only through `WRITE_PRIMITIVES` (`ioProcess`, `ioModify`, `ioFrontMatter`, `ioCreate`, `ioRename`…), which record each change. So every action can be undone: `VGActions.run` puts an Undo button on the message that confirms it (graph toast, sidebar notice), and an undo is refused if a file changed since. The undo list is this session's last 20 actions.
-- Each action waits for Obsidian to re-index the change, re-merges the state once and redraws every surface (graphs, local pane, home cards, note embeds, sidebar) before it returns.
+- Each action waits for Obsidian to re-index the change, re-merges the state once and redraws every surface (graphs, local pane, note embeds, sidebar) before it returns.
 - A note in the inbox joins the graph once a topic note links to it, unless it's tagged `meta/*` or `type/report`. Links are written with `linkText()`, so same-name notes don't steal them.
 
 ## One state
@@ -56,6 +56,8 @@ One system, not bolted-on parts: one state, shared rules, one action path, share
 - **Scenes written in notes**: a ` ```vault-graph-scene ` block (YAML) in any note becomes a view. Its words are listed once in `src/rules.js` (`SCENE_WHEN`, `SCENE_PARTS`, `sceneSpec`); the renderer builds the scene from shared parts (`specScene`). A test fails if a word has no part.
 
 ## The analysis
+
+**It's moving into the plugin** (`src/engine.js`; plan in the vault: `Vault Graph One System Plan 2026-11-03`). Today the engine's graph is only used when a vault has no analysis file (`graphData` → `engineData`); its slow step runs in a worker (`VGEngine.run`). `tests/test_no_python.js` scores every view without the analysis and fails if the list of what's missing changes, in either direction. Topic counts move with ordinary edits (Louvain: removing one link moved 6 of 537 notes), so compare the engine with the analysis on the same graph, as the vault's `test_graph_vault.js` does, not on counts taken at different moments. Where the two read a link differently, Obsidian wins: the analysis accepts `[[Old Folder/Note]]` by its last part, Obsidian calls it unresolved.
 
 `analysis/` is the Python analysis: `vault_graph.py` writes the graph data every device reads (topics, gaps, bridges, follow-through, the weekly State of the Vault note with `--state`); `vault_gaps.py` and `moc_align.py` are the gap and map analysis the vault's reports also use; `vault_graph_rules.py` reads the same rules file as `src/rules.js`. Deploy installs them into the vault's scripts folder, where the desktop plugin runs them (`files.analysis`) and Sync carries them to every PC; it refuses to overwrite a vault copy edited since the last deploy (`vault-graph-deployed.json` records what it installed).
 

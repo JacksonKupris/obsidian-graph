@@ -1,7 +1,7 @@
 // What the tests run on, in one place: the sample vault (fixtures/, the default) or a real vault (--vault [dir];
 // without a dir, local.json's "vault"). Every test loads the page, rules and notes through here.
 //   const env = require("./env")
-//   env.rules · env.data() · env.page() · env.pageWith(mountOptions) · env.inlineJson(v) · env.out(...p) · env.notes() · env.VAULT (null for the sample) · env.args
+//   env.rules · env.data() · env.page() · env.pageWith(mountOptions, data?) · env.inlineJson(v) · env.out(...p) · env.notes() · env.VAULT (null for the sample) · env.args
 const fs = require("fs"), path = require("path"), build = require("../build");
 const ROOT = build.ROOT, SAMPLE = path.join(ROOT, "fixtures");
 
@@ -24,8 +24,8 @@ const page = () => build.buildPage(data(), rules);
 // the page with extra mount options (`mobile: true,`, a recall stub...) put where it mounts the graph. A page that
 // no longer mounts it that way throws, so a test can't quietly run without its options.
 const MOUNT = 'window.vaultGraph = mountVaultGraph(document.getElementById("vg"), DATA, {';
-function pageWith(extra) {
-  const p = page();
+function pageWith(extra, d) {
+  const p = d ? build.buildPage(d, rules) : page();
   if (!extra) return p;
   if (!p.includes(MOUNT)) throw new Error("the page doesn't mount the graph the way tests/env.js MOUNT expects");
   return p.replace(MOUNT, () => `${MOUNT} ${extra}`);   // a function: a "$" in the options stays as written

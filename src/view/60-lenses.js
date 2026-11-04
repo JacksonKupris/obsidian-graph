@@ -3,6 +3,8 @@
   // lens on a near-empty vault and fails on one with nothing to click). Steps: "lens:<key>", "draftmap:<cluster>", "daily",
   // "new:person", "new:context", "search". A step whose hook is missing (the page alone can't write) is left out; search
   // is always there.
+  // a vault with no analysis file (DATA.engine) hasn't got this yet: say that, not something untrue about its notes
+  const needsAnalysis = name => (DATA.engine ? emptyNext(`${name} needs the analysis, which this vault doesn't have yet.`, "search") : null);
   function emptyNext(text, ...steps) {
     const btn = s => { const [k, arg] = s.split(":");
       if (k === "lens") return LENSES[arg] ? `<button class="vg-btn vg-btn-sm" data-relens="${arg}">${esc(LENSES[arg].name)}</button>` : "";
@@ -189,14 +191,14 @@
     const worst = (DATA.pairs || []).filter(([a, b]) => clusterById[a] && clusterById[b]).map(([a, b, l, m]) => ({ a, b, l, m, s: m / (1 + l * 0.6) }))
       .sort((x, y) => y.s - x.s).slice(0, 6);
     return `<div class="vg-mx-wrap"><table class="vg-mx">${head}${rows}</table></div><div class="vg-mx-detail"></div>
-      <p class="vg-muted vg-lens-note">Cell = <b>links</b>/<small>co-mentions</small>. Green: well linked. Red: discussed together in your dailies but barely linked. Click a cell for what to do about it.</p>
+      ${DATA.engine ? `<p class="vg-muted vg-lens-note">Co-mentions need the analysis, which this vault doesn't have yet.</p>` : ""}<p class="vg-muted vg-lens-note">Cell = <b>links</b>/<small>co-mentions</small>. Green: well linked. Red: discussed together in your dailies but barely linked. Click a cell for what to do about it.</p>
       <div class="vg-list-h">Biggest gaps</div>${worst.map(g => `<div class="vg-gaprow"><button class="vg-item" data-cl="${g.a},${g.b}"><span class="vg-dots"><span class="vg-dot" style="background:${colorOf(g.a)}"></span><span class="vg-dot" style="background:${colorOf(g.b)}"></span></span>
         <span class="vg-item-main"><span>${esc(clusterName(g.a))} ↔ ${esc(clusterName(g.b))}</span><span class="vg-item-sub">${g.m} co-mentions · ${plural(g.l, "link")}</span></span></button>
         ${opts.writeNote ? `<button class="vg-ibtn" data-bridge="${g.a},${g.b}" title="Draft a bridge note">${icon("bridge", 15)}</button>` : ""}</div>`).join("")}`;
   }
 
   function lensTimeline() {
-    const T = DATA.timeline; if (!T || !T.weeks.length) return emptyNext("No daily notes link or name your notes yet.", "daily");
+    const T = DATA.timeline; if (!T || !T.weeks.length) return needsAnalysis("Timeline") || emptyNext("No daily notes link or name your notes yet.", "daily");
     const W = T.weeks.length, trend = v => { const a = v.slice(-4).reduce((s, x) => s + x, 0) / 4, b = v.slice(-12, -4).reduce((s, x) => s + x, 0) / 8; return a - b; };
     const strip = (v, col) => { const mx = Math.max(1, ...v); return `<span class="vg-tl-strip">${v.map((x, i) => `<i style="${x ? cellBg(col, 0.15 + 0.85 * x / mx) : ""}" title="week of ${T.weeks[i]}: ${x}"></i>`).join("")}</span>`; };
     const tag = v => { const d = trend(v), base = v.slice(-12, -4).reduce((s, x) => s + x, 0) / 8; return d > Math.max(0.4, base * 0.6) ? `<span class="vg-tl-tag is-up">↑ heating</span>` : d < -Math.max(0.4, base * 0.6) ? `<span class="vg-tl-tag is-down">↓ cooling</span>` : ""; };
@@ -259,7 +261,7 @@
   }
 
   function lensPeople() {
-    const ppl = nodes.filter(n => n.person); if (!ppl.length) return emptyNext("No people notes linked to topics.", "new:person");
+    const ppl = nodes.filter(n => n.person); if (!ppl.length) return needsAnalysis("People by topic") || emptyNext("No people notes linked to topics.", "new:person");
     const per = {}; links.filter(l => l.kind === "person").forEach(l => { const c = l.t.cluster; if (c < 0) return; (per[l.s.id] = per[l.s.id] || {})[c] = (per[l.s.id][c] || 0) + 1; });
     const cs = DATA.clusters.filter(c => ppl.some(p => (per[p.id] || {})[c.id])).sort((a, b) => b.size - a.size).slice(0, 12);
     const mx = Math.max(1, ...Object.values(per).flatMap(o => Object.values(o)));
@@ -274,7 +276,7 @@
   // daily notes naming it that week), plus each month's top topics for quarterly write-ups.
   let riverSkipTop = false;
   function lensRiver() {
-    const T = DATA.timeline; if (!T || T.weeks.length < 3) return emptyNext("Fewer than 3 weeks of daily notes link or name your notes.", "daily", "lens:timeline");
+    const T = DATA.timeline; if (!T || T.weeks.length < 3) return needsAnalysis("Topic river") || emptyNext("Fewer than 3 weeks of daily notes link or name your notes.", "daily", "lens:timeline");
     const N = T.weeks.length, sum = v => v.reduce((s, x) => s + x, 0);
     const all = Object.entries(T.clusters).filter(([c]) => clusterById[c]).sort((a, b) => sum(b[1]) - sum(a[1]));
     const biggest = all[0] && +all[0][0], shown = riverSkipTop ? all.slice(1) : all;   // a hub topic can dwarf the rest
@@ -408,7 +410,7 @@
         <line class="vg-st-axis" x1="${x(STALE_AFTER)}" x2="${x(STALE_AFTER)}" y1="${P}" y2="${VH - P}"/><line class="vg-st-axis" x1="${P}" x2="${VW - P}" y1="${y(cut)}" y2="${y(cut)}"/>
         <text class="vg-rv-tick" x="${VW - P}" y="${P - 8}" text-anchor="end">relied on · stale</text><text class="vg-rv-tick" x="${P}" y="${P - 8}">relied on · fresh</text>
         ${dots}${ticks}</svg>
-      <p class="vg-muted vg-lens-note">Up = relied on (links in, daily mentions, influence${DATA.has_usage ? ", opens" : ", recent mentions"}). Right = days since the last edit (log scale). The shaded corner is relied on and not edited in ${STALE_AFTER}+ days. Click a dot to find it.</p>`;
+      <p class="vg-muted vg-lens-note">Up = relied on (links in, daily mentions, influence, recent mentions). Right = days since the last edit (log scale). The shaded corner is relied on and not edited in ${STALE_AFTER}+ days. Click a dot to find it.</p>`;
   }
 
   // 2. Write these next: links pointing at notes that don't exist, and short notes many others lean on
@@ -440,7 +442,7 @@
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const standupPath = d => { const [y, m] = d.split("-"); return `${FOLDERS.daily}/${y}/${m}-${MONTHS[+m - 1]}/Standups/Daily Standup ${d}.md`; };
   function lensFollow() {
-    const F = DATA.followthrough; if (!F || !F.items.length) return emptyNext(`No standups with a "Work Expected Tomorrow" section${F && F.days ? ` in the last ${F.days} days` : ""}.`, "daily");
+    const F = DATA.followthrough; if (!F || !F.items.length) return needsAnalysis("Standup follow-through") || emptyNext(`No standups with a "Work Expected Tomorrow" section${F && F.days ? ` in the last ${F.days} days` : ""}.`, "daily");
     const items = F.items, judged = items.filter(i => i.s !== "pending");
     const since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10), recent = judged.filter(i => i.d >= since);
     const rate = xs => xs.length ? Math.round(100 * xs.filter(i => i.s === "next" || i.s === "later").length / xs.length) : 0;
@@ -493,7 +495,7 @@
     const byName = {}; real.forEach(n => (byName[n.name.toLowerCase()] = byName[n.name.toLowerCase()] || []).push(n));
     Object.values(byName).filter(g => g.length > 1).forEach(g => add(g[0].id, g[1].id, "same name, different folders"));
     (DATA.near_dupes || []).forEach(([a, b, s, how]) => add(a, b, how === "text" ? `${Math.round(s * 100)}% the same text` : `${Math.round(s * 100)}% same wording`));
-    if (!pairs.length) return emptyNext("No likely duplicates.", "lens:triage");
+    if (!pairs.length) return needsAnalysis("Finding duplicates") || emptyNext("No likely duplicates.", "lens:triage");
     const side = (id, other) => { const n = byId[id], mine = [...nb[id]].filter(x => x !== other), theirs = other ? new Set(nb[other]) : new Set();
       const only = mine.filter(x => !theirs.has(x));
       return `<div class="vg-dp-side"><button class="vg-item" data-id="${esc(id)}"><span class="vg-item-main"><span>${esc(n.name)}</span><span class="vg-item-sub">${esc(n.folder || "/")} · ${n.words || 0} words · ${n.age}d since edit · ${n.inlinks} links in</span></span></button>
@@ -559,7 +561,7 @@
     const deadEnds = ns.filter(n => !n.inlinks && (n.outlinks || 0) >= 3).sort((a, b) => b.outlinks - a.outlinks);
     const sec = (title, n, hint, rows, empty) => `<div class="vg-list-h">${title} <span class="vg-count">${n}</span></div><p class="vg-muted vg-lens-note">${hint}</p>${rows || `<div class="vg-empty">${empty}</div>`}`;
     return sec("Named, never linked", said.length, "Your dailies mention these by name without a link, so the graph can't see the connection.",
-        said.map(([id, k]) => `<div class="vg-sugg">${noteRow(id, `named ${plural(k, "time")} without a link`)}${fixSlot(id, "unlinked-mentions")}</div>`).join(""), "Every mention is linked.") +
+        said.map(([id, k]) => `<div class="vg-sugg">${noteRow(id, `named ${plural(k, "time")} without a link`)}${fixSlot(id, "unlinked-mentions")}</div>`).join(""), DATA.engine ? "This needs the analysis, which this vault doesn't have yet." : "Every mention is linked.") +
       sec("Topics gone quiet", quiet.length, `Topics of 5+ notes your dailies haven't touched in ${DATA.recent_days} days. Finished, or forgotten?`,
         quiet.map(x => `<button class="vg-item" data-cl="${x.c.id}"><span class="vg-dot" style="background:${colorOf(x.c.id)}"></span><span class="vg-item-main"><span>${esc(clusterName(x.c.id))}</span><span class="vg-item-sub">${x.size} notes · newest edit ${x.age}d ago</span></span></button>`).join(""), "Every topic came up recently.") +
       sec("Topics no map covers", unmapped.length, "Without a map, these are only reachable by search or by luck.",
@@ -575,7 +577,7 @@
   function lensAdjacent() {
     const ns = nodes.filter(n => !special(n) && !n.ghost), adj = {};
     links.forEach(l => { if (l.kind !== "link") return; (adj[l.s.id] = adj[l.s.id] || new Set()).add(l.t.id); (adj[l.t.id] = adj[l.t.id] || new Set()).add(l.s.id); });
-    const active = ns.filter(n => (n.recent || 0) > 0 || (n.opens90 || 0) > 2), seen = new Set(active.map(n => n.id));
+    const active = ns.filter(n => (n.recent || 0) > 0), seen = new Set(active.map(n => n.id));
     active.forEach(n => (adj[n.id] || []).forEach(m => seen.add(m)));
     const reach = {};
     active.forEach(n => (adj[n.id] || []).forEach(m => (adj[m] || []).forEach(x => {

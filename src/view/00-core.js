@@ -19,7 +19,7 @@
 //   opts.linkText(id, from)             optional (plugin): Obsidian's link text for a note
 //   opts.store {load, save}             optional: remembered view + layout
 //   opts.compact                        optional: minimal chrome (local-graph side pane, in-note embeds)
-//   opts.embed                          optional: inside a note or a home-screen card -- the wheel and one-finger
+//   opts.embed                          optional: inside a note -- the wheel and one-finger
 //                                       drags scroll the page; Ctrl+wheel or two fingers zoom
 //   opts.onViewChange(view)             optional: called when the 2D/3D/Neural/Cosmos mode changes
 //   opts.mobile                         optional: lighter rendering for phones
@@ -112,7 +112,7 @@ function mountVaultGraph(root, DATA, opts) {
   // ---------------------------------------------------------------- data
   // wanted notes (linked to, never written) become ghost nodes; people arrive as nodes from the data
   const ghosts = (DATA.wanted || []).map(w => ({ id: w.id, name: w.name, ghost: true, from: w.refs, creatable: w.creatable, cluster: -1, bc: 0,
-    folder: "not written yet", mentions: 0, recent: 0, opens: 0, opens90: 0, inlinks: w.refs.length, outlinks: 0, broken: 0,
+    folder: "not written yet", mentions: 0, recent: 0, inlinks: w.refs.length, outlinks: 0, broken: 0,
     tasks: 0, words: 0, age: 0, refs: true, isolated: false }));
   const nodes = DATA.nodes.concat(ghosts), byId = Object.fromEntries(nodes.map(n => [n.id, n]));
   const special = n => n.person || n.ghost || n.moc;
@@ -171,7 +171,7 @@ function mountVaultGraph(root, DATA, opts) {
   const seriesOf = {}; series.forEach(s => s.notes.forEach((id, k) => seriesOf[id] = { s, k }));
   // insights: things worth acting on, derived from the data
   const coolingHubs = ranked.slice(0, 60).map(id => byId[id])
-    .filter(n => n.recent === 0 && (!DATA.has_usage || n.opens90 === 0)).slice(0, 8);
+    .filter(n => n.recent === 0).slice(0, 8);
   const saidUnlinked = (DATA.said_unlinked || []).filter(([id]) => byId[id]);
   // seeded positions so a reload looks the same
   const hash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; };
@@ -212,7 +212,6 @@ function mountVaultGraph(root, DATA, opts) {
   // ---------------------------------------------------------------- DOM
   const ageDays = Math.round((Date.now() - new Date(DATA.date + "T12:00:00").getTime()) / 864e5);
   const ageText = ageDays <= 0 ? "today" : ageDays === 1 ? "yesterday" : `${ageDays} days ago`;
-  const opensNote = DATA.has_usage ? "" : " — needs Advanced Graph View";
   const switchRow = (cls, title, hint, on) => `<label class="vg-switch"><input type="checkbox" class="${cls}" ${on ? "checked" : ""}><span class="vg-track" aria-hidden="true"></span>
     <span><b>${title}</b><span class="vg-muted">${hint}</span></span></label>`;
   root.classList.add("vg-root");
@@ -252,7 +251,6 @@ function mountVaultGraph(root, DATA, opts) {
       <div class="vg-lasso" hidden></div>
       <div class="vg-today" hidden><span class="vg-today-text"></span><button class="vg-btn vg-btn-sm vg-today-act"></button><button class="vg-ibtn vg-today-x" aria-label="Hide" title="Hide for this view">${icon("close", 12)}</button></div>
       <div class="vg-triage" hidden><span class="vg-triage-text"></span><button class="vg-btn vg-btn-sm vg-triage-prev" aria-label="Previous">‹</button><button class="vg-btn vg-btn-sm vg-triage-next">Next ›</button><button class="vg-btn vg-btn-sm vg-btn-ghost vg-triage-stop">Done</button></div>
-      ${opts.favourites ? `<div class="vg-cycle"><button class="vg-ibtn vg-cycle-prev" aria-label="Previous view">‹</button><span class="vg-cycle-name"></span><button class="vg-ibtn vg-cycle-next" aria-label="Next view">›</button></div>` : ""}
       <div class="vg-dock" role="toolbar" aria-label="Celestial bodies">
         <button class="vg-dockbtn" data-body="star" aria-pressed="false" title="Star: a note or MOC; linked notes orbit it"><span>☀</span>Star</button>
         <button class="vg-dockbtn" data-body="planet" aria-pressed="false" title="Planet: a search; matching notes become moons"><span>◍</span>Planet</button>
@@ -324,13 +322,10 @@ function mountVaultGraph(root, DATA, opts) {
           <section class="vg-ppanel" data-ppanel="style" hidden>
             <div class="vg-field"><label class="vg-flabel" for="vg-size">Node size</label>
               <select id="vg-size" class="vg-select vg-size">
-                <option value="bc">Influence (betweenness)</option><option value="recent">Daily mentions (${DATA.recent_days} days)</option>
-                <option value="opens90" ${DATA.has_usage ? "" : "disabled"}>Note opens (90 days)${opensNote}</option>
-                <option value="opens" ${DATA.has_usage ? "" : "disabled"}>Note opens (all time)${opensNote}</option></select></div>
+                <option value="bc">Influence (betweenness)</option><option value="recent">Daily mentions (${DATA.recent_days} days)</option></select></div>
             <div class="vg-field"><label class="vg-flabel" for="vg-color">Node colour</label>
               <select id="vg-color" class="vg-select vg-color">
                 <option value="cluster">Topic cluster</option>
-                <option value="opens90" ${DATA.has_usage ? "" : "disabled"}>Note opens (90 days)${opensNote}</option>
                 <option value="recent">Daily mentions (${DATA.recent_days} days)</option></select></div>
             <div class="vg-flabel">Layers</div>
             ${switchRow("vg-l-mocs", "Maps (MOCs)", `${mocs.length} maps of content, anchored to the topics they map (hexagons)`, true)}

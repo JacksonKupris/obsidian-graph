@@ -12,6 +12,8 @@ const eachDecl = (text, prop, fn) => text.split("\n").forEach((line, i) => { for
 
 for (const [file, text] of Object.entries(files)) {
   const at = (i, what) => fails.push(`${file}:${i} ${what}`);
+  // every rule opens and closes: a half-deleted rule silently takes the next rule with it
+  { let depth = 0, line = 1; for (const c of text) { if (c === "\n") line++; if (c === "{") depth++; if (c === "}" && --depth < 0) { at(line, "a } with no rule open"); break; } } if (depth > 0) at(line, "a rule never closes"); }
   // type: the scale, or relative to what's around it
   eachDecl(text, "font-size", (v, i) => { if (!/^(var\(--(ds-fs|vg-fs|font-ui)|inherit|0\b|[\d.]+em\b)/.test(v)) at(i, `font-size ${v} isn't on the scale`); });
   // shape

@@ -5,14 +5,9 @@ const { Plugin, ItemView, MarkdownView, Notice, PluginSettingTab, Setting, Platf
 
 const VIEW_TYPE = "vault-graph";
 const LOCAL_TYPE = "vault-graph-local";
-const HOME_TYPE = "vault-graph-home";   // for home-screen hosts such as Hearth's "Plugin view" card
-// home cards that always show one map: Hearth cards pick a view type, not a state, so each gets its own type
-const FIXED_HOME = { radar: "Radar", clock: "Heat clock", foodweb: "Food web", weather: "Weather" };
-const fixedType = v => `vault-graph-${v}`;
 const HQ_TYPE = "vault-graph-hq";   // Vault HQ: the vault's home screen (src/hq.js)
 // every view that draws the one live state: each redraws when it changes (publish) and when the rules change
-const STATE_VIEWS = () => [VIEW_TYPE, LOCAL_TYPE, HOME_TYPE, ...Object.keys(FIXED_HOME).map(fixedType), HQ_TYPE];
-const HOME_FAVOURITES = ["foodweb", "clock", "weather", "radar"];   // what ‹ › cycles in the home card: the maps that read well small
+const STATE_VIEWS = () => [VIEW_TYPE, LOCAL_TYPE, HQ_TYPE];
 const MARKER = "%% vault-graph:generated";   // regenerated notes keep everything above this line
 const DEFAULTS = {
   dataPath: VGRules.files.data,               // written by the analysis (files in vault_graph_rules.json)
@@ -209,7 +204,7 @@ class VaultGraphLocalView extends ItemView {
       if (byId.has(id)) return byId.get(id);
       const f = this.app.vault.getAbstractFileByPath(id);
       const n = { id, name: f.basename, cluster: -1, bc: 0, folder: f.parent ? f.parent.path : "", mentions: 0, recent: 0,
-        opens: 0, opens90: 0, inlinks: 0, outlinks: 0, broken: 0, tasks: 0, words: 0,
+        inlinks: 0, outlinks: 0, broken: 0, tasks: 0, words: 0,
         age: Math.max(0, Math.round((Date.now() - f.stat.mtime) / 864e5)), refs: true, isolated: false, live: true };
       data.nodes.push(n); byId.set(id, n);
       return n;
@@ -242,72 +237,6 @@ class VaultGraphLocalView extends ItemView {
   }
 }
 
-// Home-screen view: the whole graph with minimal chrome, made to live in a dashboard card (Hearth's
-// "Plugin view" card hosts any registered view). Remembers its mode; a tap opens the note.
-class VaultGraphHomeView extends ItemView {
-  constructor(leaf, plugin, fixed) { super(leaf); this.plugin = plugin; this.handle = null; this.fixed = fixed || null; }
-  getViewType() { return this.fixed ? fixedType(this.fixed) : HOME_TYPE; }
-  getDisplayText() { return this.fixed ? `Vault Graph (${FIXED_HOME[this.fixed].toLowerCase()})` : "Vault Graph (home)"; }
-  getIcon() { return "git-fork"; }
-  async onOpen() { trackInput(this); await this.render(); }
-  refreshLive(force) { return refreshLive(this, force); }
-  async onClose() { this.renderToken = (this.renderToken || 0) + 1; if (this.handle) { this.handle.destroy(); this.handle = null; } }
-  async render() {
-    const token = this.renderToken = (this.renderToken || 0) + 1;   // only the newest overlapping render draws
-    const el = this.contentEl;
-    const data = await this.plugin.graphData();
-    if (token !== this.renderToken) return;
-    if (this.handle) { this.handle.destroy(); this.handle = null; }
-    el.empty(); el.addClass("vg-host"); el.addClass("vg-home");
-    if (!data) { el.createEl("p", { text: "Vault Graph: no graph data yet." }); return; }
-    const root = el.createDiv();
-    this.handle = mountVaultGraph(root, structuredClone(data), {
-      compact: true, embed: true, mobile: Platform.isMobile, layoutSeed: () => this.plugin.layoutSeed(),
-      initialView: this.fixed || this.plugin.settings.homeView || "foodweb",
-      favourites: this.fixed ? undefined : HOME_FAVOURITES,
-      ...this.plugin.viewActions(this),
-      openNote: (notePath, newPane) => {
-        const file = this.app.vault.getAbstractFileByPath(notePath);
-        if (file instanceof TFile) this.app.workspace.getLeaf(newPane ? "tab" : "tab").openFile(file);
-      },
-      onHoverNote: (notePath, event) => this.app.workspace.trigger("hover-link", {
-        event, source: VIEW_TYPE, hoverParent: this, targetEl: this.contentEl, linktext: notePath,
-      }),
-      onViewChange: view => { if (!this.fixed && this.plugin.settings.homeView !== view) { this.plugin.settings.homeView = view; this.plugin.saveSettings(); } },
-    });
-    this.handle.setView(this.fixed || this.plugin.settings.homeView || "foodweb");
-  }
-}
-
-
-// Obsidian's dialogs for the shared actions: a confirm (resolves true/false) and a line of text (resolves it, or null
-// when cancelled). Each answers before closing: close() runs onClose straight away, and a promise keeps its first
-// answer, so closing first turned every OK into a Cancel.
-function confirmModal(app, title, text, ok) {
-  return new Promise(resolve => {
-    const { Modal } = require("obsidian"), m = new Modal(app);
-    m.titleEl.setText(title); m.contentEl.createEl("p", { text });
-    const row = m.contentEl.createDiv({ cls: "modal-button-container" });
-    row.createEl("button", { text: "Cancel" }).onclick = () => { resolve(false); m.close(); };
-    const b = row.createEl("button", { text: ok || "Do it", cls: "mod-cta" }); b.onclick = () => { resolve(true); m.close(); };
-    m.onClose = () => resolve(false); m.open();
-  });
-}
-function inputModal(app, title, text, placeholder) {
-  return new Promise(resolve => {
-    const { Modal } = require("obsidian"), m = new Modal(app);
-    m.titleEl.setText(title); m.contentEl.createEl("p", { text });
-    const input = m.contentEl.createEl("input", { type: "text", attr: { placeholder: placeholder || "" } }); input.style.width = "100%";
-    const row = m.contentEl.createDiv({ cls: "modal-button-container" }), ok = () => { resolve(input.value.trim()); m.close(); };
-    row.createEl("button", { text: "Cancel" }).onclick = () => { resolve(null); m.close(); };
-    row.createEl("button", { text: "OK", cls: "mod-cta" }).onclick = ok;
-    input.addEventListener("keydown", e => { if (e.key === "Enter") ok(); });
-    m.onClose = () => resolve(null); m.open(); setTimeout(() => input.focus(), 0);
-  });
-}
-
-// Vault HQ: the vault's home screen (src/hq.js) over the one live state and the shared file's marks. It mounts once
-// and updates in place after each change, keeping its screen and scroll.
 class VaultHQView extends ItemView {
   constructor(leaf, plugin) { super(leaf); this.plugin = plugin; this.handle = null; }
   getViewType() { return HQ_TYPE; }
@@ -572,9 +501,6 @@ module.exports = class VaultGraphPlugin extends Plugin {
     this.registerEvent(this.app.vault.on("rename", (file, old) => { if (CONTENT.log[old]) { CONTENT.log[file.path] = CONTENT.log[old]; delete CONTENT.log[old]; this.saveContentSoon(); } if (file instanceof TFile) this.noteMoved(file.path, old); }));
     this.registerView(VIEW_TYPE, leaf => new VaultGraphView(leaf, this));
     this.registerView(LOCAL_TYPE, leaf => new VaultGraphLocalView(leaf, this));
-    this.registerView(HOME_TYPE, leaf => new VaultGraphHomeView(leaf, this));
-    Object.keys(FIXED_HOME).forEach(v => this.registerView(fixedType(v), leaf => new VaultGraphHomeView(leaf, this, v)));
-    if (!this.settings.homeV2) { this.settings.homeV2 = 1; this.settings.homeView = "foodweb"; this.saveSettings(); }   // once: the card had been left on Subway, which is crowded small
     // after each plugin update, test every view and lens once in the background (desktop); a notice only if something broke
     this.app.workspace.onLayoutReady(() => { if (Platform.isDesktopApp) setTimeout(async () => { const sig = await this.buildSig(); if (sig && (this.settings.lastSelfTest || {}).sig !== sig) this.selfTest(true); }, 45000); });
     this.addCommand({ id: "self-test", name: "Run self-test (every view, in the background; writes a report to the reports folder)", callback: () => this.selfTest(false) });
@@ -688,7 +614,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     // the live graph: links with similar-meaning pairs, and how much each note is relied on (links in + opens)
     const data = await this.graphData(), graph = { links: [], use: {} };
     if (data) { graph.links = (data.links || []).filter(l => l.kind === "link" || l.kind === "similar").map(l => [l.source, l.target, l.kind]);
-      graph.use = Object.fromEntries((data.nodes || []).map(nd => [nd.id, (nd.inlinks || 0) + (nd.opens90 || 0)])); }
+      graph.use = Object.fromEntries((data.nodes || []).map(nd => [nd.id, nd.inlinks || 0])); }
     return VGRules.recallSearch(notes, query, { n, people, graph });
   }
 
@@ -830,7 +756,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     return new Promise(done => { const mc = this.app.metadataCache;
       const finish = () => { mc.offref(ref); clearTimeout(t); done(); }, ref = mc.on("resolved", finish), t = setTimeout(finish, ms); });
   }
-  // Re-merge now and redraw every surface from the result: graph views, local pane, home cards, note embeds, sidebar
+  // Re-merge now and redraw every surface from the result: graph views, local pane, note embeds, sidebar
   async publish() {
     this.cacheStale = true;
     const data = await this.graphData();
@@ -842,7 +768,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     return data;
   }
 
-  // The one live state every surface draws from (graphs, local pane, home cards, embeds, sidebar, self-test).
+  // The one live state every surface draws from (graphs, local pane, embeds, sidebar, self-test).
   // `base` is the analysis file, read once and again only when it's rewritten; the live merge over it runs once per
   // vault change (cacheStale), not once per surface. Surfaces must not mutate it: graphs mount a structuredClone,
   // because they keep layout positions on their nodes. reloadSoon() tells every surface to redraw from it.
@@ -1271,7 +1197,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       moment(`${date}T${moment().format("HH:mm:ss")}`).format(format || (type.toLowerCase() === "date" ? "YYYY-MM-DD" : "HH:mm")));
   }
 
-  // The one set of actions every graph surface gets (main view, local pane, home cards, embeds). Each goes through a
+  // The one set of actions every graph surface gets (main view, local pane, embeds). Each goes through a
   // plugin method in WRITE_ACTIONS, which writes and then announces the change, so every open surface redraws.
   // Each write publishes the new state to every surface, the one that made it included.
   viewActions(owner) {
@@ -1621,15 +1547,11 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const links = Object.fromEntries(files.map(f => [f.path, Object.keys(resolved[f.path] || {}).filter(t => t.endsWith(".md") && t !== f.path)]));
     const F = VGRules.folders;
     const T = VGEngine.topicGraph(notes, links, { kind: VGRules.noteKind, isHub: VGRules.isHub, joinsWhenLinked: VGRules.joinsWhenLinked });
-    const vectors = await this.smartVectors(T.knowledge);
-    const coh = VGEngine.cohesionGraph(T.graph, T.knowledge, vectors), topics = VGEngine.topicsOf(VGEngine.absorbSmall(VGEngine.louvain(coh), coh));
     const raw = {};   // every topic note's text: topic keywords and word counts
     for (const r of T.knowledge) { const f = this.app.vault.getAbstractFileByPath(r); if (f instanceof TFile) raw[r] = await this.app.vault.cachedRead(f); }
     const tags = Object.fromEntries(notes.map(n => [n.path, n.tags]));
-    const ids = VGEngine.stableIds(topics, prev || {}), kw = VGEngine.topicWords(topics, raw), labels = topics.map(m => VGEngine.label(m, T.graph, tags)), st = VGEngine.stacks(topics, tags, VGRules.RULES.stack);
-    const names = VGEngine.readableNames(topics, kw, labels.map(l => l.core)).map((n, i) => VGEngine.withStack(n, st[i]));
-    return { topics: topics.map((m, i) => ({ id: ids[i], size: m.length, name: names[i], stack: st[i], keywords: kw[i], ...labels[i], members: m })),
-      bc: VGEngine.betweenness(T.graph), knowledge: T.knowledge.length, vectors: vectors.size, notes: T.knowledge, graph: T.graph, raw, tags, files };
+    const J = await VGEngine.run("topicsJob", { graph: T.graph, knowledge: T.knowledge, smart: await this.smartFiles(), raw, tags, prev: prev || {}, stack: VGRules.RULES.stack });
+    return { topics: J.topics, bc: J.bc, knowledge: T.knowledge.length, vectors: J.vectors, notes: T.knowledge, graph: T.graph, raw, tags, files };
   }
   // The graph data when this vault has no analysis file (no Python, a phone, a new vault): the engine's topics and
   // influence over Obsidian's index, in the analysis's shape; liveMerge adds the live fields over it as it does over the
@@ -1643,14 +1565,14 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const day = t => VGRules.localDay(new Date(t));
     const nodes = E.notes.map(r => { const f = this.app.vault.getAbstractFileByPath(r), st = f instanceof TFile ? f.stat : { ctime: Date.now(), mtime: Date.now() };
       return { id: r, name: f instanceof TFile ? f.basename : r.split("/").pop().replace(/\.md$/i, ""), cluster: at.has(r) ? at.get(r) : -1, bc: Math.round((E.bc[r] || 0) * 1e5) / 1e5,
-        folder: r.includes("/") ? r.slice(0, r.lastIndexOf("/")) : "", mentions: 0, recent: 0, opens: 0, opens90: 0, inlinks: 0, outlinks: 0,
+        folder: r.includes("/") ? r.slice(0, r.lastIndexOf("/")) : "", mentions: 0, recent: 0, inlinks: 0, outlinks: 0,
         broken: Object.keys(unresolved[r] || {}).length, tasks: 0, words: words(r), age: 0, refs: false, isolated: !E.graph[r], tags: E.tags[r] || [],
         born: VGRules.bornDate(f instanceof TFile ? f.basename : r, f instanceof TFile && this.app.metadataCache.getFileCache ? ((this.app.metadataCache.getFileCache(f) || {}).frontmatter || {}).created : null, day(st.ctime)), edited: day(st.mtime) }; });
     const links = [];
     for (const [r, nb] of Object.entries(E.graph)) for (const [t, w] of Object.entries(nb)) if (VGEngine.pyCmp(r, t) < 0) links.push({ source: r, target: t, w, kind: "link" });
     const wanted = VGEngine.wantedNotes(unresolved, E.notes);
     wanted.forEach(w => w.refs.slice(0, 12).forEach(r => links.push({ source: r, target: w.id, w: 1, kind: "wanted" })));
-    return { vault: this.app.vault.getName(), date: VGRules.today(), since: null, recent_days: 30, has_usage: false, dailies_used: 0, engine: true,
+    return { vault: this.app.vault.getName(), date: VGRules.today(), since: null, recent_days: 30, dailies_used: 0, engine: true,
       said_unlinked: [], wanted, series: [], nodes, links, mocs: [],
       clusters: E.topics.map(t => ({ id: t.id, name: t.name, keywords: t.keywords, stack: t.stack, label: null, size: t.size, folder: t.folder, core: t.core.slice(0, 3).map(VGRules.stem) })),
       gaps: [], quality: { stub_words: VGRules.RULES.stub_words, stale_days: VGRules.RULES.stale_days }, pairs: [], snapshots: [],
@@ -1662,14 +1584,14 @@ module.exports = class VaultGraphPlugin extends Plugin {
     try { return !!(await this.app.vault.adapter.exists(normalizePath(this.settings.script))); } catch (e) { return false; }
   }
   // the Smart Connections index (.smart-env), read for the engine: its logs, then each vector file they name
-  async smartVectors(notes) {
+  async smartFiles() {
     const A = this.app.vault.adapter, base = ".smart-env", text = async p => { try { return await A.read(p); } catch (e) { return null; } };
     const sources = await text(`${base}/smart_sources/smart_sources.ajson`), models = await text(`${base}/embedding_models/embedding_models.ajson`);
-    if (sources == null || models == null) return new Map();
+    if (sources == null || models == null) return null;
     const blobs = {}, files = new Set();
     for (const v of VGEngine.parseAjson(sources).values()) Object.keys(((v && v.embedding) || {}).default || {}).forEach(f => files.add(f));
     for (const f of files) if (!/[\/\\]/.test(f)) { try { blobs[f] = new Uint8Array(await A.readBinary(`${base}/smart_sources/${f}`)); } catch (e) { blobs[f] = null; } }
-    return VGEngine.embeddings({ sources, models, blob: f => blobs[f] }, notes);
+    return { sources, models, blobs };
   }
 
   async selfTest(auto) {
@@ -1711,7 +1633,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const now0 = new Date(), stamp = `${today()} ${String(now0.getHours()).padStart(2, "0")}${String(now0.getMinutes()).padStart(2, "0")}`;
     // the engine's topics on the live index, against the last analysis's
     let engine;
-    try { const E = await this.engineTopics(), at = new Map(), D = await this.graphData();
+    try { const D = await this.graphData(), prev = {}; ((D && D.nodes) || []).forEach(n => { if (!n.person && !n.moc && n.cluster >= 0) (prev[n.cluster] = prev[n.cluster] || []).push(n.id); });
+      const E = await this.engineTopics(prev), at = new Map();
       E.topics.forEach(t => t.members.forEach(r => at.set(r, t.id)));
       const both = ((D && D.nodes) || []).filter(n => !n.ghost && !n.person && n.cluster >= 0 && at.has(n.id)), same = both.filter(n => at.get(n.id) === n.cluster).length;
       engine = `**Engine topics:** ${same} of ${both.length} notes in the same topic as the analysis · ${E.topics.length} topics from ${E.knowledge} notes and ${E.vectors} embeddings.`;
@@ -2215,7 +2138,7 @@ function liveMerge(app, data, since) {
   for (const file of vault.getMarkdownFiles()) {
     if (byId.has(file.path) || !(knowledge(file) || joins(file))) continue;
     const n = { id: file.path, name: file.basename, cluster: -1, bc: 0, folder: file.parent ? file.parent.path : "", mentions: 0, recent: 0,
-      opens: 0, opens90: 0, inlinks: 0, outlinks: 0, broken: 0, tasks: 0, words: 0, age: 0, refs: false, isolated: true, live: true };
+      inlinks: 0, outlinks: 0, broken: 0, tasks: 0, words: 0, age: 0, refs: false, isolated: true, live: true };
     byId.set(n.id, n); added.push(n);
   }
   const isNote = id => byId.has(id) && !byId.get(id).person && !byId.get(id).moc;
@@ -2292,7 +2215,7 @@ function liveMerge(app, data, since) {
     mapped.add(c); const title = file.basename.replace(/ (hub|moc)$/i, ""), mem = new Set(targets);
     const missing = [...byId.values()].filter(n => n.cluster === c && !n.person && !n.moc && !mem.has(n.id)).map(n => n.id);
     data.mocs = [...(data.mocs || []), { id: file.path, title, nav: false, clusters: [c], members: targets, missing: { [c]: missing }, live: true }];
-    byId.set(file.path, { id: file.path, name: title, moc: true, cluster: c, bc: 0, folder: file.parent ? file.parent.path : "", mentions: 0, recent: 0, opens: 0, opens90: 0,
+    byId.set(file.path, { id: file.path, name: title, moc: true, cluster: c, bc: 0, folder: file.parent ? file.parent.path : "", mentions: 0, recent: 0,
       inlinks: 0, outlinks: targets.length, broken: 0, tasks: 0, words: 0, age: 0, refs: true, isolated: false, live: true });
     targets.forEach(t => data.links.push({ source: file.path, target: t, w: 1, kind: "moc" }));
   }

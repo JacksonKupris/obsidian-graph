@@ -512,7 +512,7 @@ for (const f of ["view.js", "plugin.js", "hq"]) {
       if (!env.VAULT) {
         const { list } = env.notes(), today = new Date().toISOString().slice(0, 10);
         const graph = { links: GD.links.filter(l => l.kind === "link" || l.kind === "similar").map(l => [l.source, l.target, l.kind]),
-          use: Object.fromEntries(GD.nodes.map(n => [n.id, (n.inlinks || 0) + (n.opens90 || 0)])) };
+          use: Object.fromEntries(GD.nodes.map(n => [n.id, n.inlinks || 0])) };
         const people = ["ana", "ben", "chloe", "dev"];
         const cases = [
           ["vpn setup", h => h.path.endsWith("VPN Setup.md"), "the VPN note"],                                  // words

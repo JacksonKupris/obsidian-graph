@@ -53,8 +53,7 @@
       more = true;
     }
     if (neural()) {   // living view: pulses + slow drift while idle
-      // Frame budget: full rate while you're moving it, otherwise 30 fps (15 in small panes and the
-      // home-screen card), and 3 fps while Obsidian isn't the focused window.
+      // Frame budget: full rate while you're moving it, otherwise 30 fps (15 in small panes), and 3 fps while Obsidian isn't the focused window.
       const busy = morph || tween || drag || cam.spin;
       const fps = busy ? 0 : lensFps(!document.hasFocus() ? 3 : opts.compact ? 15 : 30);
       const dt = Math.min(250, now - (lastNeural || now));
@@ -561,10 +560,10 @@
         : item(`<i class="vg-lg-bld"></i>`, "height = relied on") + item(`<i class="vg-lg-win"></i>`, "lit = recent activity") + item(`<i class="vg-lg-bld is-stale"></i>`, "grey = stale") + item(`<i class="vg-lg-lot"></i>`, "empty lot = not written") + item("<b style='color:#ef4444'>•</b>", "beacon = open tasks") + item("🏛", "town hall = the topic's map");
       return;
     }
-    const sizeWord = { bc: "routes through it", recent: "daily mentions", opens90: "opens · 90 days", opens: "opens" }[st.sizeBy];
+    const sizeWord = { bc: "routes through it", recent: "daily mentions" }[st.sizeBy];
     const colour = neural() && st.vision === "thermal" ? `<span class="vg-lg-item"><span class="vg-lg-grad is-thermal"></span>activity · ${DATA.recent_days}d</span>`
       : st.colorBy === "cluster" ? `<span class="vg-lg-item"><span class="vg-lg-dots">${(neural() ? NEON : PALETTE).slice(0, 5).map(c => `<i style="background:${c}"></i>`).join("")}</span>topic</span>`
-      : `<span class="vg-lg-item"><span class="vg-lg-grad"></span>${st.colorBy === "opens90" ? "opens · 90d" : "mentions · 30d"}</span>`;
+      : `<span class="vg-lg-item"><span class="vg-lg-grad"></span>mentions · 30d</span>`;
     $(".vg-legend").innerHTML = `<span class="vg-lg-item"><span class="vg-lg-size"><i></i><i></i></span>${sizeWord}</span>${colour}` +
       `<span class="vg-lg-item"><i class="vg-lg-line"></i>link</span>` +
       (neural() ? `<span class="vg-lg-item" title="Pulses fire along links of notes edited or mentioned lately; lobes glow by the same activity">✦ pulse · recent activity</span>` : "") +
