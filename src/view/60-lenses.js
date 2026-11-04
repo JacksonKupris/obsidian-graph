@@ -112,6 +112,7 @@
       catch (err) { toast("Couldn't append", "warn"); }
     });
     body.querySelectorAll("[data-open]").forEach(d => d.onclick = e => { e.stopPropagation(); if (opts.openNote) opts.openNote(d.dataset.open, e.ctrlKey || e.metaKey); });
+    VGParts.wire(body, { details: lensCards, openNote: (p, e) => { if (opts.openNote) opts.openNote(p, e.ctrlKey || e.metaKey); } });
     body.querySelectorAll("[data-tasks]").forEach(d => d.onclick = e => { e.stopPropagation(); toggleTasks(d.dataset.tasks, d.closest(".vg-pb-card").querySelector(".vg-pb-tasks")); });
     body.querySelectorAll("[data-tasks]").forEach(d => { if (openTasks.has(d.dataset.tasks)) renderTasks(d.dataset.tasks, d.closest(".vg-pb-card").querySelector(".vg-pb-tasks")); });
     body.querySelectorAll("[data-pin]").forEach(d => d.onclick = e => { e.stopPropagation(); pinReview(d.dataset.pin); d.disabled = true; d.textContent = "In review"; });
@@ -425,7 +426,7 @@
       .sort((a, b) => b.inlinks - a.inlinks || b.mentions - a.mentions);
     if (!wanted.length && !stubs.length) return emptyNext("Every link points at a real note, and no short note has several links in.", "new:note", "lens:triage");
     const named = opts.wantedCounts ? opts.wantedCounts() : null, ch = named && named.length >= 10 ? VGScience.chao1(named) : null;
-    return `${ch ? `<div class="vg-sci-facts">${[[String(ch.S), "notes linked but not written", "Every link in the vault that points at a note that doesn't exist."], [`${ch.f1} / ${ch.f2}`, "linked once / twice", "Most wanted notes are named only once or twice, which is what the estimate reads."], [`${Math.round(ch.unseen)}+`, "never named yet", "Chao1's estimate: how many more you'd expect to find if you kept writing. A lower bound, from the way ecologists count species they haven't seen."]].map(([v, l, h]) => `<div><b>${esc(v)}</b><span>${esc(l)}</span><small>${esc(h)}</small></div>`).join("")}</div>` : ""}<p class="vg-muted vg-lens-note">Notes other notes already point at, ranked by how many. Writing these fills the biggest holes first.</p>
+    return `${ch ? `${sciFacts([[String(ch.S), "notes linked but not written", "Every link in the vault that points at a note that doesn't exist."], [`${ch.f1} / ${ch.f2}`, "linked once / twice", "Most wanted notes are named only once or twice, which is what the estimate reads."], [`${Math.round(ch.unseen)}+`, "never named yet", "Chao1's estimate: how many more you'd expect to find if you kept writing. A lower bound, from the way ecologists count species they haven't seen."]])}` : ""}<p class="vg-muted vg-lens-note">Notes other notes already point at, ranked by how many. Writing these fills the biggest holes first.</p>
       <div class="vg-list-h">Linked but never written <span class="vg-count">${wanted.length}</span></div>
       ${wanted.slice(0, 30).map(n => `<div class="vg-sugg"><button class="vg-item" data-id="${esc(n.id)}"><span class="vg-dot is-ghost"></span><span class="vg-item-main"><span>${esc(n.name)}</span>
         <span class="vg-item-sub">linked from ${plural(n.from.length, "note")}: ${n.from.filter(id => byId[id]).slice(0, 3).map(id => esc(byId[id].name)).join(", ")}${n.from.length > 3 ? "…" : ""}</span></span></button>

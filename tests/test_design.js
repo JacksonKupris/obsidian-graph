@@ -7,7 +7,7 @@
 const fs = require("fs"), path = require("path"), env = require("./env"), stub = require("./plugin_stub");
 const SRC = path.join(__dirname, "..", "src"), read = f => fs.readFileSync(path.join(SRC, f), "utf8");
 const fails = [], strip = t => t.replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\n]/g, " "));   // comments go, line numbers stay
-const files = { "hq.css": strip(read("hq.css")), "view.css": strip(read("view.css")) }, tokens = strip(read("tokens.css"));
+const files = { "hq.css": strip(read("hq.css")), "view.css": strip(read("view.css")), "parts.css": strip(read("parts.css")) }, tokens = strip(read("tokens.css"));
 const eachDecl = (text, prop, fn) => text.split("\n").forEach((line, i) => { for (const m of line.matchAll(new RegExp(`(?:^|[\\s;{])${prop}:\\s*([^;}]+)`, "g"))) fn(m[1].trim(), i + 1, line); });
 
 for (const [file, text] of Object.entries(files)) {

@@ -26,9 +26,9 @@
   // a mistake travels the other way from a link: to the notes that link to the wrong one, which lean on it
   function spreadGraph() { const d = directedNotes(); if (!d) return noteGraph(); if (d.spread) return d.spread; return d.spread = VGScience.directedGraph(d.ids, d.edges.map(([a, b]) => [d.ids[b], d.ids[a]])); }
   const pct = (v, d = 0) => `${(v * 100).toFixed(d)}%`;
-  const sciFacts = list => `<div class="vg-sci-facts">${list.map(([v, l, hint]) => `<div><b>${esc(v)}</b><span>${esc(l)}</span>${hint ? `<small>${esc(hint)}</small>` : ""}</div>`).join("")}</div>`;
-  // what a result means, under the thing it explains: in plain words, always showing, since a tooltip isn't there on a phone
-  const sciRead = text => `<p class="vg-sci-read"><b>How to read this</b> ${text}</p>`;
+  const sciFacts = list => VGParts.cards(list.map(([value, label, hint, open]) => ({ value, label, hint, open })));
+  // what a result means, under the thing it explains, in plain words: a tooltip isn't there on a phone
+  const sciRead = VGParts.howTo;
   // one chart for all three: x and y in data units, series as lines (a stair for survival) with an optional band and tick marks
   function sciChart(o) {
     const VW = 720, VH = 240, L = 44, R = 14, T = 12, B = 34, x0 = o.xmin || 0, x = v => L + (VW - L - R) * Math.min(1, (v - x0) / (o.xmax - x0)), y = v => VH - B - (VH - T - B) * Math.min(1, v / (o.ymax || 1));
@@ -70,7 +70,7 @@
   function blastShow(id) { const g = spreadGraph(), s = VGScience.outbreakStats(g, g.at.get(id), blastT, BLAST_RUNS), set = new Set([id]); s.hit.forEach((p, i) => { if (p >= 0.05) set.add(g.ids[i]); }); setHighlight(set, `${byId[id].name}: ${plural(set.size - 1, "note")} at risk`); if (!lensBeside()) closeLens(); fit(n => set.has(n.id), 500); }
 
   // ---- Task survival: how long a task stays open, the way a trial follows patients. A task still open is censored, not ignored.
-  let survivalSplit = "person", survivalLives = null;
+  let survivalSplit = "person", survivalLives = null, lensCards = {};   // lensCards: what's behind the open lens's cards (VGParts.wire)
   const taskSplits = {
     person: ["names someone", r => VGRules.hqPeople(DATA, [{ kind: "task", text: r.text, title: r.text }]).some(p => p.items.length)],
     link: ["links a note", r => /\[\[/.test(r.text)],
@@ -97,17 +97,21 @@
     const open = rows.filter(r => !r.event).sort((x, y) => y.t - x.t), ages = [1, 7, 14, 30, 60, 90, 180].filter(d => d < last);
     const hazard = ages.map(d => `<div><b>${pct(S.conditional(km, d, 30))}</b><span>open ${d}d</span></div>`).join("");
     const tooFew = km.steps.filter(x => x.atRisk < 10)[0];
-    return `${sciFacts([[dayWords(median), "median time open", "Half of all tasks are done by this day, counting the ones still open."], [pct(1 - S.survivalAt(km, 7)), "done within a week", "The share finished by day 7, allowing for tasks too new to have had 7 days."], [pct(1 - S.survivalAt(km, 30)), "done within 30 days", "The same, by day 30."], [`${S.restrictedMean(km, horizon).toFixed(0)}d`, `mean open, first ${horizon}d`, `The average days a task stays open, counted over its first ${horizon} days.`]])}
+    const taskRow = r => VGParts.row({ title: VGRules.plainTask(r.text), sub: `${r.event ? "done after" : "open"} ${dayWords(r.t)} · since ${r.born}`, open: r.path && opts.openNote ? r.path : null });
+    const taskList = (list, word = "tasks") => list.length ? VGParts.list(list.map(taskRow), { first: 8, word }) : `<p>None.</p>`;
+    const near = median == null ? [] : rows.filter(r => r.event && Math.abs(r.t - median) <= Math.max(1, median * 0.25)).sort((x, y) => x.t - y.t), within = d => rows.filter(r => r.event && r.t <= d).sort((x, y) => y.t - x.t);
+    lensCards = { median: () => ({ title: `Finished around ${dayWords(median)}`, body: taskList(near) }), week: () => ({ title: "Finished within a week", body: taskList(within(7)) }), month: () => ({ title: "Finished within 30 days", body: taskList(within(30)) }) };
+    ages.forEach(d => { lensCards[`age${d}`] = () => ({ title: `Open ${dayWords(d)} or longer`, body: taskList(open.filter(r => r.t >= d).reverse()) }); });
+    return `${sciFacts([[dayWords(median), "median time open", "Half of all tasks are done by this day, counting the ones still open.", "median"], [pct(1 - S.survivalAt(km, 7)), "done within a week", "The share finished by day 7, allowing for tasks too new to have had 7 days.", "week"], [pct(1 - S.survivalAt(km, 30)), "done within 30 days", "The same, by day 30.", "month"], [`${S.restrictedMean(km, horizon).toFixed(0)}d`, `mean open, first ${horizon}d`, `The average days a task stays open, counted over its first ${horizon} days.`]])}
       ${sciChart({ label: "Share of tasks still open, by days since written", xmax: horizon, xticks: [0, 7, 30, 60, 90, 180, 365].filter(d => d <= horizon), xlabel: "days since the task was first written", series, marks: tooFew && tooFew.t < horizon ? [{ x: tooFew.t, label: "under 10 tasks left: noisy from here" }] : [] })}
       <p class="vg-sci-key"><i class="is-all"></i>all tasks, with its 95% band <i class="is-a"></i>${esc(word)} (${a.length}) <i class="is-b"></i>doesn't (${b.length}) <span>A tick is a task still open.</span></p>
       ${sciRead("These are Kaplan-Meier curves. Every line starts at 100%, all tasks open, and steps down each time one is finished. A flat stretch means little is finishing. The shaded band is where the true curve probably lies (95%), wider where few tasks are left. A tick is a task still open: it counts as open up to today, not as finished or forgotten.")}
-      <div class="vg-filter-row vg-sci-split" role="group" aria-label="Compare tasks by">${tests.map(t => `<button class="vg-btn vg-btn-sm${t.k === survivalSplit ? " is-on" : ""}" data-survival-split="${t.k}" aria-pressed="${t.k === survivalSplit}">${esc(t.w)}${t.p < bar ? " •" : ""}</button>`).join("")}</div>
-      <p class="vg-muted vg-lens-note">Comparing tasks by "${esc(word)}": log-rank χ² ${lr.chi2.toFixed(1)}, p ${lr.p < 0.001 ? "under 0.001" : lr.p.toFixed(3)}, which is the chance of a gap this big if the two groups really behaved the same. ${lr.p < bar ? "A real difference, after correcting for the " + tests.length + " comparisons (marked •)." : "Not a clear difference once corrected for the " + tests.length + " comparisons."} A difference doesn't show the cause.</p>
-      <div class="vg-list-h">Chance a task gets done in the next 30 days, by how long it's been open</div><div class="vg-sci-facts vg-sci-hazard">${hazard}</div>
-      ${sciRead("Each tile takes the tasks still open at that age and gives the share finished within 30 more days. Falling numbers mean the longer a task sits, the less likely it is to get done.")}
-      <p class="vg-muted vg-lens-note">Kaplan-Meier on ${plural(km.n, "task")}: ${events} finished, ${km.n - events} still open. Left out, with no known end: ${skipped.undated || 0} done with no date, ${skipped.cancelled || 0} cancelled${skipped.undated ? ", and leaving out finished tasks makes tasks look slower than they are" : ""}. The same words in a later journal count as one task from its first day. The clock starts when it was written down, not when the work began.</p>
-      <div class="vg-list-h">Open longest <span class="vg-count">${open.length}</span></div>
-      ${open.slice(0, 12).map(r => `<div class="vg-sugg"><button class="vg-item" ${r.path && opts.openNote ? `data-open="${esc(r.path)}"` : ""}><span class="vg-item-main">${esc(VGRules.plainTask(r.text))}<span class="vg-item-sub">${r.t} days open · ${pct(S.conditional(km, r.t, 30))} chance of finishing in the next 30 · since ${esc(r.born)}</span></span></button></div>`).join("")}`;
+      ${VGParts.section({ title: "Compare tasks by", body: `<div class="vg-filter-row vg-sci-split" role="group" aria-label="Compare tasks by">${tests.map(t => `<button class="vg-btn vg-btn-sm${t.k === survivalSplit ? " is-on" : ""}" data-survival-split="${t.k}" aria-pressed="${t.k === survivalSplit}">${esc(t.w)}${t.p < bar ? " •" : ""}</button>`).join("")}</div>
+        <p class="vg-muted vg-lens-note">Comparing by "${esc(word)}": ${lr.p < bar ? "a real difference." : "no clear difference."} A difference doesn't show the cause.</p>
+        ${VGParts.more({ label: "The statistics", body: `<p>Log-rank χ² ${lr.chi2.toFixed(1)}, p ${lr.p < 0.001 ? "under 0.001" : lr.p.toFixed(3)}, which is the chance of a gap this big if the two groups really behaved the same. ${lr.p < bar ? "A real difference, after correcting for the " + tests.length + " comparisons (marked •)." : "Not a clear difference once corrected for the " + tests.length + " comparisons."}</p>` })}` })}
+      ${VGParts.section({ title: "Chance a task gets done in the next 30 days, by how long it's been open", body: VGParts.cards(ages.map(d => ({ value: pct(S.conditional(km, d, 30)), label: `open ${d}d`, open: `age${d}` })), { small: true }) + sciRead("Each tile takes the tasks still open at that age and gives the share finished within 30 more days. Falling numbers mean the longer a task sits, the less likely it is to get done.") })}
+      ${VGParts.section({ title: "Open longest", count: open.length, body: VGParts.list(open.slice(0, 60).map(r => VGParts.row({ title: VGRules.plainTask(r.text), sub: `${r.t} days open · ${pct(S.conditional(km, r.t, 30))} chance of finishing in the next 30 · since ${r.born}`, open: r.path && opts.openNote ? r.path : null })), { first: 5, word: "tasks" }) })}
+      ${VGParts.more({ label: "About this data", body: `<p>Kaplan-Meier on ${plural(km.n, "task")}: ${events} finished, ${km.n - events} still open. Left out, with no known end: ${skipped.undated || 0} done with no date, ${skipped.cancelled || 0} cancelled${skipped.undated ? ", and leaving out finished tasks makes tasks look slower than they are" : ""}. The same words in a later journal count as one task from its first day. The clock starts when it was written down, not when the work began.</p>` })}`;
   }
 
   // ---- Single points of failure: which notes hold the vault together, and how it breaks

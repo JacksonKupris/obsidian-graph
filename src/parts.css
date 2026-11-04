@@ -1,0 +1,35 @@
+/* the interface's shared pieces (src/parts.js), the same in the graph and in Vault HQ. The selectors name the root, since Obsidian's rules for every button win over a single class. */
+.ds-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 4px 0 10px; }
+.ds-cards.is-small { grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); }
+.vg-root .ds-card, .vg-hq .ds-card, .ds-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; height: auto; min-width: 0; padding: 8px 10px; white-space: normal; text-align: left; color: var(--ds-text); background: var(--ds-surface); border: 1px solid var(--ds-line); border-radius: var(--ds-r-sm); box-shadow: none; font: inherit; }
+.ds-card b { font-size: var(--ds-fs-lg); font-weight: var(--ds-w-semi); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.ds-card span { font-size: var(--ds-fs-xs); line-height: 1.3; color: var(--ds-muted); }
+.vg-root button.ds-card, .vg-hq button.ds-card { cursor: pointer; transition: border-color var(--ds-fast) var(--ds-ease), background var(--ds-fast) var(--ds-ease); }
+.vg-root button.ds-card:hover, .vg-hq button.ds-card:hover { border-color: var(--ds-accent); background: var(--ds-hover); }
+.vg-root button.ds-card[aria-expanded="true"], .vg-hq button.ds-card[aria-expanded="true"] { border-color: var(--ds-accent); background: var(--ds-accent-soft); }
+.ds-card.is-warn b { color: var(--ds-warn); } .ds-card.is-accent b { color: var(--ds-accent-text); } .ds-card.is-danger b { color: var(--ds-danger); }
+
+.ds-detail { margin: -2px 0 12px; padding: 10px 12px; font-size: var(--ds-fs-sm); line-height: 1.45; background: var(--ds-bg); border: 1px solid var(--ds-accent); border-radius: var(--ds-r-sm); animation: vg-ds-fade var(--ds-base) var(--ds-ease); }
+.ds-detail p { margin: 0 0 8px; color: var(--ds-muted); }
+.ds-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.ds-detail-head b { font-size: var(--ds-fs-md); font-weight: var(--ds-w-semi); }
+.vg-root .ds-detail-close, .vg-hq .ds-detail-close { width: 26px; height: 26px; padding: 0; flex: none; color: var(--ds-muted); background: transparent; border: none; box-shadow: none; cursor: pointer; }
+.vg-root .ds-detail-close:hover, .vg-hq .ds-detail-close:hover { color: var(--ds-text); background: var(--ds-hover); }
+
+.ds-section { margin: 14px 0; }
+.ds-section h4 { margin: 0 0 6px; font-size: var(--ds-fs-xs); font-weight: var(--ds-w-semi); letter-spacing: .06em; text-transform: uppercase; color: var(--ds-muted); }
+.ds-count { padding: 0 6px; font-size: var(--ds-fs-2xs); font-weight: var(--ds-w-semi); letter-spacing: 0; color: var(--ds-muted); background: var(--ds-hover); border-radius: var(--ds-r-pill); }
+
+.ds-more { margin: 6px 0; font-size: var(--ds-fs-sm); }
+.ds-more > summary { padding: 4px 0; color: var(--ds-muted); cursor: pointer; }
+.ds-more > summary:hover { color: var(--ds-text); }
+.ds-more-body { padding: 2px 0 6px 14px; line-height: 1.45; }
+.ds-more-body p { margin: 0 0 6px; }
+
+.ds-rows { display: flex; flex-direction: column; gap: 2px; }
+.vg-root .ds-row, .vg-hq .ds-row, .ds-row { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; height: auto; padding: 6px 8px; white-space: normal; text-align: left; font: inherit; color: var(--ds-text); background: transparent; border: none; border-radius: var(--ds-r-xs); box-shadow: none; }
+.ds-row span { overflow-wrap: anywhere; }
+.ds-row small { font-size: var(--ds-fs-xs); color: var(--ds-muted); }
+.vg-root button.ds-row, .vg-hq button.ds-row { cursor: pointer; }
+.vg-root button.ds-row:hover, .vg-hq button.ds-row:hover { background: var(--ds-hover); }
+.vg-root .ds-card:focus-visible, .vg-hq .ds-card:focus-visible, .vg-root .ds-row:focus-visible, .vg-hq .ds-row:focus-visible, .ds-more > summary:focus-visible { outline: var(--ds-focus); outline-offset: 1px; }
