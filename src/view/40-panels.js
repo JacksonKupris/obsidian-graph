@@ -100,10 +100,13 @@
   function snapshotView(name) {
     return { name, view: st.view, vision: st.vision, sizeBy: st.sizeBy, colorBy: st.colorBy, gaps: st.gaps, preset: st.preset,
       layers: { ...st.layers }, hiddenClusters: [...st.hiddenClusters], overlays: [...st.overlays], isolated: st.isolated,
-      focus: st.focus, focusDepth: st.focusDepth, cam: Object.fromEntries(TWEEN_KEYS.map(k => [k, Math.round(cam[k] * 1000) / 1000])) };
+      focus: st.focus, focusDepth: st.focusDepth, cam: Object.fromEntries(TWEEN_KEYS.map(k => [k, Math.round(cam[k] * 1000) / 1000])),
+      // saved in Cosmos, a view keeps its whole sky: the bodies and the Orbits, Trails... switches
+      ...(st.view === "cosmos" ? { cosmos: { bodies: structuredClone(cos.bodies), auto: { ...cos.auto } } } : {}) };
   }
   function applySaved(v) {
     if (st.focus) exitFocus();
+    if (v.cosmos) restoreSky(v.cosmos);   // first, so the view draws this sky from its first frame
     if (st.view !== v.view) setView(v.view);
     st.sizeBy = $(`.vg-size option[value="${v.sizeBy}"]`) ? v.sizeBy : "bc"; st.colorBy = $(`.vg-color option[value="${v.colorBy}"]`) ? v.colorBy : "cluster"; st.gaps = v.gaps; st.isolated = !!v.isolated;
     $(".vg-size").value = st.sizeBy; $(".vg-color").value = st.colorBy; $(".vg-gaps").checked = st.gaps; $(".vg-isolated").checked = st.isolated;
