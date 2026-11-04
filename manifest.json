@@ -1,7 +1,7 @@
 {
   "id": "jk-vault-graph",
   "name": "Vault Graph",
-  "version": "0.6.57",
+  "version": "0.6.58",
   "minAppVersion": "1.4.0",
   "description": "Your vault's home screen and map: capture, focus, what your notes know about any task, search that finds what you half remember, and views of your notes.",
   "author": "Jackson",
