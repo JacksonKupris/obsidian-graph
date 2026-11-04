@@ -4,15 +4,25 @@
 // against the Python analysis's for the same notes (fixtures/sample-graph.json).
 //   node tests/test_engine_data.js        exit 0 = pass
 const env = require("./env"), stub = require("./plugin_stub");
+const cdp = require("./cdp"), fs = require("fs"), path = require("path");
 const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) fails.push(`${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`); };
 (async () => {
-  const { Plugin, TFile } = stub.load(env.rules);
+  const { Plugin, TFile, VGEngine } = stub.load(env.rules);
   const app = stub.fakeVault(env.dir(), TFile);
   const p = Object.assign(Object.create(Plugin.prototype), { app, settings: { dataPath: "_scripts/out/vault-graph.json", script: "_scripts/vault_graph.py", rulesPath: "_scripts/vault_graph_rules.json" } });
   p.saveSettings = async () => {}; p.writeLiveDiag = () => {}; p.sceneBlocks = async () => [];
+  const realRun = VGEngine.run; VGEngine.run = (name, input) => { p.lastJob = input; return realRun(name, input); };   // keeps what the plugin handed the job, for the worker check below
   const data = await p.graphData();
+  VGEngine.run = realRun;
   check("no analysis file: the graph comes from the engine", !!(data && data.engine), true);
   if (data) {
+    // the slow step really runs off the main thread in a browser, and gives the same answer as running it here
+    if (p.lastJob) { const source = fs.readFileSync(path.join(__dirname, "..", "src", "engine.js"), "utf8");
+      const tab = await cdp.open({ html: `<!doctype html><script>${source.replace(/<\/script/gi, "<\\/script")}</script>`, port: 9353 });
+      if (tab) { const r = await tab.ev(`(async () => { const input = ${env.inlineJson(p.lastJob)}, here = VGEngine.topicsJob(input), there = await VGEngine.run("topicsJob", input); return JSON.stringify({ via: VGEngine.stats.via, same: JSON.stringify(here) === JSON.stringify(there), topics: there.topics.length }); })()`);
+        await tab.close(); const R = JSON.parse(r);
+        check("the topics job ran in a worker", R.via, "worker"); check("the worker's answer is the same as running it here", R.same, true); check("the worker found topics", R.topics > 0, true); } }
+    else fails.push("the plugin never asked for the topics job");
     const py = env.data(), pyNotes = py.nodes.filter(n => !n.ghost && !n.person && !n.moc), notes = data.nodes.filter(n => !n.ghost && !n.person && !n.moc);
     check("the engine's notes are the analysis's", notes.map(n => n.id).sort(), pyNotes.map(n => n.id).sort());
     check("every note in a topic is in one the data lists", notes.filter(n => n.cluster >= 0 && !data.clusters.some(c => c.id === n.cluster)).map(n => n.id), []);

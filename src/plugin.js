@@ -1547,15 +1547,11 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const links = Object.fromEntries(files.map(f => [f.path, Object.keys(resolved[f.path] || {}).filter(t => t.endsWith(".md") && t !== f.path)]));
     const F = VGRules.folders;
     const T = VGEngine.topicGraph(notes, links, { kind: VGRules.noteKind, isHub: VGRules.isHub, joinsWhenLinked: VGRules.joinsWhenLinked });
-    const vectors = await this.smartVectors(T.knowledge);
-    const coh = VGEngine.cohesionGraph(T.graph, T.knowledge, vectors), topics = VGEngine.topicsOf(VGEngine.absorbSmall(VGEngine.louvain(coh), coh));
     const raw = {};   // every topic note's text: topic keywords and word counts
     for (const r of T.knowledge) { const f = this.app.vault.getAbstractFileByPath(r); if (f instanceof TFile) raw[r] = await this.app.vault.cachedRead(f); }
     const tags = Object.fromEntries(notes.map(n => [n.path, n.tags]));
-    const ids = VGEngine.stableIds(topics, prev || {}), kw = VGEngine.topicWords(topics, raw), labels = topics.map(m => VGEngine.label(m, T.graph, tags)), st = VGEngine.stacks(topics, tags, VGRules.RULES.stack);
-    const names = VGEngine.readableNames(topics, kw, labels.map(l => l.core)).map((n, i) => VGEngine.withStack(n, st[i]));
-    return { topics: topics.map((m, i) => ({ id: ids[i], size: m.length, name: names[i], stack: st[i], keywords: kw[i], ...labels[i], members: m })),
-      bc: VGEngine.betweenness(T.graph), knowledge: T.knowledge.length, vectors: vectors.size, notes: T.knowledge, graph: T.graph, raw, tags, files };
+    const J = await VGEngine.run("topicsJob", { graph: T.graph, knowledge: T.knowledge, smart: await this.smartFiles(), raw, tags, prev: prev || {}, stack: VGRules.RULES.stack });
+    return { topics: J.topics, bc: J.bc, knowledge: T.knowledge.length, vectors: J.vectors, notes: T.knowledge, graph: T.graph, raw, tags, files };
   }
   // The graph data when this vault has no analysis file (no Python, a phone, a new vault): the engine's topics and
   // influence over Obsidian's index, in the analysis's shape; liveMerge adds the live fields over it as it does over the
@@ -1588,14 +1584,14 @@ module.exports = class VaultGraphPlugin extends Plugin {
     try { return !!(await this.app.vault.adapter.exists(normalizePath(this.settings.script))); } catch (e) { return false; }
   }
   // the Smart Connections index (.smart-env), read for the engine: its logs, then each vector file they name
-  async smartVectors(notes) {
+  async smartFiles() {
     const A = this.app.vault.adapter, base = ".smart-env", text = async p => { try { return await A.read(p); } catch (e) { return null; } };
     const sources = await text(`${base}/smart_sources/smart_sources.ajson`), models = await text(`${base}/embedding_models/embedding_models.ajson`);
-    if (sources == null || models == null) return new Map();
+    if (sources == null || models == null) return null;
     const blobs = {}, files = new Set();
     for (const v of VGEngine.parseAjson(sources).values()) Object.keys(((v && v.embedding) || {}).default || {}).forEach(f => files.add(f));
     for (const f of files) if (!/[\/\\]/.test(f)) { try { blobs[f] = new Uint8Array(await A.readBinary(`${base}/smart_sources/${f}`)); } catch (e) { blobs[f] = null; } }
-    return VGEngine.embeddings({ sources, models, blob: f => blobs[f] }, notes);
+    return { sources, models, blobs };
   }
 
   async selfTest(auto) {
