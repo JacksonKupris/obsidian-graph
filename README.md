@@ -38,7 +38,7 @@ Vault HQ reads your daily notes from where Obsidian's Daily notes or Periodic No
 ## Optional extras
 
 - **Smart Connections**: if that plugin has indexed your vault, Vault Graph uses its note similarity too, for topics and for "these two notes mean the same thing" suggestions.
-- **The analysis** (`analysis/`, Python 3 with PyYAML, desktop only): adds what Obsidian's index alone can't give, mostly from daily notes: which notes you mention together, timelines, follow-through on plans. Without it the plugin still finds the topics and suggestions itself.
+- **The analysis** (`analysis/`, Python 3 with PyYAML, desktop only): adds what Obsidian's index alone can't give, mostly from daily notes: which notes you mention together, timelines, follow-through on plans. Without it the plugin still finds the topics and suggestions itself. Without it, Timeline, Topic river, Attention, People by topic, Standup follow-through and Code ↔ docs have nothing to show, and Topic matrix, Duplicates, Blind spots and Stale notes show less; each says so. The analysis is moving into the plugin, so this list is shrinking (`tests/test_no_python.js` keeps it honest).
 - **Your own views**: a ```` ```vault-graph-scene ```` block in any note becomes a view. The **New view** tile writes one for you.
 
 ## Develop

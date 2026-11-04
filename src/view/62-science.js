@@ -259,7 +259,7 @@
   }
   // ---- Attention: Hill numbers on where your dailies went, week by week
   function lensAttention() {
-    const T = DATA.timeline; if (!T || T.weeks.length < 4) return emptyNext("Attention needs four weeks of daily notes that link or name your notes.", "daily", "lens:river");
+    const T = DATA.timeline; if (!T || T.weeks.length < 4) return needsAnalysis("Attention") || emptyNext("Attention needs four weeks of daily notes that link or name your notes.", "daily", "lens:river");
     const cs = Object.entries(T.clusters).filter(([c]) => clusterById[c]), todayD = Date.parse(`${DATA.date || today()}T12:00:00Z`), full = T.weeks.map((w, i) => i).filter(i => todayD - Date.parse(`${T.weeks[i]}T12:00:00Z`) >= 6 * 864e5), idx = full.slice(-26);
     const H = idx.map(i => ({ i, ...VGScience.hill(cs.map(([, v]) => v[i] || 0)), total: cs.reduce((s, [, v]) => s + (v[i] || 0), 0) })).filter(w => w.total >= 3); if (H.length < 4) return emptyNext("Attention needs four weeks of daily notes that link or name your notes.", "daily", "lens:river");
     const now = H[H.length - 1], recent = H.slice(-4), past = H.slice(0, -4), avg = (a, k) => a.reduce((s, x) => s + x[k], 0) / (a.length || 1), top = cs.map(([c, v]) => [c, recent.reduce((s, w) => s + (v[w.i] || 0), 0)]).sort((a, b) => b[1] - a[1]), rT = top.reduce((s, x) => s + x[1], 0), ymax = Math.ceil(Math.max(...H.map(w => w.q1))) + 1;
