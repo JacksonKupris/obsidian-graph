@@ -14,6 +14,7 @@ for (const t of ["a.b*c", "C++ (notes)", "$&", "x|y", "[z]", "a/b", "back\\slash
 assert.ok(!new RegExp(S.escapeRegex("a.b")).test("axb"), "escapeRegex left a dot as a wildcard");
 
 assert.strictEqual(S.nameOf("a/b/My Note.md"), "My Note"); assert.strictEqual(S.nameOf("a/b/x.MD"), "x"); assert.strictEqual(S.nameOf("x.png"), "x.png"); assert.strictEqual(S.nameOf(null), ""); assert.strictEqual(S.baseOf("a/b.md"), "b.md");
+assert.strictEqual(S.shortDate(""), ""); assert.strictEqual(S.shortDate("not a date"), "not a date"); assert.ok(/4/.test(S.shortDate("2026-11-04")), "a date keeps its day");
 assert.strictEqual(S.plural(1, "note"), "1 note"); assert.strictEqual(S.plural(2, "note"), "2 notes"); assert.strictEqual(S.plural(2, "person", "people"), "2 people");
 assert.strictEqual(S.plainLinks("see [[a/b|the note]] and [[c]]"), "see the note and c"); assert.strictEqual(S.stripFrontmatter("---\na: 1\n---\nbody"), "body"); assert.strictEqual(S.stripFrontmatter("---\r\na: 1\r\n---\r\nbody"), "body"); assert.strictEqual(S.stripFrontmatter("no front"), "no front");
 assert.strictEqual(S.shiftDay("2026-03-01", -1), "2026-02-28"); assert.strictEqual(S.shiftDay("2026-11-01", 1), "2026-11-02", "across a clock change"); assert.strictEqual(S.daysBetween("2026-01-01", "2026-03-01"), 59); assert.strictEqual(S.noon("2026-11-03").getDate(), 3); assert.strictEqual(S.noon("2026-11-03").getHours(), 12); assert.strictEqual(S.pad2(3), "03"); assert.strictEqual(S.pad2(12), "12");

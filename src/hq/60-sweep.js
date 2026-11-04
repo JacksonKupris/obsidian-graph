@@ -2,7 +2,7 @@
   // today's standup), Cancel, or Keep (stays open; gone from the sweep until you come back to it)
   const SWEEP_OLD = 14;   // days: a day this old is marked
   let sweepBy = "day";   // or "section": the journal heading it's under
-  const subsHtml = it => it.subs ? `<details class="vg-hq-subs"><summary>${plural(it.subs.length, "subtask")}</summary><ul>${it.subs.map(x => `<li>${esc(VGRules.plainTask(x.text))}</li>`).join("")}</ul></details>` : "";
+  const subsHtml = it => it.subs ? VGParts.more({ cls: "vg-hq-subs", label: plural(it.subs.length, "subtask"), body: `<ul>${it.subs.map(x => `<li>${esc(VGRules.plainTask(x.text))}</li>`).join("")}</ul>` }) : "";
   const sectionOf = it => VGRules.plainTask(it.section || "") || "No heading";
   function sweepScreen() {
     const all = ofKind("carried").filter(it => !kept.has(it.key)), left = all.filter(it => it.underDone), items = all.filter(it => !it.underDone), days = [...new Set(items.map(it => it.date))].sort();
@@ -24,8 +24,8 @@
     const repeats = new Map();
     items.forEach(it => { const key = duplicateKey(it); if (!repeats.has(key)) repeats.set(key, []); repeats.get(key).push(it); });
     const duplicates = [...repeats.values()].filter(g => g.length > 1);
-    const review = duplicates.length ? `<details class="vg-hq-duplicates"><summary>Review ${plural(duplicates.length, "repeated wording group")} · no tasks merged</summary>${duplicates.map(g =>
-      `<div class="vg-hq-txt"><b>${esc(g[0].title)}</b>${g.map(it => `<p>${api.openNote ? `<button class="vg-hq-inline-link" data-open="${esc(it.path)}">${esc(it.path)}</button>` : esc(it.path)} · line ${it.line + 1}</p>`).join("")}</div>`).join("")}</details>` : "";
+    const review = duplicates.length ? VGParts.more({ cls: "vg-hq-duplicates", label: `Review ${plural(duplicates.length, "repeated wording group")} · no tasks merged`, body: duplicates.map(g =>
+      `<div class="vg-hq-txt"><b>${esc(g[0].title)}</b>${g.map(it => `<p>${api.openNote ? `<button class="vg-hq-inline-link" data-open="${esc(it.path)}">${esc(it.path)}</button>` : esc(it.path)} · line ${it.line + 1}</p>`).join("")}</div>`).join("") }) : "";
     return head + `<p class="vg-hq-lede">${plural(all.length, "task")}, ${old} older than 30 days.${subs ? ` ${plural(subs, "subtask")} go with their tasks.` : ""}</p><div class="vg-hq-filters" role="group" aria-label="Group by">${by("day", "By day, oldest first")}${by("section", "By heading, largest first")}<button class="vg-hq-filter" data-walk="on">One at a time</button></div>${review}${leftGroup}` + (sweepBy === "day" ? days.map(byDay) : sections.map(bySection)).join("");
   }
   async function sweep(how, list, btn, from) {

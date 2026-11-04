@@ -1,6 +1,6 @@
   // ---- the parts every screen shares
   const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const shortDate = d => { const x = VGShared.noon(d); return isNaN(x) ? d : `${MONTHS[x.getMonth()].slice(0, 3)} ${x.getDate()}`; };
+  const shortDate = VGShared.shortDate;
   function chooseDaily(date, source) {
     const h = hq() || {}, journal = VGRules.canonicalJournal(h, date);
     const standup = VGRules.canonicalDailyPath(h.standups, date, "standup");
@@ -120,12 +120,12 @@
   function putOffHtml() {
     const held = VGRules.hqPutOff(DATA, { review: STATE.review, hidden: STATE.hidden, today: day(), now: now() }); if (!held.length || !api.hqMark) return "";
     const urgent = held.filter(it => it.urgent).length;
-    return `<details class="vg-hq-sec vg-hq-putoff"${urgent ? " open" : ""}><summary><span>Put off${urgent ? ` · <b class="vg-hq-jobbad">${urgent} urgent</b>` : ""}</span><span>${held.length}</span></summary>${held.map(it => `<div class="vg-hq-item${it.urgent ? " is-old" : ""}"><span class="vg-hq-kind">${icon(KIND_ICON[it.kind] || "clock", 16)}</span><div class="vg-hq-txt"><b>${esc(it.title)}</b><small>${esc(it.until ? `Back on ${shortDate(it.until)}` : "Back tomorrow")} · ${esc(it.why || "")}</small></div><div class="vg-hq-acts vg-hq-keepacts"><button class="vg-hq-btn vg-hq-btn-sm" data-bringback="${esc(it.key)}">Bring back</button></div></div>`).join("")}</details>`;
+    return VGParts.more({ cls: "vg-hq-sec vg-hq-putoff", open: !!urgent, head: `<span>Put off${urgent ? ` · <b class="vg-hq-jobbad">${urgent} urgent</b>` : ""}</span><span>${held.length}</span>`, body: held.map(it => `<div class="vg-hq-item${it.urgent ? " is-old" : ""}"><span class="vg-hq-kind">${icon(KIND_ICON[it.kind] || "clock", 16)}</span><div class="vg-hq-txt"><b>${esc(it.title)}</b><small>${esc(it.until ? `Back on ${shortDate(it.until)}` : "Back tomorrow")} · ${esc(it.why || "")}</small></div><div class="vg-hq-acts vg-hq-keepacts"><button class="vg-hq-btn vg-hq-btn-sm" data-bringback="${esc(it.key)}">Bring back</button></div></div>`).join("") });
   }
   // what the plan leaves out because it's already done, with a way back for the one that really came back
   function planDoneHtml() {
     const done = VGRules.hqPlanDone(DATA, { review: STATE.review, today: day() }); if (!done.length || !api.hqMark) return "";
-    return `<details class="vg-hq-sec vg-hq-putoff vg-hq-plandone"><summary><span>Already done from the plan</span><span>${done.length}</span></summary>${done.map(it => `<div class="vg-hq-item"><span class="vg-hq-kind">${icon("check", 16)}</span><div class="vg-hq-txt"><b>${esc(it.title)}</b><small>Done ${esc(shortDate(it.doneOn))}</small></div><div class="vg-hq-acts vg-hq-keepacts"><button class="vg-hq-btn vg-hq-btn-sm" data-planback="${esc(it.key)}">Bring back</button></div></div>`).join("")}</details>`;
+    return VGParts.more({ cls: "vg-hq-sec vg-hq-putoff vg-hq-plandone", head: `<span>Already done from the plan</span><span>${done.length}</span>`, body: done.map(it => `<div class="vg-hq-item"><span class="vg-hq-kind">${icon("check", 16)}</span><div class="vg-hq-txt"><b>${esc(it.title)}</b><small>Done ${esc(shortDate(it.doneOn))}</small></div><div class="vg-hq-acts vg-hq-keepacts"><button class="vg-hq-btn vg-hq-btn-sm" data-planback="${esc(it.key)}">Bring back</button></div></div>`).join("") });
   }
   async function planBack(key) { STATE = { ...STATE, review: { ...(STATE.review || {}), hq: { ...((STATE.review || {}).hq || {}), [key]: `open:${day()}` } } }; gone.delete(key); relist(); render(); await api.hqMark(key, "open"); }
   async function bringBack(key) { const marks = { ...((STATE.review || {}).hq || {}) }; delete marks[key]; STATE = { ...STATE, review: { ...(STATE.review || {}), hq: marks } }; gone.delete(key); relist(); render(); await api.hqMark(key, null); }
@@ -186,7 +186,7 @@
     const groups = new Map();
     items.forEach(it => { const key = ["task", "carried", "plan"].includes(it.kind) ? duplicateKey(it) : it.key; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(it); });
     return [...groups.values()].map(group => group.length === 1 ? row(group[0]) :
-      `<details class="vg-hq-duplicates"><summary>Possible duplicate wording · ${group.length} source tasks · review separately</summary>${group.map(row).join("")}</details>`).join("");
+      VGParts.more({ cls: "vg-hq-duplicates", label: `Possible duplicate wording · ${group.length} source tasks · review separately`, body: group.map(row).join("") })).join("");
   }
   const PAGE = 30, opened = new Set();   // long lists come a page at a time, whatever the vault's size
   const pageOf = (title, items) => opened.has(title) || items.length <= PAGE ? items : items.slice(0, PAGE);

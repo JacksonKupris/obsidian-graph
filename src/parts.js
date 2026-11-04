@@ -1,21 +1,25 @@
 // parts.js - the interface's shared pieces, the same in the graph and in Vault HQ: a card, a row of cards with what's behind them,
 // a section with a count, a show more, a how-to-read note and a long list that shows its first few. Each returns HTML; styles are
 // in parts.css. tests/test_parts.js fails if a view writes its own again.
-//   VGParts.cards([{ value, label, hint, open, tone }])   open: the key of what's behind the card (see wire). A card with a hint
+//   VGParts.cards([{ value, label, sub, hint, open, tone }])   open: the key of what's behind the card (see wire). A card with a hint
 //                                                         opens that; one with neither isn't a button, so it doesn't look clickable.
 //   VGParts.section({ title, count, hint, body }) · VGParts.more({ label, count, body, open }) · VGParts.howTo(text)    hint: one short line, as HTML
+//   VGParts.heading(title, count): a heading alone, for a list that isn't a section (a menu)
 //   VGParts.row({ title, sub, open: path }) · VGParts.list(rowsHtml, { first, word })
 //   VGParts.wire(root, { details, openNote(path, event), onOpen(panel) })   details: { key: () => ({ title, body }) }, or a function returning
 //                                                         that. onOpen wires a panel's rows. Once per root; call again to change them.
 const VGParts = (() => {
   const esc = VGShared.escapeHtml;
-  function card({ value, label, hint, open, tone }) {
-    const inner = `<b>${esc(value)}</b><span>${esc(label)}</span>`, cls = `ds-card${tone ? ` is-${esc(tone)}` : ""}`;
+  function card({ value, label, sub, hint, open, tone, data, title }) {
+    const inner = `<b>${esc(value)}</b><span>${esc(label)}</span>${sub ? `<small>${esc(sub)}</small>` : ""}`, cls = `ds-card${tone ? ` is-${esc(tone)}` : ""}`;
+    // data: what the view does with the press itself (data-stat="all"), with no panel
+    if (data) return `<button class="${cls}"${Object.entries(data).map(([k, v]) => ` data-${esc(k)}="${esc(v)}"`).join("")}${title ? ` title="${esc(title)}"` : ""}>${inner}</button>`;
     if (!open && !hint) return `<div class="${cls}">${inner}</div>`;
     return `<button class="${cls}" data-card="${esc(open || "")}" data-card-label="${esc(label)}"${hint ? ` data-card-hint="${esc(hint)}"` : ""} aria-expanded="false">${inner}</button>`;
   }
   const cards = (items, o = {}) => `<div class="ds-cards${o.small ? " is-small" : ""}">${items.map(card).join("")}</div>`;
   const count = n => (n == null ? "" : ` <span class="ds-count">${esc(n)}</span>`);
+  const heading = (title, n) => `<h4 class="ds-heading">${esc(title)}${count(n)}</h4>`;
   const section = ({ title, count: n, hint, body }) => `<section class="ds-section"><h4>${esc(title)}${count(n)}</h4>${hint ? `<p class="ds-hint">${hint}</p>` : ""}${body}</section>`;
   const more = ({ label, head, count: n, body, open, cls }) => `<details class="ds-more${cls ? ` ${esc(cls)}` : ""}"${open ? " open" : ""}><summary>${head || esc(label)}${count(n)}</summary><div class="ds-more-body">${body}</div></details>`;
   const howTo = text => more({ label: "How to read this", body: `<p>${text}</p>` });
@@ -62,5 +66,5 @@ const VGParts = (() => {
       const panel = openDetail(c, P.details || {}); if (panel && P.onOpen) P.onOpen(panel);
     });
   }
-  return { cards, section, more, howTo, row, list, wire, opened, reopen };
+  return { cards, heading, section, more, howTo, row, list, wire, opened, reopen };
 })();

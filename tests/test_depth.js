@@ -88,7 +88,7 @@ const fs = require("fs"), path = require("path"), sleep = ms => new Promise(r =>
     }
     // the slider re-runs Blast radius, and Trace moves the list
     await tab.ev(`${D}.openLens("blast")`); await sleep(200);
-    if (await tab.ev(`!!document.querySelector("[data-blast-t]")`)) { const r0 = () => tab.ev(`document.querySelector(".ds-card b").textContent`), a = await r0(); await tab.ev(`(() => { const s = document.querySelector("[data-blast-t]"); s.value = "0.5"; s.dispatchEvent(new Event("change", { bubbles: true })); })()`); await sleep(300); check(await r0() !== a, "the slider didn't change R0"); }
+    if (await tab.ev(`!!document.querySelector("[data-blast-t]")`)) { const r0 = () => tab.ev(`document.querySelector(".vg-lens-body .ds-card b").textContent`), a = await r0(); await tab.ev(`(() => { const s = document.querySelector("[data-blast-t]"); s.value = "0.5"; s.dispatchEvent(new Event("change", { bubbles: true })); })()`); await sleep(300); check(await r0() !== a, "the slider didn't change R0"); }
     await tab.ev(`document.querySelector(".vg-lens-close").click()`);
     console.log(fails.length ? "FAIL - 3D and science lenses:\n  " + fails.join("\n  ") : `ok - depth: ${hasGl ? "occlusion, lighting, flying, the brain's shape, a firing network, a lost context" : "no WebGL here"}; the science lenses open with real content`);
   } finally { await tab.close(); }
