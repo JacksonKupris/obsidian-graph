@@ -1623,13 +1623,13 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // the Smart Connections index (.smart-env), read for the engine: its logs, then each vector file they name
   async smartFiles() {
     const A = this.app.vault.adapter, base = ".smart-env", text = async p => { try { return await A.read(p); } catch (e) { return null; } };
-    let names = []; try { names = (await A.list(`${base}/smart_sources`)).files.map(f => f.split("/").pop()).filter(f => /^smart_sources(_\d+)?\.ajson$/.test(f)); } catch (e) { /* no index */ }
+    let files = []; try { files = (await A.list(`${base}/smart_sources`)).files.map(f => f.split("/").pop()); } catch (e) { /* no index */ }
+    const names = files.filter(f => /^smart_sources(_\d+)?\.ajson$/.test(f));
     const order = f => { const m = /_(\d+)\.ajson$/.exec(f); return m ? +m[1] : 0; }, parts = await Promise.all((names.length ? names : ["smart_sources.ajson"]).sort((a, b) => order(a) - order(b)).map(f => text(`${base}/smart_sources/${f}`)));
     const sources = parts.some(p => p != null) ? parts.filter(p => p != null).join("\n") : null, models = await text(`${base}/embedding_models/embedding_models.ajson`);
     if (sources == null || models == null) return null;
-    const blobs = {}, files = new Set();
-    for (const v of VGEngine.parseAjson(sources).values()) Object.keys(((v && v.embedding) || {}).default || {}).forEach(f => files.add(f));
-    for (const f of files) if (!/[\/\\]/.test(f)) { try { blobs[f] = new Uint8Array(await A.readBinary(`${base}/smart_sources/${f}`)); } catch (e) { blobs[f] = null; } }
+    const blobs = {};
+    for (const f of files) if (!f.endsWith(".ajson")) { try { blobs[f] = new Uint8Array(await A.readBinary(`${base}/smart_sources/${f}`)); } catch (e) { blobs[f] = null; } }
     return { sources, models, blobs };
   }
 

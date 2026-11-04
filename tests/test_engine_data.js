@@ -38,5 +38,15 @@ const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSO
     if (share < 0.9) fails.push(`topics agree with the analysis on ${Math.round(share * 100)}% of notes, want 90%+`);
     console.log(fails.length ? "FAIL - " + fails.join("\n  ") : `ok - no analysis file: the plugin's own graph (${notes.length} notes, ${data.clusters.length} topics, ${Math.round(share * 100)}% as the analysis)`);
   } else console.log("FAIL - " + fails.join("\n  "));
+  // engine_owns: a desktop takes what the rules file lists over the analysis's file, the rest stays; a phone keeps the file
+  { const rules = { ...env.rules, engine_owns: ["mentions", "series"] }, py = env.data(), n0 = py.nodes.find(x => !x.person && !x.moc && !x.ghost);
+    const N = { mentions: { [n0.id]: 4321 }, recent: {}, said: {}, saidDays: {}, mentionDays: {}, used: 7, personMentions: {}, counts: {}, tasks: {}, series: [{ name: "from the engine", notes: [] }], follow: { items: ["never"] }, twins: [], similar: [], codey: [], personLinks: {} };
+    const on = async platform => { const L = stub.load(rules, { Platform: platform }), a = stub.fakeVault(env.dir(), L.TFile), q = Object.assign(Object.create(L.Plugin.prototype), { app: a, settings: { dataPath: "_scripts/out/vault-graph.json", script: "_scripts/vault_graph.py", rulesPath: "_scripts/vault_graph_rules.json" } });
+      q.saveSettings = async () => {}; q.writeLiveDiag = () => {}; q.sceneBlocks = async () => []; q.base = JSON.parse(JSON.stringify(py)); q.engineNotesDone = N; return q.graphData(); };
+    const desk = await on({ isDesktopApp: true }), phone = await on({ isMobile: true }), of = d => d.nodes.find(x => x.id === n0.id);
+    check("a desktop takes the mentions it owns", of(desk).mentions, 4321); check("a desktop takes the series it owns", desk.series[0].name, "from the engine");
+    check("a part not listed stays the analysis's", JSON.stringify(desk.followthrough) === JSON.stringify(py.followthrough), true);
+    check("a phone keeps the file's mentions", of(phone).mentions, n0.mentions); check("a phone keeps the file's series", JSON.stringify(phone.series), JSON.stringify(py.series));
+    if (fails.length) console.log("FAIL - " + fails.join("\n  ")); }
   process.exit(fails.length ? 1 : 0);
 })().catch(e => { console.log("FAIL - " + (e && e.stack || e)); process.exit(1); });
