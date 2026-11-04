@@ -309,19 +309,11 @@ const VGScienceMake = () => {
   // Runs in a worker so the app stays free (it takes seconds), and one result is kept per network for the whole app: another tab, the
   // self-test or a reopened lens reuses it. If a worker can't start, the steps run here with a pause between them.
   const netMemo = new Map(), netStats = { runs: 0, via: null };
-  function inWorker(g) {
-    return new Promise((resolve, reject) => {
-      const source = `const VGScienceMake = ${VGScienceMake.toString()};\nconst S = VGScienceMake();\nonmessage = e => { const { ids, edges } = e.data; postMessage(S.netStudyNow(S.graphOf(ids, edges.map(x => [ids[x[0]], ids[x[1]]])))); };`;
-      const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" })), w = new Worker(url), end = () => { w.terminate(); URL.revokeObjectURL(url); };
-      w.onmessage = e => { end(); resolve(e.data); }; w.onerror = e => { end(); reject(new Error(e.message || "worker failed")); };
-      w.postMessage({ ids: g.ids, edges: g.edges });
-    });
-  }
   async function netHere(g) { const it = netStudySteps(g); let r = it.next(); while (!r.done) { await new Promise(go => setTimeout(go)); r = it.next(); } return r.value; }
   function netStudy(g) {
     const key = graphKey(g); if (netMemo.has(key)) return netMemo.get(key);
     netStats.runs++; while (netMemo.size >= 2) netMemo.delete(netMemo.keys().next().value);
-    const p = (async () => { if (typeof Worker === "function" && typeof Blob === "function" && typeof URL === "function" && URL.createObjectURL) { try { const r = await inWorker(g); netStats.via = "worker"; return r; } catch (e) { console.warn("Vault Graph: the network tests are running on the main thread:", e.message); } } netStats.via = "here"; return netHere(g); })();
+    const p = VGShared.offThread({ makers: { VGScienceMake }, listen: "e => { const S = VGScienceMake(), { ids, edges } = e.data; postMessage(S.netStudyNow(S.graphOf(ids, edges.map(x => [ids[x[0]], ids[x[1]]])))); }", message: { ids: g.ids, edges: g.edges }, here: () => netHere(g), label: "the network tests are", stats: netStats });
     netMemo.set(key, p); return p;
   }
   // ---- control charts: Shewhart's individuals chart (XmR). Limits come from how much a value moves from one to the next (2.66 = 3 / d2, with

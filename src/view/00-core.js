@@ -53,7 +53,7 @@ function mountVaultGraph(root, DATA, opts) {
   const onReduced = e => { reducedNow = e.matches; };
   if (RM && RM.addEventListener) RM.addEventListener("change", onReduced);   // removed in destroy()
   const reducedMotion = () => reducedNow;
-  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const esc = VGShared.escapeHtml;
   const colorOf = c => (c < 0 || c >= PALETTE.length) ? "#a8a29e" : PALETTE[c];
   const neonOf = c => (c < 0 || c >= NEON.length) ? "#94a3b8" : NEON[c];
   const clusterById = Object.fromEntries(DATA.clusters.map(c => [c.id, c]));

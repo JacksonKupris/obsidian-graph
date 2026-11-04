@@ -49,7 +49,7 @@ Release prerequisites, manual steps and recovery: [RELEASING.md](RELEASING.md).
 ```sh
 npm test                      # build + rules/code checks + every view and lens on the sample vault
 npm run test:vault            # the same on a real vault (local.json's "vault", or --vault <dir>)
-npm run build                 # dist/: main.js, styles.css, manifest.json, rules.js, engine.js (sample rules)
+npm run build                 # dist/: main.js, styles.css, manifest.json, rules.js (sample rules)
 npm run deploy                # test on the vault, install its check file there (--plugin: this build too, until the next release)
 npm run release [-- minor]    # bump, test, tag and push from main; CI publishes the release, then it's installed in local.json's vault
 npm run sync                  # this computer and GitHub the same, on any branch (before work, after each commit)

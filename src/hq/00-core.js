@@ -21,7 +21,7 @@ function mountVaultHQ(root, data, opts) {
     globalQuery = "", noteHits = [], noteSearchError = "", searchPending = false, searchTimer = null, searchToken = 0,
     compactProjects = false, drawer = null, focusDrawerOnRender = false, carriedAll = false, clockTimer = null;
   const now = () => opts.now || new Date(), day = () => VGRules.localDay(now());
-  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const esc = VGShared.escapeHtml;
   const plural = (n, w, ws) => `${n} ${n === 1 ? w : ws || w + "s"}`;
   const nameOf = p => VGActions.nameOf(p);
 

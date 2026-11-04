@@ -3,7 +3,7 @@
 // closed forms and small graphs you can check by hand. If a view claims to be a method, this is where it's held to it.
 //   node tests/test_science.js        exit 0 = pass
 const fs = require("fs"), path = require("path"), assert = require("assert");
-const S = new Function(`${fs.readFileSync(path.join(__dirname, "..", "src", "science.js"), "utf8")}; return VGScience;`)();
+const S = new Function(`${require("../build").scienceSource()}; return VGScience;`)();
 const near = (a, b, tol, what) => assert(Math.abs(a - b) <= tol, `${what}: got ${a}, want ${b} +/- ${tol}`);
 
 // ---- Kaplan-Meier: Freireich's 6-MP leukaemia trial (1963), the textbook's worked example (Kleinbaum & Klein, Survival Analysis)

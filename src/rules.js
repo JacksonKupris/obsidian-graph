@@ -225,7 +225,7 @@ const VGRules = (() => {
   function recallNearTarget(query, paths) {
     const ql = String(query).toLowerCase();
     for (const w of CUES.near_words || []) {
-      const m = ql.match(new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+(?:the\\s+)?(.+)$`)); if (!m) continue;
+      const m = ql.match(new RegExp(`\\b${VGShared.escapeRegex(w)}\\s+(?:the\\s+)?(.+)$`)); if (!m) continue;
       const want = new Set(recallWords(m[1])), ov = p => recallWords(stemCase(p)).filter((x, i, a) => a.indexOf(x) === i && want.has(x)).length;
       let best = null; for (const p of paths) if (!best || ov(p) > ov(best) || (ov(p) === ov(best) && stemCase(p).length < stemCase(best).length)) best = p;
       if (best && ov(best) >= Math.max(1, Math.floor(want.size / 2))) return best;
@@ -497,7 +497,7 @@ const VGRules = (() => {
   const formatDate = (format, d) => String(format).replace(dateTokens, (t, lit) => lit !== undefined ? lit : t === "YYYY" ? d.getFullYear() : t === "MMMM" ? d.toLocaleString("en-US", { month: "long" }) : t === "MM" ? String(d.getMonth() + 1).padStart(2, "0") : t === "M" ? d.getMonth() + 1 : t === "DD" ? String(d.getDate()).padStart(2, "0") : t === "D" ? d.getDate() : d.toLocaleString("en-US", { weekday: "long" }));
   // the same format as a pattern that reads the date back, in any order: named groups y, m, d (dateIn puts them together)
   function formatPattern(format) {
-    const seen = new Set(), esc = s => s.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&"), group = (k, re) => { if (seen.has(k)) return `\\k<${k}>`; seen.add(k); return `(?<${k}>${re})`; }; let out = "", at = 0;
+    const seen = new Set(), esc = VGShared.escapeRegex, group = (k, re) => { if (seen.has(k)) return `\\k<${k}>`; seen.add(k); return `(?<${k}>${re})`; }; let out = "", at = 0;
     for (const m of String(format).matchAll(dateTokens)) { out += esc(String(format).slice(at, m.index)); at = m.index + m[0].length; const t = m[0];
       out += m[1] !== undefined ? esc(m[1]) : t === "YYYY" ? group("y", "[0-9]{4}") : t === "MM" ? group("m", "[0-9]{2}") : t === "M" ? group("m", "[0-9]{1,2}") : t === "DD" ? group("d", "[0-9]{2}") : t === "D" ? group("d", "[0-9]{1,2}") : "[A-Za-z]+"; }
     return `(?:^|/)${out}${esc(String(format).slice(at))}[.]md$`;
@@ -858,9 +858,9 @@ const VGRules = (() => {
   // projects or many open items share say nothing. A wrong group is worse than none, so what fits nowhere comes last, with no
   // project. Work with no project of its own goes by the area it names (hq.thread_areas: the longest phrase wins, so "Odoo
   // console" isn't the Dispatch Console). Biggest thread first; closed projects aren't where open work goes.
-  const areaOfText = (text, areas = H.thread_areas || {}) => { let best = null, len = 0; for (const [area, list] of Object.entries(areas)) for (const p of list) if (p.length > len && new RegExp(`\\b${p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}s?\\b`, "i").test(text)) { best = area; len = p.length; } return best; };
+  const areaOfText = (text, areas = H.thread_areas || {}) => { let best = null, len = 0; for (const [area, list] of Object.entries(areas)) for (const p of list) if (p.length > len && new RegExp(`\\b${VGShared.escapeRegex(p)}s?\\b`, "i").test(text)) { best = area; len = p.length; } return best; };
   function hqThreads(items, projects, areas = H.thread_areas || {}) {
-    const phrases = Object.entries(areas).flatMap(([area, list]) => list.map(p => ({ area, len: p.length, re: new RegExp(`\\b${p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}s?\\b`, "i") })));
+    const phrases = Object.entries(areas).flatMap(([area, list]) => list.map(p => ({ area, len: p.length, re: new RegExp(`\\b${VGShared.escapeRegex(p)}s?\\b`, "i") })));
     const areaOf = text => { let best = null; for (const p of phrases) if ((!best || p.len > best.len) && p.re.test(text)) best = p; return best && best.area; };
     projects = projects.filter(p => p.group !== "closed");
     const words = s => new Set(recallWords(String(s)).filter(w => w.length > 3 && !/^\d+$/.test(w))), by = projects.map(p => ({ p, w: words(p.title), names: [p.title, p.name].filter(Boolean).map(n => `[[${n}`) }));
@@ -893,7 +893,7 @@ const VGRules = (() => {
   const PEOPLE_KINDS = new Set(["task", "plan", "carried", "approval", "review"]);   // your work; a suggestion or a backlog line that names someone isn't
   function hqPeople(data, list) {
     const ambiguous = new Set(((R.hq && R.hq.people_ambiguous) || []).map(s => s.toLowerCase()));
-    const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const esc = VGShared.escapeRegex;
     return (data.nodes || []).filter(n => n.person).map(n => { const plain = !ambiguous.has(n.name.toLowerCase()) && n.name.length > 2 ? new RegExp(`\\b${esc(n.name)}\\b`) : null, link = `[[${n.name}`;
       const items = list.filter(it => { if (!PEOPLE_KINDS.has(it.kind)) return false; const t = `${it.text || ""} ${it.title || ""}`; return t.includes(link) || (plain && plain.test(t)); });
       const decisions = ((data.hq && data.hq.decisions) || []).filter(d => (d.by || "").includes(n.name)).slice(0, 3);

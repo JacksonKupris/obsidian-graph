@@ -4,7 +4,7 @@
 // Parity with the Python analysis on a real vault is the vault's test (_scripts/tests/test_graph_vault.js).
 //   node tests/test_engine.js        exit 0 = pass
 const fs = require("fs"), path = require("path");
-const E = new Function(`${fs.readFileSync(path.join(__dirname, "..", "src", "engine.js"), "utf8")}; return VGEngine;`)();
+const E = new Function(`${require("../build").engineSource()}; return VGEngine;`)();
 const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) fails.push(`${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`); };
 
 // what changed since the last run, and code against notes

@@ -5,7 +5,7 @@
 const assert = require("assert"), cdp = require("./cdp"), env = require("./env"), stub = require("./plugin_stub"), { VGRules: R } = env.notes();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const H = env.rules.hq || {}, DAILY = env.rules.folders.daily;
-const S = new Function(`${require("fs").readFileSync(require("path").join(__dirname, "..", "src", "science.js"), "utf8")}; return VGScience;`)();
+const S = new Function(`${require("../build").scienceSource()}; return VGScience;`)();
 
 // ---- subtasks
 const OLD = `${DAILY}/2026/Journal/2026-03-24.md`;
