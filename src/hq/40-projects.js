@@ -4,7 +4,7 @@
   function spark(days) {
     const set = new Set(days || []), t = Date.parse(day()), cells = [];
     if (!set.size) return "";
-    for (let i = 29; i >= 0; i--) cells.push(set.has(VGRules.localDay(new Date(t - i * 864e5))));
+    for (let i = 29; i >= 0; i--) cells.push(set.has(VGRules.localDay(new Date(t - i * VGShared.DAY_MS))));
     return `<span class="vg-hq-spark" title="${plural(set.size, "day")} named in the dailies (last 30 days)">${cells.map(on => `<i${on ? ' class="is-on"' : ""}></i>`).join("")}</span>`;
   }
   const pill = p => `<span class="vg-hq-pill is-${esc(p.group)}">${esc(statusWord(p))}</span>`;
@@ -50,7 +50,7 @@
     const groups = [...VGRules.BOARD_GROUPS, ...(projects.some(p => !VGRules.BOARD_GROUPS.includes(p.group)) ? ["other"] : [])], can = !!api.setProjectStatus;
     const moves = VGRules.BOARD_GROUPS.filter(g => VGRules.statusForGroup(g));
     const cardOf = p => { const at = moves.indexOf(p.group), back = moves[at - 1], on = at < 0 ? moves[0] : moves[at + 1], word = g => GROUP_WORDS[g];
-      const quiet = p.group !== "closed" && p.updated && (Date.parse(day()) - Date.parse(p.updated)) / 864e5 >= VGRules.RULES.stale_days;
+      const quiet = p.group !== "closed" && p.updated && (Date.parse(day()) - Date.parse(p.updated)) / VGShared.DAY_MS >= VGRules.RULES.stale_days;
       return `<div class="vg-hq-bcard${quiet ? " is-quiet" : ""}" data-card="${esc(p.path)}"${can ? ' draggable="true"' : ""}><button class="vg-hq-btitle" data-proj="${esc(p.path)}"><b>${esc(p.title)}</b><small>${quiet ? `<span class="vg-hq-quiet">Quiet since ${esc(shortDate(p.updated))}</span> · ` : ""}${esc(statusWord(p))}${(p.systems || []).length ? ` · ${esc(VGRules.systemLabel(p.systems[0]))}` : ""}${(p.tasks || []).length ? ` · ${plural(p.tasks.length, "open task")}` : ""}${VGRules.projectMinutes(STATE.review, p.path) ? ` · ${VGRules.minutesWords(VGRules.projectMinutes(STATE.review, p.path))}` : ""}</small></button>
         ${can ? `<span class="vg-hq-bmoves">${back ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-pmove="${esc(back)}" data-path="${esc(p.path)}" aria-label="Move ${esc(p.title)} to ${esc(word(back))}" title="To ${esc(word(back))}">${icon("left", 12)}</button>` : ""}${on ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-pmove="${esc(on)}" data-path="${esc(p.path)}" aria-label="Move ${esc(p.title)} to ${esc(word(on))}" title="To ${esc(word(on))}">${icon("right", 12)}</button>` : ""}</span>` : ""}</div>`; };
     return `<div class="vg-hq-board">${groups.map(g => { const list = projects.filter(p => (g === "other" ? !VGRules.BOARD_GROUPS.includes(p.group) : p.group === g)), shown = boardOpen.has(g) ? list : list.slice(0, BOARD_PAGE);

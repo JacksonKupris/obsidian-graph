@@ -8,6 +8,23 @@ const VGSharedMake = () => {
   // text to match literally inside a new RegExp. Not "-": with the u flag an escaped - outside a class is an error.
   const escapeRegex = s => String(s).replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&");
 
+  // a note's name from its path, and the last part of any path
+  const baseOf = p => String(p == null ? "" : p).split("/").pop();
+  const nameOf = p => baseOf(p).replace(/\.md$/i, "");
+  const plural = (n, word, words) => `${n} ${n === 1 ? word : words || word + "s"}`;
+  // note text with each [[link|alias]] as its alias and each [[link]] as its name, and without its frontmatter
+  const plainLinks = s => String(s).replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1");
+  const stripFrontmatter = s => String(s).replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
+
+  // Days are "YYYY-MM-DD" text. Noon, so a clock change or time zone can't move a date to the day next to it. noon is
+  // local, for showing a date; utcNoon is the same instant on every device, for counting days.
+  const DAY_MS = 864e5;
+  const noon = day => new Date(day + "T12:00:00");
+  const utcNoon = day => Date.parse(day + "T12:00:00Z");
+  const shiftDay = (day, n) => new Date(utcNoon(day) + n * DAY_MS).toISOString().slice(0, 10);
+  const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / DAY_MS);
+  const pad2 = n => String(n).padStart(2, "0");
+
   const canUseWorker = () => typeof Worker === "function" && typeof Blob === "function" && typeof URL === "function" && !!URL.createObjectURL;
   // One message to a new worker and one answer back. makers is { name: function } and each is defined by its source, with
   // the helpers here first; `listen` is the worker's onmessage, as source.
@@ -26,6 +43,6 @@ const VGSharedMake = () => {
       catch (e) { console.warn(`Vault Graph: ${label} running on the main thread:`, e.message); } }
     stats.via = "here"; return here();
   }
-  return { escapeHtml, escapeRegex, canUseWorker, inWorker, offThread };
+  return { escapeHtml, escapeRegex, baseOf, nameOf, plural, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, canUseWorker, inWorker, offThread };
 };
 const VGShared = VGSharedMake();

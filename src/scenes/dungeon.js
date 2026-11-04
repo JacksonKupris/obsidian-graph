@@ -583,7 +583,7 @@
   }
   function drawCard(title, col, sub, font) { dim(0.72); const big = Math.min(72, W / 9); text(title, W / 2, H * 0.3, big, col, "center"); if (sub) text(sub, W / 2, H * 0.3 + 34, 15, "#e7e5e4", "center", font); return H * 0.3 + 58; }
   function drawTally(font) {
-    const t = G.tally, won = t.last; let y = drawCard(won ? "VAULT CLEARED" : "LEVEL CLEARED", won ? "#fde047" : "#4ade80", `${t.name} · ${Math.floor(t.time / 60)}:${String(Math.floor(t.time % 60)).padStart(2, "0")}`, font);
+    const t = G.tally, won = t.last; let y = drawCard(won ? "VAULT CLEARED" : "LEVEL CLEARED", won ? "#fde047" : "#4ade80", `${t.name} · ${Math.floor(t.time / 60)}:${VGShared.pad2(Math.floor(t.time % 60))}`, font);
     [["Kills", `${t.kills} / ${t.total}`], ["Items", `${t.items} / ${t.itemsTotal}`], ["Secrets", `${t.secrets} / ${t.secretsTotal}`], ["Score", String(t.score)]].forEach(([a, b]) => { text(a, W / 2 - 12, y, 16, "#a8a29e", "right", font); text(b, W / 2 + 12, y, 16, "#fff", "left", font); y += 24; }); y += 8;
     if (t.top.length && opts.openNote) { text(t.hunt ? "Stale notes you hunted" : "Toughest kills", W / 2, y, 12, "#a8a29e", "center", font); y += 8; const w = Math.min(420, W - 32); t.top.forEach(e => { button((W - w) / 2, y, w, 30, clip(e.name, Math.floor(w / 10)), () => opts.openNote(e.id, true)); y += 34; }); y += 8; }
     buttonRow(y, 46, won || t.hunt ? [["TITLE", toTitle, true]] : [["NEXT LEVEL", () => startLevel(t.i + 1, true), true], ["TITLE", toTitle]]);

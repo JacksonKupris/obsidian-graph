@@ -31,7 +31,7 @@ const VGRules = (() => {
   const safeName = s => String(s).replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim().slice(0, 120);
 
   // Notes match by name, lower-cased: wikilinks resolve by basename, so a same-name copy is the same note
-  const stemCase = id => String(id || "").split("/").pop().replace(/\.md$/i, "");
+  const stemCase = VGShared.nameOf;
   const stem = id => stemCase(id).toLowerCase();
   const pairKey = (a, b) => (a < b ? a + "|" + b : b + "|" + a);
   const dismissKey = (a, b) => pairKey(stem(a), stem(b));   //
@@ -189,7 +189,7 @@ const VGRules = (() => {
   const iso = d => d.toISOString().slice(0, 10);
   // [from, to] ISO dates for a time phrase in the query, or null ("recently" = last 30 days)
   function recallTimeRange(query, today) {
-    const t = today ? new Date(today + "T12:00:00Z") : new Date(), q = String(query).toLowerCase(), day = 864e5;
+    const t = today ? new Date(today + "T12:00:00Z") : new Date(), q = String(query).toLowerCase(), day = VGShared.DAY_MS;
     const at = n => iso(new Date(t.getTime() - n * day)), wd = (t.getUTCDay() + 6) % 7;
     const monthSpan = (y, m) => [iso(new Date(Date.UTC(y, m - 1, 1))), iso(new Date(Date.UTC(y, m, 0)))];
     if (q.includes("yesterday")) return [at(1), at(1)];
@@ -405,7 +405,7 @@ const VGRules = (() => {
   const projectStatusTag = s => { const T = H.status_tags || {}, k = String(s || "").toLowerCase(); return T[k] || T[statusGroup(k)] || null; };
   // a project's tags with its status tag set: the other status/ tags go
   const withStatusTag = (fm, s) => { const tag = projectStatusTag(s), tags = tagsOf(fm); return tag ? [...tags.filter(t => !t.startsWith("status/")), tag] : tags; };
-  const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
+  const daysBetween = VGShared.daysBetween;
   // a task line as Obsidian counts it: "- [ ] text", numbered too; [prefix, mark, "] ", text]
   const TASK_LINE = /^(\s*(?:[-*+]|\d+[.)]) \[)(.)(\] )(.*)$/;
   // the done date as the vault writes it (rules "completion_field"): the Tasks plugin's emoji ("✅" -> "✅ 2026-10-27"),
@@ -477,7 +477,7 @@ const VGRules = (() => {
   const taskField = (line, key, value) => new RegExp(`\\[${key}::`).test(line) ? line : `${String(line).replace(/\s+$/, "")} [${key}:: ${value}]`;
   // a task's words without its inline fields, links as their text, bold and code marks gone
   const stripAnsi = t => String(t).replace(/\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001b\\))/g, "");
-  const plainTask = t => stripAnsi(t).replace(/\[[\w-]+::[^\]]*\]/g, "").replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\*\*|__|`/g, "").replace(/\s+/g, " ").trim();
+  const plainTask = t => VGShared.plainLinks(stripAnsi(t).replace(/\[[\w-]+::[^\]]*\]/g, "")).replace(/\*\*|__|`/g, "").replace(/\s+/g, " ").trim();
   const inlineField = (t, key) => { const m = String(t).match(new RegExp(`\\[${key}::\\s*([^\\]]*)\\]`)); return m ? m[1].trim() : ""; };
   // frontmatter as plain values: scalars and lists, enough for type, status, dates and tags
   function frontOf(text) {
@@ -490,11 +490,11 @@ const VGRules = (() => {
     }
     return fm;
   }
-  const dateIn = (re, path) => { const m = re && String(path).match(re); if (!m) return null; const g = m.groups; return g && g.y && g.m && g.d ? `${g.y}-${g.m.padStart(2, "0")}-${g.d.padStart(2, "0")}` : m[1]; };
+  const dateIn = (re, path) => { const m = re && String(path).match(re); if (!m) return null; const g = m.groups; return g && g.y && g.m && g.d ? `${g.y}-${VGShared.pad2(g.m)}-${VGShared.pad2(g.d)}` : m[1]; };
   const hqJournalDate = path => dateIn(HQ_JOURNAL, path), hqStandupDate = path => dateIn(HQ_STANDUP, path);
   // Moment-style daily note formats, as Obsidian's settings hold them: YYYY, MM, M, MMMM, DD, D, dddd and [words].
   const dateTokens = /\[([^\]]*)\]|YYYY|MMMM|MM|M|DD|D|dddd/g;
-  const formatDate = (format, d) => String(format).replace(dateTokens, (t, lit) => lit !== undefined ? lit : t === "YYYY" ? d.getFullYear() : t === "MMMM" ? d.toLocaleString("en-US", { month: "long" }) : t === "MM" ? String(d.getMonth() + 1).padStart(2, "0") : t === "M" ? d.getMonth() + 1 : t === "DD" ? String(d.getDate()).padStart(2, "0") : t === "D" ? d.getDate() : d.toLocaleString("en-US", { weekday: "long" }));
+  const formatDate = (format, d) => String(format).replace(dateTokens, (t, lit) => lit !== undefined ? lit : t === "YYYY" ? d.getFullYear() : t === "MMMM" ? d.toLocaleString("en-US", { month: "long" }) : t === "MM" ? VGShared.pad2(d.getMonth() + 1) : t === "M" ? d.getMonth() + 1 : t === "DD" ? VGShared.pad2(d.getDate()) : t === "D" ? d.getDate() : d.toLocaleString("en-US", { weekday: "long" }));
   // the same format as a pattern that reads the date back, in any order: named groups y, m, d (dateIn puts them together)
   function formatPattern(format) {
     const seen = new Set(), esc = VGShared.escapeRegex, group = (k, re) => { if (seen.has(k)) return `\\k<${k}>`; seen.add(k); return `(?<${k}>${re})`; }; let out = "", at = 0;
@@ -505,7 +505,7 @@ const VGRules = (() => {
   const standupsInUse = hq => H.standups !== "if_any" || !!((hq && hq.standups) || []).length;
   const dailyNotePath = (date, kind = "journal") => {
     if (!["journal", "standup"].includes(kind) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Invalid daily note date or kind");
-    const d = new Date(`${date}T12:00:00`);
+    const d = VGShared.noon(date);
     if (isNaN(d) || localDay(d) !== date) throw new Error("Invalid daily note date");
     if (H.journal_format) return `${H.journal_folder ? `${H.journal_folder}/` : ""}${kind === "standup" ? `Daily Standup ${date}` : formatDate(H.journal_format, d)}.md`;
     const [year, month] = date.split("-");
@@ -514,7 +514,7 @@ const VGRules = (() => {
   };
   const journalRank = (path, date) => {
     const [year, month] = String(date || "").split("-"), p = String(path).toLowerCase();
-    const monthName = month && new Date(`${date}T12:00:00`).toLocaleString("en-US", { month: "long" }).toLowerCase();
+    const monthName = month && VGShared.noon(date).toLocaleString("en-US", { month: "long" }).toLowerCase();
     const monthShort = monthName && monthName.slice(0, 3);
     const parts = p.split("/");
     const yearAt = year ? parts.indexOf(year) : -1, monthPart = yearAt < 0 ? "" : parts[yearAt + 1];
@@ -594,7 +594,7 @@ const VGRules = (() => {
     }
     return out;
   }
-  const bodyOf = text => String(text).replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
+  const bodyOf = text => VGShared.stripFrontmatter(text);
   // a project's one-paragraph summary: its **Summary:** (or **Summary**:) line, else the first paragraph under a
   // "What", "Story" or "Summary" heading
   function scopeSummary(text) {
@@ -826,7 +826,7 @@ const VGRules = (() => {
     const rest = Object.fromEntries(Object.entries(marks).filter(([k]) => !held(k))), set = new Set(keys);
     return todayList(data, { ...o, review: { ...o.review, hq: rest } }).filter(it => set.has(it.key) && TODAY_GROUP[it.kind] === "today").map(it => ({ ...it, until: String(marks[it.key]).startsWith("until:") ? String(marks[it.key]).slice(6) : null })).sort((a, b) => Number(!!b.urgent) - Number(!!a.urgent) || b.score - a.score);
   }
-  const plainSnippet = s => String(s || "").replace(/^(\s*(?:[-*+]\s+)?)\[.\]\s+/gm, "$1").replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/^[\s>#*-]+|[▼▶]/gm, "").replace(/\*\*|__|`|\|/g, " ").replace(/\s+/g, " ").trim();
+  const plainSnippet = s => VGShared.plainLinks(String(s || "").replace(/^(\s*(?:[-*+]\s+)?)\[.\]\s+/gm, "$1")).replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/^[\s>#*-]+|[▼▶]/gm, "").replace(/\*\*|__|`|\|/g, " ").replace(/\s+/g, " ").trim();
   const FOCUS_MAX = 3;   // three is a decision; ten is a list
   const focusKeys = (review, day) => { const f = (review || {}).focus; return f && f.day === day ? (f.keys || []) : []; };
   function hqFocusItems(list, review, day) { const by = new Map(list.map(it => [it.key, it])); return focusKeys(review, day).map(k => by.get(k)).filter(Boolean); }
@@ -840,11 +840,11 @@ const VGRules = (() => {
   // before the 1st, with the week starting on Monday like the week strip.
   function hqCalendar(data, review, month) {
     const [y, m] = String(month).split("-").map(Number), hq = data.hq || {}, journals = new Set((hq.journals || []).map(j => j.date)), standups = new Set((hq.standups || []).map(s => s.date));
-    const days = Array.from({ length: new Date(y, m, 0).getDate() }, (_, i) => { const date = `${month}-${String(i + 1).padStart(2, "0")}`; return { date, n: i + 1, done: doneToday(data, review, date).length, journal: journals.has(date), standup: standups.has(date) }; });
+    const days = Array.from({ length: new Date(y, m, 0).getDate() }, (_, i) => { const date = `${month}-${VGShared.pad2(i + 1)}`; return { date, n: i + 1, done: doneToday(data, review, date).length, journal: journals.has(date), standup: standups.has(date) }; });
     const peak = Math.max(0, ...days.map(d => d.done)), busiest = peak ? days.find(d => d.done === peak) : null;
     return { month, days, lead: (new Date(y, m - 1, 1).getDay() + 6) % 7, peak, busiest, total: days.reduce((a, d) => a + d.done, 0), worked: days.filter(d => d.done).length };
   }
-  const monthShift = (month, by) => { const [y, m] = String(month).split("-").map(Number), d = new Date(y, m - 1 + by, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
+  const monthShift = (month, by) => { const [y, m] = String(month).split("-").map(Number), d = new Date(y, m - 1 + by, 1); return `${d.getFullYear()}-${VGShared.pad2(d.getMonth() + 1)}`; };
   // Focus sessions: minutes per day, in the shared file. A day's time from two devices keeps the larger, like the other bests.
   const sessionMinutes = (review, day) => ((review || {}).sessions || {})[day] || 0;
   const sessionAdded = (review, day, minutes, keep = 60) => { const all = { ...((review || {}).sessions || {}), [day]: sessionMinutes(review, day) + minutes }; return Object.fromEntries(Object.entries(all).sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, keep)); };
@@ -880,7 +880,7 @@ const VGRules = (() => {
   }
   // The morning brief: short sentences of plain fact, what you'd want to know before starting
   function hqBrief(data, list, review, day, threads, hour = 12) {
-    const out = [], yesterday = localDay(new Date(new Date(`${day}T12:00:00`).getTime() - 864e5)), done = doneToday(data, review, yesterday).length, today = doneToday(data, review, day).length;
+    const out = [], yesterday = localDay(new Date(VGShared.noon(day).getTime() - VGShared.DAY_MS)), done = doneToday(data, review, yesterday).length, today = doneToday(data, review, day).length;
     if (today) out.push(`${today} done so far today.`); else if (done) out.push(`${done} done yesterday.`);
     const focus = hqFocusItems(list, review, day), plan = list.filter(i => i.kind === "plan" || i.kind === "task").length;
     if (focus.length) out.push(`Focus: ${focus.map(i => i.title).join("; ")}.`); else if (plan && hour < STANDUP_HOUR) out.push(`${plan} planned for today, none picked yet.`);
@@ -910,7 +910,7 @@ const VGRules = (() => {
     let m = /(20\d\d-\d\d-\d\d)/.exec(name); if (m) return m[1];
     m = /(?<![\d-])(20\d\d)-(0[1-9]|1[0-2])(?![\d-])/.exec(name); if (m) return `${m[1]}-${m[2]}-01`;
     m = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? +(20\d\d)\b/i.exec(name);
-    return m ? `${m[2]}-${String(MONTH_NUM[m[1].toLowerCase()]).padStart(2, "0")}-01` : null;
+    return m ? `${m[2]}-${VGShared.pad2(MONTH_NUM[m[1].toLowerCase()])}-01` : null;
   }
   // ---- what the engine (VGEngine.notesJob) says, put into the graph data. A part is applied whole.
   const ENGINE_PARTS = ["mentions", "tasks", "people", "series", "follow", "dupes", "topics"];
@@ -928,7 +928,7 @@ const VGRules = (() => {
       data.said_unlinked = Object.keys(N.said).filter(r => byId.has(r) && N.said[r] >= 3).sort((a, b) => N.said[b] - N.said[a] || pyOrder(a, b)).slice(0, 20).map(r => [r, N.said[r], N.saidDays[r]]);
       notes.forEach(n => { const d = N.mentionDays[n.id]; if (d && d.length && d[0] >= "2015-01-01" && (!n.born || d[0] < n.born)) n.born = d[0]; }); }
     if (on.has("tasks")) notes.forEach(n => { const c = N.counts[n.id], t = N.tasks[n.id]; if (c) { n.tasks = c.tasks; n.words = c.words; }
-      if (t && t[0][1]) { n.taskAge = Math.round((Date.parse(`${today()}T12:00:00Z`) - Date.parse(`${t[0][1]}T12:00:00Z`)) / 864e5); n.taskItems = t.slice(0, 12); } else { delete n.taskAge; delete n.taskItems; } });
+      if (t && t[0][1]) { n.taskAge = Math.round((VGShared.utcNoon(today()) - VGShared.utcNoon(t[0][1])) / VGShared.DAY_MS); n.taskItems = t.slice(0, 12); } else { delete n.taskAge; delete n.taskItems; } });
     if (on.has("people")) { data.nodes = data.nodes.filter(n => !n.person); data.links = data.links.filter(l => l.kind !== "person");
       for (const p of Object.keys(N.personLinks).sort(pyOrder)) { const own = N.personLinks[p].filter(r => byId.has(r)); if (!own.length) continue;
         data.nodes.push({ id: p, name: stemCase(p), person: true, cluster: -1, bc: 0, folder: p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "", mentions: N.personMentions[p] || 0, recent: 0, inlinks: 0, outlinks: own.length, broken: 0, tasks: 0, words: 0, age: 0, refs: true, isolated: false });
@@ -969,7 +969,7 @@ const VGRules = (() => {
     const ranked = nodes.filter(n => plain(n) && !n.isolated).sort((a, b) => (b.bc || 0) - (a.bc || 0)).map(n => n.id);
     const rank = new Map(ranked.map((id, i) => [id, i + 1]));
     const review = o.review || {}, day = o.today || localDay(new Date()), skipDays = o.skipDays || 14;
-    const skipped = k => !!(review.skipped && review.skipped[k]) && (Date.parse(day) - Date.parse(review.skipped[k])) / 864e5 < skipDays;
+    const skipped = k => !!(review.skipped && review.skipped[k]) && (Date.parse(day) - Date.parse(review.skipped[k])) / VGShared.DAY_MS < skipDays;
     const hidden = new Set(o.hidden || []), out = [], seen = new Set(), groups = o.groups ? new Set(o.groups) : null;
     const hiddenKinds = new Set(review.hiddenKinds || []);
     const add = it => { if (seen.has(it.key) || hidden.has(it.key) || skipped(it.key) || (hiddenKinds.has(it.kind) && canHideKind(it.kind)) || (groups && !groups.has(todayGroup(it.kind)))) return; seen.add(it.key); out.push({ xp: TODAY_XP[it.kind] || 5, group: it.waiting ? "waiting" : todayGroup(it.kind), ...it }); };
@@ -1154,7 +1154,7 @@ const VGRules = (() => {
       const keys = new Set([...(l.quests[d.date] || []), ...(d.quests || []).filter(q => q.done).map(q => q.key)]);
       if (keys.size) l.quests[d.date] = [...keys];
     }
-    if (today) Object.keys(l.quests).forEach(day => { if ((Date.parse(today) - Date.parse(day)) / 864e5 > 14) delete l.quests[day]; });   // daily quests are per day
+    if (today) Object.keys(l.quests).forEach(day => { if ((Date.parse(today) - Date.parse(day)) / VGShared.DAY_MS > 14) delete l.quests[day]; });   // daily quests are per day
     const seen = new Set(l.dismissed.map(pairId));
     (dismissed || []).forEach(p => { if (p && p.a && p.b && !seen.has(pairId(p))) { seen.add(pairId(p)); l.dismissed.push(p); } });
     return l;
@@ -1271,7 +1271,7 @@ const VGRules = (() => {
       if (key === "tag") return (x.tags || []).some(t => has(value, t));
       if (key === "in") return has(value, x.path);
       if (key === "is") {
-        const age = project ? (x.updated && o.today ? Math.round((Date.parse(o.today) - Date.parse(x.updated)) / 864e5) : 0) : x.age || 0;
+        const age = project ? (x.updated && o.today ? Math.round((Date.parse(o.today) - Date.parse(x.updated)) / VGShared.DAY_MS) : 0) : x.age || 0;
         if (value === "stale") return age >= stale; if (value === "old") return age >= 14;
         if (value === "focus") return !project && (o.focus || []).includes(x.key);
       }
@@ -1289,7 +1289,7 @@ const VGRules = (() => {
   }
   // A note's text as blocks to show in a preview, without Obsidian: its frontmatter and embeds go, and it stops at max characters.
   function notePreview(text, max = 20000) {
-    const body = String(text || "").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, ""), cut = body.length > max, blocks = []; let fence = null, live = false, para = [], paraLinks = [];
+    const body = VGShared.stripFrontmatter(text || ""), cut = body.length > max, blocks = []; let fence = null, live = false, para = [], paraLinks = [];
     const plain = s => plainSnippet(String(s).replace(/!\[\[[^\]]*\]\]/g, "")), linked = (b, raw) => { const links = noteLinks(raw); return links.length ? { ...b, links } : b; };
     const flush = () => { if (para.length) { blocks.push(paraLinks.length ? { kind: "p", text: para.join(" "), links: paraLinks } : { kind: "p", text: para.join(" ") }); para = []; paraLinks = []; } };
     for (const line of (cut ? body.slice(0, max) : body).split(/\r?\n/)) {
@@ -1310,7 +1310,7 @@ const VGRules = (() => {
   // today counts; anything else is null. A date with no year is the next time it comes round.
   const WEEKDAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"], MONTH_NAMES = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
   function parseDay(text, day = today()) {
-    const s = String(text || "").trim().toLowerCase().replace(/^(on|in|until)\s+/, "").replace(/,/g, " ").replace(/(\d)(st|nd|rd|th)\b/g, "$1").replace(/\s+/g, " "), base = new Date(`${day}T12:00:00`), year = base.getFullYear();
+    const s = String(text || "").trim().toLowerCase().replace(/^(on|in|until)\s+/, "").replace(/,/g, " ").replace(/(\d)(st|nd|rd|th)\b/g, "$1").replace(/\s+/g, " "), base = VGShared.noon(day), year = base.getFullYear();
     const plus = n => { const d = new Date(base); d.setDate(d.getDate() + n); return localDay(d); };
     const dated = (y, m, d) => { const t = new Date(y, m, d, 12); return t.getMonth() === m && t.getDate() === d ? localDay(t) : null; };
     const coming = (m, d) => { const a = dated(year, m, d); return a && a > day ? a : dated(year + 1, m, d); };
@@ -1332,13 +1332,13 @@ const VGRules = (() => {
   }
   // A week's work as Markdown, for a standup, an update or a note. week: the Monday.
   function weekReview(data, review, monday) {
-    const start = new Date(`${monday}T12:00:00`), days = Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return localDay(d); });
+    const start = VGShared.noon(monday), days = Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return localDay(d); });
     const rows = days.map(date => ({ date, done: doneToday(data, review, date), minutes: sessionMinutes(review, date) })), total = rows.reduce((a, r) => a + r.done.length, 0), focus = rows.reduce((a, r) => a + r.minutes, 0);
     const lines = [`**${total} done** on ${rows.filter(r => r.done.length).length} days${focus ? ` · ${minutesWords(focus)} focused` : ""}`, ""];
-    rows.filter(r => r.done.length).forEach(r => { lines.push(`## ${new Date(`${r.date}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`, "", ...r.done.map(d => `- ${d.text}`), ""); });
+    rows.filter(r => r.done.length).forEach(r => { lines.push(`## ${VGShared.noon(r.date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`, "", ...r.done.map(d => `- ${d.text}`), ""); });
     return { total, focus, text: lines.join("\n").trim() + "\n" };
   }
-  const weekStart = day => { const d = new Date(`${day}T12:00:00`); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return localDay(d); };
+  const weekStart = day => { const d = VGShared.noon(day); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return localDay(d); };
   // Focus time per project, in the shared file by note path, so it follows the note like every other mark.
   const projectMinutes = (review, path) => ((review || {}).sessionFor || {})[path] || 0;
   // The same time as a ranking, for the chart: most first, each with its share of the biggest. A note that's gone keeps its row.

@@ -173,7 +173,7 @@ const VGEngineMake = () => {
   const dot = (a, b) => { const p = new Array(a.length); for (let i = 0; i < a.length; i++) p[i] = a[i] * b[i]; return fsum(p); };
 
   // ---- note names: Python's \d is any Unicode digit, so \p{Nd} here
-  const stemOf = r => { const base = String(r).split("/").pop(), i = base.lastIndexOf("."); return i > 0 ? base.slice(0, i) : base; };
+  const stemOf = r => { const base = VGShared.baseOf(r), i = base.lastIndexOf("."); return i > 0 ? base.slice(0, i) : base; };
   const DATED = /\p{Nd}{4}-\p{Nd}{2}(-\p{Nd}{2})?/u, DATED_G = /\p{Nd}{4}-\p{Nd}{2}(-\p{Nd}{2})?/gu, SERIES_G = /[\p{Nd}\s_\-–—()]+/gu;
   // the series a dated note belongs to: what its title says before the date ("Transaction Updates 2026-05-05" ->
   // "transaction updates"; "Release Notes 2025-04-29 - Draft" -> "release notes"), else its title without dates; "" when undated
@@ -303,7 +303,7 @@ const VGEngineMake = () => {
     for (const [src, targets] of Object.entries(unresolved || {})) {
       if (!inNotes.has(src)) continue;
       for (const raw of Object.keys(targets)) {
-        const name = raw.replace(/\\$/, "").split("/").pop().trim(), k = name.toLowerCase();
+        const name = VGShared.baseOf(raw.replace(/\\$/, "")).trim(), k = name.toLowerCase();
         if (!(name.length > 2 && name.length < 120) || PLACEHOLDER.test(name) || ATTACHMENT.test(name)) continue;
         if (!refs.has(k)) { refs.set(k, new Set()); spell.set(k, new Map()); }
         refs.get(k).add(src); bump(spell.get(k), name);
@@ -453,7 +453,7 @@ const VGEngineMake = () => {
     const STACK_SKIP = new Set(s.skip || []), STACK_PLATFORMS = new Set(s.platforms || []), words = s.words || {};
     const kind = t => (t.startsWith("technology/") || STACK_PLATFORMS.has(t) ? "technology/" : "project/");
     const share = clusters.map(m => { const c = new Map();
-      for (const r of m) for (const t of tags[r] || []) if ((t.startsWith("technology/") || t.startsWith("project/")) && !STACK_SKIP.has(t.split("/").pop())) bump(c, t);
+      for (const r of m) for (const t of tags[r] || []) if ((t.startsWith("technology/") || t.startsWith("project/")) && !STACK_SKIP.has(VGShared.baseOf(t))) bump(c, t);
       return new Map([...c].map(([t, n]) => [t, n / m.length])); });
     const df = new Map(); share.forEach(sh => sh.forEach((v, t) => { if (v >= STACK_MIN_SHARE[kind(t)]) bump(df, t); }));
     return share.map(sh => {
@@ -558,7 +558,7 @@ const VGEngineMake = () => {
     return { mentions, recent, said, saidDays, mentionDays, personMentions, personPairs, comention, pairDays, used };
   }
   // real task ages: the first journal or standup a task appears in (journals carry tasks forward), else the note's birth
-  const taskKey = t => cpTake(t.toLowerCase().replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\d{4}-\d{2}-\d{2}|https?:\/\/\S+|[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).join(" "), 60);
+  const taskKey = t => cpTake(VGShared.plainLinks(t.toLowerCase()).replace(/\d{4}-\d{2}-\d{2}|https?:\/\/\S+|[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).join(" "), 60);
   const TASK_ANY = /^\s*[-*+] \[(.)\] (.+)$/gmu;
   function taskAges(dailyDays, raw, born, paths) {
     const first = new Map();
@@ -586,7 +586,7 @@ can just get got make made making work working done doing look looked looking co
 start started need needs needed sure still today tomorrow next week day days new up down over under via per
 what when where which while who how why each other same see set use used using way well back`.split(/\s+/));
   function ftWords(text) {
-    const t = text.toLowerCase().replace(/\[\[([^\]|]*\|)?([^\]]*)\]\]/g, "$2"), out = new Set();
+    const t = VGShared.plainLinks(text.toLowerCase()), out = new Set();
     for (let w of t.match(/[a-z0-9][a-z0-9_-]{2,}/g) || []) { if (FT_STOP.has(w) || /^\d+$/.test(w)) continue;
       if (w.length > 4) w = w.replace(/(ings?|ed|es|s)$/, "").replace(/e+$/, ""); out.add(w); }
     return out;
@@ -602,7 +602,7 @@ what when where which while who how why each other same see set use used using w
     return items.map(i => i.split("**").join("")).filter(i => ftWords(i).size >= 2);   // Python filters the stripped text's words the same
   }
   function followThrough({ standups, today, days = 150, planHead = "Work Expected", doneHead = "Work Completed" }) {
-    const dates = Object.keys(standups).sort(pyCmp), cutoff = new Date(Date.parse(`${today}T12:00:00Z`) - days * 864e5).toISOString().slice(0, 10), parsed = {};
+    const dates = Object.keys(standups).sort(pyCmp), cutoff = VGShared.shiftDay(today, -days), parsed = {};
     for (const d of dates) { const t = unixLines(standups[d]), done = [];
       for (const item of ftItems(ftSection(t, doneHead))) { const [head, ...subs] = item.split(" · ");
         if (subs.length) subs.forEach(s => done.push(`${head} ${s}`)); else done.push(head);
@@ -699,7 +699,7 @@ what when where which while who how why each other same see set use used using w
     for (const line of bodyOf(text).split(PY_LINES)) { const s = line.trim(); if (cpLen(s) < 6 || s.startsWith("```") || s.startsWith("|")) continue;
       const low = s.toLowerCase(), has = set => [...set].some(x => low.includes(x)), score = (has(ta) ? 1 : 0) + (has(tb) ? 1 : 0);
       if (score > bestScore) { best = s; bestScore = score; if (score === 2) break; } }
-    best = best.replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/^\s*(?:[-*+]\s*(?:\[.\]\s*)?|\d+[.)]\s*|#+\s*)/u, "").split("**").join("").split("__").join("").trim();
+    best = VGShared.plainLinks(best).replace(/^\s*(?:[-*+]\s*(?:\[.\]\s*)?|\d+[.)]\s*|#+\s*)/u, "").split("**").join("").split("__").join("").trim();
     return cpLen(best) > 160 ? cpSlice(best, 0, 157) + "…" : best;
   }
   // where two notes meet: the two passages with the most words in common (tf-idf cosine), not meaning
@@ -716,7 +716,7 @@ what when where which while who how why each other same see set use used using w
     const keep = [];
     for (const [h, p] of out) { if (SKIP_SECTION.test(h) || (p.match(SQL_WORD) || []).length >= 2) continue;
       const prose = p.replace(WIKILINK, " "); if (cpLen(prose.trim()) < 0.5 * cpLen(p) || (prose.match(/[A-Za-z]{3,}/g) || []).length < 6) continue;
-      keep.push([h, p.replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1")]); }
+      keep.push([h, VGShared.plainLinks(p)]); }
     return keep;
   }
   function closestPassages(pairs, raw) {
@@ -732,7 +732,7 @@ what when where which while who how why each other same see set use used using w
   // daily-note mentions per week for the last half year: per topic, and for the 40 most-mentioned notes
   const TIMELINE_WEEKS = 26;
   function timeline(mentionDays, cid, paths, today) {
-    const dayN = d => Math.floor(Date.parse(`${d}T12:00:00Z`) / 864e5), iso = n => new Date(n * 864e5 + 432e5).toISOString().slice(0, 10), t0 = dayN(today), weekday = (new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7;
+    const dayN = d => Math.floor(VGShared.utcNoon(d) / VGShared.DAY_MS), iso = n => new Date(n * VGShared.DAY_MS + 432e5).toISOString().slice(0, 10), t0 = dayN(today), weekday = (new Date(`${today}T12:00:00Z`).getUTCDay() + 6) % 7;
     const start = t0 - weekday - 7 * (TIMELINE_WEEKS - 1), weeks = Array.from({ length: TIMELINE_WEEKS }, (_, i) => iso(start + 7 * i)), clusters = {}, notes = {}, P = new Set(paths);
     for (const [r, days] of Object.entries(mentionDays)) { if (!P.has(r)) continue; const row = new Array(TIMELINE_WEEKS).fill(0);
       for (const d of days) { const i = Math.floor((dayN(d) - start) / 7); if (i >= 0 && i < TIMELINE_WEEKS) row[i]++; }
@@ -758,7 +758,7 @@ what when where which while who how why each other same see set use used using w
       else if (term.startsWith("#")) { const tag = term.slice(1).toLowerCase(); for (const [r, ts] of Object.entries(tagsOf)) if (ts.some(t => t === tag || t.startsWith(tag + "/"))) out.add(r); } }
     return out;
   }
-  const mapTitle = (r, text) => { const m = /^# (.+)$/m.exec(unixLines(text)), t = (m ? m[1] : stemOf(r)).replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1"); return t.replace(/\s*[-–]?\s*(MOC|Hub|Map of Content.*)$/i, "").trim() || stemOf(r); };
+  const mapTitle = (r, text) => { const m = /^# (.+)$/m.exec(unixLines(text)), t = VGShared.plainLinks(m ? m[1] : stemOf(r)); return t.replace(/\s*[-–]?\s*(MOC|Hub|Map of Content.*)$/i, "").trim() || stemOf(r); };
   const GENERATED = "%% vault-graph:generated";
   function mapsOf({ maps, tags, knowledge, clusters, ids, names, keywords, bc, cid, mapRules, bridgeNotes }) {
     const K = new Set(knowledge), tagsOf = {}; knowledge.forEach(r => { tagsOf[r] = tags[r] || []; });
@@ -778,7 +778,7 @@ what when where which while who how why each other same see set use used using w
       out.push({ id: m.path, title: m.title, nav: m.nav && !cl.length, clusters: cl, generated: m.generated, members: sorted([...m.members].filter(x => K.has(x))),
         missing: Object.fromEntries(cl.map(c => [String(c), membersOf.get(c).filter(r => !m.members.has(r)).sort((a, b) => (bc[b] || 0) - (bc[a] || 0) || pyCmp(a, b))])) }); }
     const byStem = new Map(mocs.map(m => [stemOf(m.path).toLowerCase(), m.path])), bridges = {};
-    for (const [r, targets] of Object.entries(bridgeNotes || {})) bridges[r] = targets.map(x => byStem.get(String(x).replace(/^\[\[|\]\]$|\|.*$/g, "").split("/").pop().toLowerCase())).filter(Boolean);
+    for (const [r, targets] of Object.entries(bridgeNotes || {})) bridges[r] = targets.map(x => byStem.get(VGShared.baseOf(String(x).replace(/^\[\[|\]\]$|\|.*$/g, "")).toLowerCase())).filter(Boolean);
     const detail = { mocs: mocs.map(m => ({ path: m.path, title: m.title, nav: m.nav, members: [...m.members], fixed: m.fixed, per: Object.fromEntries(m.per) })), owner: Object.fromEntries([...owner].map(([c, m]) => [c, m.path])) };
     const labels = {}, wordsIn = t => new Set(t.toLowerCase().match(/[\p{L}\p{N}\p{M}_]+/gu) || []);
     owner.forEach((m, c) => { if (claim.get(m.path).length === 1) { labels[c] = m.title; return; }
@@ -837,7 +837,7 @@ what when where which while who how why each other same see set use used using w
   const CODE_DAYS = 365, CODE_EXT = "(?:jsx?|tsx?|py|java|sql|sh|cjs|mjs|css)", CODE_FILE = new RegExp(`\\.${CODE_EXT}$`);
   const SKIP_CODE = /(^|\/)(node_modules|\.next|dist|build|__pycache__|coverage|\.git)\/|package-lock\.json$|\.min\.js$/;
   const POINT_IN_TIME = /Release[- ]Notes|Scopes? of Work|Retrospective|Standup|Show and Tell|\d{4}-\d{2}-\d{2}/i;
-  const dayShift = (today, n) => new Date(Date.parse(`${today}T12:00:00Z`) - n * 864e5).toISOString().slice(0, 10);
+  const dayShift = (today, n) => VGShared.shiftDay(today, -n);
   const gitArgs = today => ({ log: ["log", `--since=${dayShift(today, CODE_DAYS)}`, "--no-merges", "--name-only", "--format=@@%ad", "--date=short"], files: ["ls-files"] });
   function codeDocs({ repos: given, docs, today, roots }) {
     const d90 = dayShift(today, 90), repos = [], touches = new Map(), tracked = new Set();
@@ -847,7 +847,7 @@ what when where which while who how why each other same see set use used using w
       for (const f of r.files.split("\n")) if (CODE_FILE.test(f) && !SKIP_CODE.test(f)) tracked.add(`${r.name}/${f}`); }
     if (!repos.length) return { repos: [], roots: roots || [] };
     const files = new Set([...tracked, ...touches.keys()]), byBase = new Map(), byStem = new Map();
-    for (const f of files) { const base = f.split("/").pop(), low = base.toLowerCase(); if (!byBase.has(low)) byBase.set(low, []); byBase.get(low).push(f);
+    for (const f of files) { const base = VGShared.baseOf(f), low = base.toLowerCase(); if (!byBase.has(low)) byBase.set(low, []); byBase.get(low).push(f);
       const st = base.slice(0, base.lastIndexOf(".")); if (/^[A-Z][a-z]+(?:[A-Z][a-z0-9]+)+$/.test(st) && st.length >= 8) { if (!byStem.has(st)) byStem.set(st, []); byStem.get(st).push(f); } }
     const lowFiles = [...files].map(f => [f, f.toLowerCase()]);
     const resolve = mention => { const m = stripChars(mention, [..."`'\"()[],.:;"]).replace(/\\/g, "/");
@@ -926,7 +926,7 @@ what when where which while who how why each other same see set use used using w
   // where a new map goes: where most of its topic lives, named for that folder when it's a real topic folder
   function suggestMapPath(ms, name, taken, { inbox, notTops }) {
     const usable = ms.filter(m => m.includes("/") && !notTops.includes(m.split("/")[0])), folders = new Map(); usable.forEach(m => bump(folders, m.slice(0, m.lastIndexOf("/"))));
-    const folder = folders.size ? mostCommon(folders) : inbox, n = folders.size ? folders.get(folder) : 0, leaf = folder.split("/").pop().replace(/^\d+[-_ ]*/, "").replace(/-/g, " ").trim();
+    const folder = folders.size ? mostCommon(folders) : inbox, n = folders.size ? folders.get(folder) : 0, leaf = VGShared.baseOf(folder).replace(/^\d+[-_ ]*/, "").replace(/-/g, " ").trim();
     let out; if (ms.filter(m => m.endsWith(" - Context.md")).length >= 5) out = "Project Contexts"; else if ((folder.match(/\//g) || []).length >= 1 && n >= 0.5 * ms.length && !["active", "archive", "user stories"].includes(leaf.toLowerCase())) out = leaf; else out = name.split(" · ").slice(0, 2).join(" ");
     while (taken.has(`${out} MOC`.toLowerCase())) out += " " + name.split(" · ").pop();
     taken.add(`${out} MOC`.toLowerCase()); return [folder, out];
@@ -936,7 +936,7 @@ what when where which while who how why each other same see set use used using w
   function mapReport({ P, T, raw, tags, knowledge, date, inbox, notTops, min_claim, moveTarget }) {
     const D = P.detail, mocs = D.mocs, info = new Map(T.topics.map(c => [c.id, c])), bc = T.bc, sizes = new Map(T.topics.map(c => [c.id, c.size])), owner = new Map(Object.entries(D.owner).map(([c, p]) => [Number(c), mocs.find(m => m.path === p)])), membersOf = new Map(T.topics.map(c => [c.id, Object.keys(P.cid).filter(r => P.cid[r] === c.id)]));
     Object.values(mocs).forEach(m => { m.memberSet = m.memberSet || new Set(m.members); m.staticSet = m.staticSet || new Set(m.fixed); });
-    const wordsOf = r => (String(raw[r] || "").match(/[\p{L}\p{N}\p{M}_]+/gu) || []).length, dated = r => /\d{4}-\d{2}-\d{2}/.test(r.split("/").pop());
+    const wordsOf = r => (String(raw[r] || "").match(/[\p{L}\p{N}\p{M}_]+/gu) || []).length, dated = r => /\d{4}-\d{2}-\d{2}/.test(VGShared.baseOf(r));
     const catchallPaths = new Set(Object.keys(bc).filter(r => wordsOf(r) > MIN_MAP_WORDS && (dated(r) || !r.includes("/")) && bc[r] > 0.1));
     const bySize = [...info.keys()].sort((a, b) => sizes.get(b) - sizes.get(a)), byBc = (a, b) => (bc[b] || 0) - (bc[a] || 0);
     const stable = (list, cmp) => list.map((x, i) => [x, i]).sort((a, b) => cmp(a[0], b[0]) || a[1] - b[1]).map(x => x[0]);

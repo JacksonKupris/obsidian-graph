@@ -17,13 +17,13 @@
 //   c.icon(el, name)              put icon `name` (see ICONS) at the start of button el
 // Writes go through c.api, which is the plugin's WRITE_ACTIONS: each publishes the new state to every surface.
 const VGActions = (() => {
-  const nameOf = id => String(id || "").split("/").pop().replace(/\.md$/i, "");
+  const nameOf = VGShared.nameOf;
   const folderOf = id => (String(id).includes("/") ? String(id).slice(0, String(id).lastIndexOf("/")) : "");
   // Archived notes keep their folder under the archive folder (vault_graph_rules.json folders), so links keep working
   const archive = () => VGRules.folders.archive;   // read when used: the vault's rules arrive after this loads
   const archiveFolder = id => (archive() + "/" + folderOf(id)).replace(/\/$/, "");
   const isArchived = id => id.startsWith(archive() + "/");
-  const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  const plural = VGShared.plural;
   const mapOf = (c, n) => (c.data && n.cluster != null ? VGRules.mapForCluster(c.data.mocs || [], n.cluster) : null);
   // where references live (Link Conventions): a note the graph treats as a map (a system's map, a MOC), or a hub or
   // index by name
@@ -215,7 +215,7 @@ const VGActions = (() => {
         const to = VGRules.parseDay(said);
         if (!to) throw new Error(`“${said.trim()}” isn't a day after today`);
         await c.api.hqMark(it.key, `until:${to}`);
-        return `Back ${new Date(`${to}T12:00:00`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}: ${short(it.title)}`; },
+        return `Back ${VGShared.noon(to).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}: ${short(it.title)}`; },
       undo: (it, c) => c.api.hqMark(it.key, null) },
     { key: "reject", label: "Reject", title: "Reject the draft, with the reason", when: (it, c) => it.kind === "review" && !it.reviewOnly && !!c.api.setNoteStatus,
       run: async (it, c) => {

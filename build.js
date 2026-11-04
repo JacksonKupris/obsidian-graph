@@ -22,6 +22,7 @@ const rulesSource = rules => { const src = read("shared.js") + "\n" + read("rule
 // the engine or the science on their own, for tests: they need the shared helpers and nothing else from the bundle
 const engineSource = () => read("shared.js") + "\n" + read("engine.js");
 const scienceSource = () => read("shared.js") + "\n" + read("science.js");
+const actionsSource = () => read("shared.js") + "\n" + read("actions.js");
 // the rulebook, then the shared note actions (they use the rules)
 // Vault HQ in parts (src/hq/*.js), one closure joined in name order, like the renderer
 const hqJs = () => fs.readdirSync(path.join(SRC, "hq")).filter(f => f.endsWith(".js")).sort().map(f => fs.readFileSync(path.join(SRC, "hq", f), "utf8")).join("");
@@ -144,4 +145,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { ROOT, loadRules, rulesSource, engineSource, scienceSource, viewParts, viewSource, buildPlugin, buildPage, buildHQPage, HQ_OPTS, pluginId, writeIfChanged };
+module.exports = { ROOT, loadRules, rulesSource, engineSource, scienceSource, actionsSource, viewParts, viewSource, buildPlugin, buildPage, buildHQPage, HQ_OPTS, pluginId, writeIfChanged };

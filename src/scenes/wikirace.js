@@ -37,7 +37,7 @@
   function wrBack() { if (WR.state !== "play" || WR.path.length < 2) return; WR.path.pop(); WR.at = WR.path[WR.path.length - 1]; WR.hops++; WR.trapped = ""; WR.scroll = 0; }   // going back is a hop too
   function wrWin() {
     WR.seconds = (performance.now() - WR.startedAt) / 1000; WR.score = VGRules.wikiraceScore({ hops: WR.hops, par: WR.route.par, hubs: WR.hubs, traps: WR.traps, seconds: WR.seconds }); WR.state = "over";
-    const was = cos.wikirace || {}, day = WR.day, yesterday = VGRules.localDay(new Date(Date.parse(day + "T12:00:00") - 864e5));
+    const was = cos.wikirace || {}, day = WR.day, yesterday = VGRules.localDay(new Date(VGShared.noon(day).getTime() - VGShared.DAY_MS));
     WR.newBest = WR.score > (was.day === day ? was.today || 0 : 0);
     const streak = was.day === day ? was.streak || 1 : was.day === yesterday ? (was.streak || 0) + 1 : 1;
     cos.wikirace = { day, today: Math.max(was.day === day ? was.today || 0 : 0, WR.score), best: Math.max(was.best || 0, WR.score), streak }; persistSoon();

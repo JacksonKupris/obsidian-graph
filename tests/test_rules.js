@@ -104,7 +104,7 @@ check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }
   const skip = d => VGRules.todayList(D, { today: d, review: { skipped: { [link.key]: "2026-10-20" } } }).some(i => i.key === link.key);
   check("today: a skip lasts two weeks", [skip("2026-10-25"), skip("2026-11-10")], [false, true]);
   check("today: three picks, each an item", VGRules.todayPick(L).map(p => L.some(i => i.key === p.key) && p.done === false), [true, true, true]);
-  const A = new Function("VGRules", `${fs.readFileSync(path.join(S, "actions.js"), "utf8")}; return VGActions;`)(VGRules);
+  const A = new Function("VGRules", `${require("../build").actionsSource()}; return VGActions;`)(VGRules);
   check("today: every kind has an action", Object.keys(VGRules.TODAY_XP).filter(k => !A.TODAY[k]), []);
 }
 
@@ -251,7 +251,7 @@ check("adopt done once linked", [VGRules.questDone({ kind: "adopt", id: "c.md" }
   const P = Q.hqProjects({ hq });
   check("hq: projects with status group, estimate, days named and decisions", P.map(p => [p.title, p.group, p.estimate, p.days, p.decisions.map(d => d.title)]),
     [["Fresh One", "waiting", "", [], []], ["Live One", "active", "2 days", ["2026-10-24"], ["Live Decision"]], ["Waiting One", "waiting", "", [], []]]);   // newest first
-  const A = new Function("VGRules", `${fs.readFileSync(path.join(S_DIR, "actions.js"), "utf8")}; return VGActions;`)(Q);
+  const A = new Function("VGRules", `${require("../build").actionsSource()}; return VGActions;`)(Q);
   check("hq: every kind has an action", Object.keys(Q.TODAY_GROUP).filter(k => !A.TODAY[k]), []);
   const api = { setTaskStatus: 1, setTaskField: 1, setNoteStatus: 1, hqMark: 1, openNote: 1 }, more = it => A.todayMore(it, { api }).map(m => m.key);
   check("hq: the other buttons each item offers", [more(task), more(L.find(i => i.kind === "review")), more(L.find(i => i.kind === "approval")), more(L.find(i => i.kind === "carried" && i.delegated))],
@@ -308,7 +308,7 @@ for (const f of ["view.js", "plugin.js", "hq"]) {
 
 // ---- 6. note actions (actions.js): one catalog, rendered by the inspector and the sidebar
 {
-  const VGActions = new Function("VGRules", `${fs.readFileSync(path.join(S, "actions.js"), "utf8")}; return VGActions;`)(VGRules);
+  const VGActions = new Function("VGRules", `${require("../build").actionsSource()}; return VGActions;`)(VGRules);
   const calls = [], api = {};
   ["openNote", "linkNotes", "moveNote", "setNoteTasks", "stampReviewed", "addToMap", "addReference", "linkMentions"].forEach(k => api[k] = async (...a) => { calls.push([k, ...a]); return k === "linkMentions" ? ["d.md"] : 2; });
   const map = { id: "Map.md", title: "Map", clusters: [4], members: [] };

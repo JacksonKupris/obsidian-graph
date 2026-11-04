@@ -101,7 +101,7 @@
     body.querySelectorAll("[data-cell]").forEach(d => d.onclick = () => { body.querySelectorAll(".vg-mx-cell.is-on").forEach(x => x.classList.remove("is-on")); d.classList.add("is-on"); showCell(body, ...d.dataset.cell.split(",").map(Number)); });
     body.querySelectorAll("[data-move]").forEach(d => d.onclick = async e => {
       e.stopPropagation(); const id = d.dataset.move, to = d.dataset.to;
-      if (!await confirmBox("Move note", `<div class="vg-move-prev"><span>${esc(id)}</span><b>→ ${esc(to)}/${esc(id.split("/").pop())}</b></div>Links to it are updated automatically. Nothing is deleted.`, "Move")) return;
+      if (!await confirmBox("Move note", `<div class="vg-move-prev"><span>${esc(id)}</span><b>→ ${esc(to)}/${esc(VGShared.baseOf(id))}</b></div>Links to it are updated automatically. Nothing is deleted.`, "Move")) return;
       try { await opts.moveNote(id, to); d.disabled = true; d.textContent = "Moved"; logDiscovery(`Moved ${byId[id].name} to ${to}`); toast("Moved", "ok"); } catch (err) { toast("Couldn't move it", "warn"); }
     });
     body.querySelectorAll("[data-log]").forEach(d => d.onclick = async e => {
@@ -146,9 +146,9 @@
     if (!opts.readTasks) return;
     box.innerHTML = `<div class="vg-empty">Loading tasks…</div>`;
     const tasks = await opts.readTasks(id), dated = byId[id].taskItems || [];
-    const ageOf = t => { const m = dated.find(d => t.trim().startsWith(d[0].slice(0, 40))); return m && m[1] ? Math.round((Date.now() - Date.parse(m[1] + "T12:00")) / 864e5) : null; };
+    const ageOf = t => { const m = dated.find(d => t.trim().startsWith(d[0].slice(0, 40))); return m && m[1] ? Math.round((Date.now() - Date.parse(m[1] + "T12:00")) / VGShared.DAY_MS) : null; };
     const all = tasks.length ? `<div class="vg-task-all"></div>` : "";
-    box.innerHTML = all + (tasks.length ? tasks.slice(0, 30).map(tk => `<div class="vg-task"><label><input type="checkbox" data-line="${tk.line}" title="Complete"><span>${esc(tk.text.replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1"))}${ageOf(tk.text) != null ? ` <span class="vg-muted">· ${ageOf(tk.text)}d</span>` : ""}</span></label>` +
+    box.innerHTML = all + (tasks.length ? tasks.slice(0, 30).map(tk => `<div class="vg-task"><label><input type="checkbox" data-line="${tk.line}" title="Complete"><span>${esc(VGShared.plainLinks(tk.text))}${ageOf(tk.text) != null ? ` <span class="vg-muted">· ${ageOf(tk.text)}d</span>` : ""}</span></label>` +
       (opts.setTaskStatus ? `<button class="vg-ibtn vg-task-cancel" data-cancel="${tk.line}" title="Cancel this task" aria-label="Cancel task">${icon("close", 12)}</button>` : "") + `</div>`).join("") +
       (tasks.length > 30 ? `<div class="vg-empty">…and ${tasks.length - 30} more in the note</div>` : "") : `<div class="vg-empty">No open tasks.</div>`);
     const settle = (row, how, tk) => { row.classList.add(how === "-" ? "is-cancelled" : "is-done"); row.querySelectorAll("input,button").forEach(x => x.disabled = true);
@@ -202,7 +202,7 @@
     const W = T.weeks.length, trend = v => { const a = v.slice(-4).reduce((s, x) => s + x, 0) / 4, b = v.slice(-12, -4).reduce((s, x) => s + x, 0) / 8; return a - b; };
     const strip = (v, col) => { const mx = Math.max(1, ...v); return `<span class="vg-tl-strip">${v.map((x, i) => `<i style="${x ? cellBg(col, 0.15 + 0.85 * x / mx) : ""}" title="week of ${T.weeks[i]}: ${x}"></i>`).join("")}</span>`; };
     const tag = v => { const d = trend(v), base = v.slice(-12, -4).reduce((s, x) => s + x, 0) / 8; return d > Math.max(0.4, base * 0.6) ? `<span class="vg-tl-tag is-up">↑ heating</span>` : d < -Math.max(0.4, base * 0.6) ? `<span class="vg-tl-tag is-down">↓ cooling</span>` : ""; };
-    const months = T.weeks.map((w, i) => i % 4 === 0 ? `<span style="grid-column:${i + 1}">${new Date(w + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>` : "").join("");
+    const months = T.weeks.map((w, i) => i % 4 === 0 ? `<span style="grid-column:${i + 1}">${VGShared.noon(w).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>` : "").join("");
     const total = T.weeks.map((_, i) => Object.values(T.clusters).reduce((s, v) => s + v[i], 0));
     const cl = Object.entries(T.clusters).filter(([c]) => clusterById[c]).sort((a, b) => b[1].reduce((s, x) => s + x, 0) - a[1].reduce((s, x) => s + x, 0));
     const nt = Object.entries(T.notes).filter(([id]) => byId[id]).sort((a, b) => trend(b[1]) - trend(a[1]));
@@ -231,7 +231,7 @@
     return `<p class="vg-muted vg-lens-note">Each bar is a folder, split by topic. One colour = the folder matches a topic; many colours = the folder mixes topics.</p>${bars}
       <div class="vg-list-h">Possibly misfiled <span class="vg-count">${odd.length}</span></div>
       ${odd.sort((a, b) => b[0].bc - a[0].bc).slice(0, 40).map(([n, h]) => `<div class="vg-sugg">${noteRow(n.id, `in ${esc(top(n.id))} · its topic lives in <b>${esc(h)}</b>`)}
-        ${opts.moveNote && !VGRules.RULES.not_map_tops.includes(h.split("/")[0]) ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-move="${esc(n.id)}" data-to="${esc(h)}">Move to ${esc(h.split("/").pop())}</button></span>` : ""}</div>`).join("") || emptyNext("Nothing looks misfiled.", "lens:triage")}`;
+        ${opts.moveNote && !VGRules.RULES.not_map_tops.includes(h.split("/")[0]) ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-move="${esc(n.id)}" data-to="${esc(h)}">Move to ${esc(VGShared.baseOf(h))}</button></span>` : ""}</div>`).join("") || emptyNext("Nothing looks misfiled.", "lens:triage")}`;
   }
 
   function lensProjects() {
@@ -301,7 +301,7 @@
       const pk = b.s.indexOf(Math.max(...b.s)), th = hi[pk][1] - lo[pk][1];
       if (b.c != null && Math.abs(th) > 15) labels += `<text x="${Math.min(VW - 80, Math.max(80, x(pk)))}" y="${((hi[pk][1] + lo[pk][1]) / 2 + 4).toFixed(1)}" text-anchor="middle">${esc(shortName(b.c))}</text>`;
     });
-    const ticks = T.weeks.map((w, i) => i % 4 === 0 ? `<text class="vg-rv-tick" x="${x(i).toFixed(1)}" y="${VH - 2}" text-anchor="middle">${esc(new Date(w + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }))}</text>` : "").join("");
+    const ticks = T.weeks.map((w, i) => i % 4 === 0 ? `<text class="vg-rv-tick" x="${x(i).toFixed(1)}" y="${VH - 2}" text-anchor="middle">${esc(VGShared.noon(w).toLocaleDateString(undefined, { month: "short", day: "numeric" }))}</text>` : "").join("");
     const months = {};   // month -> topic -> daily notes
     T.weeks.forEach((w, i) => { const m = w.slice(0, 7); all.forEach(([c, v]) => { if (v[i]) (months[m] = months[m] || {})[c] = (months[m][c] || 0) + v[i]; }); });
     const rows = Object.entries(months).sort((a, b) => b[0].localeCompare(a[0])).map(([m, per]) => {
@@ -359,7 +359,7 @@
       if (a === b) inside[a]++; else { M[a][b]++; M[b][a]++; }
     });
     const out = M.map(r => r.reduce((s, x) => s + x, 0)), weight = folders.map((_, i) => Math.max(1, out[i]));
-    const leaf = f => f.split("/").pop().replace(/^\d+-/, ""), clash = {};
+    const leaf = f => VGShared.baseOf(f).replace(/^\d+-/, ""), clash = {};
     folders.forEach(f => { clash[leaf(f)] = (clash[leaf(f)] || 0) + 1; });
     const ringLabel = f => clash[leaf(f)] > 1 && f.includes("/") ? `${leaf(f)} (${f.split("/")[0].replace(/^\d+-/, "")})` : leaf(f);
     const R = 150, R2 = 162, C = 200, GAP = 0.04, total = weight.reduce((s, x) => s + x, 0), span = 2 * Math.PI - GAP * F;
@@ -389,7 +389,7 @@
       <div class="vg-list-h">Most inward-looking folders</div>${insular.map(x => `<div class="vg-fd-row"><button class="vg-fd-name vg-linkish" data-fold="${esc(x.f)}">${esc(x.f)}</button>
         <span class="vg-fd-bar"><i style="flex:${Math.round(100 * x.ratio)};background:var(--vg-ok)"></i><i style="flex:${100 - Math.round(100 * x.ratio)};background:var(--vg-hover)"></i></span><span class="vg-count">${Math.round(100 * x.ratio)}% out</span></div>`).join("")}`;
   }
-  const shortDate = d => d ? new Date(d + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
+  const shortDate = d => d ? VGShared.noon(d).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
   const actBtn = (attr, id, label) => `<button class="vg-btn vg-btn-sm" ${attr}="${esc(id)}">${label}</button>`;
 
   // 1. Important but stale: how much the vault leans on a note vs. how long since it was edited.
@@ -444,10 +444,10 @@
   function lensFollow() {
     const F = DATA.followthrough; if (!F || !F.items.length) return needsAnalysis("Standup follow-through") || emptyNext(`No standups with a "Work Expected Tomorrow" section${F && F.days ? ` in the last ${F.days} days` : ""}.`, "daily");
     const items = F.items, judged = items.filter(i => i.s !== "pending");
-    const since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10), recent = judged.filter(i => i.d >= since);
+    const since = new Date(Date.now() - 30 * VGShared.DAY_MS).toISOString().slice(0, 10), recent = judged.filter(i => i.d >= since);
     const rate = xs => xs.length ? Math.round(100 * xs.filter(i => i.s === "next" || i.s === "later").length / xs.length) : 0;
     const count = (xs, s) => xs.filter(i => i.s === s).length;
-    const monday = d => { const t = new Date(d + "T12:00"); t.setDate(t.getDate() - ((t.getDay() + 6) % 7)); return t.toISOString().slice(0, 10); };
+    const monday = d => { const t = VGShared.noon(d); t.setDate(t.getDate() - ((t.getDay() + 6) % 7)); return t.toISOString().slice(0, 10); };
     const weeks = {}; judged.forEach(i => { (weeks[monday(i.d)] = weeks[monday(i.d)] || []).push(i); });
     const bars = Object.entries(weeks).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 16).map(([w, xs]) => `<div class="vg-fd-row"><span class="vg-fd-name">week of ${shortDate(w)}</span><span class="vg-fd-bar">${
       ["next", "later", "carried", "dropped"].map(s => count(xs, s) ? `<i style="flex:${count(xs, s)};background:${FT[s][1]}" title="${FT[s][0]}: ${count(xs, s)}"></i>` : "").join("")}</span><span class="vg-count">${rate(xs)}%</span></div>`).join("");
@@ -627,7 +627,7 @@
     const lead = (() => { const ps = (C.areas || []).map(a => a[0].split("/")); let k = 0;
       while (ps.length > 1 && ps.every(p => p.length > k + 1 && p[k] === ps[0][k])) k++; return k ? ps[0].slice(0, k).join("/") + "/" : ""; })();
     const short = p => (lead && p.startsWith(lead) ? p.slice(lead.length) : p);
-    const docRow = (rel, sub) => { const n = byId[rel], name = rel.split("/").pop().replace(/\.md$/, "");
+    const docRow = (rel, sub) => { const n = byId[rel], name = VGShared.nameOf(rel);
       return `<button class="vg-item" ${n ? `data-id="${esc(rel)}"` : opts.openNote ? `data-open="${esc(rel)}"` : ""}><span class="vg-dot" style="background:${n ? dotOf(rel) : "var(--vg-muted)"}"></span><span class="vg-item-main"><span>${esc(name)}</span><span class="vg-item-sub">${sub}</span></span></button>`; };
     const area = a => `<div class="vg-cd-area"><span class="vg-cd-path" title="${esc(a[0])}">${esc(short(a[0]))}</span><span class="vg-muted">${a[1]} commits · 90d · ${a[2]} · year · ${plural(a[4], "file")} · last ${shortDate(a[3])}</span></div>`;
     const isTest = p => /(^|\/)__tests__(\/|$)|\.test\.|\.spec\./.test(p);   // tests don't need a doc of their own

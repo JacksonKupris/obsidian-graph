@@ -24,7 +24,7 @@
   const mocMembers = {}; links.filter(l => l.kind === "moc").forEach(l => (mocMembers[l.s.id] = mocMembers[l.s.id] || new Set()).add(l.t.id));
   const graphNb = id => new Set([...(nb[id] || []), ...(mocMembers[id] || [])]);
   // A star can sit on any note, even one the graph leaves out (a navigation map, a hub list): what it lists orbits it
-  const stemOf = id => String(id || "").split("/").pop().replace(/\.md$/i, "");
+  const stemOf = VGShared.nameOf;
   const anchorNb = id => byId[id] ? graphNb(id) : new Set([...(((DATA.mocs || []).find(m => m.id === id) || {}).members || []),
     ...(opts.outlinksOf ? opts.outlinksOf(id) : [])].filter(x => byId[x]));
   const bodyName = b => b.name || (b.type === "star" && b.target ? (byId[b.target] ? byId[b.target].name : ((DATA.mocs || []).find(m => m.id === b.target) || {}).title || stemOf(b.target)) : b.type === "binary" && Array.isArray(b.target) ? b.target.map(x => byId[x] ? byId[x].name : "?").join(" & ")
@@ -802,7 +802,7 @@
   }
   function timeShow() {   // the bar and everything drawn from the state
     const R = replay, day = st.timeAt, r = $(".vg-timebar input"); r.value = R.k;
-    $(".vg-time-label").textContent = `${day ? new Date(day + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Now"} · ${R.k} / ${R.order.length} notes`;
+    $(".vg-time-label").textContent = `${day ? VGShared.noon(day).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Now"} · ${R.k} / ${R.order.length} notes`;
     rebuild(false);
   }
   function playTime(on) {

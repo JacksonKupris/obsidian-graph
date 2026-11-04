@@ -59,7 +59,7 @@ function mountVaultGraph(root, DATA, opts) {
   const clusterById = Object.fromEntries(DATA.clusters.map(c => [c.id, c]));
   const clusterName = c => clusterById[c] ? (clusterById[c].label || clusterById[c].name) : "Unclustered";
   const clusterTag = c => clusterById[c] ? `C${c} · ${clusterName(c)}` : "unclustered";
-  const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+  const plural = VGShared.plural;
   // local date, not UTC: in Central time the UTC date rolls over at 7 PM, which dated notes and quests a day early
   const { today, localDay, safeName } = VGRules;   // the shared date and file-name rules
   const ICON = {
@@ -210,7 +210,7 @@ function mountVaultGraph(root, DATA, opts) {
   });
 
   // ---------------------------------------------------------------- DOM
-  const ageDays = Math.round((Date.now() - new Date(DATA.date + "T12:00:00").getTime()) / 864e5);
+  const ageDays = Math.round((Date.now() - VGShared.noon(DATA.date).getTime()) / VGShared.DAY_MS);
   const ageText = ageDays <= 0 ? "today" : ageDays === 1 ? "yesterday" : `${ageDays} days ago`;
   const switchRow = (cls, title, hint, on) => `<label class="vg-switch"><input type="checkbox" class="${cls}" ${on ? "checked" : ""}><span class="vg-track" aria-hidden="true"></span>
     <span><b>${title}</b><span class="vg-muted">${hint}</span></span></label>`;

@@ -75,8 +75,8 @@
     person: ["names someone", r => VGRules.hqPeople(DATA, [{ kind: "task", text: r.text, title: r.text }]).some(p => p.items.length)],
     link: ["links a note", r => /\[\[/.test(r.text)],
     short: ["is 8 words or fewer", r => r.text.trim().split(/\s+/).length <= 8],
-    recent: ["written in the last 90 days", r => Date.parse(`${DATA.date || today()}T12:00:00Z`) - Date.parse(`${r.born}T12:00:00Z`) <= 90 * 864e5],
-    monday: ["written Monday", r => new Date(`${r.born}T12:00:00`).getDay() === 1],
+    recent: ["written in the last 90 days", r => VGShared.utcNoon(DATA.date || today()) - VGShared.utcNoon(r.born) <= 90 * VGShared.DAY_MS],
+    monday: ["written Monday", r => VGShared.noon(r.born).getDay() === 1],
   };
   const dayWords = d => d == null ? "not reached" : `${d} day${d === 1 ? "" : "s"}`;
   const stair = km => km.steps.map(x => [x.t, x.s]);
@@ -243,7 +243,7 @@
   let controlKind = "finished";
   async function loadControl() { if (!survivalLives) { const journals = opts.taskHistory ? await opts.taskHistory() : ((DATA.hq || {}).journals || []); survivalLives = VGScience.taskLives(journals, DATA.date || today()); } return renderControl(); }
   function renderControl() {
-    const rows = (survivalLives || { rows: [] }).rows, end = Date.parse(`${DATA.date || today()}T12:00:00Z`), WEEKS = 16, bucket = d => { const w = Math.floor((end - Date.parse(`${d}T12:00:00Z`)) / (7 * 864e5)); return w >= 0 && w < WEEKS ? WEEKS - 1 - w : -1; }, v = new Array(WEEKS).fill(0);
+    const rows = (survivalLives || { rows: [] }).rows, end = VGShared.utcNoon(DATA.date || today()), WEEKS = 16, bucket = d => { const w = Math.floor((end - VGShared.utcNoon(d)) / (7 * VGShared.DAY_MS)); return w >= 0 && w < WEEKS ? WEEKS - 1 - w : -1; }, v = new Array(WEEKS).fill(0);
     rows.forEach(r => { const d = controlKind === "finished" ? (r.event ? r.done : null) : r.born; if (!d) return; const b = bucket(d); if (b >= 0) v[b]++; });
     const first = v.findIndex(x => x > 0), vals = first < 0 ? [] : v.slice(first); if (vals.length < 6) return emptyNext("A control chart needs at least six weeks of tasks with dates.", "daily", "search");
     const X = VGScience.xmr(vals), n = vals.length, last = vals[n - 1], ymax = Math.ceil(Math.max(X.ucl, ...vals) / 10) * 10 || 10, line = y => vals.map((_, i) => [i, y]), label = i => (i === n - 1 ? "this week" : `${n - 1 - i}w ago`);
@@ -260,7 +260,7 @@
   // ---- Attention: Hill numbers on where your dailies went, week by week
   function lensAttention() {
     const T = DATA.timeline; if (!T || T.weeks.length < 4) return needsAnalysis("Attention") || emptyNext("Attention needs four weeks of daily notes that link or name your notes.", "daily", "lens:river");
-    const cs = Object.entries(T.clusters).filter(([c]) => clusterById[c]), todayD = Date.parse(`${DATA.date || today()}T12:00:00Z`), full = T.weeks.map((w, i) => i).filter(i => todayD - Date.parse(`${T.weeks[i]}T12:00:00Z`) >= 6 * 864e5), idx = full.slice(-26);
+    const cs = Object.entries(T.clusters).filter(([c]) => clusterById[c]), todayD = VGShared.utcNoon(DATA.date || today()), full = T.weeks.map((w, i) => i).filter(i => todayD - VGShared.utcNoon(T.weeks[i]) >= 6 * VGShared.DAY_MS), idx = full.slice(-26);
     const H = idx.map(i => ({ i, ...VGScience.hill(cs.map(([, v]) => v[i] || 0)), total: cs.reduce((s, [, v]) => s + (v[i] || 0), 0) })).filter(w => w.total >= 3); if (H.length < 4) return emptyNext("Attention needs four weeks of daily notes that link or name your notes.", "daily", "lens:river");
     const now = H[H.length - 1], recent = H.slice(-4), past = H.slice(0, -4), avg = (a, k) => a.reduce((s, x) => s + x[k], 0) / (a.length || 1), top = cs.map(([c, v]) => [c, recent.reduce((s, w) => s + (v[w.i] || 0), 0)]).sort((a, b) => b[1] - a[1]), rT = top.reduce((s, x) => s + x[1], 0), ymax = Math.ceil(Math.max(...H.map(w => w.q1))) + 1;
     const shift = past.length ? avg(recent, "q1") - avg(past, "q1") : 0;

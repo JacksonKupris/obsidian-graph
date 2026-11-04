@@ -16,7 +16,7 @@
       <b>${esc(p.title)}</b>${p.summary ? `<span class="vg-hq-sum">${esc(p.summary)}</span>` : ""}
       ${searchHitHtml(p)}
       <small>${esc(p.path)}</small></span></button>`).join("");
-    const noteRows = notes.map(hit => `<article class="vg-hq-note-hit"><div><b>${esc(hit.heading || hit.path.split("/").pop())}</b>
+    const noteRows = notes.map(hit => `<article class="vg-hq-note-hit"><div><b>${esc(hit.heading || VGShared.baseOf(hit.path))}</b>
       <small>${esc(hit.path)}${hit.line ? ` · line ${hit.line}` : ""}</small>
       ${hit.snippet ? `<p>${esc(VGRules.plainSnippet(hit.snippet))}</p>` : ""}</div><span class="vg-hq-acts">${api.readNote ? peekButton(hit.path, "Peek") : ""}${api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm" data-open="${esc(hit.path)}">Open source</button>` : ""}</span></article>`).join("");
     const itemRows = itemHits.map(({ it }) => row(it)).join("");

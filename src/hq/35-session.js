@@ -3,7 +3,7 @@
   const SESSION_LENGTHS = [15, 25, 45];
   let session = null, sessionTick = null, sessionLength = 25;
   const sessionMs = () => (session ? session.spent + (session.since ? Date.now() - session.since : 0) : 0);
-  const clockOf = ms => { const s = Math.floor(Math.abs(ms) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+  const clockOf = ms => { const s = Math.floor(Math.abs(ms) / 1000); return `${Math.floor(s / 60)}:${VGShared.pad2(s % 60)}`; };
   // what the timer reads: time left, then how far over
   const sessionClock = () => { const left = session.length * 60000 - sessionMs(); return left >= 0 ? clockOf(left + 999) : `+${clockOf(left)}`; };
   function sessionPaint() {

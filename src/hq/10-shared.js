@@ -1,6 +1,6 @@
   // ---- the parts every screen shares
   const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-  const shortDate = d => { const x = new Date(d + "T12:00:00"); return isNaN(x) ? d : `${MONTHS[x.getMonth()].slice(0, 3)} ${x.getDate()}`; };
+  const shortDate = d => { const x = VGShared.noon(d); return isNaN(x) ? d : `${MONTHS[x.getMonth()].slice(0, 3)} ${x.getDate()}`; };
   function chooseDaily(date, source) {
     const h = hq() || {}, journal = VGRules.canonicalJournal(h, date);
     const standup = VGRules.canonicalDailyPath(h.standups, date, "standup");

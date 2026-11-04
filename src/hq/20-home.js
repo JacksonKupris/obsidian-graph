@@ -3,7 +3,7 @@
     const h = hq() || {}, nodes = (DATA.nodes || []).filter(n => !n.person && !n.ghost && !n.moc), cards = [];
     const stale = nodes.filter(n => VGRules.isStale(n, (DATA.quality || {}).stale_days));
     // on this day: what you were writing this date in earlier years, or within a few days of it
-    const md = day().slice(5), thisYear = day().slice(0, 4), near = n => { if (!n.born || n.born.slice(0, 4) >= thisYear) return false; const d = Math.abs(Date.parse(`2000-${n.born.slice(5)}T12:00:00`) - Date.parse(`2000-${md}T12:00:00`)) / 864e5; return d <= 3; };
+    const md = day().slice(5), thisYear = day().slice(0, 4), near = n => { if (!n.born || n.born.slice(0, 4) >= thisYear) return false; const d = Math.abs(Date.parse(`2000-${n.born.slice(5)}T12:00:00`) - Date.parse(`2000-${md}T12:00:00`)) / VGShared.DAY_MS; return d <= 3; };
     const back = nodes.filter(near).sort((a, b) => (b.bc || 0) - (a.bc || 0));
     if (back.length) cards.push({ id: "onthisday", eyebrow: "On this day", title: back[0].name, sub: `${back[0].born.slice(0, 4)}${back.length > 1 ? ` · and ${plural(back.length - 1, "more note")}: ${back.slice(1, 3).map(n => n.name).join(" · ")}` : ""}`, open: back[0].id });
     const busy = (DATA.clusters || []).map(c => ({ c, n: nodes.filter(x => x.cluster === c.id).reduce((s, x) => s + (x.recent || 0), 0) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n)[0];
@@ -15,9 +15,9 @@
     if (oldest) cards.push({ id: "oldest", eyebrow: "Waiting longest", title: oldest.title, sub: oldest.why, open: oldest.path, item: oldest });
     const gap = (DATA.links || []).find(l => l.kind === "gap" && (DATA.nodes || []).some(n => n.id === l.source));
     if (gap) cards.push({ id: "gap", eyebrow: "A gap between notes", title: `${nameOf(gap.source)} ↔ ${nameOf(gap.target)}`, sub: gap.why || "Named together, never linked", item: LIST.find(it => it.kind === "link" && it.a === gap.source && it.b === gap.target) });
-    const week = (h.decisions || []).filter(d => d.date && (Date.parse(day()) - Date.parse(d.date)) / 864e5 <= 7);
+    const week = (h.decisions || []).filter(d => d.date && (Date.parse(day()) - Date.parse(d.date)) / VGShared.DAY_MS <= 7);
     if (week.length) cards.push({ id: "decided", eyebrow: "Decided this week", title: week[0].title, sub: week.length > 1 ? `and ${plural(week.length - 1, "more decision")}: ${week.slice(1, 3).map(d => d.title).join(" · ")}` : week[0].by ? `Decided by ${week[0].by}` : "", open: week[0].path });
-    const ups = (h.standups || []).filter(s => (Date.parse(day()) - Date.parse(s.date)) / 864e5 < 7);
+    const ups = (h.standups || []).filter(s => (Date.parse(day()) - Date.parse(s.date)) / VGShared.DAY_MS < 7);
     if (ups.length) { const per = {}; ups.forEach(s => s.projects.forEach(p => (per[p] = (per[p] || 0) + 1)));
       const top = Object.entries(per).sort((a, b) => b[1] - a[1]).slice(0, 3), dev = ups.reduce((s, u) => s + (u.deviation || 0), 0);
       cards.push({ id: "week", eyebrow: "This week's standups", title: top.length ? top.map(([p, n]) => `${p} ${n}d`).join(" · ") : plural(ups.length, "standup"),
@@ -62,7 +62,7 @@
   function home() {
     const cards = feedCards(); feedAt = Math.min(feedAt, Math.max(0, cards.length - 1));
     const card = (c, i) => `<article class="vg-hq-feedcard" data-i="${i}" aria-roledescription="slide" aria-label="${i + 1} of ${cards.length}">${hills(c.id)}
-      <div class="vg-hq-feedtxt"><div class="vg-hq-eyebrow">${esc(c.eyebrow)} <span>${String(i + 1).padStart(2, "0")} / ${String(cards.length).padStart(2, "0")}</span></div>
+      <div class="vg-hq-feedtxt"><div class="vg-hq-eyebrow">${esc(c.eyebrow)} <span>${VGShared.pad2(i + 1)} / ${VGShared.pad2(cards.length)}</span></div>
       <h2>${esc(c.title)}</h2><p>${esc(c.sub)}</p><div class="vg-hq-row">${c.open ? `<button class="vg-hq-btn" data-open="${esc(c.open)}">Open</button>` : ""}${c.go ? `<button class="vg-hq-btn" ${c.go[1]}>${esc(c.go[0])}</button>` : ""}${c.item ? buttons(c.item) : ""}</div></div></article>`;
     const feed = cards.length ? `<section class="vg-hq-feed"><div class="vg-hq-feedtrack">${cards.map(card).join("")}</div>
       ${cards.length > 1 ? `<button class="vg-hq-feednav is-prev" data-feed="-1" aria-label="Previous">${icon("left")}</button><button class="vg-hq-feednav is-next" data-feed="1" aria-label="Next">${icon("right")}</button>
