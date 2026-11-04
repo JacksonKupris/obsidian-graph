@@ -6,17 +6,16 @@
 //   node scripts/release.js --resume [--vault <dir>]     wait for the current version's release (after a re-run, or offline)
 // Run on main with everything committed. Works from any clone with push access; the same steps by hand: RELEASING.md.
 const fs = require("fs"), path = require("path"), { spawnSync } = require("child_process");
-const ROOT = path.join(__dirname, ".."), PKG = path.join(ROOT, "package.json");
-const fail = msg => { console.log("FAIL - " + msg); process.exit(1); };
+const { ROOT, fail, gitOrFail, githubSlug } = require("./lib"), PKG = path.join(ROOT, "package.json");
 const run = (cmd, args) => spawnSync(cmd, args, { cwd: ROOT, encoding: "utf8" });
-const git = (...a) => { const r = run("git", a); if (r.status) fail(`git ${a.join(" ")}\n${(r.stderr || r.stdout || "").trim()}`); return (r.stdout || "").trim(); };
+const git = gitOrFail(ROOT);
 const args = process.argv.slice(2), flag = f => args.includes(f);
 const vaultAt = args.indexOf("--vault"), vaultArg = vaultAt >= 0 ? args[vaultAt + 1] : undefined;
 if (vaultAt >= 0 && (!vaultArg || vaultArg.startsWith("--"))) fail("--vault needs a folder");
 
 // 0. what every step needs: Node 22 (fetch), git, a GitHub origin
 if (Number(process.versions.node.split(".")[0]) < 22) fail(`Node ${process.versions.node}: this needs Node 22 or newer (nodejs.org)`);
-const slug = (git("remote", "get-url", "origin").match(/github\.com[:/](.+?)(\.git)?$/) || [])[1];
+const slug = githubSlug(git("remote", "get-url", "origin"));
 if (!slug) fail("origin isn't a GitHub repository");
 const pkg = JSON.parse(fs.readFileSync(PKG, "utf8"));
 let version = pkg.version;

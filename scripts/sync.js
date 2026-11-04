@@ -7,15 +7,15 @@
 // Work you haven't committed stays as it is: set aside while new commits come in, then put back. Your commits go on top
 // of the branch's newer ones on GitHub (a rebase), so its history stays one line. A conflict is undone, leaving
 // everything as it was, and the files are named with the steps to settle them.
-const fs = require("fs"), path = require("path"), { spawnSync } = require("child_process");
-const ROOT = path.join(__dirname, "..");
+const fs = require("fs"), path = require("path");
+const { ROOT, gitIn, githubSlug } = require("./lib");
 const commits = n => (n === 1 ? "1 commit" : `${n} commits`);
 // the address as configured (get-url would give it after url.*.insteadOf rewriting)
-const repoUrl = git => { const m = git("config", "--get", "remote.origin.url").out.match(/github\.com[:/](.+?)(\.git)?$/); return m ? `https://github.com/${m[1]}` : null; };
+const repoUrl = git => { const slug = githubSlug(git("config", "--get", "remote.origin.url").out); return slug ? `https://github.com/${slug}` : null; };
 
 // -> { ok, lines: [what happened, for the person running it] }. dir: the repository (tests pass a scratch one)
 function sync(dir = ROOT) {
-  const git = (...a) => { const r = spawnSync("git", a, { cwd: dir, encoding: "utf8" }); return { ok: r.status === 0, out: (r.stdout || "").trim(), err: (r.stderr || "").trim() }; };
+  const git = gitIn(dir);
   const lines = [], done = ok => ({ ok, lines });
   // a rebase or merge left unfinished (by hand, or an interrupted run) has to be settled first; checked before the
   // branch, since a rebase in progress isn't on one

@@ -43,5 +43,10 @@ assert.strictEqual(S.shiftDay("2026-03-01", -1), "2026-02-28"); assert.strictEqu
     assert.ok(rx.test(fs.readFileSync(shared, "utf8")), `the guard for ${what} doesn't match the shared copy, so it can't catch another`);
     const copies = walk(SRC).filter(f => f !== shared && rx.test(fs.readFileSync(f, "utf8"))).map(f => path.relative(SRC, f));
     assert.deepStrictEqual(copies, [], `${what} is written again in ${copies.join(", ")}: use src/shared.js`); }
+  // ---- the scripts have one of each too. Each pattern has to find lib.js's own.
+  const LIB = path.join(build.ROOT, "scripts", "lib.js"), scripts = fs.readdirSync(path.dirname(LIB)).filter(f => f !== "lib.js").map(f => path.join(path.dirname(LIB), f)).concat(path.join(build.ROOT, "tests", "env.js"));
+  for (const [what, rx] of [["reading local.json", /"local\.json"\)/], ["choosing Python", /"win32" \? "python"/], ["a GitHub address", /github\\\.com\[:\/\]/], ["failing out", /const fail = msg/]]) {
+    assert.ok(rx.test(fs.readFileSync(LIB, "utf8")), `the guard for ${what} doesn't match scripts/lib.js`);
+    const copies = scripts.filter(f => rx.test(fs.readFileSync(f, "utf8"))).map(f => path.basename(f)); assert.deepStrictEqual(copies, [], `${what} is written again in ${copies.join(", ")}: use scripts/lib.js`); }
   console.log("ok - shared helpers");
 })().catch(e => { console.log(`FAIL - ${e.message}`); process.exit(1); });
