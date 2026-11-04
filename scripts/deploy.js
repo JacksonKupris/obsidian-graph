@@ -8,7 +8,7 @@
 // synced, and every rewrite there is a stored version.
 const fs = require("fs"), path = require("path"), { spawnSync } = require("child_process");
 if (!process.argv.includes("--vault")) process.argv.push("--vault");   // env.js: local.json's vault
-const env = require("../tests/env"), build = require("../build");
+const env = require("../tests/env"), build = require("../build"), { python } = require("./lib");
 
 // 1. the vault's rules have every key the code reads
 const missing = [];
@@ -44,14 +44,13 @@ if (installed.length) console.log(`Installed ${installed.join(", ")} in ${path.r
 // use the vault's own Python tools, which are separate from the plugin; a vault without them skips both.
 const vaultTests = path.join(env.VAULT, env.rules.folders.scripts, "tests", "run.py");
 if (!process.argv.includes("--no-tests") && fs.existsSync(vaultTests)) {
-  const r = spawnSync(process.platform === "win32" ? "python" : "python3", [vaultTests], { stdio: "inherit" });
+  const r = spawnSync(python(), [vaultTests], { stdio: "inherit" });
   if (r.status) console.log("The vault's checks failed (the plugin is installed; see above)");
 }
 
 // 5. reload it in Obsidian, through the vault's own command-line helper (it only asks a running Obsidian)
 const helper = path.join(env.VAULT, env.rules.folders.system, "obsidian_cli.py");
 if (changed.length && fs.existsSync(helper)) {
-  const py = process.platform === "win32" ? "python" : "python3";
-  const r = spawnSync(py, ["-c", `import sys; sys.path.insert(0, sys.argv[1]); import obsidian_cli; print(obsidian_cli.reload_plugin(sys.argv[2]))`, path.dirname(helper), id], { encoding: "utf8" });
+  const r = spawnSync(python(), ["-c", `import sys; sys.path.insert(0, sys.argv[1]); import obsidian_cli; print(obsidian_cli.reload_plugin(sys.argv[2]))`, path.dirname(helper), id], { encoding: "utf8" });
   console.log((r.stdout || "").trim() === "True" ? "Reloaded the plugin in Obsidian" : "Obsidian isn't running: the plugin loads next time it opens");
 }

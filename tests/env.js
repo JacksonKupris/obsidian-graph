@@ -5,9 +5,7 @@
 const fs = require("fs"), path = require("path"), build = require("../build");
 const ROOT = build.ROOT, SAMPLE = path.join(ROOT, "fixtures");
 
-function localConfig() {
-  try { return JSON.parse(fs.readFileSync(path.join(ROOT, "local.json"), "utf8")); } catch (e) { return {}; }
-}
+const { localConfig } = require("../scripts/lib");
 const at = process.argv.indexOf("--vault");
 const given = at > 0 && process.argv[at + 1] && !process.argv[at + 1].startsWith("--") ? process.argv[at + 1] : null;
 const named = at < 0 ? null : given || localConfig().vault || null;

@@ -2,6 +2,9 @@
 // Execute the actual release CLI with stand-in git, filesystem and GitHub calls; never tag, push or edit the real checkout.
 const assert = require("assert"), fs = require("fs"), path = require("path"), vm = require("vm");
 const source = fs.readFileSync(path.join(__dirname, "../scripts/release.js"), "utf8");
+// the real scripts/lib.js, seeing the same stand-ins as the release script
+const libSource = fs.readFileSync(path.join(__dirname, "../scripts/lib.js"), "utf8");
+const libWith = context => { const module = { exports: {} }; vm.runInNewContext(libSource, { ...context, module }); return module.exports; };
 async function run(options = {}) {
   let now = 1e12; const calls = [], writes = [], messages = [], asked = [], ranTests = [];
   const states = options.runs || [[{ path: ".github/workflows/test.yml", status: "completed", conclusion: "success", html_url: "u" }]];
@@ -26,7 +29,8 @@ async function run(options = {}) {
   const context = {
     __dirname: path.join(__dirname, "../scripts"),
     require: name => name === "fs" ? { readFileSync: () => '{"version":"0.6.14"}', writeFileSync: (...args) => writes.push(args) } :
-      name === "child_process" ? { spawnSync } : name === "./sync" ? { sync: () => (calls.push(["sync"]), { ok: !options.behind, lines: [] }) } : require(name),
+      name === "child_process" ? { spawnSync } : name === "./sync" ? { sync: () => (calls.push(["sync"]), { ok: !options.behind, lines: [] }) } :
+      name === "./lib" ? libWith(context) : require(name),
     process: { execPath: process.execPath, versions: process.versions, env: {}, argv: ["node", "release.js", "--no-wait", ...(options.args || [])], exit: code => { if (exit === null) exit = code; throw stop; } },
     console: { log: message => messages.push(message), warn() {} }, fetch, Promise, setTimeout: (fn, ms) => { now += ms; fn(); }, Date: { now: () => now, parse: Date.parse },
   };

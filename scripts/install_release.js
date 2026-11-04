@@ -6,14 +6,12 @@
 //   npm run install-release [-- 0.6.15] [-- --vault <dir>]
 // Used by release.js once the release is published.
 const fs = require("fs"), path = require("path"), { spawnSync } = require("child_process");
-const ROOT = path.join(__dirname, "..");
+const { ROOT, gitIn, githubSlug, localConfig, python } = require("./lib");
 const FILES = ["main.js", "manifest.json", "styles.css"];
 
-const slugOf = () => { const r = spawnSync("git", ["remote", "get-url", "origin"], { cwd: ROOT, encoding: "utf8" });
-  return ((r.stdout || "").match(/github\.com[:/](.+?)(\.git)?\s*$/) || [])[1]; };
+const slugOf = () => githubSlug(gitIn(ROOT)("remote", "get-url", "origin").out);
 // this computer's vault: --vault <dir> when given, else local.json's "vault" (the file is per computer, not in git)
-const vaultOf = given => { if (given) return path.resolve(given);
-  try { return JSON.parse(fs.readFileSync(path.join(ROOT, "local.json"), "utf8")).vault || null; } catch (e) { return null; } };
+const vaultOf = given => (given ? path.resolve(given) : localConfig().vault || null);
 // a network failure (offline) comes out of fetch as a TypeError; an answer GitHub refused carries its status
 const get = async url => { let r;
   try { r = await fetch(url, { headers: { "User-Agent": "vault-graph-install" } }); }
@@ -37,7 +35,7 @@ except Exception as e:
 function obsidianEval(vault, js) {
   const helper = path.join(vault, "_System", "obsidian_cli.py");
   if (!fs.existsSync(helper)) return { noHelper: true };   // only Jackson's vault has it
-  const r = spawnSync(process.platform === "win32" ? "python" : "python3", ["-c", PY, path.dirname(helper), js], { encoding: "utf8", timeout: 150e3 });
+  const r = spawnSync(python(), ["-c", PY, path.dirname(helper), js], { encoding: "utf8", timeout: 150e3 });
   if (r.error) return { error: `couldn't run Python: ${r.error.message}` };
   try { return JSON.parse((r.stdout || "").trim().split("\n").pop()); }
   catch (e) { return { error: ((r.stderr || r.stdout || "").trim().split("\n").pop()) || `Python exited ${r.status}` }; }
