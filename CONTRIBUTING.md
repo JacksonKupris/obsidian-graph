@@ -61,7 +61,7 @@ git switch main
 npm run sync                        # main now has the merged change
 ```
 
-Then release it when you want: `npm run release` ([RELEASING.md](RELEASING.md)).
+Then release it when you want: `npm run release` ([RELEASING.md](RELEASING.md)). It needs GitHub's tests to have passed on `main`, and runs nothing on your computer.
 
 ### Carrying on from another computer
 

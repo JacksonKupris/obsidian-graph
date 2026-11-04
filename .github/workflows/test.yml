@@ -1,11 +1,12 @@
-# The tests, once: on every pull request (its checks show on the PR before merging), every push to main, and called by
-# release.yml before it publishes. Failing test lines also go out as annotations, which show on the run page.
+# The tests: on every pull request (its checks show on the PR before merging) and every push to main, which is the run a
+# release checks. A version commit changes only the number, so it starts no run. Failing test lines also go out as
+# annotations, which show on the run page.
 name: Test
 on:
   pull_request:
   push:
     branches: [main]
-  workflow_call:
+    paths-ignore: [package.json, manifest.json]
 jobs:
   test:
     runs-on: ubuntu-latest
