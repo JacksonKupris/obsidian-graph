@@ -3,7 +3,7 @@
 const assert = require("assert"), fs = require("fs"), path = require("path"), vm = require("vm");
 const source = fs.readFileSync(path.join(__dirname, "../scripts/release.js"), "utf8");
 async function run(options = {}) {
-  const calls = [], writes = [], messages = [], asked = [], ranTests = [];
+  let now = 1e12; const calls = [], writes = [], messages = [], asked = [], ranTests = [];
   const states = options.runs || [[{ path: ".github/workflows/test.yml", status: "completed", conclusion: "success", html_url: "u" }]];
   const fetch = async url => { asked.push(url); const list = states[Math.min(asked.length - 1, states.length - 1)]; return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({ workflow_runs: list }) }; };
   let exit = null;
@@ -28,7 +28,7 @@ async function run(options = {}) {
     require: name => name === "fs" ? { readFileSync: () => '{"version":"0.6.14"}', writeFileSync: (...args) => writes.push(args) } :
       name === "child_process" ? { spawnSync } : name === "./sync" ? { sync: () => (calls.push(["sync"]), { ok: !options.behind, lines: [] }) } : require(name),
     process: { execPath: process.execPath, versions: process.versions, env: {}, argv: ["node", "release.js", "--no-wait", ...(options.args || [])], exit: code => { if (exit === null) exit = code; throw stop; } },
-    console: { log: message => messages.push(message), warn() {} }, fetch, Date, Promise, setTimeout: fn => fn(),
+    console: { log: message => messages.push(message), warn() {} }, fetch, Promise, setTimeout: (fn, ms) => { now += ms; fn(); }, Date: { now: () => now, parse: Date.parse },
   };
   try { await vm.runInNewContext(source, context); } catch (error) { if (error !== stop) throw error; }
   return { calls, writes, messages, exit, asked, ranTests };
@@ -62,6 +62,8 @@ for (const [name, runs, says] of [["failed", [t("completed", "failure")], /tests
   const r = await run({ runs });
   assert.strictEqual(r.exit, 1, `${name} tests should stop a release`); assert(r.messages.some(m => says.test(m)), `${name}: it should say why`);
   assert(!r.writes.length && !r.calls.some(c => c[1] === "push" || c[1] === "commit"), `${name}: a refused release changes nothing`); }
+const justMerged = await run({ runs: [[], [], t("completed", "success")] });
+assert.strictEqual(justMerged.exit, 0, "a run that hasn't started yet is waited for"); assert(justMerged.messages.some(m => /start testing/.test(m)));
 const waited = await run({ runs: [t("in_progress"), t("in_progress"), t("completed", "success")] });
 assert.strictEqual(waited.exit, 0, "tests still running: it waits"); assert.strictEqual(waited.asked.length, 3); assert(waited.calls.some(c => c.join(" ") === "git push --atomic -q origin main 0.6.15"));
 const lateFail = await run({ runs: [t("in_progress"), t("completed", "failure")] }); assert.strictEqual(lateFail.exit, 1); assert(!lateFail.writes.length);

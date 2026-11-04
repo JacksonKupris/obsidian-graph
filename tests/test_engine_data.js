@@ -28,6 +28,8 @@ const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSO
     check("every note in a topic is in one the data lists", notes.filter(n => n.cluster >= 0 && !data.clusters.some(c => c.id === n.cluster)).map(n => n.id), []);
     check("topics found", data.clusters.length > 0, true);
     check("links between notes", data.links.filter(l => l.kind === "link").length > 0, true);
+    check("tags without Obsidian's #", data.nodes.flatMap(n => n.tags || []).filter(t => String(t).startsWith("#")), []);
+    check("a note's tags carried as the rules read them", data.nodes.some(n => (n.tags || []).some(t => /^(type|status)\//.test(t))), true);
     // suggestions keyed by topics, against the analysis's on the same notes: co-mention pairs, the daily notes behind them, where they meet
     // (the sample's notes are written relative to today and the analysis's file on the day it was made, so dates are left out)
     { const undated = v => JSON.stringify(v || null).replace(/\d{4}-\d{2}-\d{2}|\d{4}\/\d{2}-[A-Za-z]+/g, "D"), pair = l => [l.source, l.target].sort().join("|"), mine = new Map(data.links.filter(l => l.kind === "gap").map(l => [pair(l), l])), theirs = py0 => py0.links.filter(l => l.kind === "gap"), want = theirs(env.data());

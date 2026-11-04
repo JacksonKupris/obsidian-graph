@@ -29,6 +29,8 @@ function frontmatter(text) {
   return fm;
 }
 
+// Obsidian's index gives a few frontmatter tags with the # on (9 of 5,847 on one vault): every tag here has it, the harder case
+const asIndexed = fm => (fm && Array.isArray(fm.tags) ? { ...fm, tags: fm.tags.map(t => `#${String(t).replace(/^#/, "")}`) } : fm);
 function fakeVault(dir, TFile, { skip = [".obsidian", ".trash", ".git"] } = {}) {
   const files = [];
   const walk = d => fs.readdirSync(d, { withFileTypes: true }).forEach(e => {
@@ -53,7 +55,7 @@ function fakeVault(dir, TFile, { skip = [".obsidian", ".trash", ".git"] } = {}) 
       bag[key] = (bag[key] || 0) + 1;
     }
   }
-  const caches = new Map(files.map(f => [f.path, { frontmatter: frontmatter(f.text), links: [...f.text.matchAll(/\[\[([^\]|]+)/g)].map(m => ({ link: m[1].trim() })), listItems: [...f.text.matchAll(/^\s*[-*] \[(.)\]/gm)].map(x => ({ task: x[1] })) }]));
+  const caches = new Map(files.map(f => [f.path, { frontmatter: asIndexed(frontmatter(f.text)), links: [...f.text.matchAll(/\[\[([^\]|]+)/g)].map(m => ({ link: m[1].trim() })), listItems: [...f.text.matchAll(/^\s*[-*] \[(.)\]/gm)].map(x => ({ task: x[1] })) }]));
   return {
     vault: { getMarkdownFiles: () => files, getAbstractFileByPath: p => byPath.get(p) || null, cachedRead: async f => f.text, getName: () => path.basename(dir),
       getConfig: () => undefined, on: () => ({}),

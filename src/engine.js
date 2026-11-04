@@ -342,7 +342,9 @@ const VGEngineMake = () => {
   }
   // a note's topic tags from its frontmatter, as the analysis reads them: lower case, without periodic ones
   const frontmatterTags = fm => { let t = fm && typeof fm === "object" ? fm.tags : null; if (typeof t === "string") t = [t]; if (!Array.isArray(t)) return [];
-    return [...new Set(t.filter(x => x).map(x => String(x).trim().toLowerCase()).filter(x => !x.endsWith("/standup") && x !== "daily"))]; };
+    return [...new Set(t.filter(x => x).map(x => String(x).trim().replace(/^#/, "").toLowerCase()).filter(x => !x.endsWith("/standup") && x !== "daily"))]; };   // Obsidian's index gives a few with the # on
+  // the tags the graph data carries: every status/ and type/ tag (the shared rules read them), plus up to six others
+  const nodeTags = tags => { const rule = sorted(tags.filter(t => t.startsWith("status/") || t.startsWith("type/"))), other = sorted(tags.filter(t => !rule.includes(t))); return [...rule, ...other.slice(0, 6)]; };
 
   // ---- topic names (vault_gaps._cluster_names, _readable_names, _stacks, _label, stable_cluster_ids)
   // Python counts characters by code point (slices, len); these helpers do the same
@@ -898,7 +900,7 @@ what when where which while who how why each other same see set use used using w
     stats.via = "here"; return JOBS[name](input);
   }
 
-  return { dayShift, codeDocs, gitArgs, snapshotOf, changesFrom, run, stats, topicsJob, notesJob, analyseJob, topicParts, closestPassages, timeline, rhythm, mapsOf, mentionPass, taskAges, datedSeries, followThrough, textTwins, similarPairs, byName, mostlyCode, pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
+  return { nodeTags, isAttachment: t => ATTACHMENT.test(t), dayShift, codeDocs, gitArgs, snapshotOf, changesFrom, run, stats, topicsJob, notesJob, analyseJob, topicParts, closestPassages, timeline, rhythm, mapsOf, mentionPass, taskAges, datedSeries, followThrough, textTwins, similarPairs, byName, mostlyCode, pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
     noteWords, topicWords, topicsOf, topicGraph, frontmatterTags, wantedNotes, sharedPairs, cleanTitle, readableNames, stacks, withStack, label, stableIds, titleCase };
 };
 const VGEngine = VGEngineMake();
