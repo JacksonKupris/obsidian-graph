@@ -953,8 +953,6 @@
 .vg-root .vg-ms-qacts { display: flex; gap: 6px; padding: 0 4px 4px 22px; }
 .vg-root .vg-ms-show.vg-more { min-width: 0; padding: 1px 8px; }
 
-  background: color-mix(in srgb, var(--vg-raised) 88%, transparent); border: 1px solid var(--vg-border); backdrop-filter: blur(8px); flex-direction: column; }
-  max-width: calc(100% - 20px); padding: 5px; border-radius: var(--ds-r-lg); background: color-mix(in srgb, var(--vg-raised) 90%, transparent); border: 1px solid var(--vg-border); backdrop-filter: blur(8px); }
 .vg-root .vg-sandel { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: var(--ds-r-sm); font-size: var(--vg-fs-xs); background: transparent; box-shadow: none; border: 1px solid transparent; color: var(--vg-fg); }
 .vg-root .vg-sandel[aria-pressed="true"] { border-color: var(--vg-accent); background: color-mix(in srgb, var(--vg-accent) 18%, transparent); }
 .vg-root .vg-sandel i { width: 10px; height: 10px; border-radius: var(--ds-r-2xs); border: 1px solid rgba(255,255,255,.25); }
