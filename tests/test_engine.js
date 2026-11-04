@@ -7,6 +7,17 @@ const fs = require("fs"), path = require("path");
 const E = new Function(`${fs.readFileSync(path.join(__dirname, "..", "src", "engine.js"), "utf8")}; return VGEngine;`)();
 const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want)) fails.push(`${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`); };
 
+// what changed since the last run, and code against notes
+{ const data = { date: "2026-11-03", nodes: [{ id: "a.md", recent: 2, cluster: 1, isolated: false }, { id: "b.md", recent: 0, cluster: -1, isolated: true }, { id: "p.md", person: true, recent: 1 }], clusters: [{ id: 1, name: "One" }], gaps: [{ a: 1, b: 2 }], links: [{ kind: "gap", source: "a.md", target: "c.md" }, { kind: "link", source: "c.md", target: "a.md" }] };
+  const cur = E.snapshotOf(data); check("a snapshot leaves people out", cur.notes, ["a.md", "b.md"]); check("a snapshot's recent notes", cur.recent, ["a.md"]);
+  check("the first run has nothing to compare", E.changesFrom(cur, null, data.links), { since: null });
+  const ch = E.changesFrom(cur, { date: "2026-11-01", notes: ["a.md", "old.md"], gaps: ["3|4"], recent: ["b.md"], suggested: ["a.md|c.md", "x|y"], clusters: { 9: "Gone" }, linked_notes: 3 }, data.links);
+  check("what changed", ch, { since: "2026-11-01", linked_delta: -2, new_notes: ["b.md"], new_clusters: ["One"], gone_clusters: ["Gone"], gaps_closed: ["3|4"], gaps_new: ["1|2"], acted: ["a.md|c.md"], quiet: ["b.md"], active: ["a.md"] });
+  const log = "@@2026-10-30\nsrc/AlertSidebar.jsx\nsrc/route.js\n\n@@2026-01-05\nsrc/AlertSidebar.jsx\nnode_modules/x.js\n\n@@2026-10-29\nsrc/AlertSidebar.jsx\n";
+  const c = E.codeDocs({ repos: [{ name: "app", log, files: "src/AlertSidebar.jsx\nsrc/route.js\n" }], docs: [{ rel: "n.md", text: "See AlertSidebar and src/route.js", edit: "2026-10-01" }, { rel: "Release Notes.md", text: "AlertSidebar", edit: "2026-01-01" }], today: "2026-11-03" });
+  check("repos with history", c.repos, ["app"]); check("files known", c.files, 2); check("a note behind its code", c.behind.map(b => [b[0], b[2]]), [["n.md", 3]]); check("a release note isn't behind", c.behind.some(b => b[0] === "Release Notes.md"), false);
+  check("an area of code", c.areas[0].slice(0, 3), ["app/src", 3, 4]); check("no git history: nothing to show", E.codeDocs({ repos: [{ name: "x", log: "", files: "" }], docs: [], today: "2026-11-03", roots: ["~/x"] }), { repos: [], roots: ["~/x"] }); }
+
 const r = E.pyRandom(7);
 check("random.Random(7).getrandbits(32) x3", [r.uint32(), r.uint32(), r.uint32()], [1390851128, 4071050724, 647892279]);
 check("random.Random(7).shuffle(range(10))", E.pyRandom(7).shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]), [8, 3, 1, 4, 7, 0, 9, 6, 2, 5]);

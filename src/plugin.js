@@ -782,7 +782,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
         try { this.base = JSON.parse(await this.app.vault.adapter.read(normalizePath(this.settings.dataPath))); }
         catch (e) {   // no analysis file: the engine builds the data from Obsidian's index (and the analysis runs too, where there is one)
           this.base = null;
-          if (await this.hasAnalysis()) { if (!this.refreshing) this.refresh(true); }
+          if (Platform.isDesktopApp && VGRules.engineWritesFile()) { if (!this.refreshing) this.refresh(true); }
+          else if (await this.hasAnalysis()) { if (!this.refreshing) this.refresh(true); }
           try { this.base = await this.engineData(); } catch (err) { console.error("Vault Graph: the engine didn't run", err); }
         }
       }
@@ -891,6 +892,15 @@ module.exports = class VaultGraphPlugin extends Plugin {
 
   async refresh(quiet = false) {
     if (this.refreshing) { this.queued = true; return; }
+    if (Platform.isDesktopApp && VGRules.engineWritesFile()) {
+      this.refreshing = true; this.updateStatus();
+      if (!quiet) new Notice("Vault Graph: analysing the vault…");
+      try { const kept = await this.writeGraphFile(); if (!quiet) new Notice(kept ? `Vault Graph: kept the analysis from ${kept}, built from newer notes` : "Vault Graph refreshed"); }
+      catch (e) { console.error("Vault Graph: the analysis didn't run", e); new Notice(`Vault Graph refresh failed: ${e.message}`, 10000); this.refreshing = false; this.updateStatus(); return; }
+      this.refreshing = false; if (this.queued) { this.queued = false; this.scheduleAutoRefresh(); }   // edits made while it ran
+      this.base = null; this.cache = null; this.reloadSoon(); setTimeout(() => this.updateStatus(), 1000);
+      return;
+    }
     if (!(await this.hasAnalysis())) {   // no Python analysis in this vault: the engine finds the topics again
       this.base = null; this.cache = null; this.reloadSoon();
       return;
@@ -1562,8 +1572,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // The graph data when this vault has no analysis file (no Python, a phone, a new vault): the engine's topics and
   // influence over Obsidian's index, in the analysis's shape; liveMerge adds the live fields over it as it does over the
   // analysis's. Topic ids carry on from the last engine run (kept in the plugin's settings).
-  async engineData() {
-    const G = await this.engineGather(), N = await this.engineNotes(G, { topics: true, prev: this.settings.engineTopics }), E = { ...N.T, notes: G.T.knowledge, graph: G.T.graph, raw: G.raw, tags: G.tags };
+  async engineData(gathered) {
+    const G = gathered || await this.engineGather(), N = await this.engineNotes(G, { topics: true, prev: this.settings.engineTopics }), E = { ...N.T, notes: G.T.knowledge, graph: G.T.graph, raw: G.raw, tags: G.tags };
     this.settings.engineTopics = Object.fromEntries(E.topics.map(t => [t.id, t.members])); await this.saveSettings();
     const at = new Map(), unresolved = this.app.metadataCache.unresolvedLinks || {};
     E.topics.forEach(t => t.members.forEach(r => at.set(r, t.id)));
@@ -1587,7 +1597,58 @@ module.exports = class VaultGraphPlugin extends Plugin {
     out.nodes.forEach(n => { if (n.person || n.moc || CONTENT.log[n.id]) return; const f = this.app.vault.getAbstractFileByPath(n.id), fm = (f instanceof TFile && (this.app.metadataCache.getFileCache(f) || {}).frontmatter) || {};
       const dates = ["modified", "updated", "date modified", "reviewed"].map(k => String(fm[k] || "").slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
       n.edited = [n.born, ...dates, ...(N.mentionDays[n.id] || [])].filter(d => d && d <= out.date).sort().pop() || n.edited; n.age = daysSince(n.edited); });
+    // links between graph notes, the count liveMerge makes; references; a note's last edit from the content log
+    { const ids = new Set(out.nodes.filter(n => !n.person && !n.moc).map(n => n.id)), inl = new Map(), mc = this.app.metadataCache;
+      for (const r of ids) for (const t of G.links[r] || []) if (ids.has(t)) inl.set(t, (inl.get(t) || 0) + 1);
+      out.nodes.forEach(n => { if (n.person || n.moc) return; n.inlinks = inl.get(n.id) || 0; n.outlinks = (G.links[n.id] || []).filter(t => ids.has(t)).length;
+        const f = this.app.vault.getAbstractFileByPath(n.id), fm = (f instanceof TFile && (mc.getFileCache(f) || {}).frontmatter) || {}; n.refs = !!(fm.references && [].concat(fm.references).length);
+        const e = CONTENT.log[n.id], rv = /^\d{4}-\d{2}-\d{2}/.test(String(fm.reviewed || "")) ? String(fm.reviewed).slice(0, 10) : ""; if (e) { n.edited = [e.since, rv].filter(Boolean).sort().pop(); n.age = daysSince(n.edited); } }); }
+    out.since = VGEngine.dayShift(out.date, 365); out.dailies_used = N.used;
     return out;
+  }
+  // Notes changed while this device wasn't watching (another device, a script): the file's date is the best guess. New notes get
+  // what the notes themselves say; bulk touches don't change the fingerprint, so they don't count. (vault_graph.content_dates)
+  reconcileContent(G, data) {
+    const seen = new Set(); let changed = false;
+    for (const n of data.nodes) { if (n.person || n.moc || !(n.id in G.raw)) continue; seen.add(n.id); const h = fingerprint(G.raw[n.id]), e = CONTENT.log[n.id];
+      if (e && e.h === h) continue;
+      const f = this.app.vault.getAbstractFileByPath(n.id); CONTENT.log[n.id] = { h, since: e ? [VGRules.localDay(new Date(f.stat.mtime)), data.date].sort()[0] : n.edited }; changed = true; }
+    for (const p of Object.keys(CONTENT.log)) if (!seen.has(p) && !this.app.vault.getAbstractFileByPath(p)) { delete CONTENT.log[p]; changed = true; }
+    if (changed) this.saveContentSoon();
+  }
+  // Which of the code roots' folders are git repositories, and what git says: desktop only, and nothing without git
+  async engineCode(G, today) {
+    const roots = [].concat(VGRules.RULES.code_roots || []); let fs, path, os, execFile;
+    try { fs = require("fs"); path = require("path"); os = require("os"); ({ execFile } = require("child_process")); } catch (e) { return { repos: [], roots }; }
+    const git = (cwd, args) => new Promise(ok => execFile("git", ["-C", cwd, ...args], { timeout: 120000, maxBuffer: 2e8 }, (err, out) => ok(err ? "" : out)));
+    const dirs = []; for (const r of roots) { const dir = r.replace(/^~(?=$|[\\/])/, os.homedir()); let names = []; try { names = fs.readdirSync(dir); } catch (e) { continue; } names.forEach(n => { if (fs.existsSync(path.join(dir, n, ".git"))) dirs.push(path.join(dir, n)); }); }
+    const A = VGEngine.gitArgs(today), repos = [];
+    for (const d of dirs.sort()) repos.push({ name: path.basename(d), log: await git(d, A.log), files: await git(d, A.files) });
+    if (!repos.some(r => r.log.includes("@@"))) return { repos: [], roots };
+    const F = VGRules.folders, skip = [F.scripts, F.templates, F.daily].filter(Boolean).map(x => x + "/"), docs = [];
+    for (const f of this.app.vault.getMarkdownFiles()) { if (skip.some(s => f.path.startsWith(s))) continue; docs.push({ rel: f.path, text: await this.app.vault.cachedRead(f), edit: VGRules.localDay(new Date(f.stat.mtime)) }); }
+    return VGEngine.run("codeDocs", { repos, docs, today, roots });
+  }
+  // The graph data every device reads, written by this desktop. Not over what another PC built from newer notes: until its
+  // edits sync here, this run would bring back suggestions already acted on. Returns that PC's name when it kept theirs.
+  async writeGraphFile() {
+    const A = this.app.vault.adapter, file = normalizePath(this.settings.dataPath), dir = file.slice(0, file.lastIndexOf("/")), snaps = `${dir}/snapshots`, readJson = async p => { try { return JSON.parse(await A.read(p)); } catch (e) { return null; } };
+    const old = await readJson(file), G = await this.engineGather(), data = await this.engineData(G); delete data.engine;
+    const host = require("os").hostname(), newest = Math.max(0, ...this.app.vault.getMarkdownFiles().map(f => f.stat.mtime)) / 1000;
+    const known = new Map(), names = {}; ((old && old.nodes) || []).forEach(n => { const b = n.id.split("/").pop(); names[b] = (names[b] || 0) + 1; });
+    ((old && old.nodes) || []).forEach(n => { if (n.born) { known.set(n.id, n.born); const b = n.id.split("/").pop(); if (names[b] === 1) known.set(b, n.born); } });
+    data.nodes.forEach(n => { if (n.person || n.moc) return; const was = [known.get(n.id), known.get(n.id.split("/").pop())].filter(Boolean); if (n.born || was.length) n.born = [n.born, ...was].filter(Boolean).sort()[0]; });   // what an earlier run, on any PC, found
+    this.reconcileContent(G, data);
+    data.code = await this.engineCode(G, data.date);
+    if (!await A.exists(snaps)) await A.mkdir(snaps);
+    const cur = VGEngine.snapshotOf(data), list = ((await A.list(snaps)).files || []).map(f => f.split("/").pop()).filter(f => f.endsWith(".json")).map(f => f.slice(0, -5)).sort(), earlier = list.filter(d => d < data.date).pop();
+    await A.write(`${snaps}/${data.date}.json`, JSON.stringify(cur));
+    data.snapshots = [...new Set([...list, data.date])].sort(); data.changes = VGEngine.changesFrom(cur, earlier ? await readJson(`${snaps}/${earlier}.json`) : null, data.links);
+    data.built = { host, newest: Math.round(newest * 1000) / 1000 };
+    if (old && old.built && old.built.host && old.built.host !== host && (old.built.newest || 0) > data.built.newest) return old.built.host;
+    const text = JSON.stringify(data); let before = null; try { before = await A.read(file); } catch (e) { /* first run */ }
+    if (before !== text) await A.write(file, text);
+    return null;
   }
   // What notes and daily notes say, apart from topics (VGEngine.notesJob), in the graph data's words. A desktop with the
   // analysis takes the parts the rules file's engine_owns lists (VGRules.applyEngineNotes); the rest stay the analysis's.

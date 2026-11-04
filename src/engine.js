@@ -822,6 +822,64 @@ what when where which while who how why each other same see set use used using w
     return { T, N, parts: topicParts({ ...input, T, N, graph: input.adj }) };
   }
 
+  // ---- code and notes (vault_graph.code_docs): git history, file paths and dates only, against the files and components
+  // notes mention. repos: [{ name, log, files }] from git (gitArgs); docs: [{ rel, text, edit }]. No git, no repos: the view isn't offered.
+  const CODE_DAYS = 365, CODE_EXT = "(?:jsx?|tsx?|py|java|sql|sh|cjs|mjs|css)", CODE_FILE = new RegExp(`\\.${CODE_EXT}$`);
+  const SKIP_CODE = /(^|\/)(node_modules|\.next|dist|build|__pycache__|coverage|\.git)\/|package-lock\.json$|\.min\.js$/;
+  const POINT_IN_TIME = /Release[- ]Notes|Scopes? of Work|Retrospective|Standup|Show and Tell|\d{4}-\d{2}-\d{2}/i;
+  const dayShift = (today, n) => new Date(Date.parse(`${today}T12:00:00Z`) - n * 864e5).toISOString().slice(0, 10);
+  const gitArgs = today => ({ log: ["log", `--since=${dayShift(today, CODE_DAYS)}`, "--no-merges", "--name-only", "--format=@@%ad", "--date=short"], files: ["ls-files"] });
+  function codeDocs({ repos: given, docs, today, roots }) {
+    const d90 = dayShift(today, 90), repos = [], touches = new Map(), tracked = new Set();
+    for (const r of given) { if (!r.log.includes("@@")) continue; repos.push(r.name); let day = null;
+      for (const line of r.log.split("\n")) { if (line.startsWith("@@")) day = line.slice(2).trim();
+        else if (line.trim() && day && CODE_FILE.test(line) && !SKIP_CODE.test(line)) { const k = `${r.name}/${line.trim()}`; if (!touches.has(k)) touches.set(k, []); touches.get(k).push(day); } }
+      for (const f of r.files.split("\n")) if (CODE_FILE.test(f) && !SKIP_CODE.test(f)) tracked.add(`${r.name}/${f}`); }
+    if (!repos.length) return { repos: [], roots: roots || [] };
+    const files = new Set([...tracked, ...touches.keys()]), byBase = new Map(), byStem = new Map();
+    for (const f of files) { const base = f.split("/").pop(), low = base.toLowerCase(); if (!byBase.has(low)) byBase.set(low, []); byBase.get(low).push(f);
+      const st = base.slice(0, base.lastIndexOf(".")); if (/^[A-Z][a-z]+(?:[A-Z][a-z0-9]+)+$/.test(st) && st.length >= 8) { if (!byStem.has(st)) byStem.set(st, []); byStem.get(st).push(f); } }
+    const lowFiles = [...files].map(f => [f, f.toLowerCase()]);
+    const resolve = mention => { const m = stripChars(mention, [..."`'\"()[],.:;"]).replace(/\\/g, "/");
+      if (m.includes("/")) { const suf = "/" + m.replace(/^[./]+/, "").toLowerCase(), hits = lowFiles.filter(([, l]) => l.endsWith(suf)).map(([f]) => f); return hits.length > 0 && hits.length <= 3 ? hits : []; }
+      const hits = byBase.get(m.toLowerCase()) || []; return hits.length === 1 ? hits : []; };
+    const pathRe = new RegExp(`(?<![\\p{L}\\p{N}\\p{M}_/])((?:[\\p{L}\\p{N}\\p{M}_.\\[\\]@-]+/)*[\\p{L}\\p{N}\\p{M}_.\\[\\]@-]+\\.${CODE_EXT})(?![\\p{L}\\p{N}\\p{M}_])`, "gu"), compRe = /\b([A-Z][a-z]+(?:[A-Z][a-z0-9]+)+)\b/g;
+    const docFiles = {}, docEdit = {};
+    for (const { rel, text, edit } of docs) { const hit = new Set();
+      for (const m of text.matchAll(pathRe)) resolve(m[1]).forEach(f => hit.add(f));
+      for (const c of new Set([...text.matchAll(compRe)].map(m => m[1]))) if ((byStem.get(c) || []).length === 1) hit.add(byStem.get(c)[0]);
+      if (hit.size) { docFiles[rel] = sorted(hit); docEdit[rel] = edit; } }
+    const docsOf = new Map(); for (const [rel, fs] of Object.entries(docFiles)) for (const f of fs) { if (!docsOf.has(f)) docsOf.set(f, []); docsOf.get(f).push(rel); }
+    const dirOf = f => f.slice(0, f.lastIndexOf("/")), areas = new Map();
+    for (const [f, days] of touches) { const k = dirOf(f); if (!areas.has(k)) areas.set(k, { c90: 0, c365: 0, last: "", files: new Set(), docs: new Set() }); const a = areas.get(k);
+      a.c365 += days.length; a.c90 += days.filter(x => x >= d90).length; a.last = [a.last, ...days].sort(pyCmp).pop(); a.files.add(f); }
+    for (const [f, rels] of docsOf) if (areas.has(dirOf(f))) rels.forEach(r => areas.get(dirOf(f)).docs.add(r));
+    const stable = (list, cmp) => list.map((x, i) => [x, i]).sort((a, b) => cmp(a[0], b[0]) || a[1] - b[1]).map(x => x[0]);
+    const areaOut = stable([...areas].filter(([, a]) => a.c365 >= 3).map(([k, a]) => [k, a.c90, a.c365, a.last, a.files.size, sorted(a.docs)]), (x, y) => y[1] - x[1] || y[2] - x[2]).slice(0, 80);
+    const behind = [];
+    for (const [rel, fs] of Object.entries(docFiles)) { if (POINT_IN_TIME.test(rel)) continue;
+      const rows = stable(fs.map(f => { const t = touches.get(f) || []; return [f, t.filter(x => x > docEdit[rel]).length, [...t, ""].sort(pyCmp).pop()]; }).filter(r => r[1]), (x, y) => y[1] - x[1]);
+      if (rows.length) behind.push([rel, docEdit[rel], rows.reduce((s, r) => s + r[1], 0), rows.slice(0, 8)]); }
+    const hot = stable([...touches].map(([f, d]) => [f, d.length, d.filter(x => x >= d90).length, [...d].sort(pyCmp).pop(), docsOf.get(f) || []]), (x, y) => y[2] - x[2] || y[1] - x[1]).slice(0, 60);
+    return { repos, days: CODE_DAYS, areas: areaOut, behind: stable(behind, (x, y) => y[2] - x[2]).slice(0, 60), hot, docs: Object.keys(docFiles).length, files: files.size };
+  }
+  // ---- what changed since the last run (vault_graph.snapshot_and_changes)
+  function snapshotOf(data) {
+    const nodes = data.nodes.filter(n => !n.ghost && !n.person), ids = sorted(nodes.map(n => n.id));
+    return { date: data.date, clusters: Object.fromEntries(data.clusters.map(c => [String(c.id), c.name])), gaps: sorted(data.gaps.map(g => `${g.a}|${g.b}`)),
+      suggested: sorted(data.links.filter(l => l.kind === "gap" || l.kind === "similar").map(l => `${l.source}|${l.target}`)), recent: sorted(nodes.filter(n => n.recent > 0).map(n => n.id)), notes: ids,
+      linked_notes: nodes.filter(n => !n.isolated).length, cluster_of: Object.fromEntries(nodes.filter(n => n.cluster >= 0).map(n => [n.id, n.cluster])) };
+  }
+  function changesFrom(cur, prev, links) {
+    if (!prev) return { since: null };
+    const linked = new Set(links.filter(l => l.kind === "link").map(l => [l.source, l.target].sort(pyCmp).join("|"))), P = k => new Set(prev[k] || []), minus = (a, b) => sorted([...a].filter(x => !b.has(x)));
+    const cg = new Set(cur.gaps), cr = new Set(cur.recent), cn = new Set(cur.notes);
+    return { since: prev.date, linked_delta: cur.linked_notes - (prev.linked_notes ?? cur.linked_notes), new_notes: minus(cn, P("notes")).slice(0, 30),
+      new_clusters: Object.keys(cur.clusters).filter(k => !(k in (prev.clusters || {}))).map(k => cur.clusters[k]), gone_clusters: Object.entries(prev.clusters || {}).filter(([k]) => !(k in cur.clusters)).map(([, v]) => v),
+      gaps_closed: minus(P("gaps"), cg), gaps_new: minus(cg, P("gaps")), acted: [...P("suggested")].filter(p => linked.has(p.split("|").sort(pyCmp).join("|"))).slice(0, 30),
+      quiet: minus(P("recent"), cr).slice(0, 20), active: minus(cr, P("recent")).slice(0, 20) };
+  }
+
   // A job in a worker, so the app stays free while it runs (seconds on a big vault; a phone is slower). If a worker can't
   // start, it runs here. stats.via says which, so a test can tell. The worker gets this whole engine from its own source.
   const stats = { via: null };
@@ -833,14 +891,14 @@ what when where which while who how why each other same see set use used using w
       w.postMessage({ name, input });
     });
   }
-  const JOBS = { topicsJob, notesJob, analyseJob };
+  const JOBS = { topicsJob, notesJob, analyseJob, codeDocs };
   async function run(name, input) {
     if (typeof Worker === "function" && typeof Blob === "function" && typeof URL === "function" && URL.createObjectURL) {
       try { const r = await inWorker(name, input); stats.via = "worker"; return r; } catch (e) { console.warn(`Vault Graph: ${name} is running on the main thread:`, e.message); } }
     stats.via = "here"; return JOBS[name](input);
   }
 
-  return { run, stats, topicsJob, notesJob, analyseJob, topicParts, closestPassages, timeline, rhythm, mapsOf, mentionPass, taskAges, datedSeries, followThrough, textTwins, similarPairs, byName, mostlyCode, pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
+  return { dayShift, codeDocs, gitArgs, snapshotOf, changesFrom, run, stats, topicsJob, notesJob, analyseJob, topicParts, closestPassages, timeline, rhythm, mapsOf, mentionPass, taskAges, datedSeries, followThrough, textTwins, similarPairs, byName, mostlyCode, pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
     noteWords, topicWords, topicsOf, topicGraph, frontmatterTags, wantedNotes, sharedPairs, cleanTitle, readableNames, stacks, withStack, label, stableIds, titleCase };
 };
 const VGEngine = VGEngineMake();
