@@ -80,7 +80,7 @@
       if (d < SV_ME_R + 6) { SV.xp += g.value; g.tags.forEach(t => SV.tags.set(t, (SV.tags.get(t) || 0) + 1)); SV.gems.splice(i, 1); } }
     if (SV.xp >= SV.need) { SV.xp -= SV.need; SV.level++; SV.need = Math.round(SV.need * 1.32) + 2; SV.choices = svChoices(); SV.state = "choose"; SV.keys.clear(); SV.stick = null; }
   }
-  const svClock = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  const svClock = s => `${Math.floor(s / 60)}:${VGShared.pad2(Math.floor(s % 60))}`;
   function svButton(x, y, w, h, label, run, font, primary, sub) {
     ctx.fillStyle = primary ? "#f1b88a" : "#2a2522"; ctx.beginPath(); ctx.roundRect(x, y, w, h, 10); ctx.fill();
     ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = primary ? "#2b1a0e" : "#f4efe9"; ctx.font = `600 14px ${font}`; ctx.fillText(label, x + w / 2, y + (sub ? h / 2 - 9 : h / 2 + 1));

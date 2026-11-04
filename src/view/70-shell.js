@@ -100,7 +100,7 @@
       const at = palItems.length, none = list.querySelector(".vg-empty"); if (none) none.remove();
       hits.forEach(h => palItems.push({ kind: "recall", h }));
       // the hits, then the notes related to them (similar meaning, or linked to the top hit) under their own heading
-      const row = (h, k) => `<div class="vg-pitem vg-recall" role="option" data-i="${at + k}">${icon(h.kind === "code" ? "code" : h.kind === "related" ? "link" : "file", 14)}<span class="vg-item-main"><b>${esc(h.path.split("/").pop().replace(/\.md$/, ""))}${h.heading ? ` <span class="vg-muted">§ ${esc(h.heading)}</span>` : ""}</b>`
+      const row = (h, k) => `<div class="vg-pitem vg-recall" role="option" data-i="${at + k}">${icon(h.kind === "code" ? "code" : h.kind === "related" ? "link" : "file", 14)}<span class="vg-item-main"><b>${esc(VGShared.nameOf(h.path))}${h.heading ? ` <span class="vg-muted">§ ${esc(h.heading)}</span>` : ""}</b>`
         + `<span class="vg-item-sub">${esc(h.why.join(" · "))}${h.lang ? " · " + esc(h.lang) : ""}${h.date ? " · " + esc(h.date) : ""}${h.kind === "related" ? "" : " · line " + h.line}</span>${h.snippet ? `<pre class="vg-recall-snip">${esc(h.snippet)}</pre>` : ""}</span></div>`;
       const firstRel = hits.findIndex(h => h.kind === "related");
       list.insertAdjacentHTML("beforeend", `<div class="vg-list-h">In your notes</div>` + hits.map((h, k) => (k === firstRel ? `<div class="vg-list-h">Related</div>` : "") + row(h, k)).join(""));

@@ -22,8 +22,8 @@ function mountVaultHQ(root, data, opts) {
     compactProjects = false, drawer = null, focusDrawerOnRender = false, carriedAll = false, clockTimer = null;
   const now = () => opts.now || new Date(), day = () => VGRules.localDay(now());
   const esc = VGShared.escapeHtml;
-  const plural = (n, w, ws) => `${n} ${n === 1 ? w : ws || w + "s"}`;
-  const nameOf = p => VGActions.nameOf(p);
+  const plural = VGShared.plural;
+  const nameOf = VGShared.nameOf;
 
   // ---- the one list, and what each screen takes from it
   let LIST = [], BY_KEY = new Map();
@@ -106,7 +106,7 @@ function mountVaultHQ(root, data, opts) {
   function chooseFolder(it) {
     const counts = new Map(); (DATA.nodes || []).forEach(n => { const parts = String(n.folder || "").split("/"); [1, 2, 3].forEach(d => { if (parts.length >= d && parts[0]) { const f = parts.slice(0, d).join("/"); counts.set(f, (counts.get(f) || 0) + 1); } }); });
     const inbox = VGRules.folders.inbox, all = [...counts].filter(([f]) => !f.startsWith(inbox) && !f.startsWith(VGRules.folders.archive) && !f.startsWith("_") && f.includes("/")).sort((a, b) => b[1] - a[1]).map(([f]) => f);
-    const title = it.title.toLowerCase(), ranked = all.slice().sort((a, b) => (title.includes(b.split("/").pop().toLowerCase().split(" ")[0]) ? 1 : 0) - (title.includes(a.split("/").pop().toLowerCase().split(" ")[0]) ? 1 : 0));
+    const title = it.title.toLowerCase(), ranked = all.slice().sort((a, b) => (title.includes(VGShared.baseOf(b).toLowerCase().split(" ")[0]) ? 1 : 0) - (title.includes(VGShared.baseOf(a).toLowerCase().split(" ")[0]) ? 1 : 0));
     return chooseFrom(`File “${it.title}”`, "Filter folders", "No folder matches.", ranked.map(f => ({ value: f, label: f })));
   }
   // a short list with a filter on top: Enter takes the first one showing. Resolves the option's value, or null.

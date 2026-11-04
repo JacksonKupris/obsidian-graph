@@ -26,7 +26,7 @@
     const c = DATA.changes || {};
     if (!c.since) return card("Since last run", "", `<div class="vg-empty">First snapshot saved today.</div>`);
     const line = (n, text) => n ? `<li><b>${n}</b> ${text}</li>` : "";
-    const pairName = p => p.split("|").map(id => byId[id] ? byId[id].name : id.split("/").pop().replace(/\.md$/, "")).join(" ↔ ");
+    const pairName = p => p.split("|").map(id => byId[id] ? byId[id].name : VGShared.nameOf(id)).join(" ↔ ");
     const body = `<ul class="vg-changes">
       ${c.linked_delta ? `<li><b>${c.linked_delta > 0 ? "+" : ""}${c.linked_delta}</b> linked notes</li>` : ""}
       ${line((c.acted || []).length, "suggestions acted on")}${line((c.gaps_closed || []).length, "gaps closed")}${line((c.gaps_new || []).length, "new gaps")}
@@ -461,7 +461,7 @@
     const acts = opts.linkNotes ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-link="${esc(o)}" title="Add to this note's Related section">${icon("link", 13)} Link</button>` +
       `<button class="vg-btn vg-btn-sm vg-btn-ghost" data-dismiss="${esc(o)}" title="Never suggest this pair again">Dismiss</button></span>` : "";
     const ev = (l.ev || []).map(([day, path, line]) => `<button class="vg-ev" data-open="${esc(path)}" title="Open ${esc(path)}">` +
-      `<span class="vg-ev-day">${esc(day)}</span><span class="vg-ev-line">${line ? "“" + esc(line) + "”" : esc(path.split("/").pop().replace(/\.md$/, ""))}</span></button>`).join("");
+      `<span class="vg-ev-day">${esc(day)}</span><span class="vg-ev-line">${line ? "“" + esc(line) + "”" : esc(VGShared.nameOf(path))}</span></button>`).join("");
     const mine = l.s.id === id ? l.pa : l.pb, theirs = l.s.id === id ? l.pb : l.pa;
     const pas = mine && theirs ? `<div class="vg-pass"><div><span class="vg-ev-day">${esc(byId[id].name)}${mine[0] ? " § " + esc(mine[0]) : ""}</span><span class="vg-ev-line">${esc(mine[1])}</span></div>` +
       `<div><span class="vg-ev-day">${esc(byId[o].name)}${theirs[0] ? " § " + esc(theirs[0]) : ""}</span><span class="vg-ev-line">${esc(theirs[1])}</span></div></div>` : "";
@@ -631,7 +631,7 @@
   const MARK = "%% vault-graph:generated — edit above this line; everything below is regenerated %%";
   const membersOf = c => topicNotes(c).sort(byInfluence);
   async function write(path, md, mode, what) {
-    try { const p = await opts.writeNote(path, md, { mode, open: true }); toast(`${what}: ${(p || path).split("/").pop()}`, "ok"); logDiscovery(`${what}: ${(p || path).split("/").pop().replace(/\.md$/, "")}`); }
+    try { const p = await opts.writeNote(path, md, { mode, open: true }); toast(`${what}: ${VGShared.baseOf(p || path)}`, "ok"); logDiscovery(`${what}: ${VGShared.nameOf(p || path)}`); }
     catch (e) { toast(`Couldn't write the ${what.toLowerCase()}`, "warn"); }
   }
   function writeHub(c) {
@@ -683,7 +683,7 @@
     if (!blob) { toast("Couldn't capture the image", "warn"); return; }
     const name = `Vault Graph ${today()} ${new Date().toTimeString().slice(0, 5).replace(":", "")}.png`;
     if (opts.saveBinary) {
-      try { const p = await opts.saveBinary(`${VGRules.folders.attachments}/${name}`, await blob.arrayBuffer()); toast(`Saved ${(p || name).split("/").pop()}`, "ok"); } catch (e) { toast("Couldn't save the image", "warn"); }
+      try { const p = await opts.saveBinary(`${VGRules.folders.attachments}/${name}`, await blob.arrayBuffer()); toast(`Saved ${VGShared.baseOf(p || name)}`, "ok"); } catch (e) { toast("Couldn't save the image", "warn"); }
     } else {
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     }

@@ -203,7 +203,7 @@ class VaultGraphLocalView extends ItemView {
       const f = this.app.vault.getAbstractFileByPath(id);
       const n = { id, name: f.basename, cluster: -1, bc: 0, folder: f.parent ? f.parent.path : "", mentions: 0, recent: 0,
         inlinks: 0, outlinks: 0, broken: 0, tasks: 0, words: 0,
-        age: Math.max(0, Math.round((Date.now() - f.stat.mtime) / 864e5)), refs: true, isolated: false, live: true };
+        age: Math.max(0, Math.round((Date.now() - f.stat.mtime) / VGShared.DAY_MS)), refs: true, isolated: false, live: true };
       data.nodes.push(n); byId.set(id, n);
       return n;
     };
@@ -391,7 +391,7 @@ class VaultGraphSuggestView extends ItemView {
             }
             ts.slice(0, 20).forEach(tk => {
               const row = box.createDiv({ cls: "vg-s-task" }), lab = row.createEl("label"), cb = lab.createEl("input", { type: "checkbox", attr: { title: "Complete" } });
-              lab.createSpan({ text: tk.text.replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1") });
+              lab.createSpan({ text: VGShared.plainLinks(tk.text) });
               cb.onchange = () => this.act("Check off", () => this.plugin.setTaskStatus(n.id, tk.line, tk.text, "x"), `Checked off “${tk.text.slice(0, 60)}” in ${n.name}`);
               row.createEl("button", { text: "Cancel", cls: "vg-s-task-cancel", attr: { title: "Cancel this task" } }).onclick = () =>
                 this.act("Cancel task", () => this.plugin.setTaskStatus(n.id, tk.line, tk.text, "-"), `Cancelled “${tk.text.slice(0, 60)}” in ${n.name}`);
@@ -1024,7 +1024,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     } else {
       // create: wikilinks resolve by name, so a second "Name 2" note would split links. If a note with this
       // name exists anywhere, regenerate it when Vault Graph wrote it (marker), otherwise just open it.
-      const name = path.split("/").pop().replace(/\.md$/, "");
+      const name = VGShared.nameOf(path);
       const existing = file instanceof TFile ? file : this.app.metadataCache.getFirstLinkpathDest(name, "");
       if (existing instanceof TFile) {
         // the part from the marker down is regenerated inside one read-and-write (vault.process), so text typed into
@@ -1316,7 +1316,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // dashboard, a duplicate in another folder) never takes the link -- that left suggestions that never cleared
   linkText(id, fromPath) {
     const f = this.app.vault.getAbstractFileByPath(normalizePath(id));
-    if (!(f instanceof TFile)) return `[[${String(id).split("/").pop().replace(/\.md$/i, "")}]]`;
+    if (!(f instanceof TFile)) return `[[${VGShared.nameOf(id)}]]`;
     return `[[${this.app.metadataCache.fileToLinktext(f, typeof fromPath === "string" ? fromPath : "", true)}]]`;
   }
 
@@ -1549,10 +1549,10 @@ module.exports = class VaultGraphPlugin extends Plugin {
     this.settings.engineTopics = Object.fromEntries(E.topics.map(t => [t.id, t.members])); await this.saveSettings();
     const at = new Map(), unresolved = this.app.metadataCache.unresolvedLinks || {};
     E.topics.forEach(t => t.members.forEach(r => at.set(r, t.id)));
-    const words = r => ((E.raw[r] || "").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "").match(/[A-Za-z0-9]+/g) || []).length;
+    const words = r => (VGShared.stripFrontmatter(E.raw[r] || "").match(/[A-Za-z0-9]+/g) || []).length;
     const day = t => VGRules.localDay(new Date(t));
     const nodes = E.notes.map(r => { const f = this.app.vault.getAbstractFileByPath(r), st = f instanceof TFile ? f.stat : { ctime: Date.now(), mtime: Date.now() };
-      return { id: r, name: f instanceof TFile ? f.basename : r.split("/").pop().replace(/\.md$/i, ""), cluster: at.has(r) ? at.get(r) : -1, bc: Math.round((E.bc[r] || 0) * 1e5) / 1e5,
+      return { id: r, name: f instanceof TFile ? f.basename : VGShared.nameOf(r), cluster: at.has(r) ? at.get(r) : -1, bc: Math.round((E.bc[r] || 0) * 1e5) / 1e5,
         folder: r.includes("/") ? r.slice(0, r.lastIndexOf("/")) : "", mentions: 0, recent: 0, inlinks: 0, outlinks: 0,
         broken: Object.keys(unresolved[r] || {}).filter(t => !VGEngine.isAttachment(t)).length, tasks: 0, words: words(r), age: 0, refs: false, isolated: !E.graph[r], tags: VGEngine.nodeTags(E.tags[r] || []),
         born: VGRules.bornDate(f instanceof TFile ? f.basename : r, f instanceof TFile && this.app.metadataCache.getFileCache ? ((this.app.metadataCache.getFileCache(f) || {}).frontmatter || {}).created : null, day(st.ctime)), edited: day(st.mtime) }; });
@@ -1606,15 +1606,15 @@ module.exports = class VaultGraphPlugin extends Plugin {
   async writeGraphFile() {
     const A = this.app.vault.adapter, file = normalizePath(this.settings.dataPath), dir = file.slice(0, file.lastIndexOf("/")), snaps = `${dir}/snapshots`, mkdirs = async p => { const parts = p.split("/"); for (let i = 1; i <= parts.length; i++) { const d = parts.slice(0, i).join("/"); if (d && !await A.exists(d)) await A.mkdir(d); } }, readJson = async p => { try { return JSON.parse(await A.read(p)); } catch (e) { return null; } };
     const old = await readJson(file), G = await this.engineGather(), known = new Map(), names = {};
-    ((old && old.nodes) || []).forEach(n => { const b = n.id.split("/").pop(); names[b] = (names[b] || 0) + 1; });
-    ((old && old.nodes) || []).forEach(n => { if (n.born) { known.set(n.id, n.born); const b = n.id.split("/").pop(); if (names[b] === 1) known.set(b, n.born); } });
+    ((old && old.nodes) || []).forEach(n => { const b = VGShared.baseOf(n.id); names[b] = (names[b] || 0) + 1; });
+    ((old && old.nodes) || []).forEach(n => { if (n.born) { known.set(n.id, n.born); const b = VGShared.baseOf(n.id); if (names[b] === 1) known.set(b, n.born); } });
     const data = await this.engineData(G, known); delete data.engine;
     const host = require("os").hostname(), newest = Math.max(0, ...this.app.vault.getMarkdownFiles().map(f => f.stat.mtime)) / 1000;
-    data.nodes.forEach(n => { if (n.person || n.moc) return; const was = [known.get(n.id), known.get(n.id.split("/").pop())].filter(Boolean); if (n.born || was.length) n.born = [n.born, ...was].filter(Boolean).sort()[0]; });   // what an earlier run, on any PC, found
+    data.nodes.forEach(n => { if (n.person || n.moc) return; const was = [known.get(n.id), known.get(VGShared.baseOf(n.id))].filter(Boolean); if (n.born || was.length) n.born = [n.born, ...was].filter(Boolean).sort()[0]; });   // what an earlier run, on any PC, found
     this.reconcileContent(G, data);
     data.code = await this.engineCode(G, data.date);
     await mkdirs(snaps);
-    const cur = VGEngine.snapshotOf(data), list = ((await A.list(snaps)).files || []).map(f => f.split("/").pop()).filter(f => f.endsWith(".json")).map(f => f.slice(0, -5)).sort(), earlier = list.filter(d => d < data.date).pop();
+    const cur = VGEngine.snapshotOf(data), list = ((await A.list(snaps)).files || []).map(f => VGShared.baseOf(f)).filter(f => f.endsWith(".json")).map(f => f.slice(0, -5)).sort(), earlier = list.filter(d => d < data.date).pop();
     await A.write(`${snaps}/${data.date}.json`, JSON.stringify(cur));
     data.snapshots = [...new Set([...list, data.date])].sort(); data.changes = VGEngine.changesFrom(cur, earlier ? await readJson(`${snaps}/${earlier}.json`) : null, data.links);
     data.built = { host, newest: Math.round(newest * 1000) / 1000 };
@@ -1627,13 +1627,13 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // the file every device reads; a phone also works out what doesn't rest on meaning, so it needn't wait for a desktop.
   async engineNotes(gathered, o = {}) {
     const G = gathered || await this.engineGather(), mc = this.app.metadataCache, read = f => this.app.vault.cachedRead(f), day0 = VGRules.today();
-    const shift = n => new Date(Date.parse(`${day0}T12:00:00Z`) - n * 864e5).toISOString().slice(0, 10), since = shift(365), recentSince = shift(30);
+    const shift = n => VGShared.shiftDay(day0, -n), since = shift(365), recentSince = shift(30);
     const knowledge = G.T.knowledge, K = new Set(knowledge), resolved = mc.resolvedLinks || {}, terms = {}, quiet = [], born = {}, personLinks = {};
     for (const r of knowledge) { const f = this.app.vault.getAbstractFileByPath(r); if (!(f instanceof TFile)) continue; const fm = (mc.getFileCache(f) || {}).frontmatter;
       VGRules.mentionNames(f.basename, fm && fm.aliases).forEach(k => { const key = k.toLowerCase(); (terms[key] = terms[key] || []).push(r); });
       if (VGRules.isPrivate(r, fm)) quiet.push(r);
       born[r] = VGRules.bornDate(f.basename, fm && fm.created, VGRules.localDay(new Date(f.stat.ctime)));
-      if (o.known) { const was = [o.known.get(r), o.known.get(r.split("/").pop())].filter(Boolean); if (was.length) born[r] = [born[r], ...was].filter(Boolean).sort()[0]; } }
+      if (o.known) { const was = [o.known.get(r), o.known.get(VGShared.baseOf(r))].filter(Boolean); if (was.length) born[r] = [born[r], ...was].filter(Boolean).sort()[0]; } }
     const people = G.files.filter(f => VGRules.noteKind(f.path, G.tags[f.path]) === "person").map(f => f.path);
     people.forEach(p => { personLinks[p] = new Set((G.links[p] || []).filter(t => K.has(t))); });
     for (const r of knowledge) for (const t of G.links[r] || []) if (personLinks[t]) personLinks[t].add(r);
@@ -1665,7 +1665,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // the Smart Connections index (.smart-env), read for the engine: its logs, then each vector file they name
   async smartFiles() {
     const A = this.app.vault.adapter, base = ".smart-env", text = async p => { try { return await A.read(p); } catch (e) { return null; } };
-    let files = []; try { files = (await A.list(`${base}/smart_sources`)).files.map(f => f.split("/").pop()); } catch (e) { /* no index */ }
+    let files = []; try { files = (await A.list(`${base}/smart_sources`)).files.map(f => VGShared.baseOf(f)); } catch (e) { /* no index */ }
     const names = files.filter(f => /^smart_sources(_\d+)?\.ajson$/.test(f));
     const order = f => { const m = /_(\d+)\.ajson$/.exec(f); return m ? +m[1] : 0; }, parts = await Promise.all((names.length ? names : ["smart_sources.ajson"]).sort((a, b) => order(a) - order(b)).map(f => text(`${base}/smart_sources/${f}`)));
     const sources = parts.some(p => p != null) ? parts.filter(p => p != null).join("\n") : null, models = await text(`${base}/embedding_models/embedding_models.ajson`);
@@ -1713,7 +1713,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     }
     this.settings.lastSelfTest = { sig: await this.buildSig(), date: today(), errors: errors.length }; await this.saveSettings();
     if (auto && !errors.length) return;   // quiet when all is well
-    const now0 = new Date(), stamp = `${today()} ${String(now0.getHours()).padStart(2, "0")}${String(now0.getMinutes()).padStart(2, "0")}`;
+    const now0 = new Date(), stamp = `${today()} ${VGShared.pad2(now0.getHours())}${VGShared.pad2(now0.getMinutes())}`;
     // the engine's topics on the live index, against the last analysis's
     let engine;
     try { const D = await this.graphData(), prev = {}; ((D && D.nodes) || []).forEach(n => { if (!n.person && !n.moc && n.cluster >= 0) (prev[n.cluster] = prev[n.cluster] || []).push(n.id); });
@@ -1742,7 +1742,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     for (const w of ["weather", "radar", "foodweb"]) {
       v.handle.setView(w); await sleep(3200);
       const name = `${VGRules.folders.attachments}/state-${day}-${w}.png`;
-      await this.saveBinary(name, await v.handle.snapshot()); lines.push(`![[${name.split("/").pop()}]]`);
+      await this.saveBinary(name, await v.handle.snapshot()); lines.push(`![[${VGShared.baseOf(name)}]]`);
     }
     v.handle.setView(was);
     await this.ioProcess(notes[0], t => t.replace(/^_Run \*\*Vault Graph: Add map snapshots[^\n]*\n?/m, ""));   // the placeholder has done its job
@@ -1998,7 +1998,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     STATE_VIEWS().concat(SUGGEST_TYPE).flatMap(t => this.app.workspace.getLeavesOfType(t)).forEach(l => (l.view.renderSoon || l.view.render || (() => {})).call(l.view));
   }
   async hqMark(key, mark) {
-    const day = today(), keep = (VGRules.HQ.carry_days || 30) * 864e5;
+    const day = today(), keep = (VGRules.HQ.carry_days || 30) * VGShared.DAY_MS;
     await this.updateShared(sh => {
       sh.review = sh.review || {};
       const m = sh.review.hq = { ...(sh.review.hq || {}) };
@@ -2117,15 +2117,15 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const V = this.app.vault, today0 = VGRules.today(), done = []; let skipped = 0, already = 0; const adds = new Map(), at = p => { const f = V.getAbstractFileByPath(p); return f instanceof TFile ? f : null; }, E = VGEngine;
     for (const row of E.rowsOf(await V.read(file))) { if (!/[xX]/.test(row.state)) { skipped++; continue; } const act = row.act; if (!act) { done.push(`skipped a row that can't be read: ${row.label.slice(0, 60)}`); continue; }
       if (act.op === "add") { if (!adds.has(act.moc)) adds.set(act.moc, []); adds.get(act.moc).push(act.note); continue; }
-      if (act.op === "tag") { let f = at(act.path); if (!f) { const name = act.path.split("/").pop(), same = V.getMarkdownFiles().filter(x => x.name === name); if (same.length !== 1) { done.push(`skipped tag on ${act.path} (not found)`); continue; } f = same[0]; }   // moved since: follow it by name
+      if (act.op === "tag") { let f = at(act.path); if (!f) { const name = VGShared.baseOf(act.path), same = V.getMarkdownFiles().filter(x => x.name === name); if (same.length !== 1) { done.push(`skipped tag on ${act.path} (not found)`); continue; } f = same[0]; }   // moved since: follow it by name
         const has = VGEngine.frontmatterTags((this.app.metadataCache.getFileCache(f) || {}).frontmatter).includes(act.tag); if (has) { already++; continue; }
         await this.ioFrontMatter(f, fm => { const list = fm.tags == null ? [] : [].concat(fm.tags); fm.tags = [...list, act.tag]; }); done.push(`tagged ${act.path} ${act.tag}`);
-      } else if (act.op === "move") { const f = at(act.path), dest = `${act.to}/${act.path.split("/").pop()}`; if (at(dest) && !f) { already++; continue; } if (at(dest)) { done.push(`skipped move of ${act.path} (${dest} already exists)`); continue; } if (!f) { done.push(`skipped move of ${act.path} (not found)`); continue; }
+      } else if (act.op === "move") { const f = at(act.path), dest = `${act.to}/${VGShared.baseOf(act.path)}`; if (at(dest) && !f) { already++; continue; } if (at(dest)) { done.push(`skipped move of ${act.path} (${dest} already exists)`); continue; } if (!f) { done.push(`skipped move of ${act.path} (not found)`); continue; }
         if (!V.getAbstractFileByPath(act.to)) await this.ioFolder(act.to); await this.ioRename(f, dest); done.push(`moved ${act.path} to ${act.to}/`);
       } else if (act.op === "merge") { const src = at(act.path), dst = at(act.into); if (!src || !dst) { done.push(`skipped merge of ${act.path} (not found)`); continue; } const s = await V.read(src), d = await V.read(dst), fresh = act.links.filter(r => !E.linkedIn(d, r));
-        if (s.includes("Superseded by") && !fresh.length) { already++; continue; } const into = act.into.split("/").pop().replace(/\.md$/, "");
+        if (s.includes("Superseded by") && !fresh.length) { already++; continue; } const into = VGShared.nameOf(act.into);
         if (!s.includes("Superseded by")) await this.ioModify(src, E.underFrontmatter(s, `> [!note] Superseded by [[${into}]] (${today0}) — keep using that one.\n\n`));
-        if (fresh.length) await this.ioModify(dst, E.appendSection(d, `## Merged from [[${act.path.split("/").pop().replace(/\.md$/, "")}]] (${today0})`, fresh.map(r => `- [[${r.split("/").pop().replace(/\.md$/, "")}]]`))); done.push(`merged ${act.path} into ${act.into} (${fresh.length} new links)`);
+        if (fresh.length) await this.ioModify(dst, E.appendSection(d, `## Merged from [[${VGShared.nameOf(act.path)}]] (${today0})`, fresh.map(r => `- [[${VGShared.nameOf(r)}]]`))); done.push(`merged ${act.path} into ${act.into} (${fresh.length} new links)`);
       } else if (act.op === "create") { if (at(act.path)) { already++; continue; } const data = await this.graphData(), nodes = new Map(data.nodes.map(n => [n.id, n])), votes = new Map(); (act.core || []).forEach(r => { const c = (nodes.get(r) || {}).cluster; if (c != null && c >= 0) votes.set(c, (votes.get(c) || 0) + 1); });
         // topic numbers change between runs, so the topic is found by its notes
         const [cid, hits] = [...votes].sort((a, b) => b[1] - a[1])[0] || [null, 0], members = cid == null ? [] : data.nodes.filter(n => n.cluster === cid && !n.person && !n.moc && !n.ghost), mapped = cid != null && (data.mocs || []).find(m => (m.clusters || []).includes(cid));
@@ -2136,12 +2136,12 @@ module.exports = class VaultGraphPlugin extends Plugin {
         if (at(path)) { done.push(`skipped ${path} (exists)`); continue; } await this.ioCreate(path, E.bridgeNote(act, name, today0)); done.push(`drafted ${path}`);
       } else done.push(`skipped a row with an unknown kind: ${act.op}`); }
     for (const [moc, notes] of adds) { const f = at(moc); if (!f) { done.push(`skipped adding to ${moc} (not found)`); continue; } const cur = await V.read(f), fresh = notes.filter((r, i) => notes.indexOf(r) === i && !E.linkedIn(cur, r)); already += notes.length - fresh.length; if (!fresh.length) continue;
-      await this.ioModify(f, E.appendSection(cur, `## Also in this topic (added ${today0})`, fresh.map(r => `- [[${r.split("/").pop().replace(/\.md$/, "")}]]`))); done.push(`added ${fresh.length} notes to ${moc}`); }
+      await this.ioModify(f, E.appendSection(cur, `## Also in this topic (added ${today0})`, fresh.map(r => `- [[${VGShared.nameOf(r)}]]`))); done.push(`added ${fresh.length} notes to ${moc}`); }
     return `${done.join("\n") || "nothing new to apply"}\n(${skipped} unticked rows left alone; ${already} ticked rows were already done)`;
   }
   // A report in the reports folder. One a person has ticked is never overwritten: that's their decisions.
   async writeReport(name, text) {
-    const folder = VGRules.folders.reports, V = this.app.vault, stamp = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`; }; if (!V.getAbstractFileByPath(folder)) await this.ioFolder(folder);
+    const folder = VGRules.folders.reports, V = this.app.vault, stamp = () => { const d = new Date(); return `${VGShared.pad2(d.getHours())}${VGShared.pad2(d.getMinutes())}`; }; if (!V.getAbstractFileByPath(folder)) await this.ioFolder(folder);
     const path = `${folder}/${name}.md`, f = V.getAbstractFileByPath(path); if (!(f instanceof TFile)) { await this.ioCreate(path, text); return path; }
     if (/^\s*- \[[xX\-]\]/m.test(await V.read(f))) { const other = `${folder}/${name} ${stamp()}.md`; const o = V.getAbstractFileByPath(other); if (o instanceof TFile) await this.ioModify(o, text); else await this.ioCreate(other, text); return other; }
     await this.ioModify(f, text); return path;
@@ -2150,11 +2150,11 @@ module.exports = class VaultGraphPlugin extends Plugin {
   async writeGapsReport() { const { input, date } = await this.reportInputs(), path = await this.writeReport(`Gaps & Bridges ${date}`, VGEngine.gapsReport(input)); new Notice(`Wrote ${path}`); return path; }
   // topics move between runs, so an older map report's rows go stale: it's pointed at the new one
   async writeMapReport() { const { G, N, date } = await this.reportInputs(), R = VGRules.RULES, path = await this.writeReport(`MOC Alignment ${date}`, VGEngine.mapReport({ P: N.parts, T: N.T, raw: G.raw, tags: G.tags, knowledge: G.T.knowledge, date, inbox: VGRules.folders.inbox, notTops: R.not_map_tops || [], min_claim: R.map_min_claim, moveTarget: R.stray_folder || VGRules.folders.inbox }));
-    const stem = path.split("/").pop().replace(/\.md$/, ""); for (const f of this.app.vault.getMarkdownFiles()) { if (f.path === path || !f.path.startsWith(`${VGRules.folders.reports}/MOC Alignment `)) continue; const t = await this.app.vault.read(f); if (t.includes("Superseded by [[")) continue;
+    const stem = VGShared.nameOf(path); for (const f of this.app.vault.getMarkdownFiles()) { if (f.path === path || !f.path.startsWith(`${VGRules.folders.reports}/MOC Alignment `)) continue; const t = await this.app.vault.read(f); if (t.includes("Superseded by [[")) continue;
       await this.ioModify(f, VGEngine.underFrontmatter(t, `> [!warning] Superseded by [[${stem}]] (${date})\n> Topics were re-clustered since this report. Ticked rows here were applied or skipped already; tick in the new report instead.\n\n`)); }
     new Notice(`Wrote ${path}`); return path; }
   async writeStateNote() { const d = await this.graphData(), date = VGRules.today(), md = VGEngine.stateNote(d, { levels: VGRules.trophicLevels, isRecord: VGRules.isRecord }), folder = VGRules.folders.reports, base = `${folder}/State of the Vault ${date}.md`, V = this.app.vault; if (!V.getAbstractFileByPath(folder)) await this.ioFolder(folder);
-    let path = base; if (V.getAbstractFileByPath(base)) { const n = new Date(); path = `${folder}/State of the Vault ${date} ${String(n.getHours()).padStart(2, "0")}${String(n.getMinutes()).padStart(2, "0")}.md`; } if (V.getAbstractFileByPath(path)) await this.ioModify(V.getAbstractFileByPath(path), md); else await this.ioCreate(path, md); new Notice(`Wrote ${path}`); return path; }
+    let path = base; if (V.getAbstractFileByPath(base)) { const n = new Date(); path = `${folder}/State of the Vault ${date} ${VGShared.pad2(n.getHours())}${VGShared.pad2(n.getMinutes())}.md`; } if (V.getAbstractFileByPath(path)) await this.ioModify(V.getAbstractFileByPath(path), md); else await this.ioCreate(path, md); new Notice(`Wrote ${path}`); return path; }
   applyMocReport() {
     return this.mocReportFile().then(file => {
       if (!file) throw new Error("no report");
@@ -2214,7 +2214,7 @@ function fingerprint(text) {
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
   return h.toString(16).padStart(8, "0");
 }
-const daysSince = iso => Math.max(0, Math.round((Date.parse(today() + "T12:00") - Date.parse(iso + "T12:00")) / 864e5));
+const daysSince = iso => Math.max(0, Math.round((Date.parse(today() + "T12:00") - Date.parse(iso + "T12:00")) / VGShared.DAY_MS));
 // age = days since the content changed, or since it was last confirmed current ("Still current" stamps `reviewed:`)
 function contentAge(app, path, fallback) {
   const e = CONTENT.log[path], f = app.vault.getAbstractFileByPath(path);

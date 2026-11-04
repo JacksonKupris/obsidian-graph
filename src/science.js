@@ -79,7 +79,7 @@ const VGScienceMake = () => {
   // cancelled, has no known end, and is counted, not guessed at.
   function taskLives(journals, today) {
     const DONE = /✅\s*(\d{4}-\d{2}-\d{2})/, clean = t => String(t).replace(/✅\s*\d{4}-\d{2}-\d{2}/g, "").replace(/\[[^\]]*::[^\]]*\]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim().toLowerCase();
-    const days = (a, b) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 864e5), by = new Map();
+    const days = (a, b) => Math.round((VGShared.utcNoon(b) - VGShared.utcNoon(a)) / VGShared.DAY_MS), by = new Map();
     for (const j of journals || []) for (const t of j.tasks || []) { const key = clean(t.text); if (!key) continue; const m = String(t.text).match(DONE), mark = String(t.mark || " ").toLowerCase(); let e = by.get(key); if (!e) by.set(key, e = { text: String(t.text), born: j.date, done: null, open: false, undated: false, cancelled: false, path: j.path, line: t.line });
       if (j.date < e.born) { e.born = j.date; e.path = j.path; e.line = t.line; } if (mark === "x") { if (m && (!e.done || m[1] < e.done)) e.done = m[1]; else if (!m) e.undated = true; } else if (mark === " ") e.open = true; else if (mark === "-") e.cancelled = true; }
     const rows = [], skipped = { undated: 0, cancelled: 0 };
@@ -279,7 +279,7 @@ const VGScienceMake = () => {
   // arrive times the average time each spends there, whatever the arrivals and whatever the order. rows: { born, done } with dates, done
   // null while open. The window is the last `days` days; time inside the window is what counts, so it balances exactly by construction.
   function flow(rows, today, days = 90) {
-    const ms = 864e5, end = Date.parse(today + "T12:00:00Z"), start = end - days * ms, dayOf = d => Math.round((Date.parse(d + "T12:00:00Z") - start) / ms), wip = new Array(days + 1).fill(0), arrived = new Array(days + 1).fill(0), left = new Array(days + 1).fill(0); let inWindow = 0, total = 0, entered = 0;
+    const ms = VGShared.DAY_MS, end = VGShared.utcNoon(today), start = end - days * ms, dayOf = d => Math.round((VGShared.utcNoon(d) - start) / ms), wip = new Array(days + 1).fill(0), arrived = new Array(days + 1).fill(0), left = new Array(days + 1).fill(0); let inWindow = 0, total = 0, entered = 0;
     for (const r of rows) { const a = dayOf(r.born), b = r.done ? dayOf(r.done) : Infinity; if (b <= 0 || a > days || b < a) continue; const from = Math.max(0, a), to = Math.min(days, b); for (let d = from; d < to; d++) { wip[d]++; total++; } if (to === days && b > days) wip[days]++; if (a >= 0) arrived[a]++; if (b <= days && b > 0) left[b]++; inWindow++; if (a >= 0 || a < 0) entered++; }
     const cum = a => { let s = 0; return a.map(x => (s += x)); }, L = total / days, doneCount = left.reduce((x, y) => x + y, 0), arrivedCount = arrived.reduce((x, y) => x + y, 0), lambda = entered / days, W = entered ? total / entered : 0;
     return { wip, cumIn: cum(arrived), cumOut: cum(left), L, lambda, W, throughput: doneCount / days, arrivals: arrivedCount / days, openNow: wip[days], days, net: arrivedCount - doneCount };
@@ -336,7 +336,7 @@ const VGScienceMake = () => {
   const locationQuotient = (a, A, b, B) => (b && B && A ? (a / A) / (b / B) : null);
   // Each area's open tasks against what it finished in the last days, biggest quotient first. areaOf(text) says which area a task is in.
   function areaBalance(rows, today, days, areaOf) {
-    const since = new Date(Date.parse(`${today}T12:00:00Z`) - days * 864e5).toISOString().slice(0, 10), parts = {};
+    const since = VGShared.shiftDay(today, -days), parts = {};
     for (const r of rows) { const a = areaOf(r.text); if (!a) continue; const p = parts[a] = parts[a] || { open: 0, done: 0 }; if (!r.event) p.open++; else if (r.done >= since) p.done++; }
     const list = Object.entries(parts), O = list.reduce((s, [, p]) => s + p.open, 0), D = list.reduce((s, [, p]) => s + p.done, 0);
     return { open: O, done: D, rows: list.map(([area, p]) => ({ area, ...p, lq: locationQuotient(p.open, O, p.done, D) })).sort((x, y) => (y.lq == null ? 1e9 : y.lq) - (x.lq == null ? 1e9 : x.lq)) };
@@ -358,9 +358,9 @@ const VGScienceMake = () => {
   }
   const vitalsSample = v => ({ open: v.pile.open, debt: Math.round(v.debt.total), incoherence: v.web.incoherence == null ? null : +v.web.incoherence.toFixed(2), ...(v.sync ? { sync: v.sync.used } : {}) });
   // when a growing store reaches its limit, at the rate since the latest sample a week or more old. Null with no such sample, or if it isn't growing.
-  function daysToLimit(history, day, key, now, limit) { const end = Date.parse(`${day}T12:00:00Z`), past = Object.keys(history || {}).filter(d => end - Date.parse(`${d}T12:00:00Z`) >= 7 * 864e5 && history[d][key] != null).sort().pop(); if (past == null) return null; const days = (end - Date.parse(`${past}T12:00:00Z`)) / 864e5, rate = (now - history[past][key]) / days; return rate > 0 ? Math.max(0, (limit - now) / rate) : null; }
+  function daysToLimit(history, day, key, now, limit) { const end = VGShared.utcNoon(day), past = Object.keys(history || {}).filter(d => end - VGShared.utcNoon(d) >= 7 * VGShared.DAY_MS && history[d][key] != null).sort().pop(); if (past == null) return null; const days = (end - VGShared.utcNoon(past)) / VGShared.DAY_MS, rate = (now - history[past][key]) / days; return rate > 0 ? Math.max(0, (limit - now) / rate) : null; }
   // the change in one sample's number against the latest sample a week or more old, or null when there isn't one yet
-  function vitalsDelta(history, day, key, now) { const edge = Date.parse(`${day}T12:00:00Z`) - 7 * 864e5, past = Object.keys(history || {}).filter(d => Date.parse(`${d}T12:00:00Z`) <= edge && history[d][key] != null).sort().pop(); return past == null || now == null ? null : now - history[past][key]; }
+  function vitalsDelta(history, day, key, now) { const edge = VGShared.utcNoon(day) - 7 * VGShared.DAY_MS, past = Object.keys(history || {}).filter(d => VGShared.utcNoon(d) <= edge && history[d][key] != null).sort().pop(); return past == null || now == null ? null : now - history[past][key]; }
   return { areaBalance, serviceLevel, daysToLimit, xmr, hill, kCore, chao1, locationQuotient, twoWayPairs, incoherenceWithout, debtRanks, vitals, vitalsSample, vitalsDelta, NET_RHOS, NET_SEEDS, netStudySteps, netStudyNow, netStudy, netStats, graphKey, flow, reachCounts, reliance, trophic, surfaceWind, WIND_INFLOW, directedGraph, largestAbsEigen, reservoir, ridge, r2, memoryCapacity, narma, narmaError, clustering, meanPath, rewired, randomGraph, smallWorld, rng, graphOf, moments, spectralRadius, outbreak, outbreakStats, epidemic, sweep, kaplanMeier, survivalAt, medianOf, conditional, restrictedMean, logRank, erfc, taskLives, components, cutPoints, cutDamage, percolationCurve, randomOrder, attackOrder, robustnessR, robustness, concentration, busFactor, LIF, lifRate, lifNetwork, BRAIN, lobeOf, gyri, cortexAt, CEREBELLUM, STEM, LOBE_SHARE, assignLobes, lobeSpots };
 };
 const VGScience = VGScienceMake();

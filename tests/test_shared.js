@@ -13,6 +13,11 @@ for (const t of ["a.b*c", "C++ (notes)", "$&", "x|y", "[z]", "a/b", "back\\slash
   assert.ok(new RegExp(`^${S.escapeRegex(t)}$`, "u").test(t), `escapeRegex isn't valid in unicode mode for "${t}"`); }
 assert.ok(!new RegExp(S.escapeRegex("a.b")).test("axb"), "escapeRegex left a dot as a wildcard");
 
+assert.strictEqual(S.nameOf("a/b/My Note.md"), "My Note"); assert.strictEqual(S.nameOf("a/b/x.MD"), "x"); assert.strictEqual(S.nameOf("x.png"), "x.png"); assert.strictEqual(S.nameOf(null), ""); assert.strictEqual(S.baseOf("a/b.md"), "b.md");
+assert.strictEqual(S.plural(1, "note"), "1 note"); assert.strictEqual(S.plural(2, "note"), "2 notes"); assert.strictEqual(S.plural(2, "person", "people"), "2 people");
+assert.strictEqual(S.plainLinks("see [[a/b|the note]] and [[c]]"), "see the note and c"); assert.strictEqual(S.stripFrontmatter("---\na: 1\n---\nbody"), "body"); assert.strictEqual(S.stripFrontmatter("---\r\na: 1\r\n---\r\nbody"), "body"); assert.strictEqual(S.stripFrontmatter("no front"), "no front");
+assert.strictEqual(S.shiftDay("2026-03-01", -1), "2026-02-28"); assert.strictEqual(S.shiftDay("2026-11-01", 1), "2026-11-02", "across a clock change"); assert.strictEqual(S.daysBetween("2026-01-01", "2026-03-01"), 59); assert.strictEqual(S.noon("2026-11-03").getDate(), 3); assert.strictEqual(S.noon("2026-11-03").getHours(), 12); assert.strictEqual(S.pad2(3), "03"); assert.strictEqual(S.pad2(12), "12");
+
 // ---- a worker that can't start falls back, and says so; without one, the job runs here
 (async () => {
   { const stats = {}; assert.strictEqual(await S.offThread({ makers: {}, listen: "", message: 0, here: () => "here", label: "x is", stats }), "here"); assert.strictEqual(stats.via, "here"); }
@@ -32,7 +37,7 @@ assert.ok(!new RegExp(S.escapeRegex("a.b")).test("axb"), "escapeRegex left a dot
 
   // ---- no copy comes back. Each pattern must find shared.js's own, or this guard couldn't fail.
   const walk = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith(".js") ? [path.join(d, e.name)] : []);
-  const COPIES = [["HTML escaping", /["']&amp;["']/], ["regex escaping", /\.replace\(\/\[\.\*\+\?\^/], ["starting a worker", /new Worker\(/]];
+  const COPIES = [["HTML escaping", /["']&amp;["']/], ["regex escaping", /\.replace\(\/\[\.\*\+\?\^/], ["starting a worker", /new Worker\(/], ["taking a path apart", /\.split\("\/"\)\.pop\(\)/], ["the length of a day", /\b864e5\b/], ["padding to two digits", /padStart\(2, "0"\)/], ["a local noon", /new Date\([^)]*"T12:00(:00)?"\)/], ["a link's alias", /\/\\\[\\\[\(\?:\[\^\\\]\|\]\*\\\|\)\?/], ["plural", /\$\{n === 1 \? /]];
   const shared = path.join(SRC, "shared.js");
   for (const [what, rx] of COPIES) {
     assert.ok(rx.test(fs.readFileSync(shared, "utf8")), `the guard for ${what} doesn't match the shared copy, so it can't catch another`);

@@ -339,7 +339,7 @@
       const d = Math.hypot(n.x - from.x, n.y - from.y); if (d < bd) { bd = d; b = n; } } return b; };
     return {
       name: spec.name, icon: "sparkles", iso: spec.angle, fps: 30,
-      blurb: spec.blurb || `A scene from ${String(path || "a note").split("/").pop().replace(/\.md$/, "")}`,
+      blurb: spec.blurb || `A scene from ${VGShared.nameOf(path || "a note")}`,
       toast: `${spec.name} — ${spec.entity.map(r => `${r.as} = ${ruleName(r)}`).join(", ")}`,
       layout(geo) {
         const pos = new Map(geo), cs = topicsWithNotes(true), { at, span } = placeGroups(cs.length, spec.place, CELL), groups = [];
@@ -556,7 +556,7 @@
   }
 
   const hexMix = (a, b, t) => { const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), A = p(a), B = p(b);
-    return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join(""); };
+    return "#" + A.map((v, i) => VGShared.pad2(Math.round(v + (B[i] - v) * t).toString(16))).join(""); };
   // unlinked notes have a place of their own here (the nursery, the storeroom), so they show without "Show unlinked"
   const mapShown = n => visible(n) || (n.isolated && !replay && !st.focusDist && !st.hidden.has(n.id) && !st.hiddenClusters.has(n.cluster));
 
