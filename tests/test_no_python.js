@@ -9,8 +9,8 @@
 const env = require("./env"), stub = require("./plugin_stub"), cdp = require("./cdp");
 const EXPECT = {
   missing: ["code"],                                                  // needs git, and the analysis's list of repositories
-  blank: ["follow", "attention", "people", "river", "timeline"],      // needs the analysis
-  thinner: ["blind", "dupes", "matrix", "triage"],                    // part of it needs the analysis
+  blank: ["attention", "river", "timeline"],      // need the topics moved (stage 2)
+  thinner: ["blind", "matrix"],                    // gaps and maps need the topics moved (stage 2)
 };
 const THINNER = 0.8;   // under this share of the text the analysis's version has
 // read Obsidian directly (the same on both sides), and the sample has nothing for them to show

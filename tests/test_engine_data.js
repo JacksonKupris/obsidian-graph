@@ -11,18 +11,18 @@ const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSO
   const app = stub.fakeVault(env.dir(), TFile);
   const p = Object.assign(Object.create(Plugin.prototype), { app, settings: { dataPath: "_scripts/out/vault-graph.json", script: "_scripts/vault_graph.py", rulesPath: "_scripts/vault_graph_rules.json" } });
   p.saveSettings = async () => {}; p.writeLiveDiag = () => {}; p.sceneBlocks = async () => [];
-  const realRun = VGEngine.run; VGEngine.run = (name, input) => { p.lastJob = input; return realRun(name, input); };   // keeps what the plugin handed the job, for the worker check below
+  const realRun = VGEngine.run; VGEngine.run = (name, input) => { (p.jobs = p.jobs || {})[name] = input; return realRun(name, input); };   // keeps what the plugin handed the job, for the worker check below
   const data = await p.graphData();
   VGEngine.run = realRun;
   check("no analysis file: the graph comes from the engine", !!(data && data.engine), true);
   if (data) {
     // the slow step really runs off the main thread in a browser, and gives the same answer as running it here
-    if (p.lastJob) { const source = fs.readFileSync(path.join(__dirname, "..", "src", "engine.js"), "utf8");
-      const tab = await cdp.open({ html: `<!doctype html><script>${source.replace(/<\/script/gi, "<\\/script")}</script>`, port: 9353 });
-      if (tab) { const r = await tab.ev(`(async () => { const input = ${env.inlineJson(p.lastJob)}, here = VGEngine.topicsJob(input), there = await VGEngine.run("topicsJob", input); return JSON.stringify({ via: VGEngine.stats.via, same: JSON.stringify(here) === JSON.stringify(there), topics: there.topics.length }); })()`);
-        await tab.close(); const R = JSON.parse(r);
-        check("the topics job ran in a worker", R.via, "worker"); check("the worker's answer is the same as running it here", R.same, true); check("the worker found topics", R.topics > 0, true); } }
-    else fails.push("the plugin never asked for the topics job");
+    if (p.jobs && p.jobs.topicsJob && p.jobs.notesJob) { const source = fs.readFileSync(path.join(__dirname, "..", "src", "engine.js"), "utf8");
+      const tab = await cdp.open({ html: `<!doctype html><script>${source.replace(/<\/script/gi, "<\\/script")}</script>`, port: 9372 });
+      if (tab) { for (const name of ["topicsJob", "notesJob"]) { const r = await tab.ev(`(async () => { const input = ${env.inlineJson(p.jobs[name])}, here = VGEngine[${JSON.stringify(name)}](input), there = await VGEngine.run(${JSON.stringify(name)}, input); return JSON.stringify({ via: VGEngine.stats.via, same: JSON.stringify(here) === JSON.stringify(there), has: Object.keys(there).length }); })()`);
+          const R = JSON.parse(r); check(`${name} ran in a worker`, R.via, "worker"); check(`${name}: the worker's answer is the same as running it here`, R.same, true); check(`${name} returned something`, R.has > 0, true); }
+        await tab.close(); } }
+    else fails.push("the plugin never asked for the topics and notes jobs");
     const py = env.data(), pyNotes = py.nodes.filter(n => !n.ghost && !n.person && !n.moc), notes = data.nodes.filter(n => !n.ghost && !n.person && !n.moc);
     check("the engine's notes are the analysis's", notes.map(n => n.id).sort(), pyNotes.map(n => n.id).sort());
     check("every note in a topic is in one the data lists", notes.filter(n => n.cluster >= 0 && !data.clusters.some(c => c.id === n.cluster)).map(n => n.id), []);
@@ -38,5 +38,15 @@ const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSO
     if (share < 0.9) fails.push(`topics agree with the analysis on ${Math.round(share * 100)}% of notes, want 90%+`);
     console.log(fails.length ? "FAIL - " + fails.join("\n  ") : `ok - no analysis file: the plugin's own graph (${notes.length} notes, ${data.clusters.length} topics, ${Math.round(share * 100)}% as the analysis)`);
   } else console.log("FAIL - " + fails.join("\n  "));
+  // engine_owns: a desktop takes what the rules file lists over the analysis's file, the rest stays; a phone keeps the file
+  { const rules = { ...env.rules, engine_owns: ["mentions", "series"] }, py = env.data(), n0 = py.nodes.find(x => !x.person && !x.moc && !x.ghost);
+    const N = { mentions: { [n0.id]: 4321 }, recent: {}, said: {}, saidDays: {}, mentionDays: {}, used: 7, personMentions: {}, counts: {}, tasks: {}, series: [{ name: "from the engine", notes: [] }], follow: { items: ["never"] }, twins: [], similar: [], codey: [], personLinks: {} };
+    const on = async platform => { const L = stub.load(rules, { Platform: platform }), a = stub.fakeVault(env.dir(), L.TFile), q = Object.assign(Object.create(L.Plugin.prototype), { app: a, settings: { dataPath: "_scripts/out/vault-graph.json", script: "_scripts/vault_graph.py", rulesPath: "_scripts/vault_graph_rules.json" } });
+      q.saveSettings = async () => {}; q.writeLiveDiag = () => {}; q.sceneBlocks = async () => []; q.base = JSON.parse(JSON.stringify(py)); q.engineNotesDone = N; return q.graphData(); };
+    const desk = await on({ isDesktopApp: true }), phone = await on({ isMobile: true }), of = d => d.nodes.find(x => x.id === n0.id);
+    check("a desktop takes the mentions it owns", of(desk).mentions, 4321); check("a desktop takes the series it owns", desk.series[0].name, "from the engine");
+    check("a part not listed stays the analysis's", JSON.stringify(desk.followthrough) === JSON.stringify(py.followthrough), true);
+    check("a phone keeps the file's mentions", of(phone).mentions, n0.mentions); check("a phone keeps the file's series", JSON.stringify(phone.series), JSON.stringify(py.series));
+    if (fails.length) console.log("FAIL - " + fails.join("\n  ")); }
   process.exit(fails.length ? 1 : 0);
 })().catch(e => { console.log("FAIL - " + (e && e.stack || e)); process.exit(1); });
