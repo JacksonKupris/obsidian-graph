@@ -50,7 +50,7 @@ for (const [file, text] of Object.entries(files)) {
 { const { Plugin } = stub.load(env.rules), app = { vault: {}, workspace: { getLeavesOfType: () => [] } };
   const real = new Set(Object.keys(Object.assign(Object.create(Plugin.prototype), { app, settings: {} }).viewActions(null)));
   // what HQ's own view adds to them
-  [...read("plugin.js").matchAll(/\bapi\.([a-zA-Z]\w+) = /g)].forEach(m => real.add(m[1]));
+  [...require("../build").pluginSource().matchAll(/\bapi\.([a-zA-Z]\w+) = /g)].forEach(m => real.add(m[1]));
   const hqDir = path.join(SRC, "hq"), sources = [...fs.readdirSync(hqDir).map(f => path.join(hqDir, f)), path.join(SRC, "actions.js")];
   const asked = new Set(sources.flatMap(f => [...fs.readFileSync(f, "utf8").matchAll(/\bapi\.([a-zA-Z]\w+)/g)].map(m => m[1])));
   const notActions = new Set(["call", "apply"]);
