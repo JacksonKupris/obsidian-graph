@@ -38,7 +38,8 @@ setTimeout(async () => {
       if (document.querySelector('.vg-confirm [data-c="no"]')) __errs.push("shortcuts: the sheet has a Cancel button"); }
     catch (e) { __errs.push("keys: " + e.message); }
     // Tools: the menu lists the tools, runs one through the same path as the phone's sheet, and shows that one is on
-    try { const tb = document.querySelector(".vg-toolsbtn"); tb.click(); await sleep(100);
+    try { window.vaultGraph._debug.setView("2d"); await sleep(300);   // the view order can leave it in a game, which has no Time-lapse
+      const tb = document.querySelector(".vg-toolsbtn"); tb.click(); await sleep(100);
       const items = [...document.querySelectorAll(".vg-toolsmenu:not([hidden]) [data-tool]")];
       if (items.length < 4) __errs.push("tools: the menu lists " + items.length + " tools");
       const time = items.find(x => x.dataset.tool === "vg-timebtn"); if (time) time.click(); await sleep(100);

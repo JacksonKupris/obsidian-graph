@@ -43,5 +43,10 @@ assert.strictEqual(S.shiftDay("2026-03-01", -1), "2026-02-28"); assert.strictEqu
     assert.ok(rx.test(fs.readFileSync(shared, "utf8")), `the guard for ${what} doesn't match the shared copy, so it can't catch another`);
     const copies = walk(SRC).filter(f => f !== shared && rx.test(fs.readFileSync(f, "utf8"))).map(f => path.relative(SRC, f));
     assert.deepStrictEqual(copies, [], `${what} is written again in ${copies.join(", ")}: use src/shared.js`); }
+  // ---- the plugin's own services: one lookup, one frontmatter read, one JSON read. The counts are the services' own lines.
+  const plugin = fs.readFileSync(path.join(SRC, "plugin.js"), "utf8"), count = rx => (plugin.match(rx) || []).length;
+  assert.strictEqual(count(/getAbstractFileByPath\(/g), 2, "look notes up with fileAt, or pathTaken for whether a path is in use");
+  assert.strictEqual(count(/getFileCache\(\w+\) \|\| \{\}\)\.frontmatter/g), 1, "read frontmatter with fmOf");
+  assert.ok(count(/JSON\.parse\(await/g) <= 2, "read JSON files with readJson");   // readJson, and loading the graph data
   console.log("ok - shared helpers");
 })().catch(e => { console.log(`FAIL - ${e.message}`); process.exit(1); });
