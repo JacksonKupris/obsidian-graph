@@ -491,7 +491,7 @@ const VGRules = (() => {
     return fm;
   }
   const dateIn = (re, path) => { const m = re && String(path).match(re); if (!m) return null; const g = m.groups; return g && g.y && g.m && g.d ? `${g.y}-${g.m.padStart(2, "0")}-${g.d.padStart(2, "0")}` : m[1]; };
-  const hqJournalDate = path => dateIn(HQ_JOURNAL, path);
+  const hqJournalDate = path => dateIn(HQ_JOURNAL, path), hqStandupDate = path => dateIn(HQ_STANDUP, path);
   // Moment-style daily note formats, as Obsidian's settings hold them: YYYY, MM, M, MMMM, DD, D, dddd and [words].
   const dateTokens = /\[([^\]]*)\]|YYYY|MMMM|MM|M|DD|D|dddd/g;
   const formatDate = (format, d) => String(format).replace(dateTokens, (t, lit) => lit !== undefined ? lit : t === "YYYY" ? d.getFullYear() : t === "MMMM" ? d.toLocaleString("en-US", { month: "long" }) : t === "MM" ? String(d.getMonth() + 1).padStart(2, "0") : t === "M" ? d.getMonth() + 1 : t === "DD" ? String(d.getDate()).padStart(2, "0") : t === "D" ? d.getDate() : d.toLocaleString("en-US", { weekday: "long" }));
@@ -911,6 +911,31 @@ const VGRules = (() => {
     m = /(?<![\d-])(20\d\d)-(0[1-9]|1[0-2])(?![\d-])/.exec(name); if (m) return `${m[1]}-${m[2]}-01`;
     m = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? +(20\d\d)\b/i.exec(name);
     return m ? `${m[2]}-${String(MONTH_NUM[m[1].toLowerCase()]).padStart(2, "0")}-01` : null;
+  }
+  // ---- what the engine (VGEngine.notesJob) says, put into the graph data. A part is applied whole; each is listed in the
+  // rules file's engine_owns once it matches the analysis on that vault.
+  const ENGINE_PARTS = ["mentions", "tasks", "people", "series", "follow", "dupes"];
+  const engineOwns = () => ENGINE_PARTS.filter(p => (R.engine_owns || []).includes(p));
+  function applyEngineNotes(data, N, parts) {
+    const on = new Set(parts), byId = new Map(data.nodes.map(n => [n.id, n])), skip = N.skip || (() => false), notes = data.nodes.filter(n => !n.person && !n.moc && !n.ghost);
+    const pyOrder = VGEngine.pyCmp;
+    if (on.has("mentions")) { notes.forEach(n => { n.mentions = N.mentions[n.id] || 0; n.recent = N.recent[n.id] || 0; }); data.dailies_used = N.used;
+      data.said_unlinked = Object.keys(N.said).filter(r => byId.has(r) && N.said[r] >= 3).sort((a, b) => N.said[b] - N.said[a] || pyOrder(a, b)).slice(0, 20).map(r => [r, N.said[r], N.saidDays[r]]);
+      notes.forEach(n => { const d = N.mentionDays[n.id]; if (d && d.length && d[0] >= "2015-01-01" && (!n.born || d[0] < n.born)) n.born = d[0]; }); }
+    if (on.has("tasks")) notes.forEach(n => { const c = N.counts[n.id], t = N.tasks[n.id]; if (c) { n.tasks = c.tasks; n.words = c.words; }
+      if (t && t[0][1]) { n.taskAge = Math.round((Date.parse(`${today()}T12:00:00Z`) - Date.parse(`${t[0][1]}T12:00:00Z`)) / 864e5); n.taskItems = t.slice(0, 12); } else { delete n.taskAge; delete n.taskItems; } });
+    if (on.has("people")) { data.nodes = data.nodes.filter(n => !n.person); data.links = data.links.filter(l => l.kind !== "person");
+      for (const p of Object.keys(N.personLinks).sort(pyOrder)) { const own = N.personLinks[p].filter(r => byId.has(r)); if (!own.length) continue;
+        data.nodes.push({ id: p, name: stemCase(p), person: true, cluster: -1, bc: 0, folder: p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "", mentions: N.personMentions[p] || 0, recent: 0, inlinks: 0, outlinks: own.length, broken: 0, tasks: 0, words: 0, age: 0, refs: true, isolated: false });
+        own.forEach(t => data.links.push({ source: p, target: t, w: 1, kind: "person" })); } }
+    if (on.has("series")) data.series = N.series;
+    if (on.has("follow")) data.followthrough = N.follow;
+    if (on.has("dupes")) { const seen = new Set(N.twins.map(x => [x[0], x[1]].sort().join("\n"))), code = new Set(N.codey), byNm = VGEngine.byName;
+      const near = byNm(N.similar.filter(x => x[2] >= 0.93), 20, skip).filter(x => !seen.has([x[0], x[1]].sort().join("\n")));
+      data.near_dupes = [...N.twins, ...near];
+      data.links = data.links.filter(l => l.kind !== "similar");
+      byNm(N.similar.filter(x => x[2] < 0.93 && !(code.has(x[0]) && code.has(x[1]))), 20, skip).forEach(([a, b, s]) => data.links.push({ source: a, target: b, w: 1, kind: "similar", why: `similar meaning (${s})` })); }
+    return data;
   }
   const bornDate = (name, created, fileDay) => [created && /^\d{4}-\d{2}-\d{2}/.test(String(created)) ? String(created).slice(0, 10) : null, nameDate(name), fileDay].filter(d => d && d >= "2015-01-01").sort()[0] || fileDay;
   const reactionNudge = (review, kind) => { const r = ((review && review.reactions) || {})[kind]; if (!r) return 0;
@@ -1414,7 +1439,7 @@ const VGRules = (() => {
   }
   // a task and the open subtasks that go with it, as rows for a status change
   const taskRowsOf = it => [{ path: it.path, line: it.line, text: it.text }, ...(it.subs || []).map(s => ({ path: it.path, line: s.line, text: s.text }))];
-  return { twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { ENGINE_PARTS, engineOwns, applyEngineNotes, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

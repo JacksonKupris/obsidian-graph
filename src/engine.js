@@ -489,6 +489,169 @@ const VGEngineMake = () => {
     return out.map(o => (o !== null ? o : free()));
   }
 
+  // ---- what notes and daily notes say, apart from topics (vault_gaps.load_vault's daily loop, text_twins and
+  // similar_unlinked; vault_graph.dated_series, task_ages, note_quality and followthrough). No Obsidian in here: the
+  // plugin gathers the text and links (notesJob's input) and this runs off the main thread.
+  const unixLines = t => String(t).replace(/\r\n?/g, "\n");   // Python reads text with universal newlines
+  const FM_BLOCK = /^---\n[\s\S]*?\n---\n/, PY_LINES = /\n|[\v\f\x1c-\x1e\x85\u2028\u2029]/;
+  const bodyOf = t => unixLines(t).replace(FM_BLOCK, "");
+  const LINK_OR_URL = /\[\[[^\]]*\]\]|\]\([^)]*\)/g, LINE_MARK = /^\s*(?:[-*+]\s*(?:\[.\]\s*)?|\d+[.)]\s*|#+\s*|>\s*)/u;
+  const pyRound = (x, d) => { const p = 10 ** d; return Math.round((x + Number.EPSILON) * p) / p; };
+  const cpTake = (t, n) => (String(t).length <= n ? String(t) : cpSlice(t, 0, n));
+  const regexEscape = t => t.replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&");   // not "-": with the u flag an escaped - outside a class is an error
+  function contentLines(text) {
+    const t = bodyOf(text).replace(/```[\s\S]*?```/g, "").replace(LINK_OR_URL, " "), out = new Set();
+    for (const raw of t.split(PY_LINES)) {
+      if (raw.trimStart().startsWith("|")) continue;   // standup story tables: carried forward, status edits only
+      const line = raw.replace(LINE_MARK, "").trim().toLowerCase().replace(/\s+/g, " ");
+      if (cpLen(line) >= 4) out.add(line);
+    }
+    return out;
+  }
+  // Plain-text mentions count too, but only on lines new since the last few dailies of the same kind, so carried-over
+  // tasks and template text don't count again every day. A daily whose links repeat the previous one's is boilerplate.
+  const CARRY_OVER_DAYS = 3;
+  function mentionPass({ dailies, knowledge, people, terms, recentSince }) {
+    const K = new Set(knowledge), P = new Set(people), alts = Object.keys(terms).sort((a, b) => cpLen(b) - cpLen(a)).map(regexEscape);
+    const matcher = alts.length ? new RegExp(`(?<![\\p{L}\\p{N}\\p{M}_-])(?:${alts.join("|")})(?![\\p{L}\\p{N}\\p{M}_-])`, "giu") : null;
+    const earlier = {}, previous = {}, mentions = {}, recent = {}, said = {}, saidDays = {}, mentionDays = {}, personMentions = {}; let used = 0;
+    const add = (o, k) => { o[k] = (o[k] || 0) + 1; }, list = (o, k, v) => { (o[k] = o[k] || []).push(v); };
+    for (const d of [...dailies].sort((a, b) => pyCmp(a.day, b.day) || pyCmp(a.path, b.path))) {
+      const kind = d.path.toLowerCase().includes("standup") ? "standup" : "journal", lines = contentLines(d.text), seen = earlier[kind] = earlier[kind] || [];
+      const fresh = [...lines].filter(l => !seen.some(s => s.has(l)));
+      seen.push(lines); if (seen.length > CARRY_OVER_DAYS) seen.shift();
+      const named = new Set();
+      if (matcher) for (const l of fresh) for (const m of l.matchAll(matcher)) (terms[m[0].toLowerCase()] || []).forEach(n => named.add(n));
+      const resolved = new Set(d.links), key = sorted([...resolved].filter(r => K.has(r) || P.has(r))).join("\n"), boilerplate = key === previous[kind];
+      previous[kind] = key;
+      const linked = boilerplate ? [] : [...resolved].filter(r => K.has(r)), who = boilerplate ? [] : [...resolved].filter(r => P.has(r));
+      const here = sorted(new Set([...linked, ...named]));
+      if (!here.length && !who.length) continue;
+      used++;
+      for (const n of named) if (!(K.has(n) && resolved.has(n))) { add(said, n); list(saidDays, n, d.path); }
+      for (const n of here) { add(mentions, n); list(mentionDays, n, d.day); if (d.day >= recentSince) add(recent, n); }
+      for (const p of who) personMentions[p] = (personMentions[p] || 0) + here.length;
+    }
+    return { mentions, recent, said, saidDays, mentionDays, personMentions, used };
+  }
+  // real task ages: the first journal or standup a task appears in (journals carry tasks forward), else the note's birth
+  const taskKey = t => cpTake(t.toLowerCase().replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\d{4}-\d{2}-\d{2}|https?:\/\/\S+|[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).join(" "), 60);
+  const TASK_ANY = /^\s*[-*+] \[(.)\] (.+)$/gmu;
+  function taskAges(dailyDays, raw, born, paths) {
+    const first = new Map();
+    for (const d of dailyDays) for (const m of unixLines(d.text).matchAll(TASK_ANY)) { const k = taskKey(m[2]); if (cpLen(k) >= 8 && (!first.has(k) || d.day < first.get(k))) first.set(k, d.day); }
+    const out = {};
+    for (const p of paths) {
+      const items = [...bodyOf(raw[p] || "").matchAll(TASK_ANY)].filter(m => m[1] === " ").map(m => [cpTake(m[2].trim(), 90), [first.get(taskKey(m[2])), born[p]].filter(Boolean).sort(pyCmp)[0] || born[p] || null]);
+      if (items.length) out[p] = items.map((x, i) => [x, i]).sort((a, b) => pyCmp(a[0][1] || "9999", b[0][1] || "9999") || a[1] - b[1]).map(x => x[0]);
+    }
+    return out;
+  }
+  const noteCounts = text => { const b = bodyOf(text); return { tasks: (b.match(/^\s*[-*+] \[ \] /gm) || []).length, words: (b.match(/[A-Za-z0-9]+/g) || []).length }; };
+  // notes that differ only by a date: a series, oldest first
+  function datedSeries(paths) {
+    const groups = new Map();
+    for (const r of paths) { const name = stemOf(r), m = DATED.exec(name); if (!m) continue;
+      const key = name.replace(DATED_G, " ").replace(SERIES_G, " ").trim().toLowerCase(); if (!groups.has(key)) groups.set(key, []); groups.get(key).push([m[0], r]); }
+    return [...groups.keys()].sort(pyCmp).filter(k => k && groups.get(k).length >= 3).map(k => { const members = groups.get(k).sort((a, b) => pyCmp(a[0], b[0]) || pyCmp(a[1], b[1]));
+      return { name: stripChars(stemOf(members[members.length - 1][1]).replace(DATED_G, ""), [" ", "-", "—", "_"]), notes: members.map(x => x[1]) }; });
+  }
+  // ---- standup follow-through: each planned item against the completed work of the next standups
+  const FT_STOP = new Set(`the and for with that this from into onto then than have has had was were are will would could should
+not but its it's out off our their there them they you your about after before again also more most some any all
+can just get got make made making work working done doing look looked looking continue continued finish finished
+start started need needs needed sure still today tomorrow next week day days new up down over under via per
+what when where which while who how why each other same see set use used using way well back`.split(/\s+/));
+  function ftWords(text) {
+    const t = text.toLowerCase().replace(/\[\[([^\]|]*\|)?([^\]]*)\]\]/g, "$2"), out = new Set();
+    for (let w of t.match(/[a-z0-9][a-z0-9_-]{2,}/g) || []) { if (FT_STOP.has(w) || /^\d+$/.test(w)) continue;
+      if (w.length > 4) w = w.replace(/(ings?|ed|es|s)$/, "").replace(/e+$/, ""); out.add(w); }
+    return out;
+  }
+  const ftSection = (text, head) => { const m = new RegExp(`^## \\d+\\.\\s*${regexEscape(head)}[^\\n]*\\n([\\s\\S]*?)(?=^## |(?![\\s\\S]))`, "m").exec(text); return m ? m[1] : ""; };
+  function ftItems(sec) {
+    const items = []; let cur = null;
+    for (const line of sec.split(PY_LINES)) {
+      if (/^\d+\.\s+\S/.test(line)) { if (cur) items.push(cur); cur = line.replace(/^\d+\.\s+/, "").trim(); }
+      else if (cur !== null && /^\s+(\d+\.|[-*])\s+\S/.test(line)) cur += " · " + line.replace(/^\s+(\d+\.|[-*])\s+/, "").trim();
+    }
+    if (cur) items.push(cur);
+    return items.map(i => i.split("**").join("")).filter(i => ftWords(i).size >= 2);   // Python filters the stripped text's words the same
+  }
+  function followThrough({ standups, today, days = 150, planHead = "Work Expected", doneHead = "Work Completed" }) {
+    const dates = Object.keys(standups).sort(pyCmp), cutoff = new Date(Date.parse(`${today}T12:00:00Z`) - days * 864e5).toISOString().slice(0, 10), parsed = {};
+    for (const d of dates) { const t = unixLines(standups[d]), done = [];
+      for (const item of ftItems(ftSection(t, doneHead))) { const [head, ...subs] = item.split(" · ");
+        if (subs.length) subs.forEach(s => done.push(`${head} ${s}`)); else done.push(head);
+        if (subs.length > 1) done.push([head, ...subs].join(" ")); }
+      parsed[d] = { exp: ftItems(ftSection(t, planHead)), done: done.map(x => [x, ftWords(x)]) }; }
+    const df = new Map(); let lines = 0;
+    for (const d of dates) for (const [, cw] of parsed[d].done) { lines++; cw.forEach(w => df.set(w, (df.get(w) || 0) + 1)); }
+    const nLines = Math.max(1, lines), idf = w => Math.log((nLines + 1) / ((df.get(w) || 0) + 1)) + 0.1, sum = a => a.reduce((x, w) => x + idf(w), 0);
+    const overlap = (ws, cw) => { const key = [...ws].sort((a, b) => idf(b) - idf(a) || pyCmp(a, b)).slice(0, 6), shared = key.filter(w => cw.has(w)); return shared.length >= 2 ? sum(shared) / Math.max(1e-9, sum(key)) : 0; };
+    const best = (ws, ls) => { let sc = 0, hit = ""; for (const [text, cw] of ls) { const s = overlap(ws, cw); if (s > sc) { sc = s; hit = text; } } return [sc, hit]; };
+    const out = [];
+    dates.forEach((d, i) => { if (d < cutoff || i === dates.length - 1) return;
+      for (const item of parsed[d].exp) { const ws = ftWords(item), hw = ftWords(item.split(" · ")[0]); let status = "dropped", when = null, match = "", carried = 0;
+        const later = dates.slice(i + 1, i + 8);
+        for (let j = 0; j < later.length; j++) { const d2 = later[j], a = best(ws, parsed[d2].done), b = hw.size >= 2 ? best(hw, parsed[d2].done) : [0, ""], [sc, hit] = b[0] > a[0] || (b[0] === a[0] && pyCmp(b[1], a[1]) > 0) ? b : a;
+          if (sc >= 0.38) { status = j === 0 ? "next" : "later"; when = d2; match = hit; break; }
+          if (parsed[d2].exp.some(e => overlap(ws, ftWords(e)) >= 0.5)) carried++; }
+        if (status === "dropped" && carried) status = "carried";
+        if (status === "dropped" && i >= dates.length - 2) status = "pending";
+        out.push({ d, t: cpTake(item, 220), s: status, w: when, m: cpTake(match, 200), c: carried }); } });
+    return { items: out, standups: dates.filter(d => d >= cutoff).length, days };
+  }
+  // ---- duplicates: copies by their text (5-word runs), then pairs only the embeddings find
+  const TEXT_TWIN = 0.9, TEXT_TWIN_MIN = 50, DUPLICATE_SIMILARITY = 0.93, TOP_SEMANTIC = 20;
+  const CODE_LINE = /^\s*(--\s|(SELECT|INSERT|UPDATE|DELETE|ALTER|CREATE|SET|FROM|WHERE|VALUES|ADD|JOIN|UNIQUE|PRIMARY|INTO)\b)|;\s*$/;
+  function mostlyCode(text) { let fence = null, n = 0, code = 0;
+    for (const line of bodyOf(text).split(PY_LINES)) { const s = line.trim(); if (!s) continue;
+      if (s.startsWith("```")) { fence = fence !== null ? null : s.slice(3).trim().toLowerCase(); continue; }
+      n++; if ((fence !== null && fence !== "mermaid") || (fence === null && CODE_LINE.test(line))) code++; }
+    return n >= 5 && code / n >= 0.6; }
+  function shingles(text) {
+    const w = bodyOf(text).replace(/^## Related\b[\s\S]*?(?=^#{1,2} |(?![\s\S]))/gm, " ").toLowerCase().match(/[a-z0-9]+/g) || [], out = new Set();
+    if (w.length >= TEXT_TWIN_MIN) for (let i = 0; i + 4 < w.length; i++) out.add(`${w[i]} ${w[i + 1]} ${w[i + 2]} ${w[i + 3]} ${w[i + 4]}`);
+    return out; }
+  function textTwins(notes, raw, quiet) {
+    const sh = new Map(); for (const r of sorted(notes)) if (!quiet.has(r)) { const s = shingles(raw[r] || ""); if (s.size) sh.set(r, s); }
+    const index = new Map(); for (const [r, s] of sh) for (const x of s) { const l = index.get(x); if (l) l.push(r); else index.set(x, [r]); }
+    const shared = new Map();
+    for (const rs of index.values()) if (rs.length > 1 && rs.length <= 50) for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) { const k = `${rs[i]}\n${rs[j]}`; shared.set(k, (shared.get(k) || 0) + 1); }
+    const out = [];
+    for (const [k, n] of shared) { const [a, b] = k.split("\n"), j = n / (sh.get(a).size + sh.get(b).size - n); if (j >= TEXT_TWIN && !(seriesKey(a) && seriesKey(a) === seriesKey(b))) out.push([a, b, pyRound(j, 3), "text"]); }
+    return out.sort((x, y) => y[2] - x[2] || pyCmp(x[0], y[0]) || pyCmp(x[1], y[1]));
+  }
+  // same-name copies resolve together: one pair per pair of names, best first. skip(a, b): a pair not to offer (dismissed)
+  function byName(pairs, limit, skip) {
+    const seen = new Set(), out = [];
+    for (const x of [...pairs].sort((p, q) => q[2] - p[2] || pyCmp(p[0], q[0]) || pyCmp(p[1], q[1]))) {
+      const a = stemOf(x[0]).toLowerCase(), b = stemOf(x[1]).toLowerCase(), key = pyCmp(a, b) < 0 ? `${a}\n${b}` : `${b}\n${a}`;
+      if (a !== b && !seen.has(key) && !(skip && skip(x[0], x[1]))) { seen.add(key); out.push([x[0], x[1], x[2]]); }
+      if (out.length === limit) break;
+    }
+    return out;
+  }
+  // mutual nearest in meaning with no direct link. Returned unranked: byName ranks them on the main thread, where the
+  // dismissed pairs are known.
+  function similarPairs(vectors, adj, quiet) {
+    const top = topNeighbours(vectors, SEMANTIC_TOP_K, false), pairs = [], tight = t => stemOf(t).toLowerCase().replace(SERIES_G, "");
+    const names = r => new Set(Object.keys(adj[r] || {}).map(t => stemOf(t).toLowerCase()));
+    const linked = (a, b) => names(a).has(stemOf(b).toLowerCase()) || names(b).has(stemOf(a).toLowerCase());
+    for (const p of sorted(vectors.keys())) for (const [s, q] of top.get(p)) {
+      if (pyCmp(p, q) < 0 && !quiet.has(p) && !quiet.has(q) && top.get(q).some(x => x[1] === p) && !linked(p, q) && tight(p) !== tight(q) && !(seriesKey(p) && seriesKey(p) === seriesKey(q))) pairs.push([p, q, pyRound(s, 3)]); }
+    return pairs;
+  }
+  function notesJob({ dailies, dailyDays, knowledge, people, terms, recentSince, raw, born, adj, quiet, smart, standups, today, planHead, doneHead }) {
+    const M = mentionPass({ dailies, knowledge, people, terms, recentSince }), q = new Set(quiet);
+    const counts = {}; for (const r of knowledge) counts[r] = noteCounts(raw[r] || "");
+    const vectors = smart ? embeddings({ sources: smart.sources, models: smart.models, blob: f => smart.blobs[f] }, knowledge) : new Map();
+    const codey = knowledge.filter(r => mostlyCode(raw[r] || ""));
+    return { ...M, counts, tasks: taskAges(dailyDays, raw, born, knowledge), series: datedSeries(knowledge), follow: followThrough({ standups, today, planHead, doneHead }),
+      twins: textTwins(knowledge, raw, q), similar: vectors.size ? similarPairs(vectors, adj, q) : [], codey };
+  }
+
   // ---- the topics, from what the plugin has gathered (the graph, the notes' text and tags, the Smart Connections files):
   // the slow part of building the graph, as one step with no Obsidian in it, so it can run off the main thread.
   function topicsJob({ graph, knowledge, smart, raw, tags, prev, stack }) {
@@ -509,14 +672,14 @@ const VGEngineMake = () => {
       w.postMessage({ name, input });
     });
   }
-  const JOBS = { topicsJob };
+  const JOBS = { topicsJob, notesJob };
   async function run(name, input) {
     if (typeof Worker === "function" && typeof Blob === "function" && typeof URL === "function" && URL.createObjectURL) {
       try { const r = await inWorker(name, input); stats.via = "worker"; return r; } catch (e) { console.warn(`Vault Graph: ${name} is running on the main thread:`, e.message); } }
     stats.via = "here"; return JOBS[name](input);
   }
 
-  return { run, stats, topicsJob, pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
+  return { run, stats, topicsJob, notesJob, mentionPass, taskAges, datedSeries, followThrough, textTwins, similarPairs, byName, mostlyCode, pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
     noteWords, topicWords, topicsOf, topicGraph, frontmatterTags, wantedNotes, sharedPairs, cleanTitle, readableNames, stacks, withStack, label, stableIds, titleCase };
 };
 const VGEngine = VGEngineMake();

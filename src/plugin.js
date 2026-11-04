@@ -788,6 +788,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       }
       if (!this.base) return (this.cache = null);
       const data = structuredClone(this.base);
+      if (!data.engine && Platform.isDesktopApp && VGRules.engineOwns().length) { if (this.engineNotesDone) VGRules.applyEngineNotes(data, this.engineNotesDone, VGRules.engineOwns()); else this.engineNotesSoon(); }
       try { liveMerge(this.app, data, this.dataMtime()); } catch (e) { console.error("Vault Graph: live merge failed", e); }
       data.scenes = await this.sceneBlocks();
       try { data.hq = await this.hqData(); data.hqError = null; } catch (e) { console.error("Vault Graph: HQ notes not read", e); data.hq = null; data.hqError = (e && e.message) || String(e); }
@@ -902,7 +903,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
         if (err) { new Notice(`Vault Graph refresh failed: ${err.message}`, 10000); this.updateStatus(); return; }
         const kept = (stdout || "").match(/^Kept \S+ from (\S+):/m);   // vault_graph.newer_analysis: another PC's is newer
         if (!quiet) new Notice(kept ? `Vault Graph: kept the analysis from ${kept[1]}, built from newer notes` : "Vault Graph refreshed");
-        this.base = null; this.cache = null;
+        this.base = null; this.cache = null; this.engineNotesDone = null;
         this.mergeContentFromDisk().then(() => this.reloadSoon());   // the run rewrote the content log too
         setTimeout(() => this.updateStatus(), 1000);
       });
@@ -1539,25 +1540,29 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // short report. A view that breaks shows up here instead of as a blank pane found by hand weeks later.
   // ---- the analysis engine on this vault's live index (ROADMAP phase 4): topics from Obsidian's own links and
   // frontmatter and the Smart Connections index, with no Python. Topic ids carry on from the last analysis's topics.
-  async engineTopics(prev) {
+  // what the engine reads from Obsidian: the notes it treats as topic notes, their links, tags and text
+  async engineGather() {
     const ignored = [].concat((this.app.vault.getConfig && this.app.vault.getConfig("userIgnoreFilters")) || []).map(p => String(p).replace(/\/?$/, "/"));
     const files = this.app.vault.getMarkdownFiles().filter(f => ![...EXCLUDE_PREFIXES, ...ignored].some(p => f.path.startsWith(p)));
     const notes = files.map(f => ({ path: f.path, tags: VGEngine.frontmatterTags((this.app.metadataCache.getFileCache(f) || {}).frontmatter) }));
     const resolved = this.app.metadataCache.resolvedLinks || {};
     const links = Object.fromEntries(files.map(f => [f.path, Object.keys(resolved[f.path] || {}).filter(t => t.endsWith(".md") && t !== f.path)]));
-    const F = VGRules.folders;
     const T = VGEngine.topicGraph(notes, links, { kind: VGRules.noteKind, isHub: VGRules.isHub, joinsWhenLinked: VGRules.joinsWhenLinked });
     const raw = {};   // every topic note's text: topic keywords and word counts
     for (const r of T.knowledge) { const f = this.app.vault.getAbstractFileByPath(r); if (f instanceof TFile) raw[r] = await this.app.vault.cachedRead(f); }
     const tags = Object.fromEntries(notes.map(n => [n.path, n.tags]));
+    return { T, raw, tags, files, links };
+  }
+  async engineTopics(prev) {
+    const gathered = await this.engineGather(), { T, raw, tags, files } = gathered;
     const J = await VGEngine.run("topicsJob", { graph: T.graph, knowledge: T.knowledge, smart: await this.smartFiles(), raw, tags, prev: prev || {}, stack: VGRules.RULES.stack });
-    return { topics: J.topics, bc: J.bc, knowledge: T.knowledge.length, vectors: J.vectors, notes: T.knowledge, graph: T.graph, raw, tags, files };
+    return { topics: J.topics, bc: J.bc, knowledge: T.knowledge.length, vectors: J.vectors, notes: T.knowledge, graph: T.graph, raw, tags, files, gathered };
   }
   // The graph data when this vault has no analysis file (no Python, a phone, a new vault): the engine's topics and
   // influence over Obsidian's index, in the analysis's shape; liveMerge adds the live fields over it as it does over the
   // analysis's. Topic ids carry on from the last engine run (kept in the plugin's settings).
   async engineData() {
-    const E = await this.engineTopics(this.settings.engineTopics);
+    const E = await this.engineTopics(this.settings.engineTopics), N = await this.engineNotes(E.gathered);
     this.settings.engineTopics = Object.fromEntries(E.topics.map(t => [t.id, t.members])); await this.saveSettings();
     const at = new Map(), unresolved = this.app.metadataCache.unresolvedLinks || {};
     E.topics.forEach(t => t.members.forEach(r => at.set(r, t.id)));
@@ -1572,11 +1577,43 @@ module.exports = class VaultGraphPlugin extends Plugin {
     for (const [r, nb] of Object.entries(E.graph)) for (const [t, w] of Object.entries(nb)) if (VGEngine.pyCmp(r, t) < 0) links.push({ source: r, target: t, w, kind: "link" });
     const wanted = VGEngine.wantedNotes(unresolved, E.notes);
     wanted.forEach(w => w.refs.slice(0, 12).forEach(r => links.push({ source: r, target: w.id, w: 1, kind: "wanted" })));
-    return { vault: this.app.vault.getName(), date: VGRules.today(), since: null, recent_days: 30, dailies_used: 0, engine: true,
+    const out = { vault: this.app.vault.getName(), date: VGRules.today(), since: null, recent_days: 30, dailies_used: 0, engine: true,
       said_unlinked: [], wanted, series: [], nodes, links, mocs: [],
       clusters: E.topics.map(t => ({ id: t.id, name: t.name, keywords: t.keywords, stack: t.stack, label: null, size: t.size, folder: t.folder, core: t.core.slice(0, 3).map(VGRules.stem) })),
       gaps: [], quality: { stub_words: VGRules.RULES.stub_words, stale_days: VGRules.RULES.stale_days }, pairs: [], snapshots: [],
       timeline: { weeks: [], clusters: {}, notes: {} }, near_dupes: [] };
+    VGRules.applyEngineNotes(out, N, VGRules.ENGINE_PARTS);
+    out.nodes.forEach(n => { if (n.person || n.moc || CONTENT.log[n.id]) return; const f = this.app.vault.getAbstractFileByPath(n.id), fm = (f instanceof TFile && (this.app.metadataCache.getFileCache(f) || {}).frontmatter) || {};
+      const dates = ["modified", "updated", "date modified", "reviewed"].map(k => String(fm[k] || "").slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
+      n.edited = [n.born, ...dates, ...(N.mentionDays[n.id] || [])].filter(d => d && d <= out.date).sort().pop() || n.edited; n.age = daysSince(n.edited); });
+    return out;
+  }
+  // What notes and daily notes say, apart from topics (VGEngine.notesJob), in the graph data's words. A desktop with the
+  // analysis takes the parts the rules file's engine_owns lists (VGRules.applyEngineNotes); the rest stay the analysis's.
+  async engineNotes(gathered) {
+    const G = gathered || await this.engineGather(), mc = this.app.metadataCache, read = f => this.app.vault.cachedRead(f), day0 = VGRules.today();
+    const shift = n => new Date(Date.parse(`${day0}T12:00:00Z`) - n * 864e5).toISOString().slice(0, 10), since = shift(365), recentSince = shift(30);
+    const knowledge = G.T.knowledge, K = new Set(knowledge), resolved = mc.resolvedLinks || {}, terms = {}, quiet = [], born = {}, personLinks = {};
+    for (const r of knowledge) { const f = this.app.vault.getAbstractFileByPath(r); if (!(f instanceof TFile)) continue; const fm = (mc.getFileCache(f) || {}).frontmatter;
+      VGRules.mentionNames(f.basename, fm && fm.aliases).forEach(k => { const key = k.toLowerCase(); (terms[key] = terms[key] || []).push(r); });
+      if (VGRules.isPrivate(r, fm)) quiet.push(r);
+      born[r] = VGRules.bornDate(f.basename, fm && fm.created, VGRules.localDay(new Date(f.stat.ctime))); }
+    const people = G.files.filter(f => VGRules.noteKind(f.path, G.tags[f.path]) === "person").map(f => f.path);
+    people.forEach(p => { personLinks[p] = new Set((G.links[p] || []).filter(t => K.has(t))); });
+    for (const r of knowledge) for (const t of G.links[r] || []) if (personLinks[t]) personLinks[t].add(r);
+    const dailies = [], dailyDays = [], standups = {};
+    for (const f of G.files) { if (VGRules.noteKind(f.path, []) !== "daily") continue; const m = /(\d{4}-\d{2}-\d{2})/.exec(f.name) || null, day = m ? m[1] : VGRules.hqJournalDate(f.path); if (!day) continue;
+      const text = await read(f); dailyDays.push({ day, text });
+      if (day >= since) dailies.push({ day, path: f.path, text, links: G.links[f.path] || [] });
+      if (VGRules.hqStandupDate(f.path)) standups[day] = text; }
+    const H = VGRules.RULES.hq || {}, smart = await this.smartFiles();
+    const J = await VGEngine.run("notesJob", { dailies, dailyDays, knowledge, people, terms, recentSince, raw: G.raw, born, adj: G.T.graph, quiet, smart, standups, today: day0, planHead: H.plan_heading, doneHead: H.completed_heading });
+    return { ...J, knowledge, personLinks: Object.fromEntries(Object.entries(personLinks).map(([p, s]) => [p, [...s].sort()])), skip: (a, b) => DISMISSED.has(dismissKey(a, b)) };
+  }
+  // worked out once per analysis run: the next redraw takes it (a phone keeps the desktop's file)
+  engineNotesSoon() {
+    if (this.engineNotesRunning) return; this.engineNotesRunning = true;
+    this.engineNotes().then(N => { this.engineNotesDone = N; this.cacheStale = true; this.reloadSoon(); }, e => { console.error("Vault Graph: the engine's notes didn't run; the analysis's stand", e); }).finally(() => { this.engineNotesRunning = false; });
   }
   // the vault has the analysis to run (its script and Python): otherwise the engine is the analysis
   async hasAnalysis() {
@@ -1586,7 +1623,9 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // the Smart Connections index (.smart-env), read for the engine: its logs, then each vector file they name
   async smartFiles() {
     const A = this.app.vault.adapter, base = ".smart-env", text = async p => { try { return await A.read(p); } catch (e) { return null; } };
-    const sources = await text(`${base}/smart_sources/smart_sources.ajson`), models = await text(`${base}/embedding_models/embedding_models.ajson`);
+    let names = []; try { names = (await A.list(`${base}/smart_sources`)).files.map(f => f.split("/").pop()).filter(f => /^smart_sources(_\d+)?\.ajson$/.test(f)); } catch (e) { /* no index */ }
+    const order = f => { const m = /_(\d+)\.ajson$/.exec(f); return m ? +m[1] : 0; }, parts = await Promise.all((names.length ? names : ["smart_sources.ajson"]).sort((a, b) => order(a) - order(b)).map(f => text(`${base}/smart_sources/${f}`)));
+    const sources = parts.some(p => p != null) ? parts.filter(p => p != null).join("\n") : null, models = await text(`${base}/embedding_models/embedding_models.ajson`);
     if (sources == null || models == null) return null;
     const blobs = {}, files = new Set();
     for (const v of VGEngine.parseAjson(sources).values()) Object.keys(((v && v.embedding) || {}).default || {}).forEach(f => files.add(f));
