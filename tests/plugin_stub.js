@@ -53,7 +53,7 @@ function fakeVault(dir, TFile, { skip = [".obsidian", ".trash", ".git"] } = {}) 
       bag[key] = (bag[key] || 0) + 1;
     }
   }
-  const caches = new Map(files.map(f => [f.path, { frontmatter: frontmatter(f.text), listItems: [...f.text.matchAll(/^\s*[-*] \[(.)\]/gm)].map(x => ({ task: x[1] })) }]));
+  const caches = new Map(files.map(f => [f.path, { frontmatter: frontmatter(f.text), links: [...f.text.matchAll(/\[\[([^\]|]+)/g)].map(m => ({ link: m[1].trim() })), listItems: [...f.text.matchAll(/^\s*[-*] \[(.)\]/gm)].map(x => ({ task: x[1] })) }]));
   return {
     vault: { getMarkdownFiles: () => files, getAbstractFileByPath: p => byPath.get(p) || null, cachedRead: async f => f.text, getName: () => path.basename(dir),
       getConfig: () => undefined, on: () => ({}),

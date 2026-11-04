@@ -914,8 +914,13 @@ const VGRules = (() => {
   }
   // ---- what the engine (VGEngine.notesJob) says, put into the graph data. A part is applied whole; each is listed in the
   // rules file's engine_owns once it matches the analysis on that vault.
-  const ENGINE_PARTS = ["mentions", "tasks", "people", "series", "follow", "dupes"];
-  const engineOwns = () => ENGINE_PARTS.filter(p => (R.engine_owns || []).includes(p));
+  const ENGINE_PARTS = ["mentions", "tasks", "people", "series", "follow", "dupes", "topics"];
+  // a phone has its own Smart Connections index, which can be far behind: what rests on meaning stays the desktop's
+  // the self-test watches the whole app for a while: an error whose stack never passes through this plugin isn't its own.
+  // No stack says nothing, so that counts as ours; better a false alarm than a hidden failure.
+  const errorIsElsewhere = (stack, id) => !!stack && !String(stack).includes(`plugin:${id}`);
+  const ENGINE_DESKTOP_ONLY = new Set(["dupes", "topics"]);
+  const engineOwns = mobile => ENGINE_PARTS.filter(p => (R.engine_owns || []).includes(p) && !(mobile && ENGINE_DESKTOP_ONLY.has(p)));
   function applyEngineNotes(data, N, parts) {
     const on = new Set(parts), byId = new Map(data.nodes.map(n => [n.id, n])), skip = N.skip || (() => false), notes = data.nodes.filter(n => !n.person && !n.moc && !n.ghost);
     const pyOrder = VGEngine.pyCmp;
@@ -930,11 +935,25 @@ const VGRules = (() => {
         own.forEach(t => data.links.push({ source: p, target: t, w: 1, kind: "person" })); } }
     if (on.has("series")) data.series = N.series;
     if (on.has("follow")) data.followthrough = N.follow;
+    if (on.has("topics") && N.parts) applyEngineTopics(data, N.T, N.parts);
     if (on.has("dupes")) { const seen = new Set(N.twins.map(x => [x[0], x[1]].sort().join("\n"))), code = new Set(N.codey), byNm = VGEngine.byName;
       const near = byNm(N.similar.filter(x => x[2] >= 0.93), 20, skip).filter(x => !seen.has([x[0], x[1]].sort().join("\n")));
       data.near_dupes = [...N.twins, ...near];
-      data.links = data.links.filter(l => l.kind !== "similar");
-      byNm(N.similar.filter(x => x[2] < 0.93 && !(code.has(x[0]) && code.has(x[1]))), 20, skip).forEach(([a, b, s]) => data.links.push({ source: a, target: b, w: 1, kind: "similar", why: `similar meaning (${s})` })); }
+      if (!(on.has("topics") && N.parts)) { data.links = data.links.filter(l => l.kind !== "similar");
+        byNm(N.similar.filter(x => x[2] < 0.93 && !(code.has(x[0]) && code.has(x[1]))), 20, skip).forEach(([a, b, s]) => data.links.push({ source: a, target: b, w: 1, kind: "similar", why: `similar meaning (${s})` })); } }
+    return data;
+  }
+  // topics and everything keyed by them, in one step: a gap or a map pointing at another run's topic number is wrong
+  function applyEngineTopics(data, T, P) {
+    data.clusters = T.topics.map(t => ({ id: t.id, name: t.name, keywords: t.keywords, stack: t.stack, label: P.labels[t.id] || null, size: t.size, folder: t.folder, core: t.core.slice(0, 3).map(stemCase) }));
+    data.nodes = data.nodes.filter(n => !n.moc); const byId = new Map(data.nodes.map(n => [n.id, n])), bc = T.bc;
+    data.nodes.forEach(n => { if (n.person || n.ghost) return; n.cluster = P.cid[n.id] != null ? P.cid[n.id] : -1; n.bc = Math.round((bc[n.id] || 0) * 1e5) / 1e5; delete n.bridge; delete n.bridges; });
+    data.links = data.links.filter(l => !["gap", "similar", "moc"].includes(l.kind)).concat(P.links);
+    data.gaps = P.gaps.map(g => ({ a: g.a, b: g.b, links: g.links, comentions: g.comentions, suggest: g.suggest })); data.pairs = P.pairs; data.mocs = P.mocs; data.timeline = P.timeline; data.rhythm = P.rhythm;
+    for (const m of P.mocs) { if (m.nav) continue; const own = m.members.filter(r => m.clusters.includes(P.cid[r]));
+      data.nodes.push({ id: m.id, name: m.title, moc: true, cluster: m.clusters[0], bc: 0, folder: m.id.includes("/") ? m.id.slice(0, m.id.lastIndexOf("/")) : "", mentions: 0, recent: 0, inlinks: 0, outlinks: own.length, broken: 0, tasks: 0, words: 0, age: 0, refs: true, isolated: false });
+      own.forEach(r => data.links.push({ source: m.id, target: r, w: 1, kind: "moc" })); }
+    for (const [r, targets] of Object.entries(P.bridges)) { const n = byId.get(r); if (n) { n.bridge = true; n.bridges = targets; } }
     return data;
   }
   const bornDate = (name, created, fileDay) => [created && /^\d{4}-\d{2}-\d{2}/.test(String(created)) ? String(created).slice(0, 10) : null, nameDate(name), fileDay].filter(d => d && d >= "2015-01-01").sort()[0] || fileDay;
@@ -1439,7 +1458,7 @@ const VGRules = (() => {
   }
   // a task and the open subtasks that go with it, as rows for a status change
   const taskRowsOf = it => [{ path: it.path, line: it.line, text: it.text }, ...(it.subs || []).map(s => ({ path: it.path, line: s.line, text: s.text }))];
-  return { ENGINE_PARTS, engineOwns, applyEngineNotes, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

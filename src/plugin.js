@@ -788,7 +788,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
       }
       if (!this.base) return (this.cache = null);
       const data = structuredClone(this.base);
-      if (!data.engine && Platform.isDesktopApp && VGRules.engineOwns().length) { if (this.engineNotesDone) VGRules.applyEngineNotes(data, this.engineNotesDone, VGRules.engineOwns()); else this.engineNotesSoon(); }
+      const owns = VGRules.engineOwns(!Platform.isDesktopApp);
+      if (!data.engine && owns.length) { if (this.engineNotesDone) VGRules.applyEngineNotes(data, this.engineNotesDone, owns); else this.engineNotesSoon(); }
       try { liveMerge(this.app, data, this.dataMtime()); } catch (e) { console.error("Vault Graph: live merge failed", e); }
       data.scenes = await this.sceneBlocks();
       try { data.hq = await this.hqData(); data.hqError = null; } catch (e) { console.error("Vault Graph: HQ notes not read", e); data.hq = null; data.hqError = (e && e.message) || String(e); }
@@ -1562,7 +1563,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // influence over Obsidian's index, in the analysis's shape; liveMerge adds the live fields over it as it does over the
   // analysis's. Topic ids carry on from the last engine run (kept in the plugin's settings).
   async engineData() {
-    const E = await this.engineTopics(this.settings.engineTopics), N = await this.engineNotes(E.gathered);
+    const G = await this.engineGather(), N = await this.engineNotes(G, { topics: true, prev: this.settings.engineTopics }), E = { ...N.T, notes: G.T.knowledge, graph: G.T.graph, raw: G.raw, tags: G.tags };
     this.settings.engineTopics = Object.fromEntries(E.topics.map(t => [t.id, t.members])); await this.saveSettings();
     const at = new Map(), unresolved = this.app.metadataCache.unresolvedLinks || {};
     E.topics.forEach(t => t.members.forEach(r => at.set(r, t.id)));
@@ -1582,7 +1583,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
       clusters: E.topics.map(t => ({ id: t.id, name: t.name, keywords: t.keywords, stack: t.stack, label: null, size: t.size, folder: t.folder, core: t.core.slice(0, 3).map(VGRules.stem) })),
       gaps: [], quality: { stub_words: VGRules.RULES.stub_words, stale_days: VGRules.RULES.stale_days }, pairs: [], snapshots: [],
       timeline: { weeks: [], clusters: {}, notes: {} }, near_dupes: [] };
-    VGRules.applyEngineNotes(out, N, VGRules.ENGINE_PARTS);
+    VGRules.applyEngineNotes(out, N, VGRules.ENGINE_PARTS); out.since = null;
     out.nodes.forEach(n => { if (n.person || n.moc || CONTENT.log[n.id]) return; const f = this.app.vault.getAbstractFileByPath(n.id), fm = (f instanceof TFile && (this.app.metadataCache.getFileCache(f) || {}).frontmatter) || {};
       const dates = ["modified", "updated", "date modified", "reviewed"].map(k => String(fm[k] || "").slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
       n.edited = [n.born, ...dates, ...(N.mentionDays[n.id] || [])].filter(d => d && d <= out.date).sort().pop() || n.edited; n.age = daysSince(n.edited); });
@@ -1590,7 +1591,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   }
   // What notes and daily notes say, apart from topics (VGEngine.notesJob), in the graph data's words. A desktop with the
   // analysis takes the parts the rules file's engine_owns lists (VGRules.applyEngineNotes); the rest stay the analysis's.
-  async engineNotes(gathered) {
+  async engineNotes(gathered, o = {}) {
     const G = gathered || await this.engineGather(), mc = this.app.metadataCache, read = f => this.app.vault.cachedRead(f), day0 = VGRules.today();
     const shift = n => new Date(Date.parse(`${day0}T12:00:00Z`) - n * 864e5).toISOString().slice(0, 10), since = shift(365), recentSince = shift(30);
     const knowledge = G.T.knowledge, K = new Set(knowledge), resolved = mc.resolvedLinks || {}, terms = {}, quiet = [], born = {}, personLinks = {};
@@ -1604,16 +1605,26 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const dailies = [], dailyDays = [], standups = {};
     for (const f of G.files) { if (VGRules.noteKind(f.path, []) !== "daily") continue; const m = /(\d{4}-\d{2}-\d{2})/.exec(f.name) || null, day = m ? m[1] : VGRules.hqJournalDate(f.path); if (!day) continue;
       const text = await read(f); dailyDays.push({ day, text });
-      if (day >= since) dailies.push({ day, path: f.path, text, links: G.links[f.path] || [] });
+      if (day >= since) { const linkOf = {}; for (const l of (mc.getFileCache(f) || {}).links || []) { const target = l.link.split("#")[0].trim(), dest = target && mc.getFirstLinkpathDest && mc.getFirstLinkpathDest(target, f.path); if (dest) linkOf[target.toLowerCase()] = dest.path; }
+        dailies.push({ day, path: f.path, text, links: G.links[f.path] || [], linkOf }); }
       if (VGRules.hqStandupDate(f.path)) standups[day] = text; }
-    const H = VGRules.RULES.hq || {}, smart = await this.smartFiles();
-    const J = await VGEngine.run("notesJob", { dailies, dailyDays, knowledge, people, terms, recentSince, raw: G.raw, born, adj: G.T.graph, quiet, smart, standups, today: day0, planHead: H.plan_heading, doneHead: H.completed_heading });
+    const H = VGRules.RULES.hq || {}, smart = await this.smartFiles(), input = { dailies, dailyDays, knowledge, people, terms, recentSince, raw: G.raw, born, adj: G.T.graph, quiet, smart, standups, today: day0, planHead: H.plan_heading, doneHead: H.completed_heading };
+    let J;
+    if (o.topics) { const maps = [], bridgeNotes = {};
+      for (const f of G.files) { const fm = (mc.getFileCache(f) || {}).frontmatter; if (fm && String(fm.type || "").toLowerCase() === "bridge" && K.has(f.path)) bridgeNotes[f.path] = [].concat(fm.bridges || []).map(String);
+        if (!VGRules.isMapCandidate(f.path, fm) || (G.T.hubs.includes(f.path) && !VGRules.isHub(f.path, G.tags[f.path]))) continue;
+        maps.push({ path: f.path, text: await read(f), links: G.links[f.path] || [], mocFor: fm ? fm.moc_for : null }); }
+      const R = VGRules.RULES, A = await VGEngine.run("analyseJob", { ...input, tags: G.tags, prev: o.prev || {}, stack: R.stack, dismissed: [...DISMISSED], maps, bridgeNotes, mapRules: { min_claim: R.map_min_claim, min_cover: R.map_min_cover } });
+      J = { ...A.N, T: A.T, parts: A.parts };
+    } else J = await VGEngine.run("notesJob", input);
     return { ...J, knowledge, personLinks: Object.fromEntries(Object.entries(personLinks).map(([p, s]) => [p, [...s].sort()])), skip: (a, b) => DISMISSED.has(dismissKey(a, b)) };
   }
   // worked out once per analysis run: the next redraw takes it (a phone keeps the desktop's file)
   engineNotesSoon() {
     if (this.engineNotesRunning) return; this.engineNotesRunning = true;
-    this.engineNotes().then(N => { this.engineNotesDone = N; this.cacheStale = true; this.reloadSoon(); }, e => { console.error("Vault Graph: the engine's notes didn't run; the analysis's stand", e); }).finally(() => { this.engineNotesRunning = false; });
+    const owns = VGRules.engineOwns(!Platform.isDesktopApp), withTopics = owns.includes("topics");
+    let prev = this.settings.engineTopics; if (withTopics && !prev && this.base) { prev = {}; (this.base.nodes || []).forEach(n => { if (!n.person && !n.moc && !n.ghost && n.cluster >= 0) (prev[n.cluster] = prev[n.cluster] || []).push(n.id); }); }   // the file's topic numbers and colours carry on
+    this.engineNotes(null, { topics: withTopics, prev }).then(async N => { this.engineNotesDone = N; if (N.T) { this.settings.engineTopics = Object.fromEntries(N.T.topics.map(t => [t.id, t.members])); await this.saveSettings(); } this.cacheStale = true; this.reloadSoon(); }, e => { console.error("Vault Graph: the engine's notes didn't run; the analysis's stand", e); }).finally(() => { this.engineNotesRunning = false; });
   }
   // the vault has the analysis to run (its script and Python): otherwise the engine is the analysis
   async hasAnalysis() {
@@ -1641,8 +1652,10 @@ module.exports = class VaultGraphPlugin extends Plugin {
     if (!auto) new Notice("Vault Graph self-test running in the background… (about a minute)");
     const host = document.body.createDiv({ cls: "vg-host" });
     host.style.cssText = "position:fixed;left:-12000px;top:0;width:1100px;height:720px;pointer-events:none;";
-    const errors = [], oe = console.error, onErr = e => errors.push(String(e.message || e.reason || e));
-    console.error = (...a) => { errors.push(a.map(String).join(" ").slice(0, 200)); oe(...a); };
+    const errors = []; let elsewhere = 0, oe = console.error;
+    const note = (msg, stack) => { if (VGRules.errorIsElsewhere(stack, this.manifest.id)) elsewhere++; else errors.push(msg); };
+    const onErr = e => { const x = e.error || e.reason; note(String(e.message || e.reason || e), x && x.stack); };
+    console.error = (...a) => { const x = a.find(v => v && v.stack); note(a.map(String).join(" ").slice(0, 200), (x && x.stack) || new Error().stack); oe(...a); };
     window.addEventListener("error", onErr); window.addEventListener("unhandledrejection", onErr);
     const rows = [], lensRows = [];
     let handle = null;
@@ -1680,7 +1693,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     } catch (e) { engine = `**Engine topics:** didn't run: ${(e && e.message) || e}`; }
     const md = ["---", `created: ${today()}`, "type: report", "tags:", "  - meta/cleanup", "---", "",
       `# Vault Graph self-test ${stamp}`, "", auto ? "_Ran by itself after a plugin update._" : "", "",
-      errors.length ? `**${errors.length} error(s)**: ${errors.slice(0, 5).map(e => "`" + e.slice(0, 160).replace(/`/g, "'") + "`").join(" · ")}` : "**No errors.**", "", engine, "",
+      errors.length ? `**${errors.length} error(s)**: ${errors.slice(0, 5).map(e => "`" + e.slice(0, 160).replace(/`/g, "'") + "`").join(" · ")}` : "**No errors.**", "", elsewhere ? `${elsewhere} error(s) elsewhere in Obsidian while it ran, not from this plugin.` : "", "", engine, "",
       "| View | Result | Switch | Frame | Notes drawn | Today strip |", "|---|---|---|---|---|---|", ...rows, "", "| Lens | Result | Size | Empty message |", "|---|---|---|---|", ...lensRows, ""].join("\n");
     await this.writeNote(`${VGRules.folders.reports}/Vault Graph Self-test ${stamp}.md`, md, { mode: "create", open: !auto });
     new Notice(errors.length ? `Vault Graph self-test: ${errors.length} error(s), see ${VGRules.folders.reports}` : "Vault Graph self-test: all clear", errors.length ? 10000 : 4000);
