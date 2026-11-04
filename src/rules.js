@@ -62,7 +62,7 @@ const VGRules = (() => {
     return tags.includes("meta/moc") || String(fm.type || "").toLowerCase() === "moc" || HUB_NAME.test(name);
   }
   const isHubName = id => HUB_NAME.test(stemCase(id));
-  // a pair the graph suggests linking: daily co-mentions (gap), meaning (similar, Smart Connections), or many notes linking
+  // a pair the graph suggests linking: daily co-mentions (gap), shared words (similar), or many notes linking
   // both (shared). Every surface asks this, so a new kind of suggestion reaches all of them.
   const SUGGESTION_KINDS = new Set(["gap", "similar", "shared"]);
   // a private note (private_name in the rules file, or private: true): never offered as a link
@@ -324,10 +324,10 @@ const VGRules = (() => {
         snippet: ls.slice(lo, lo + (d.kind === "code" ? 4 : 2)).map(l => l.slice(0, 200)).join("\n") });
       if (out.length >= (o.n || 10)) break;
     }
-    // related: notes similar in meaning to the top hits, then the top hit's most relied-on linked notes
+    // related: notes similar to the top hits, then the top hit's most relied-on linked notes
     const have = new Set(out.map(h => h.path)), byPath = new Map(notes.map(n => [n.path, n])), rel = [];
     out.slice(0, 3).forEach(h => [...(sim.get(h.path) || [])].sort((a, b) => (use[b] || 0) - (use[a] || 0))
-      .forEach(p => { if (!have.has(p) && byPath.has(p)) { have.add(p); rel.push([p, "similar meaning"]); } }));
+      .forEach(p => { if (!have.has(p) && byPath.has(p)) { have.add(p); rel.push([p, "similar"]); } }));
     if (out.length) [...(nbr.get(out[0].path) || [])].sort((a, b) => (use[b] || 0) - (use[a] || 0) || (a < b ? -1 : a > b ? 1 : 0))
       .forEach(p => { if (rel.length < CUES.related && !have.has(p) && byPath.has(p)) { have.add(p); rel.push([p, "linked to the top result"]); } });
     rel.slice(0, CUES.related).forEach(([p, why]) => { const n = byPath.get(p), ch = n.chunks[0];
@@ -914,7 +914,7 @@ const VGRules = (() => {
   }
   // ---- what the engine (VGEngine.notesJob) says, put into the graph data. A part is applied whole.
   const ENGINE_PARTS = ["mentions", "tasks", "people", "series", "follow", "dupes", "topics"];
-  // a phone has its own Smart Connections index, which can be far behind: what rests on meaning stays the desktop's
+  // a desktop works out topics and duplicates and writes them to the file; a phone reads them, and can't add an index's pairs
   // the self-test watches the whole app for a while: an error whose stack never passes through this plugin isn't its own.
   // No stack says nothing, so that counts as ours; better a false alarm than a hidden failure.
   const errorIsElsewhere = (stack, id) => !!stack && !String(stack).includes(`plugin:${id}`);
@@ -936,11 +936,11 @@ const VGRules = (() => {
     if (on.has("series")) data.series = N.series;
     if (on.has("follow")) data.followthrough = N.follow;
     if (on.has("topics") && N.parts) applyEngineTopics(data, N.T, N.parts);
-    if (on.has("dupes")) { const seen = new Set(N.twins.map(x => [x[0], x[1]].sort().join("\n"))), code = new Set(N.codey), byNm = VGEngine.byName;
-      const near = byNm(N.similar.filter(x => x[2] >= 0.93), 20, skip).filter(x => !seen.has([x[0], x[1]].sort().join("\n")));
+    if (on.has("dupes")) { const seen = new Set(N.twins.map(x => [x[0], x[1]].sort().join("\n"))), S = VGEngine.similarLinks({ ...N, skip });
+      const near = S.near.filter(x => !seen.has([x[0], x[1]].sort().join("\n")));
       data.near_dupes = [...N.twins, ...near];
       if (!(on.has("topics") && N.parts)) { data.links = data.links.filter(l => l.kind !== "similar");
-        byNm(N.similar.filter(x => x[2] < 0.93 && !(code.has(x[0]) && code.has(x[1]))), 20, skip).forEach(([a, b, s]) => data.links.push({ source: a, target: b, w: 1, kind: "similar", why: `similar meaning (${s})` })); } }
+        S.rel.forEach(([a, b, , why]) => data.links.push({ source: a, target: b, w: 1, kind: "similar", why })); } }
     return data;
   }
   // topics and everything keyed by them, in one step: a gap or a map pointing at another run's topic number is wrong

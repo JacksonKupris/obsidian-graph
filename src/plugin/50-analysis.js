@@ -2,7 +2,7 @@
   // Self-test: opens every view and lens in the main graph, watching for errors and timing each, and writes a
   // short report. A view that breaks shows up here instead of as a blank pane found by hand weeks later.
   // ---- the analysis engine on this vault's live index (ROADMAP phase 4): topics from Obsidian's own links and
-  // frontmatter and the Smart Connections index. Topic ids carry on from the last run's topics.
+  // and frontmatter. Topic ids carry on from the last run's topics.
   // what the engine reads from Obsidian: the notes it treats as topic notes, their links, tags and text
   async engineGather() {
     const ignored = [].concat((this.app.vault.getConfig && this.app.vault.getConfig("userIgnoreFilters")) || []).map(p => String(p).replace(/\/?$/, "/"));
@@ -18,7 +18,7 @@
   }
   async engineTopics(prev) {
     const gathered = await this.engineGather(), { T, raw, tags, files } = gathered;
-    const J = await VGEngine.run("topicsJob", { graph: T.graph, knowledge: T.knowledge, smart: await this.smartFiles(), raw, tags, prev: prev || {}, stack: VGRules.RULES.stack });
+    const J = await VGEngine.run("topicsJob", { graph: T.graph, knowledge: T.knowledge, generated: VGRules.RULES.generated_link_sections, raw, tags, prev: prev || {}, stack: VGRules.RULES.stack });
     return { topics: J.topics, bc: J.bc, knowledge: T.knowledge.length, vectors: J.vectors, notes: T.knowledge, graph: T.graph, raw, tags, files, gathered };
   }
   // The graph data: the engine's topics and
@@ -123,7 +123,7 @@
       if (day >= since) { const linkOf = {}; for (const l of (mc.getFileCache(f) || {}).links || []) { const target = l.link.split("#")[0].trim(), dest = target && mc.getFirstLinkpathDest && mc.getFirstLinkpathDest(target, f.path); if (dest) linkOf[target.toLowerCase()] = dest.path; }
         dailies.push({ day, path: f.path, text, links: G.links[f.path] || [], linkOf }); }
       if (VGRules.hqStandupDate(f.path)) standups[day] = text; }
-    const H = VGRules.RULES.hq || {}, smart = await this.smartFiles(), input = { dailies, dailyDays, knowledge, people, terms, recentSince, raw: G.raw, born, adj: G.T.graph, quiet, smart, standups, today: day0, planHead: H.plan_heading, doneHead: H.completed_heading };
+    const H = VGRules.RULES.hq || {}, smart = Platform.isDesktopApp ? await this.smartFiles() : null, records = knowledge.filter(r => VGRules.isRecord({ id: r, name: VGShared.nameOf(r), tags: G.tags[r] || [] })), input = { dailies, dailyDays, knowledge, people, terms, recentSince, raw: G.raw, born, adj: G.T.graph, quiet, smart, records, generated: VGRules.RULES.generated_link_sections, standups, today: day0, planHead: H.plan_heading, doneHead: H.completed_heading };
     let J;
     if (o.topics) { const maps = [], bridgeNotes = {};
       for (const f of G.files) { const fm = this.fmOf(f); if (fm && String(fm.type || "").toLowerCase() === "bridge" && K.has(f.path)) bridgeNotes[f.path] = [].concat(fm.bridges || []).map(String);
@@ -142,7 +142,7 @@
     let prev = this.settings.engineTopics; if (withTopics && !prev && this.base) { prev = {}; (this.base.nodes || []).forEach(n => { if (!n.person && !n.moc && !n.ghost && n.cluster >= 0) (prev[n.cluster] = prev[n.cluster] || []).push(n.id); }); }   // the file's topic numbers and colours carry on
     this.engineNotes(null, { topics: withTopics, prev }).then(async N => { this.engineNotesDone = N; if (N.T) { this.settings.engineTopics = Object.fromEntries(N.T.topics.map(t => [t.id, t.members])); await this.saveSettings(); } this.cacheStale = true; this.reloadSoon(); }, e => { console.error("Vault Graph: the engine's notes didn't run; the analysis's stand", e); }).finally(() => { this.engineNotesRunning = false; });
   }
-  // the Smart Connections index (.smart-env), read for the engine: its logs, then each vector file they name
+  // the Smart Connections index (.smart-env), if that plugin is installed: extra similar-note pairs on a desktop. Its logs, then each vector file they name
   async smartFiles() {
     const A = this.app.vault.adapter, base = ".smart-env", text = async p => { try { return await A.read(p); } catch (e) { return null; } };
     let files = []; try { files = (await A.list(`${base}/smart_sources`)).files.map(f => VGShared.baseOf(f)); } catch (e) { /* no index */ }
@@ -200,7 +200,7 @@
       const E = await this.engineTopics(prev), at = new Map();
       E.topics.forEach(t => t.members.forEach(r => at.set(r, t.id)));
       const both = ((D && D.nodes) || []).filter(n => !n.ghost && !n.person && n.cluster >= 0 && at.has(n.id)), same = both.filter(n => at.get(n.id) === n.cluster).length;
-      engine = `**Engine topics:** ${same} of ${both.length} notes in the same topic as the analysis · ${E.topics.length} topics from ${E.knowledge} notes and ${E.vectors} embeddings.`;
+      engine = `**Engine topics:** ${same} of ${both.length} notes in the same topic as the analysis · ${E.topics.length} topics from ${E.knowledge} notes.`;
     } catch (e) { engine = `**Engine topics:** didn't run: ${(e && e.message) || e}`; }
     const md = ["---", `created: ${today()}`, "type: report", "tags:", "  - meta/cleanup", "---", "",
       `# Vault Graph self-test ${stamp}`, "", auto ? "_Ran by itself after a plugin update._" : "", "",

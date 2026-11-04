@@ -37,7 +37,7 @@ Vault HQ reads your daily notes from where Obsidian's Daily notes or Periodic No
 
 ## Optional extras
 
-- **Smart Connections**: if that plugin has indexed your vault, Vault Graph uses its note similarity too, for topics and for "these two notes mean the same thing" suggestions.
+- **Smart Connections**: similar-note suggestions work without it, from the words notes share. If that plugin has indexed your vault, a desktop adds a few suggestions from its similar-meaning index, and pairs both methods found come first.
 - **Git** (desktop only): the Code ↔ docs view reads your repositories' history, file paths and dates only. Without git that view isn't offered.
 - **Your own views**: a ```` ```vault-graph-scene ```` block in any note becomes a view. The **New view** tile writes one for you.
 
