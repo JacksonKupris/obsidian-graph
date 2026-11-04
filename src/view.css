@@ -1014,3 +1014,8 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-viewcard dl { margin: 0; } .vg-viewcard dt { font-weight: 700; margin-top: 8px; } .vg-viewcard dt:first-child { margin-top: 0; } .vg-viewcard dd { margin: 1px 0 0; opacity: .9; }
 .vg-ms-note { margin-top: 6px; font-size: var(--ds-fs-2xs); line-height: 1.4; opacity: .8; }
 .vg-sci-bar { flex: 0 0 48px; height: 6px; margin: 8px 6px 0 0; border-radius: var(--ds-r-pill); background: var(--vg-line); overflow: hidden; } .vg-sci-bar i { display: block; height: 100%; background: var(--vg-accent); }
+
+/* the shared parts inside the lenses: a timeline's strips line up with its axis, so its show more doesn't indent */
+.vg-tl .ds-more-body { padding-left: 0; }
+.vg-mt-topic.ds-more { margin: 2px 0 2px 10px; }
+.vg-lens-body .ds-section > .ds-more, .vg-lens-body .ds-rows + .ds-more { margin-top: 4px; }
