@@ -1633,7 +1633,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const now0 = new Date(), stamp = `${today()} ${String(now0.getHours()).padStart(2, "0")}${String(now0.getMinutes()).padStart(2, "0")}`;
     // the engine's topics on the live index, against the last analysis's
     let engine;
-    try { const E = await this.engineTopics(), at = new Map(), D = await this.graphData();
+    try { const D = await this.graphData(), prev = {}; ((D && D.nodes) || []).forEach(n => { if (!n.person && !n.moc && n.cluster >= 0) (prev[n.cluster] = prev[n.cluster] || []).push(n.id); });
+      const E = await this.engineTopics(prev), at = new Map();
       E.topics.forEach(t => t.members.forEach(r => at.set(r, t.id)));
       const both = ((D && D.nodes) || []).filter(n => !n.ghost && !n.person && n.cluster >= 0 && at.has(n.id)), same = both.filter(n => at.get(n.id) === n.cluster).length;
       engine = `**Engine topics:** ${same} of ${both.length} notes in the same topic as the analysis · ${E.topics.length} topics from ${E.knowledge} notes and ${E.vectors} embeddings.`;
