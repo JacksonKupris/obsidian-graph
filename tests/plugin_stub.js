@@ -58,7 +58,7 @@ function fakeVault(dir, TFile, { skip = [".obsidian", ".trash", ".git"] } = {}) 
     vault: { getMarkdownFiles: () => files, getAbstractFileByPath: p => byPath.get(p) || null, cachedRead: async f => f.text, getName: () => path.basename(dir),
       getConfig: () => undefined, on: () => ({}),
       adapter: { read: async p => { if (byPath.has(p)) return byPath.get(p).text; throw new Error("no file"); }, exists: async p => byPath.has(p),
-        write: async () => {}, readBinary: async () => { throw new Error("no file"); }, stat: async () => null } },
+        write: async () => {}, mkdir: async () => {}, list: async () => ({ files: [], folders: [] }), readBinary: async () => { throw new Error("no file"); }, stat: async () => null } },
     metadataCache: { initialized: true, inProgressTaskCount: 0, resolvedLinks, unresolvedLinks, getFileCache: f => caches.get(f.path) || null,
       getFirstLinkpathDest: name => byPath.get(byName.get(String(name).toLowerCase())) || null, on: () => ({}), offref() {} },
     workspace: { getLeavesOfType: () => [] },
