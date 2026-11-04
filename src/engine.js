@@ -499,7 +499,7 @@ const VGEngineMake = () => {
   const LINK_OR_URL = /\[\[[^\]]*\]\]|\]\([^)]*\)/g, LINE_MARK = /^\s*(?:[-*+]\s*(?:\[.\]\s*)?|\d+[.)]\s*|#+\s*|>\s*)/u;
   const pyRound = (x, d) => { const p = 10 ** d; return Math.round((x + Number.EPSILON) * p) / p; };
   const cpTake = (t, n) => (String(t).length <= n ? String(t) : cpSlice(t, 0, n));
-  const regexEscape = t => t.replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&");   // not "-": with the u flag an escaped - outside a class is an error
+  const regexEscape = VGShared.escapeRegex;
   function contentLines(text) {
     const t = bodyOf(text).replace(/```[\s\S]*?```/g, "").replace(LINK_OR_URL, " "), out = new Set();
     for (const raw of t.split(PY_LINES)) {
@@ -1019,22 +1019,10 @@ what when where which while who how why each other same see set use used using w
   }
 
   // A job in a worker, so the app stays free while it runs (seconds on a big vault; a phone is slower). If a worker can't
-  // start, it runs here. stats.via says which, so a test can tell. The worker gets this whole engine from its own source.
+  // start, it runs here.
   const stats = { via: null };
-  function inWorker(name, input) {
-    return new Promise((resolve, reject) => {
-      const source = `const VGEngineMake = ${VGEngineMake.toString()};\nconst E = VGEngineMake();\nonmessage = e => { postMessage(E[e.data.name](e.data.input)); };`;
-      const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" })), w = new Worker(url), end = () => { w.terminate(); URL.revokeObjectURL(url); };
-      w.onmessage = e => { end(); resolve(e.data); }; w.onerror = e => { end(); reject(new Error(e.message || "worker failed")); };
-      w.postMessage({ name, input });
-    });
-  }
   const JOBS = { topicsJob, notesJob, analyseJob, codeDocs };
-  async function run(name, input) {
-    if (typeof Worker === "function" && typeof Blob === "function" && typeof URL === "function" && URL.createObjectURL) {
-      try { const r = await inWorker(name, input); stats.via = "worker"; return r; } catch (e) { console.warn(`Vault Graph: ${name} is running on the main thread:`, e.message); } }
-    stats.via = "here"; return JOBS[name](input);
-  }
+  const run = (name, input) => VGShared.offThread({ makers: { VGEngineMake }, listen: "e => { postMessage(VGEngineMake()[e.data.name](e.data.input)); }", message: { name, input }, here: () => JOBS[name](input), label: `${name} is`, stats });
 
   return { gapsReport, mapReport, stateNote, rowsOf, linkedIn, appendSection, underFrontmatter, mapNote, bridgeNote, nodeTags, isAttachment: t => ATTACHMENT.test(t), dayShift, codeDocs, gitArgs, snapshotOf, changesFrom, run, stats, topicsJob, notesJob, analyseJob, topicParts, closestPassages, timeline, rhythm, mapsOf, mentionPass, taskAges, datedSeries, followThrough, textTwins, similarPairs, byName, mostlyCode, pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
     noteWords, topicWords, topicsOf, topicGraph, frontmatterTags, wantedNotes, sharedPairs, cleanTitle, readableNames, stacks, withStack, label, stableIds, titleCase };

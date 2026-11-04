@@ -6,7 +6,7 @@
 function runTour(host, steps, o = {}) {
   const cls = o.cls || {}, find = o.find || (s => host.querySelector(s)), back = document.activeElement;
   let at = 0, box = null, drawing = false;
-  const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const esc = VGShared.escapeHtml;
   function end() {
     if (at < 0) return; at = -1;
     if (box) box.remove(); box = null;

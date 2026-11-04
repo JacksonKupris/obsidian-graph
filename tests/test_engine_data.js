@@ -17,7 +17,7 @@ const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSO
   check("no analysis file: the graph comes from the engine", !!(data && data.engine), true);
   if (data) {
     // the slow step really runs off the main thread in a browser, and gives the same answer as running it here
-    if (p.jobs && p.jobs.analyseJob) { const source = fs.readFileSync(path.join(__dirname, "..", "src", "engine.js"), "utf8");
+    if (p.jobs && p.jobs.analyseJob) { const source = require("../build").engineSource();
       const tab = await cdp.open({ html: `<!doctype html><script>${source.replace(/<\/script/gi, "<\\/script")}</script>`, port: 9372 });
       if (tab) { for (const name of ["analyseJob"]) { const r = await tab.ev(`(async () => { const input = ${env.inlineJson(p.jobs[name])}, here = VGEngine[${JSON.stringify(name)}](input), there = await VGEngine.run(${JSON.stringify(name)}, input); return JSON.stringify({ via: VGEngine.stats.via, same: JSON.stringify(here) === JSON.stringify(there), has: Object.keys(there).length }); })()`);
           const R = JSON.parse(r); check(`${name} ran in a worker`, R.via, "worker"); check(`${name}: the worker's answer is the same as running it here`, R.same, true); check(`${name} returned something`, R.has > 0, true); }

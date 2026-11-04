@@ -939,7 +939,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     // every way the analysis counts a mention (title, "<Topic> - Context" topic, aliases): shared rule
     const names = VGRules.mentionNames(f.basename, ((this.app.metadataCache.getFileCache(f) || {}).frontmatter || {}).aliases);
     if (!names.length) return [];   // a generic title with no aliases: prose never names it
-    const pat = names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), re = new RegExp(`(^|[^\\w\\[|/#])(${pat})(?![\\w\\]])`, "i");
+    const pat = names.map(VGShared.escapeRegex).join("|"), re = new RegExp(`(^|[^\\w\\[|/#])(${pat})(?![\\w\\]])`, "i");
     const resolved = this.app.metadataCache.resolvedLinks || {}, out = [];
     const counted = (((this.base || {}).said_unlinked || []).find(([id]) => id === f.path) || [])[2];
     const asked = Array.isArray(counted) ? new Set(counted) : null;
