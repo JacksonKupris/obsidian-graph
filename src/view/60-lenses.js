@@ -120,7 +120,7 @@
     });
     const ap = body.querySelector("[data-mocapply]");
     if (ap) ap.onclick = async () => {
-      if (!await confirmBox("Apply ticked rows", "Runs <code>moc_align.py --apply</code> on the report. Only ticked rows are applied; originals are snapshotted to .trash first.", "Apply")) return;
+      if (!await confirmBox("Apply ticked rows", "Only ticked rows are applied. Undo takes them back.", "Apply")) return;
       ap.disabled = true;
       try { await opts.mocReport.apply(); logDiscovery("Applied the ticked MOC alignment rows"); toast("Applied", "ok"); }
       catch (err) { ap.disabled = false; }

@@ -21,6 +21,13 @@ const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSO
 check("tags lose Obsidian's #", E.frontmatterTags({ tags: ["#Type/Report", "project/x", "daily", "#a/standup"] }), ["type/report", "project/x"]);
 check("rule tags always stay, six others", E.nodeTags(["z1", "z2", "z3", "z4", "z5", "z6", "z7", "status/done", "type/a"]), ["status/done", "type/a", "z1", "z2", "z3", "z4", "z5", "z6"]);
 check("a missing picture isn't a broken note link", [E.isAttachment("shot.png"), E.isAttachment("A Note")], [true, false]);
+// what ticking a map report's row writes
+{ const row = "- [x] add %%act:{\"op\": \"add\", \"moc\": \"m.md\", \"note\": \"a/b.md\"}%%\n- [ ] no %%act:{\"op\": \"tag\"}%%\n- [x] broken %%act:{nope}%%"; const rows = E.rowsOf(row);
+  check("a report's rows", rows.map(x => [x.state, x.act && x.act.op]), [["x", "add"], [" ", "tag"], ["x", null]]);
+  check("a link by name or path counts", [E.linkedIn("see [[b]]", "a/b.md"), E.linkedIn("see [[x/B.md|y]]", "a/b.md"), E.linkedIn("see [[bb]]", "a/b.md")], [true, true, false]);
+  check("a new section", E.appendSection("# T\n", "## H", ["- a"]), "# T\n\n## H\n\n- a\n"); check("a section already there grows", E.appendSection("# T\n\n## H\n\n- a\n\n# Next\n", "## H", ["- b"]), "# T\n\n## H\n\n- a\n- b\n\n# Next\n");
+  check("under the frontmatter", E.underFrontmatter("---\na: 1\n---\nbody", "> c\n"), "---\na: 1\n---\n> c\nbody"); check("no frontmatter", E.underFrontmatter("body", "> c\n"), "> c\nbody");
+  check("a map note has the marker", E.mapNote("N", ["a/b.md"], "2026-11-03").includes("%% vault-graph:generated"), true); check("a bridge note names its maps", E.bridgeNote({ moc_a: "m/A.md", moc_b: null, name_a: "A", name_b: "B", core_a: [], core_b: [], suggest: [] }, "Bridge", "2026-11-03").includes('"[[A]]"'), true); }
 const r = E.pyRandom(7);
 check("random.Random(7).getrandbits(32) x3", [r.uint32(), r.uint32(), r.uint32()], [1390851128, 4071050724, 647892279]);
 check("random.Random(7).shuffle(range(10))", E.pyRandom(7).shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]), [8, 3, 1, 4, 7, 0, 9, 6, 2, 5]);

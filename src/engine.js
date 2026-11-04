@@ -533,7 +533,7 @@ const VGEngineMake = () => {
   function mentionPass({ dailies, knowledge, people, terms, recentSince }) {
     const K = new Set(knowledge), P = new Set(people), alts = Object.keys(terms).sort((a, b) => cpLen(b) - cpLen(a)).map(regexEscape);
     const matcher = alts.length ? new RegExp(`(?<![\\p{L}\\p{N}\\p{M}_-])(?:${alts.join("|")})(?![\\p{L}\\p{N}\\p{M}_-])`, "giu") : null;
-    const earlier = {}, previous = {}, mentions = {}, recent = {}, said = {}, saidDays = {}, mentionDays = {}, personMentions = {}, comention = {}, pairDays = {}; let used = 0;
+    const earlier = {}, previous = {}, mentions = {}, recent = {}, said = {}, saidDays = {}, mentionDays = {}, personMentions = {}, personPairs = {}, comention = {}, pairDays = {}; let used = 0;
     const add = (o, k) => { o[k] = (o[k] || 0) + 1; }, list = (o, k, v) => { (o[k] = o[k] || []).push(v); };
     for (const d of [...dailies].sort((a, b) => pyCmp(a.day, b.day) || pyCmp(a.path, b.path))) {
       const kind = d.path.toLowerCase().includes("standup") ? "standup" : "journal", lines = contentLines(d.text), seen = earlier[kind] = earlier[kind] || [];
@@ -549,14 +549,14 @@ const VGEngineMake = () => {
       used++;
       for (const n of named) if (!(K.has(n) && resolved.has(n))) { add(said, n); list(saidDays, n, d.path); }
       for (const n of here) { add(mentions, n); list(mentionDays, n, d.day); if (d.day >= recentSince) add(recent, n); }
-      for (const p of who) personMentions[p] = (personMentions[p] || 0) + here.length;
+      for (const p of who) { personMentions[p] = (personMentions[p] || 0) + here.length; for (const n of here) add(personPairs, `${p}\n${n}`); }
       const hereSet = new Set(here), freshSet = new Set(fresh), blockPairs = new Set();
       for (const lines of blocksOf(d.text)) { const inBlk = new Set([...blockLinks(lines, d.linkOf)].filter(r => hereSet.has(r)));
         if (matcher) for (const l of lines) if (freshSet.has(normLine(l))) for (const m of l.matchAll(matcher)) (terms[m[0].toLowerCase()] || []).forEach(n => { if (hereSet.has(n)) inBlk.add(n); });
         const s = sorted(inBlk); for (let i = 0; i < s.length; i++) for (let j = i + 1; j < s.length; j++) blockPairs.add(`${s[i]}\n${s[j]}`); }
       for (const k of blockPairs) { comention[k] = (comention[k] || 0) + 1; list(pairDays, k, [d.day, d.path]); }
     }
-    return { mentions, recent, said, saidDays, mentionDays, personMentions, comention, pairDays, used };
+    return { mentions, recent, said, saidDays, mentionDays, personMentions, personPairs, comention, pairDays, used };
   }
   // real task ages: the first journal or standup a task appears in (journals carry tasks forward), else the note's birth
   const taskKey = t => cpTake(t.toLowerCase().replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1").replace(/\d{4}-\d{2}-\d{2}|https?:\/\/\S+|[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).join(" "), 60);
@@ -768,7 +768,7 @@ what when where which while who how why each other same see set use used using w
     const mocs = maps.map(m => { const fixed = m.links.filter(t => K.has(t)), query = dataviewMembers(m.text, tagsOf), members = new Set([...fixed, ...query]), per = new Map();
       members.forEach(x => { if (cid[x] != null) bump(per, cid[x]); });
       const all = [...per.values()].reduce((a, b) => a + b, 0), most = per.size ? Math.max(...per.values()) : 0;
-      return { path: m.path, title: mapTitle(m.path, m.text), members, per, nav: per.size > 0 && members.size >= NAV_MIN && most < NAV_SPREAD * all && per.size >= 6, mocFor: m.mocFor != null, generated: unixLines(m.text).includes(GENERATED) }; });
+      return { path: m.path, title: mapTitle(m.path, m.text), fixed, members, per, nav: per.size > 0 && members.size >= NAV_MIN && most < NAV_SPREAD * all && per.size >= 6, mocFor: m.mocFor != null, generated: unixLines(m.text).includes(GENERATED) }; });
     const claim = new Map(), owner = new Map(), better = (a, b, c, withFor) => (withFor && a.mocFor !== b.mocFor ? a.mocFor : a.per.get(c) !== b.per.get(c) ? a.per.get(c) > b.per.get(c) : pyCmp(a.path, b.path) > 0);
     const pick = (list, c, withFor) => list.reduce((best, m) => (!best || better(m, best, c, withFor) ? m : best), null);
     for (const c of sizes.keys()) { let best = pick(mocs.filter(m => !m.nav && (m.per.get(c) || 0) >= mapRules.min_claim), c, true);
@@ -780,13 +780,14 @@ what when where which while who how why each other same see set use used using w
         missing: Object.fromEntries(cl.map(c => [String(c), membersOf.get(c).filter(r => !m.members.has(r)).sort((a, b) => (bc[b] || 0) - (bc[a] || 0) || pyCmp(a, b))])) }); }
     const byStem = new Map(mocs.map(m => [stemOf(m.path).toLowerCase(), m.path])), bridges = {};
     for (const [r, targets] of Object.entries(bridgeNotes || {})) bridges[r] = targets.map(x => byStem.get(String(x).replace(/^\[\[|\]\]$|\|.*$/g, "").split("/").pop().toLowerCase())).filter(Boolean);
+    const detail = { mocs: mocs.map(m => ({ path: m.path, title: m.title, nav: m.nav, members: [...m.members], fixed: m.fixed, per: Object.fromEntries(m.per) })), owner: Object.fromEntries([...owner].map(([c, m]) => [c, m.path])) };
     const labels = {}, wordsIn = t => new Set(t.toLowerCase().match(/[\p{L}\p{N}\p{M}_]+/gu) || []);
     owner.forEach((m, c) => { if (claim.get(m.path).length === 1) { labels[c] = m.title; return; }
       const i = ids.indexOf(c), own = names[i].split(" · ")[0], title = wordsIn(m.title), words = (keywords[i] || names[i]).split(" · ");
       const tag = ![...wordsIn(own)].some(w => title.has(w)) ? own : (words.find(w => !title.has(w.toLowerCase())) || words[0]); labels[c] = `${m.title} · ${tag}`; });
-    return { mocs: out, bridges, labels };
+    return { mocs: out, bridges, labels, detail };
   }
-  function topicParts({ T, N, graph, adj, tags, quiet, raw, dailies, terms, dismissed, today, maps, mapRules, bridgeNotes, knowledge }) {
+  function topicParts({ T, N, graph, adj, tags, quiet, raw, dailies, terms, dismissed, today, maps, mapRules, bridgeNotes, knowledge, hubDegree, personLinks }) {
     const clusters = T.topics.map(t => t.members), ids = T.topics.map(t => t.id), cid = {}, index = {}; clusters.forEach((m, i) => m.forEach(r => { cid[r] = ids[i]; index[r] = i; }));
     const linked = nameLinked(adj), skip = dismissTest(dismissed), q = new Set(quiet), M = N.mentions, com = Object.entries(N.comention).map(([k, n]) => { const [a, b] = k.split("\n"); return [a, b, n]; });
     const assoc = x => x[2] / Math.sqrt(Math.max(M[x[0]] || 0, 1) * Math.max(M[x[1]] || 0, 1)), significant = x => x[2] >= MIN_COMENTIONS && assoc(x) >= MIN_ASSOC;
@@ -795,9 +796,9 @@ what when where which while who how why each other same see set use used using w
     for (const x of com) { const [a, b, n] = x; if (index[a] != null && index[b] != null && index[a] !== index[b] && !linked(a, b) && significant(x)) { const p = key2(index[a], index[b]);
         bump(related, p, n); bump(relAssoc, p, assoc(x)); if (!examples.has(p)) examples.set(p, []); examples.get(p).push(x); } }
     const tagSets = clusters.map(m => new Set(m.flatMap(r => (tags[r] || []).filter(t => TOPIC_TAG.test(t))))), gaps = [];
-    for (let i = 0; i < clusters.length; i++) for (let j = i + 1; j < clusters.length; j++) { const p = `${i},${j}`, shared = [...tagSets[i]].filter(t => tagSets[j].has(t)).length, score = 10 * (relAssoc.get(p) || 0) + 0.5 * shared; if (score < 2) continue;
+    for (let i = 0; i < clusters.length; i++) for (let j = i + 1; j < clusters.length; j++) { const p = `${i},${j}`, sharedTags = [...tagSets[i]].filter(t => tagSets[j].has(t)), score = 10 * (relAssoc.get(p) || 0) + 0.5 * sharedTags.length; if (score < 2) continue;
       const density = (links.get(p) || 0) / (clusters[i].length * clusters[j].length);
-      gaps.push({ clusters: [i, j], a: ids[i], b: ids[j], links: links.get(p) || 0, comentions: related.get(p) || 0, score: Math.round((score / (1 + 25 * density)) * 100) / 100,
+      gaps.push({ shared_tags: sorted(sharedTags).slice(0, 5), clusters: [i, j], a: ids[i], b: ids[j], links: links.get(p) || 0, comentions: related.get(p) || 0, score: Math.round((score / (1 + 25 * density)) * 100) / 100,
         suggest: byName((examples.get(p) || []).filter(x => !q.has(x[0]) && !q.has(x[1])), 3, skip, assoc) }); }
     gaps.sort((x, y) => y.score - x.score || x.clusters[0] - y.clusters[0] || x.clusters[1] - y.clusters[1]);
     const top = gaps.slice(0, TOP_GAPS), unlinked = byName(com.filter(x => !linked(x[0], x[1]) && significant(x) && !q.has(x[0]) && !q.has(x[1])), TOP_COMENTIONS, skip, assoc);
@@ -816,7 +817,15 @@ what when where which while who how why each other same see set use used using w
     out.forEach(l => { const p = passages[`${l.source}|${l.target}`]; if (p) { l.pa = p.a; l.pb = p.b; } });
     const pairs = []; for (let i = 0; i < clusters.length; i++) for (let j = i + 1; j < clusters.length; j++) { const p = `${i},${j}`, l = links.get(p) || 0, r = related.get(p) || 0; if (l || r) pairs.push([ids[i], ids[j], l, r]); }
     const mp = mapsOf({ maps, tags, knowledge, clusters, ids, names: T.topics.map(t => t.name), keywords: T.topics.map(t => t.keywords), bc: T.bc, cid, mapRules, bridgeNotes });
-    return { cid, gaps: top, pairs, links: out, near, timeline: timeline(N.mentionDays, cid, knowledge, today), rhythm: rhythm(N.mentionDays, cid), ...mp };
+    const linkedNotes = Object.keys(graph).filter(r => Object.keys(graph[r]).length), inGraph = new Set(linkedNotes), comps = [], seenC = new Set();
+    for (const s of linkedNotes) { if (seenC.has(s)) continue; const q = [s], comp = new Set(); while (q.length) { const v = q.pop(); if (comp.has(v)) continue; comp.add(v); Object.keys(graph[v] || {}).forEach(t => { if (inGraph.has(t)) q.push(t); }); } comp.forEach(x => seenC.add(x)); comps.push(comp.size); }
+    const nameSet = p => new Set((personLinks[p] || []).map(x => stemOf(x).toLowerCase())), personRows = Object.entries(N.personPairs).map(([k, n]) => { const [p, r] = k.split("\n"); return [p, r, n]; }).filter(([p, r, n]) => n >= 3 && !nameSet(p).has(stemOf(r).toLowerCase()));
+    const twinKeys = new Set(N.twins.map(x => [x[0], x[1]].sort().join("\n"))), hubs = Object.keys(hubDegree || {}).sort((a, b) => hubDegree[b] - hubDegree[a] || pyCmp(a, b));
+    const report = { gaps: top, unlinked, evidence, similar: rel, near: [...N.twins, ...near.filter(x => !twinKeys.has([x[0], x[1]].sort().join("\n")))], embedded: T.vectors, knowledge: knowledge.length, linked: linkedNotes.length, components: comps.sort((a, b) => b - a), hubs,
+      bridges: Object.keys(T.bc).sort((a, b) => pyRound(T.bc[b], 6) - pyRound(T.bc[a], 6) || pyCmp(a, b)).slice(0, 15).map(r => [r, pyRound(T.bc[r], 4), cid[r] ?? null]),
+      said: Object.keys(N.said).filter(r => N.said[r] >= 3).sort((a, b) => N.said[b] - N.said[a] || pyCmp(a, b)).slice(0, 20).map(r => [r, N.said[r]]), personTopics: byName(personRows, TOP_COMENTIONS, skip),
+      neglected: knowledge.filter(r => !Object.keys(graph[r] || {}).length && (M[r] || 0) >= 3).sort((a, b) => M[b] - M[a] || pyCmp(a, b)).slice(0, 15).map(r => [r, M[r]]) };
+    return { report, cid, gaps: top, pairs, links: out, near, timeline: timeline(N.mentionDays, cid, knowledge, today), rhythm: rhythm(N.mentionDays, cid), ...mp };
   }
   // the whole analysis in one step, for a desktop that owns topics and for a vault with no analysis file
   function analyseJob(input) {
@@ -882,6 +891,134 @@ what when where which while who how why each other same see set use used using w
       quiet: minus(P("recent"), cr).slice(0, 20), active: minus(cr, P("recent")).slice(0, 20) };
   }
 
+  // ---- the written reports (vault_gaps.report_md, moc_align.report, vault_graph.state_note): text only. The plugin writes
+  // them, and a row a person ticks in the map report is applied by the plugin's own actions.
+  const noteLink = r => `[[${stemOf(r)}]]`, pyFloat = x => (Number.isInteger(x) ? x.toFixed(1) : String(x));
+  const pyJson = v => (Array.isArray(v) ? `[${v.map(pyJson).join(", ")}]` : v && typeof v === "object" ? `{${Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${pyJson(x)}`).join(", ")}}` : JSON.stringify(v));
+  const clusterLine = c => `**C${c.id}** (${c.size} notes · \`${c.folder}\`) — ${c.core.slice(0, 3).map(noteLink).join(", ")}`;
+  const evidenceLine = (ev, x, y, indent) => { for (const [, path, line] of ev[`${x}|${y}`] || ev[`${y}|${x}`] || []) if (line) return [`${indent}- e.g. ${noteLink(path)}: “${line}”`]; return []; };
+  function gapsReport({ R, T, date, since, used }) {
+    const info = T.topics, by = new Map(info.map(c => [c.id, c])), L = ["---", "type: report", `created: ${date}`, "tags:", "  - meta/cleanup", "---", "", `# Gaps & Bridges — ${date}`, "",
+      "Local, InfraNodus-style structure report. **Clusters** come from links between knowledge notes; **gaps** are cluster pairs that your journals/standups keep mentioning together (or that share tags) but that barely link to each other. Suggestions only — nothing was edited.", "",
+      `- Daily notes used: **${used}** (since ${since || "the beginning"}; links plus plain-text mentions of titles/aliases; carried-over lines and repeated template link lists counted once)`,
+      `- Knowledge notes: **${R.knowledge}** · linked: **${R.linked}** · no links to other knowledge notes: **${R.knowledge - R.linked}**`,
+      `- Clusters (≥3 notes): **${info.length}** · connected components: ${R.components.slice(0, 6).join(", ")}`,
+      `- Hubs excluded from clustering: ${R.hubs.length} (${R.hubs.slice(0, 6).map(noteLink).join(", ")}…)`, "", "## Gaps — related but unlinked topic clusters"];
+    if (!R.gaps.length) L.push("- none found");
+    for (const g of R.gaps) { const why = []; if (g.comentions) why.push(`${g.comentions} co-mentions in daily notes`); if (g.shared_tags.length) why.push("shared tags " + g.shared_tags.map(t => `\`${t}\``).join(", "));
+      L.push(`- ${clusterLine(by.get(g.a))}`, `  ↔ ${clusterLine(by.get(g.b))}`, `  - ${why.join("; ")} · only **${g.links}** link(s) between them`);
+      for (const [x, y, n] of g.suggest) L.push(`  - [ ] consider linking ${noteLink(x)} ↔ ${noteLink(y)} (${n}× together in dailies)`, ...evidenceLine(R.evidence, x, y, "    ")); }
+    L.push("", "## Bridge notes — what holds topics together", "_Highest betweenness: removing or neglecting these splits the graph. Keep them current._", "");
+    for (const [r, score, c] of R.bridges) L.push(`- ${noteLink(r)} — ${pyFloat(score)}${c != null ? ` (C${c})` : ""}`);
+    L.push("", "## Frequently co-mentioned, never linked", "_Pairs linked from the same daily notes again and again, with no direct link between them._", "");
+    for (const [x, y, n] of R.unlinked) L.push(`- [ ] ${noteLink(x)} ↔ ${noteLink(y)} — ${n}×`, ...evidenceLine(R.evidence, x, y, "  "));
+    L.push("", "## Similar meaning, never linked (Smart Connections)");
+    if (R.embedded) { L.push(`_Each note is in the other's top ${SEMANTIC_TOP_K} by embedding similarity (${R.embedded} knowledge notes embedded), with no direct link. Catches related notes that never show up in the same daily note._`, "");
+      if (R.similar.length) R.similar.forEach(([x, y, s]) => L.push(`- [ ] ${noteLink(x)} ↔ ${noteLink(y)} — ${pyFloat(s)}`)); else L.push("- none");
+      if (R.near.length) L.push("", "## Possible duplicates under different names", `_Similarity ≥ ${DUPLICATE_SIMILARITY} (same-name copies score 0.93–0.999). The duplicate scan only compares same-name files, so these are new. Judgment only — never merged automatically._`, "", ...R.near.map(x => `- [ ] \`${x[0]}\` ↔ \`${x[1]}\` — ${x[3] === "text" ? "same text, " : ""}${pyFloat(x[2])}`));
+    } else L.push("- Smart Connections index not found (`.smart-env/`); section skipped.");
+    if (R.said.length) L.push("", "## Mentioned in dailies, never linked there", "_Daily notes that name a topic in plain text (title, context name or alias) without linking it — the topic's note never hears about that work. Linking the first mention in a standup fixes it._", "", ...R.said.slice(0, 12).map(([r, n]) => `- ${noteLink(r)} — named in ${n} daily notes without a link`));
+    if (R.personTopics.length) L.push("", "## People ↔ topics, unlinked", "_Person and note named together in ≥3 daily notes, but neither links the other. Candidates for the person's \"Current Projects & Relations\" section._", "", ...R.personTopics.map(([p, r, n]) => `- [ ] ${noteLink(p)} ↔ ${noteLink(r)} — ${n}×`));
+    if (R.neglected.length) L.push("", "## Talked about, but isolated", "_Mentioned in ≥3 daily notes yet linked to no other knowledge note._", "", ...R.neglected.map(([r, n]) => `- ${noteLink(r)} — ${n} daily mentions`));
+    L.push("", "## Topic clusters", "");
+    for (const c of info.slice(0, 12)) L.push(`- ${clusterLine(c)}${c.tags.length ? ` · tags: ${c.tags.map(t => `\`${t}\``).join(", ")}` : ""}`);
+    return L.join("\n") + "\n";
+  }
+  // where a new map goes: where most of its topic lives, named for that folder when it's a real topic folder
+  function suggestMapPath(ms, name, taken, { inbox, notTops }) {
+    const usable = ms.filter(m => m.includes("/") && !notTops.includes(m.split("/")[0])), folders = new Map(); usable.forEach(m => bump(folders, m.slice(0, m.lastIndexOf("/"))));
+    const folder = folders.size ? mostCommon(folders) : inbox, n = folders.size ? folders.get(folder) : 0, leaf = folder.split("/").pop().replace(/^\d+[-_ ]*/, "").replace(/-/g, " ").trim();
+    let out; if (ms.filter(m => m.endsWith(" - Context.md")).length >= 5) out = "Project Contexts"; else if ((folder.match(/\//g) || []).length >= 1 && n >= 0.5 * ms.length && !["active", "archive", "user stories"].includes(leaf.toLowerCase())) out = leaf; else out = name.split(" · ").slice(0, 2).join(" ");
+    while (taken.has(`${out} MOC`.toLowerCase())) out += " " + name.split(" · ").pop();
+    taken.add(`${out} MOC`.toLowerCase()); return [folder, out];
+  }
+  const DRIFT_ROWS = 12, NEW_MOC_MIN = 6, OVERLAP = 0.5, MIN_MAP_WORDS = 3000;
+  const actRow = (text, act) => `- [ ] ${text} %%act:${pyJson(act)}%%`;
+  function mapReport({ P, T, raw, tags, knowledge, date, inbox, notTops, min_claim, moveTarget }) {
+    const D = P.detail, mocs = D.mocs, info = new Map(T.topics.map(c => [c.id, c])), bc = T.bc, sizes = new Map(T.topics.map(c => [c.id, c.size])), owner = new Map(Object.entries(D.owner).map(([c, p]) => [Number(c), mocs.find(m => m.path === p)])), membersOf = new Map(T.topics.map(c => [c.id, Object.keys(P.cid).filter(r => P.cid[r] === c.id)]));
+    Object.values(mocs).forEach(m => { m.memberSet = m.memberSet || new Set(m.members); m.staticSet = m.staticSet || new Set(m.fixed); });
+    const wordsOf = r => (String(raw[r] || "").match(/[\p{L}\p{N}\p{M}_]+/gu) || []).length, dated = r => /\d{4}-\d{2}-\d{2}/.test(r.split("/").pop());
+    const catchallPaths = new Set(Object.keys(bc).filter(r => wordsOf(r) > MIN_MAP_WORDS && (dated(r) || !r.includes("/")) && bc[r] > 0.1));
+    const bySize = [...info.keys()].sort((a, b) => sizes.get(b) - sizes.get(a)), byBc = (a, b) => (bc[b] || 0) - (bc[a] || 0);
+    const stable = (list, cmp) => list.map((x, i) => [x, i]).sort((a, b) => cmp(a[0], b[0]) || a[1] - b[1]).map(x => x[0]);
+    const L = ["---", "type: report", `created: ${date}`, "tags:", "  - meta/cleanup", "---", "", `# MOC Alignment — ${date}`, "",
+      "Do the maps of content match the topic clusters the graph finds? Tick rows to approve; **Apply ticked rows** in Vault Graph's map view applies **only ticked rows**, with Undo, and only appending. Edit the names/paths in a row before ticking if you like.", "",
+      "MOC members = notes it links to **plus** notes its Dataview queries pull in (folder/tag `FROM`; `WHERE` filters ignored).", "", "## Topic clusters and their MOC", "", "| Cluster | Notes | MOC | Covered |", "|---|---|---|---|"];
+    for (const c of bySize) { const m = owner.get(c), cov = m ? `${membersOf.get(c).filter(r => m.memberSet.has(r)).length}/${sizes.get(c)}` : "—";
+      let weak = ""; if (!m) { const w = mocs.filter(x => !x.nav && (x.per[c] || 0) >= min_claim).reduce((b, x) => (!b || x.per[c] > b.per[c] ? x : b), null); if (w) weak = ` (closest: ${noteLink(w.path)}, ${w.per[c]}/${sizes.get(c)})`; }
+      L.push(`| C${c} ${info.get(c).name} | ${sizes.get(c)} | ${m ? noteLink(m.path) : `**none**${weak}`} | ${cov} |`); }
+    const nav = mocs.filter(m => m.nav); if (nav.length) L.push("", "Navigation hubs (span many topics — fine as indexes, not as topic maps): " + nav.map(m => noteLink(m.path)).join(", "));
+    L.push("", "## Catch-all notes posing as bridges", "", "_Task dumps link everywhere, so they win \"influence\" and fill the Neural core. Treat them as hubs._", "");
+    const ranked = stable(Object.keys(bc), byBc); let flagged = 0;
+    for (const r of ranked.slice(0, 10)) { const w = wordsOf(r); if (w > MIN_MAP_WORDS && (dated(r) || !r.includes("/"))) { flagged++; L.push(`- ${noteLink(r)} — influence ${bc[r].toFixed(3)} (next best ${bc[ranked[r === ranked[0] ? 1 : 0]].toFixed(3)}), ${w} words`, "  " + actRow(`treat ${noteLink(r)} as a hub (add tag \`meta/hub\`)`, { op: "tag", path: r, tag: "meta/hub" }));
+        if (!r.includes("/")) L.push("  " + actRow(`move ${noteLink(r)} into \`${moveTarget}/\` (it's a root stray)`, { op: "move", path: r, to: moveTarget })); } }
+    for (const r of sorted(knowledge.filter(x => (tags[x] || []).includes("meta/moc")))) { flagged++; L.push(`- ${noteLink(r)} is tagged as a MOC but counted as a topic note — fixed automatically once the analysis treats \`meta/moc\` as a hub (no edit needed)`); }
+    if (!flagged) L.push("- none");
+    L.push("", "## Overlapping MOCs", "", "_Two MOCs sharing most of their notes. Merge = the other gets a \"superseded by\" callout and its links not already in the canonical one are appended there. Nothing is deleted._", "");
+    let over = 0; const key = m => stemOf(m.path).toLowerCase().replace(/(moc|hub|documentation|index)/g, "").replace(/[^a-z]/g, "");
+    for (const x of mocs) for (const y of mocs) { if (pyCmp(x.path, y.path) >= 0 || x.nav || y.nav || !x.members.length || !y.members.length) continue;
+      const shared = x.members.filter(r => y.memberSet.has(r)).length / Math.min(x.members.length, y.members.length); if (shared < OVERLAP && key(x) !== key(y)) continue;
+      const [canon, other] = [x, y].sort((a, b) => b.members.length - a.members.length || pyCmp(a.path, b.path)); over++; const extra = sorted(other.fixed.filter(r => !canon.memberSet.has(r)));
+      L.push(`- ${noteLink(other.path)} (${other.members.length} notes) overlaps ${noteLink(canon.path)} (${canon.members.length} notes) — ${Math.round(100 * shared)}% shared`, "  " + actRow(`merge ${noteLink(other.path)} into ${noteLink(canon.path)} (${extra.length} links to carry over)`, { op: "merge", path: other.path, into: canon.path, links: extra })); }
+    if (!over) L.push("- none");
+    L.push("", "## Topics with no MOC", "", "_Creates a MOC (tagged `meta/moc`, `type: moc`) listing the cluster's notes below a generated marker, so the graph can refresh it later. Rename before ticking if the suggested name is off._", "");
+    let none = 0; const taken = new Set(mocs.map(m => stemOf(m.path).toLowerCase()));
+    for (const c of bySize) { if (owner.has(c) || sizes.get(c) < NEW_MOC_MIN) continue; none++; const [folder, name] = suggestMapPath(membersOf.get(c), info.get(c).name, taken, { inbox, notTops }), core = stable(membersOf.get(c), byBc).slice(0, 5);
+      L.push(`- C${c} **${info.get(c).name}** — ${sizes.get(c)} notes, e.g. ${core.slice(0, 3).map(noteLink).join(", ")}`, "  " + actRow(`create \`${folder}/${name} MOC.md\``, { op: "create", cluster: c, path: `${folder}/${name} MOC.md`, name, core })); }
+    if (!none) L.push("- none");
+    const mapPaths = new Set([...mocs.map(m => m.path), ...catchallPaths]);
+    L.push("", "## MOC drift — notes in the topic that its MOC misses", "", "_Ticked notes are appended to the MOC under \"## Also in this topic (added <date>)\"._", "");
+    for (const c of [...owner.keys()].sort((a, b) => sizes.get(b) - sizes.get(a))) { const m = owner.get(c), missing = stable(membersOf.get(c).filter(r => !m.memberSet.has(r) && !mapPaths.has(r)), byBc); if (!missing.length) continue;
+      L.push(`### ${noteLink(m.path)} → C${c} ${info.get(c).name} (${missing.length} missing)`); missing.slice(0, DRIFT_ROWS).forEach(r => L.push(actRow(noteLink(r), { op: "add", moc: m.path, note: r })));
+      if (missing.length > DRIFT_ROWS) L.push(`- …and ${missing.length - DRIFT_ROWS} more (see the graph's MOC coverage view)`); L.push(""); }
+    L.push("## Bridge notes for the biggest gaps", "", `_Drafts a note in \`${inbox}/\` with \`type: bridge\` and \`bridges:\` pointing at both MOCs; the graph puts bridge notes in the Neural core. File it once it's written._`, "");
+    for (const g of P.report.gaps.slice(0, 5)) { const mi = owner.get(g.a), mj = owner.get(g.b); if ((mi && mj && mi.path === mj.path) || info.get(g.a).name === info.get(g.b).name) continue;
+      L.push(actRow(`bridge **${info.get(g.a).name}** ↔ **${info.get(g.b).name}** (${g.comentions} co-mentions, ${g.links} links)`, { op: "bridge", a: g.a, b: g.b, moc_a: mi ? mi.path : null, moc_b: mj ? mj.path : null, name_a: mi ? mi.title : info.get(g.a).name, name_b: mj ? mj.title : info.get(g.b).name, suggest: g.suggest.map(([x, y]) => [x, y]), core_a: stable(membersOf.get(g.a), byBc).slice(0, 5), core_b: stable(membersOf.get(g.b), byBc).slice(0, 5) })); }
+    return L.join("\n") + "\n";
+  }
+  // what ticking a map report's row writes: the text only, the plugin does the writing
+  const ACT_ROW = /^\s*- \[([ xX\-])\] (.*?)%%act:(\{.*?\})%%/gm, MAP_MARK = "%% vault-graph:generated";
+  const linkedIn = (text, note) => { const st = stemOf(note).toLowerCase(); for (const m of String(text).matchAll(/\[\[([^\]|#]+)/g)) { let t = m[1].trim().replace(/\\+$/, "").split(/[\\/]/).pop().toLowerCase(); if (t.endsWith(".md")) t = t.slice(0, -3); if (t === st) return true; } return false; };
+  const appendSection = (text, heading, body) => { const nl = text.includes("\r\n") ? "\r\n" : "\n";
+    if (text.includes(heading)) { const at = text.indexOf(heading) + heading.length; let end = text.indexOf(nl + "#", at); if (end < 0) end = text.length; return text.slice(0, end).trimEnd() + nl + body.join(nl) + nl + text.slice(end); }
+    return text.trimEnd() + nl + nl + heading + nl + nl + body.join(nl) + nl; };
+  const underFrontmatter = (text, line) => { const m = /^---\r?\n[\s\S]*?\r?\n---\r?\n/.exec(text); return m ? text.slice(0, m[0].length) + line + text.slice(m[0].length) : line + text; };
+  const mapNote = (name, ms, date) => ["---", `created: ${date}`, "tags:", "  - meta/moc", "type: moc", "---", "", `# ${name}`, "", "> Map of content. Write an overview here; everything below the marker is regenerated by Vault Graph.", "", MAP_MARK, "", "## Core", ...ms.slice(0, 6).map(r => `- ${noteLink(r)}`), "", "## All notes", ...ms.map(r => `- ${noteLink(r)}`), ""].join("\n");
+  const bridgeNote = (act, name, date) => { const mocs = [act.moc_a, act.moc_b].filter(Boolean).map(x => `  - "${noteLink(x)}"`), body = ["---", `created: ${date}`, "type: bridge", ...(mocs.length ? ["bridges:", ...mocs] : []), "---", "", `# ${name}`, "", "> Drafted from the MOC alignment report. These topics come up together in your dailies but barely link. Fill this in, then link it from both MOCs.", "", `## ${act.name_a}`, ...act.core_a.map(r => `- ${noteLink(r)}`), "", `## ${act.name_b}`, ...act.core_b.map(r => `- ${noteLink(r)}`), ""];
+    if (act.suggest.length) body.push("## Where they already meet", ...act.suggest.map(([x, y]) => `- ${noteLink(x)} ↔ ${noteLink(y)}`), ""); body.push("## Questions", `- How does ${act.name_a} depend on ${act.name_b}, or the other way round?`, "- Which decisions in one changed the other?", "- Is there a process or person that already connects them?", "", "## Notes", ""); return body.join("\n"); };
+  const rowsOf = text => [...String(text).matchAll(ACT_ROW)].map(m => { let act = null; try { act = JSON.parse(m[3]); } catch (e) { /* a row edited by hand into nothing readable */ } return { state: m[1], label: m[2].trim(), act, at: m.index }; });
+  // The weekly note: what's heating up, what's waiting, which keystone notes are going stale, when each topic comes up
+  const WD_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  function stateNote(d, { levels, isRecord }) {
+    const notes = d.nodes.filter(n => !n.person && !n.moc), cname = new Map(d.clusters.map(c => [c.id, c.label || c.name])), stale = (d.quality || {}).stale_days ?? 180, names = {}; notes.forEach(n => { names[n.name] = (names[n.name] || 0) + 1; });
+    const link = n => (names[n.name] > 1 ? `[[${n.id.slice(0, -3)}|${n.name}]]` : `[[${n.name}]]`), linked = notes.filter(n => !n.isolated).length;
+    const L = ["---", `created: ${d.date}`, "type: report", "tags:", "  - meta/cleanup", "---", "", `# State of the vault: ${d.date}`, "", "_Written by Vault Graph from the same data as its maps. \"Unchanged\" means the note's text, not its file date (bulk link and tag passes don't count)._", "",
+      `**${notes.length} notes** · ${linked} linked · ${notes.length - linked} unlinked · ${d.clusters.length} topics · ${notes.filter(n => (n.age || 0) > stale).length} unchanged for ${stale}+ days`, ""];
+    const T = d.timeline || { clusters: {} }, w = [];
+    for (const [c, ser] of Object.entries(T.clusters)) { if (ser.length < 6 || !cname.has(+c)) continue; const sum = a => a.reduce((x, y) => x + y, 0), recent = sum(ser.slice(-3)) / 3, base = sum(ser.slice(0, -3)) / Math.max(1, ser.length - 3); w.push([(recent + 0.5) / (base + 0.5), +c, recent, base, ser[ser.length - 1]]); }
+    const desc = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return b[i] - a[i]; return 0; }; w.sort(desc);
+    L.push("## Weather: what your dailies are talking about", "");
+    const hot = w.filter(x => x[0] >= 1.4 && x[2] >= 1).slice(0, 4), cold = [...w].sort((a, b) => desc(b, a)).filter(x => x[0] <= 0.6 && x[3] >= 1).slice(0, 3);
+    if (hot.length) hot.forEach(([r, c, rec, base, last]) => L.push(`- 🔴 **${cname.get(c)}**: ${r.toFixed(1)}× its usual over the last three weeks (${rec.toFixed(1)} vs ${base.toFixed(1)} mentions a week)${last >= 4 && last >= 2.5 * (base + 0.5) ? " · ⛈ burst this week" : ""}`)); else L.push("- Nothing unusually busy.");
+    cold.forEach(([, c, rec, base]) => L.push(`- 🔵 **${cname.get(c)}** has gone quiet (${rec.toFixed(1)} vs ${base.toFixed(1)} a week)`)); L.push("");
+    const tn = notes.filter(n => n.taskAge != null).map((n, i) => [n, i]).sort((a, b) => b[0].taskAge - a[0].taskAge || a[1] - b[1]).map(x => x[0]);
+    L.push("## Radar: open tasks", "", `${notes.reduce((s, n) => s + (n.tasks || 0), 0)} open tasks in ${notes.filter(n => n.tasks).length} notes · ${tn.filter(n => n.taskAge > 90).length} notes with tasks waiting 90+ days. Oldest:`, "");
+    tn.slice(0, 5).forEach(n => { const [t, since] = n.taskItems[0]; L.push(`- ${link(n)}: “${cpTake(t, 80)}” · waiting since ${since} (${n.taskAge} days)`); }); L.push("");
+    const lv0 = levels(notes.filter(n => !n.isolated)), lvl = lv0 instanceof Map ? Object.fromEntries(lv0) : lv0, adj = new Map();   // the shared rule gives a Map
+    for (const l of d.links) if (l.kind === "link" && l.source in lvl && l.target in lvl) { if (!adj.has(l.source)) adj.set(l.source, new Set()); if (!adj.has(l.target)) adj.set(l.target, new Set()); adj.get(l.source).add(l.target); adj.get(l.target).add(l.source); }
+    const deps = x => { const seen = new Set([x]), q = [x]; while (q.length) { const y = q.pop(); (adj.get(y) || []).forEach(m => { if (!seen.has(m) && lvl[m] > lvl[y]) { seen.add(m); q.push(m); } }); } return seen.size - 1; };
+    const ks = notes.filter(n => n.id in lvl && (n.age || 0) > stale && !isRecord(n)).map((n, i) => [deps(n.id), n, i]).sort((a, b) => b[0] - a[0] || (b[1].age || 0) - (a[1].age || 0) || a[2] - b[2]).filter(x => x[0] >= 3);
+    L.push("## Food web: keystone notes at risk", "", "_Notes many others depend on whose text hasn't changed in a long while: worth a look, or a `Still current` in the graph._", "");
+    if (ks.length) ks.slice(0, 6).forEach(([k, n]) => L.push(`- ${link(n)}: ${k} notes depend on it · unchanged for ${n.age} days`)); else L.push("- None: every note others lean on is current."); L.push("");
+    const rh = d.rhythm || {}; if (Object.keys(rh).length) { const tot = new Array(7).fill(0); Object.values(rh).forEach(v => v.wd.forEach((x, i) => { tot[i] += x; }));
+      L.push("## Heat clock: when you work on what", "", `Busiest day: **${WD_NAMES[tot.indexOf(Math.max(...tot))]}**.`, "");
+      WD_NAMES.slice(0, 5).forEach((day, i) => { const tops = Object.entries(rh).filter(([c, v]) => cname.has(+c) && v.wd.reduce((a, b) => a + b, 0) >= 5).map(([c, v]) => [v.wd[i] / Math.max(1, v.wd.reduce((a, b) => a + b, 0)), +c]).sort(desc).slice(0, 2); if (tops.length) L.push(`- ${day}: ${tops.map(([, c]) => cname.get(c)).join(", ")}`); }); L.push(""); }
+    if ((d.gaps || []).length) { L.push("## Gaps: topics that belong together but barely link", ""); d.gaps.slice(0, 3).forEach(g => L.push(`- ${cname.get(g.a) ?? g.a} ↔ ${cname.get(g.b) ?? g.b} · ${g.comentions ? `${g.comentions} co-mentions in your dailies` : "related by shared tags"}, ${g.links} links`)); L.push(""); }
+    const ch = d.changes; if (ch && Object.keys(ch).length) { const plus = n => (n >= 0 ? `+${n}` : String(n)); L.push(`## Since ${ch.since === undefined ? "last run" : ch.since === null ? "None" : ch.since}`, "", `- ${plus(ch.linked_delta || 0)} linked notes · ${(ch.new_notes || []).length} new notes · ${(ch.gaps_closed || []).length} gaps closed · ${(ch.acted || []).length} suggestions acted on`, ""); }
+    L.push("## Maps", "", "_Run **Vault Graph: Add map snapshots to the latest State of the vault note** in Obsidian to add pictures here._", "");
+    return L.join("\n");
+  }
+
   // A job in a worker, so the app stays free while it runs (seconds on a big vault; a phone is slower). If a worker can't
   // start, it runs here. stats.via says which, so a test can tell. The worker gets this whole engine from its own source.
   const stats = { via: null };
@@ -900,7 +1037,7 @@ what when where which while who how why each other same see set use used using w
     stats.via = "here"; return JOBS[name](input);
   }
 
-  return { nodeTags, isAttachment: t => ATTACHMENT.test(t), dayShift, codeDocs, gitArgs, snapshotOf, changesFrom, run, stats, topicsJob, notesJob, analyseJob, topicParts, closestPassages, timeline, rhythm, mapsOf, mentionPass, taskAges, datedSeries, followThrough, textTwins, similarPairs, byName, mostlyCode, pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
+  return { gapsReport, mapReport, stateNote, rowsOf, linkedIn, appendSection, underFrontmatter, mapNote, bridgeNote, nodeTags, isAttachment: t => ATTACHMENT.test(t), dayShift, codeDocs, gitArgs, snapshotOf, changesFrom, run, stats, topicsJob, notesJob, analyseJob, topicParts, closestPassages, timeline, rhythm, mapsOf, mentionPass, taskAges, datedSeries, followThrough, textTwins, similarPairs, byName, mostlyCode, pyCmp, pyRandom, louvain, absorbSmall, betweenness, fsum, dot, stemOf, seriesKey, parseAjson, embeddings, topNeighbours, cohesionGraph,
     noteWords, topicWords, topicsOf, topicGraph, frontmatterTags, wantedNotes, sharedPairs, cleanTitle, readableNames, stacks, withStack, label, stableIds, titleCase };
 };
 const VGEngine = VGEngineMake();
