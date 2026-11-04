@@ -53,8 +53,7 @@
       more = true;
     }
     if (neural()) {   // living view: pulses + slow drift while idle
-      // Frame budget: full rate while you're moving it, otherwise 30 fps (15 in small panes and the
-      // home-screen card), and 3 fps while Obsidian isn't the focused window.
+      // Frame budget: full rate while you're moving it, otherwise 30 fps (15 in small panes), and 3 fps while Obsidian isn't the focused window.
       const busy = morph || tween || drag || cam.spin;
       const fps = busy ? 0 : lensFps(!document.hasFocus() ? 3 : opts.compact ? 15 : 30);
       const dt = Math.min(250, now - (lastNeural || now));

@@ -763,8 +763,6 @@
 .vg-pausepill { display: none; }
 .is-cosmos .vg-pausepill:not([hidden]) { display: inline-flex; position: absolute; z-index: 4; left: 50%; transform: translateX(-50%); top: var(--vg-under-bar);
   padding: 5px 12px; border-radius: var(--ds-r-pill); font: 700 var(--ds-fs-xs) var(--vg-mono); letter-spacing: .1em; color: var(--vg-hud-gold-ink); background: var(--vg-hud-gold); box-shadow: 0 4px 16px rgba(0, 0, 0, .4); }
-  padding: 6px 8px 6px 14px; border-radius: var(--ds-r-pill); background: color-mix(in srgb, var(--vg-panel) 88%, transparent); border: 1px solid var(--vg-line);
-  box-shadow: var(--vg-shadow-sm); font-size: var(--vg-fs-sm); backdrop-filter: blur(6px); }
 .vg-physline { font: 500 var(--ds-fs-xs)/1.5 var(--vg-mono); padding: 6px 8px; margin: 8px 0; border-radius: var(--vg-r-sm); background: var(--vg-hover); }
 .vg-warpval { font-size: var(--ds-fs-md) !important; font-weight: 700; }
 
@@ -842,7 +840,6 @@
 .vg-root .vg-triage { position: absolute; z-index: 4; bottom: calc(52px + var(--vg-bottom, 0px)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px;
   padding: 6px 8px 6px 14px; border-radius: var(--ds-r-lg); font: 600 var(--ds-fs-xs) var(--vg-mono); color: var(--vg-hud-go); background: var(--vg-hud-panel); border: 1px solid color-mix(in srgb, var(--vg-hud-go) 45%, transparent); max-width: calc(100% - 24px); }
 .vg-root .vg-triage-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-  background: color-mix(in srgb, var(--vg-raised) 85%, transparent); border: 1px solid var(--vg-border); font-size: var(--ds-fs-xs); font-weight: 600; }
 /* time-lapse in the maps */
 /* one time-lapse control in every view (graphs, maps, cosmos): the toolbar clock and one bar */
 .vg-root .vg-maptime { display: inline-flex; }
@@ -978,6 +975,7 @@
 
 /* Dungeon: the game takes the whole pane while it is being played; the graph's controls come back on pause */
 .vg-root[data-map="dungeon"] .vg-cv { cursor: crosshair; }
+.vg-root.is-playing .vg-toast, .vg-root.is-playing .vg-side, .vg-root.is-playing .vg-toolbar, .vg-root.is-playing .vg-today, .vg-root.is-playing .vg-missions, .vg-root.is-playing .vg-legend, .vg-root.is-playing .vg-status, .vg-root.is-playing .vg-hud, .vg-root.is-playing .vg-inspector { display: none !important; }
 .vg-root.is-playing .vg-cv { cursor: none; }
 body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-root.is-playing .vg-app { grid-template-columns: minmax(0, 1fr) !important; }
