@@ -35,12 +35,14 @@ async function api(p) {
 // The tests that count are GitHub's, on the commit being released, so a release needs nothing from this computer and a
 // busy one (a game, a build) can't fail a timing test. HEAD is the code unless it's a version commit, which changes only the number.
 async function testedOnGitHub() {
-  const sha = git("log", "-1", "--format=%H", git("log", "-1", "--format=%s").startsWith("Release ") ? "HEAD^" : "HEAD"), page = `https://github.com/${slug}/actions`, end = Date.now() + 20 * 60e3;
+  const sha = git("log", "-1", "--format=%H", git("log", "-1", "--format=%s").startsWith("Release ") ? "HEAD^" : "HEAD"), page = `https://github.com/${slug}/actions`, end = Date.now() + 20 * 60e3, appear = Date.now() + 2 * 60e3;   // a merge a moment ago: GitHub takes a little while to start the run
+  let saidWait = false;
   for (let said = false; ; ) {
     const runs = await api(`actions/runs?head_sha=${sha}&event=push&per_page=20`);
     if (!runs) fail(`couldn't ask GitHub about ${sha.slice(0, 7)}. Nothing changed. ${page}`);
     const test = (runs.workflow_runs || []).find(r => /(^|\/)test\.yml/.test(r.path || ""));
-    if (!test) fail(`GitHub has no test run for ${sha.slice(0, 7)}, so it can't be released. Nothing changed. Check ${page}, or push a commit to main through a pull request`);
+    if (!test) { if (Date.now() < appear) { if (!saidWait) { console.log(`Waiting for GitHub to start testing ${sha.slice(0, 7)}...`); saidWait = true; } await new Promise(r => setTimeout(r, 15e3)); continue; }
+      fail(`GitHub has no test run for ${sha.slice(0, 7)}, so it can't be released. Nothing changed. Check ${page}, or push a commit to main through a pull request`); }
     if (test.status === "completed") {
       if (test.conclusion === "success") { console.log(`GitHub's tests passed on ${sha.slice(0, 7)}`); return; }
       fail(`GitHub's tests ${test.conclusion} on ${sha.slice(0, 7)}, so it can't be released. Nothing changed.\n${test.html_url}\nThe red lines under Annotations name the failing test. A flaky test: Re-run jobs, then release again. A real failure: fix it through a pull request.`); }

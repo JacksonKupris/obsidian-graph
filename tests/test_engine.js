@@ -18,6 +18,9 @@ const fails = [], check = (name, got, want) => { if (JSON.stringify(got) !== JSO
   check("repos with history", c.repos, ["app"]); check("files known", c.files, 2); check("a note behind its code", c.behind.map(b => [b[0], b[2]]), [["n.md", 3]]); check("a release note isn't behind", c.behind.some(b => b[0] === "Release Notes.md"), false);
   check("an area of code", c.areas[0].slice(0, 3), ["app/src", 3, 4]); check("no git history: nothing to show", E.codeDocs({ repos: [{ name: "x", log: "", files: "" }], docs: [], today: "2026-11-03", roots: ["~/x"] }), { repos: [], roots: ["~/x"] }); }
 
+check("tags lose Obsidian's #", E.frontmatterTags({ tags: ["#Type/Report", "project/x", "daily", "#a/standup"] }), ["type/report", "project/x"]);
+check("rule tags always stay, six others", E.nodeTags(["z1", "z2", "z3", "z4", "z5", "z6", "z7", "status/done", "type/a"]), ["status/done", "type/a", "z1", "z2", "z3", "z4", "z5", "z6"]);
+check("a missing picture isn't a broken note link", [E.isAttachment("shot.png"), E.isAttachment("A Note")], [true, false]);
 const r = E.pyRandom(7);
 check("random.Random(7).getrandbits(32) x3", [r.uint32(), r.uint32(), r.uint32()], [1390851128, 4071050724, 647892279]);
 check("random.Random(7).shuffle(range(10))", E.pyRandom(7).shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]), [8, 3, 1, 4, 7, 0, 9, 6, 2, 5]);

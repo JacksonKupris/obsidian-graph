@@ -1572,8 +1572,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // The graph data when this vault has no analysis file (no Python, a phone, a new vault): the engine's topics and
   // influence over Obsidian's index, in the analysis's shape; liveMerge adds the live fields over it as it does over the
   // analysis's. Topic ids carry on from the last engine run (kept in the plugin's settings).
-  async engineData(gathered) {
-    const G = gathered || await this.engineGather(), N = await this.engineNotes(G, { topics: true, prev: this.settings.engineTopics }), E = { ...N.T, notes: G.T.knowledge, graph: G.T.graph, raw: G.raw, tags: G.tags };
+  async engineData(gathered, known) {
+    const G = gathered || await this.engineGather(), N = await this.engineNotes(G, { topics: true, prev: this.settings.engineTopics, known }), E = { ...N.T, notes: G.T.knowledge, graph: G.T.graph, raw: G.raw, tags: G.tags };
     this.settings.engineTopics = Object.fromEntries(E.topics.map(t => [t.id, t.members])); await this.saveSettings();
     const at = new Map(), unresolved = this.app.metadataCache.unresolvedLinks || {};
     E.topics.forEach(t => t.members.forEach(r => at.set(r, t.id)));
@@ -1582,7 +1582,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     const nodes = E.notes.map(r => { const f = this.app.vault.getAbstractFileByPath(r), st = f instanceof TFile ? f.stat : { ctime: Date.now(), mtime: Date.now() };
       return { id: r, name: f instanceof TFile ? f.basename : r.split("/").pop().replace(/\.md$/i, ""), cluster: at.has(r) ? at.get(r) : -1, bc: Math.round((E.bc[r] || 0) * 1e5) / 1e5,
         folder: r.includes("/") ? r.slice(0, r.lastIndexOf("/")) : "", mentions: 0, recent: 0, inlinks: 0, outlinks: 0,
-        broken: Object.keys(unresolved[r] || {}).length, tasks: 0, words: words(r), age: 0, refs: false, isolated: !E.graph[r], tags: E.tags[r] || [],
+        broken: Object.keys(unresolved[r] || {}).filter(t => !VGEngine.isAttachment(t)).length, tasks: 0, words: words(r), age: 0, refs: false, isolated: !E.graph[r], tags: VGEngine.nodeTags(E.tags[r] || []),
         born: VGRules.bornDate(f instanceof TFile ? f.basename : r, f instanceof TFile && this.app.metadataCache.getFileCache ? ((this.app.metadataCache.getFileCache(f) || {}).frontmatter || {}).created : null, day(st.ctime)), edited: day(st.mtime) }; });
     const links = [];
     for (const [r, nb] of Object.entries(E.graph)) for (const [t, w] of Object.entries(nb)) if (VGEngine.pyCmp(r, t) < 0) links.push({ source: r, target: t, w, kind: "link" });
@@ -1633,10 +1633,11 @@ module.exports = class VaultGraphPlugin extends Plugin {
   // edits sync here, this run would bring back suggestions already acted on. Returns that PC's name when it kept theirs.
   async writeGraphFile() {
     const A = this.app.vault.adapter, file = normalizePath(this.settings.dataPath), dir = file.slice(0, file.lastIndexOf("/")), snaps = `${dir}/snapshots`, readJson = async p => { try { return JSON.parse(await A.read(p)); } catch (e) { return null; } };
-    const old = await readJson(file), G = await this.engineGather(), data = await this.engineData(G); delete data.engine;
-    const host = require("os").hostname(), newest = Math.max(0, ...this.app.vault.getMarkdownFiles().map(f => f.stat.mtime)) / 1000;
-    const known = new Map(), names = {}; ((old && old.nodes) || []).forEach(n => { const b = n.id.split("/").pop(); names[b] = (names[b] || 0) + 1; });
+    const old = await readJson(file), G = await this.engineGather(), known = new Map(), names = {};
+    ((old && old.nodes) || []).forEach(n => { const b = n.id.split("/").pop(); names[b] = (names[b] || 0) + 1; });
     ((old && old.nodes) || []).forEach(n => { if (n.born) { known.set(n.id, n.born); const b = n.id.split("/").pop(); if (names[b] === 1) known.set(b, n.born); } });
+    const data = await this.engineData(G, known); delete data.engine;
+    const host = require("os").hostname(), newest = Math.max(0, ...this.app.vault.getMarkdownFiles().map(f => f.stat.mtime)) / 1000;
     data.nodes.forEach(n => { if (n.person || n.moc) return; const was = [known.get(n.id), known.get(n.id.split("/").pop())].filter(Boolean); if (n.born || was.length) n.born = [n.born, ...was].filter(Boolean).sort()[0]; });   // what an earlier run, on any PC, found
     this.reconcileContent(G, data);
     data.code = await this.engineCode(G, data.date);
@@ -1659,7 +1660,8 @@ module.exports = class VaultGraphPlugin extends Plugin {
     for (const r of knowledge) { const f = this.app.vault.getAbstractFileByPath(r); if (!(f instanceof TFile)) continue; const fm = (mc.getFileCache(f) || {}).frontmatter;
       VGRules.mentionNames(f.basename, fm && fm.aliases).forEach(k => { const key = k.toLowerCase(); (terms[key] = terms[key] || []).push(r); });
       if (VGRules.isPrivate(r, fm)) quiet.push(r);
-      born[r] = VGRules.bornDate(f.basename, fm && fm.created, VGRules.localDay(new Date(f.stat.ctime))); }
+      born[r] = VGRules.bornDate(f.basename, fm && fm.created, VGRules.localDay(new Date(f.stat.ctime)));
+      if (o.known) { const was = [o.known.get(r), o.known.get(r.split("/").pop())].filter(Boolean); if (was.length) born[r] = [born[r], ...was].filter(Boolean).sort()[0]; } }
     const people = G.files.filter(f => VGRules.noteKind(f.path, G.tags[f.path]) === "person").map(f => f.path);
     people.forEach(p => { personLinks[p] = new Set((G.links[p] || []).filter(t => K.has(t))); });
     for (const r of knowledge) for (const t of G.links[r] || []) if (personLinks[t]) personLinks[t].add(r);
