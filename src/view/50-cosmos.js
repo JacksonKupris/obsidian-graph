@@ -213,11 +213,33 @@
   // no orbit yet (a view written by hand) get arranged.
   function restoreSky(sky) {
     cos.bodies = structuredClone(sky.bodies || []); cos.auto = { ...cos.auto, ...(sky.auto || {}) };
+    delete layoutSeeds.cosmos; delete layoutBackup.cosmos; syncLayoutBtns();   // Reset goes back within a sky, not across saved ones
     if (st.body) { st.body = null; $(".vg-inspector").hidden = true; root.classList.remove("has-inspector"); }
     $$(".vg-autobtn").forEach(b => b.setAttribute("aria-pressed", !!cos.auto[b.dataset.auto]));
     trails.clear(); noteTrails.clear();
     if (cos.bodies.some(b => b.rx == null)) { cos.bodies.forEach(b => { b.x = b.x || 0; b.y = b.y || 0; }); arrangeOrbits(false); } else { cos.bodies.forEach(placeFromOrbit); cosmosCapture(); persistSoon(); kick(); }
   }
+  // Randomize: every body on an orbit of its own, in either direction, kept apart so they don't all land in one place. Which bodies
+  // there are stays yours; Reset puts each back where it was (a body added since stays where you put it).
+  const ORBIT_KEYS = ["x", "y", "rx", "ry", "vx", "vy", "parent"];
+  function randomizeSky() {
+    if (!layoutBackup.cosmos) layoutBackup.cosmos = { arranged: cos.arranged, bodies: Object.fromEntries(cos.bodies.map(b => [b.id, Object.fromEntries(ORBIT_KEYS.map(k => [k, b[k]]))])) };
+    const inner = RING0 * 0.55, outer = RING0 * Math.pow(RING_RATIO, 3), placed = [];
+    cos.bodies.forEach(b => {
+      for (let tries = 0; tries < 40; tries++) {
+        setOrbit(b, null, inner + Math.random() * (outer - inner), Math.random() * 0.3, Math.random() * 2 * Math.PI, Math.random() < 0.5 ? 1 : -1);
+        if (placed.every(o => Math.hypot(o.x - b.x, o.y - b.y) >= 170)) break;
+      }
+      placed.push(b);
+    });
+    cos.arranged = 2; settleSky();
+  }
+  function resetSky() {
+    const back = layoutBackup.cosmos; delete layoutBackup.cosmos; if (!back) return;
+    cos.bodies.forEach(b => { if (back.bodies[b.id]) Object.assign(b, back.bodies[b.id]); });
+    cos.arranged = back.arranged; settleSky();
+  }
+  function settleSky() { trails.clear(); noteTrails.clear(); cosmosCapture(); kick(); setTimeout(() => { if (!destroyed && isCosmos()) fit(); }, 500); }
   function arrangeOrbits(announce) {
     const ring = cos.bodies.filter(b => b.type === "star" || b.type === "binary").sort((a, b) => gmOf(b) - gmOf(a) || (a.id < b.id ? -1 : 1));
     ring.forEach((b, i) => { const k = Math.floor(i / 3); setOrbit(b, null, RING0 * Math.pow(RING_RATIO, k), 0.04, (i % 3) * 2 * Math.PI / 3 + k * Math.PI / 3, 1); });

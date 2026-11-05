@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Randomize / Reset layout in every view, in headless Chrome: randomizing moves the notes, resetting brings back
-// the exact default layout (2D/3D: the arrangement you had). Cosmos is skipped (you place its bodies yourself).
+// the exact default layout (2D/3D: the arrangement you had). In Cosmos it's the bodies that move, and Reset puts them back.
 //   node tests/layout_random.js [--vault [dir]]        exit 0 = pass
 const { openPage } = require("./kit");
 const cdp = require("./cdp"), page = require("./env").page();
@@ -17,7 +17,21 @@ setTimeout(async () => {
   const settle = async () => { for (let i = 0; i < 60 && D.alpha() > 0.01; i++) await sleep(250); };
   const moved = (a, b) => a.filter((p, i) => Math.hypot(p[0] - b[i][0], p[1] - b[i][1]) > 20).length / a.length;
   for (const v of D.views()) {
-    if (v === "cosmos") continue;
+    if (D.scenes()[v] && D.scenes()[v].game) { D.setView(v); await sleep(600); if (!document.querySelector(".vg-randlayout").hidden) errs.push(v + ": a game shouldn't offer Randomize"); continue; }
+    if (v === "cosmos") {
+      try {
+        D.setView(v); await sleep(1500); D.st.paused = true; await sleep(150);   // orbits held still, so only the buttons move a body
+        const sky = () => D.saved.bodies().map(b => [Math.round(b.x), Math.round(b.y)]), a = sky(); if (a.length < 2) throw new Error("no bodies to randomize");
+        const rand = document.querySelector(".vg-randlayout"); if (rand.hidden) throw new Error("no Randomize in Cosmos");
+        rand.click(); await sleep(200); const b = sky(), resetShown = !document.querySelector(".vg-resetlayout").hidden;
+        rand.click(); await sleep(200); const b2 = sky();
+        document.querySelector(".vg-resetlayout").click(); await sleep(200); const c = sky();
+        if (moved(b, b2) < 0.5) throw new Error("Cosmos: a second Randomize should give another sky");
+        res.push({ v, changed: +moved(a, b).toFixed(2), back: +moved(a, c).toFixed(2), resetShown, resetHidden: document.querySelector(".vg-resetlayout").hidden });
+        D.st.paused = false;
+      } catch (e) { errs.push(v + ": " + e.message); }
+      continue;
+    }
     try {
       D.setView(v); await sleep(1300); await settle();
       const a = snap(v);
