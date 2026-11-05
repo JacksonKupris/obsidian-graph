@@ -50,6 +50,7 @@
     maptree: { name: "Map tree", hint: "Each map's topics: what it lists, what it's missing — add in place", render: lensMapTree },
     ring: { name: "Folder ring", hint: "Links between folders — thin chords are knowledge that doesn't connect", render: lensRing },
     write: { name: "Write these next", hint: "Links to notes that don't exist yet, and short notes many others rely on", render: lensWrite },
+    missing: { name: "Missing from dailies", hint: "Notes no standup or journal mentions, most-linked first", render: lensMissing },
     follow: { name: "Standup follow-through", hint: "What you planned for tomorrow vs. what the next standups say got done", render: lensFollow },
     dupes: { name: "Duplicates", hint: "Likely duplicate notes side by side, with the links each one has", render: lensDupes },
     ...((DATA.code && (DATA.code.repos || []).length) ? { code: { name: "Code ↔ docs", hint: "Code that changes often with no note, and notes that have fallen behind their code", render: lensCode } } : {}),   // only where work repos exist
@@ -427,6 +428,15 @@
         <span class="vg-item-sub">linked from ${plural(n.from.length, "note")}: ${n.from.filter(id => byId[id]).slice(0, 3).map(id => esc(byId[id].name)).join(", ")}${n.from.length > 3 ? "…" : ""}</span></span></button>
         ${opts.writeNote && n.creatable ? `<span class="vg-sugg-acts">${actBtn("data-ghost", n.id, `${icon("file", 12)} Create`)}</span>` : ""}</div>`), { count: wanted.length, word: "notes", empty: "Every link points at a real note." })}
       ${lensSec("Short notes that others rely on", stubs.slice(0, 100).map(n => noteLine(n.id, `${n.words || 0} words · ${n.inlinks} links in${n.mentions ? ` · ${n.mentions} mentions` : ""}`, opts.openNote ? actBtn("data-open", n.id, `${icon("open", 12)} Open`) : "")), { count: stubs.length, word: "notes", empty: "No thin notes with several links in." })}`;
+  }
+
+  // Notes no daily mentions. They feed none of Timeline, Topic river, Attention or Weather, so a note listed here is invisible to them.
+  function lensMissing() {
+    if (DATA.dailies_used == null) return needsAnalysis("Finding notes missing from dailies") || emptyNext("No daily notes have been read yet.", "daily");
+    const miss = VGRules.unmentioned(nodes);
+    if (!miss.length) return emptyNext("Every note is mentioned in a standup or journal.", "lens:write", "lens:triage");
+    return `<p class="vg-muted vg-lens-note">${miss.length} of ${nodes.filter(n => !special(n)).length} notes aren't mentioned in any of the ${DATA.dailies_used} daily notes read. Name one in the next standup or journal.</p>
+      ${lensSec("Not in any daily", miss.slice(0, 100).map(n => noteLine(n.id, `${plural(n.inlinks || 0, "link")} in`, opts.openNote ? actBtn("data-open", n.id, `${icon("open", 12)} Open`) : "")), { count: miss.length, word: "notes" })}`;
   }
 
   // 4. Standup follow-through: "Work Expected Tomorrow" against what the next standups say got done

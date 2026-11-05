@@ -31,6 +31,7 @@ What Vault Graph already does, and where. "Lens" and "scene" below are code word
 | What holds the vault together | Single points of failure lens, with the k-core | `src/view/62-science.js` |
 | Likely duplicate notes | Duplicates lens | `src/view/60-lenses.js` |
 | Notes named but not linked, islands | Blind spots lens | `src/view/60-lenses.js` |
+| Notes no standup or journal mentions, most-linked first | Missing from dailies lens (`VGRules.unmentioned`) | `src/view/60-lenses.js`, `src/rules.js` |
 | Notes to write, and how many are unnamed (Chao1) | Write these next lens, `write` on Today | `src/view/60-lenses.js` |
 | What a map lists and misses | Map tree lens, `map` on Today | `src/view/60-lenses.js` |
 | Where folders and topics disagree | Folders vs topics lens | `src/view/60-lenses.js` |
