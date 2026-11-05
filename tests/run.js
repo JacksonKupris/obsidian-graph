@@ -25,6 +25,7 @@ const steps = [["main.js", ["--check", path.join(dir, "main.js")]], ["rules.js",
   ["test_hq_usability.js", [path.join(__dirname, "test_hq_usability.js"), ...env.args]],
   ["test_other_vault.js", [path.join(__dirname, "test_other_vault.js")]], ["test_lens_load.js", [path.join(__dirname, "test_lens_load.js"), ...env.args]], ["test_sweep_vitals.js", [path.join(__dirname, "test_sweep_vitals.js"), ...env.args]],
   ["smoke_page.js", [path.join(__dirname, "smoke_page.js"), ...env.args]]];
+let ran = 0;
 let failed = 0, skipped = 0;
 // the repo's manifest.json (what BRAT reads) is the one the build makes: same id, same version as package.json
 { const want = build.buildPlugin(build.loadRules())["manifest.json"];
@@ -37,11 +38,12 @@ for (const [name, args] of steps) {
   // only a clean exit 0 passes: a step killed (or timed out) has status null, one that didn't start has r.error
   const bad = r.status !== 0, why = r.error ? [r.error.code === "ETIMEDOUT" ? "timed out after 10 minutes" : r.error.message] : r.signal ? [`killed (${r.signal})`] : [];
   const out = [...((r.stdout || "").trim() || (r.stderr || "").trim() || "ok").split(/\r?\n/), ...why];
-  console.log(`  ${bad ? "FAIL" : "test"}  ${name}: ${bad ? out.slice(-30).join("\n") : out[out.length - 1]}`);
-  failed += bad ? 1 : 0;
+  // a person at a terminal and GitHub see every step; a script or an agent reading the output sees failures and the total (--verbose for all)
+  if (bad || process.stdout.isTTY || process.env.CI || process.argv.includes("--verbose")) console.log(`  ${bad ? "FAIL" : "test"}  ${name}: ${bad ? out.slice(-30).join("\n") : out[out.length - 1]}`);
+  failed += bad ? 1 : 0; ran++;
   skipped += /skipped: no Chrome/.test(r.stdout || "") ? 1 : 0;
 }
 if (skipped) console.log(`  note  ${skipped} browser tests skipped: no Chrome found (set CHROME_PATH to its program). GitHub runs them before it publishes.`);
 fs.rmSync(dir, { recursive: true, force: true });
-console.log(failed ? `${failed} failed (${env.VAULT ? env.VAULT : "sample vault"})` : `ok - ${env.VAULT ? env.VAULT : "sample vault"}`);
+console.log(failed ? `${failed} of ${ran} failed (${env.VAULT ? env.VAULT : "sample vault"})` : `ok - ${ran} passed, ${env.VAULT ? env.VAULT : "sample vault"}`);
 process.exit(failed ? 1 : 0);
