@@ -207,6 +207,7 @@
   // (busiest outside); a cell's heat is that topic's share of its daily-note mentions on that day or in that month.
   function clockLayout(geo) {
     const rh = DATA.rhythm || {}, cs = Object.entries(rh).map(([c, v]) => ({ c: +c, ...v, tot: v.wd.reduce((a, b) => a + b, 0) })).filter(x => x.tot >= 3 && clusterById[x.c]).sort((a, b) => a.tot - b.tot).slice(-12);
+    if (layoutSeed()) cs.sort((a, b) => seededHash("topic" + a.c) - seededHash("topic" + b.c));
     const pos = new Map(geo), DIAL = [[-330, 0, "wd", 7], [330, 0, "mo", 12]];
     const ring = i => 70 + i * 20;
     // a topic's notes sit in its ring at its busiest weekday (half of them) and busiest month (the other half)
@@ -283,12 +284,12 @@
   function radarLayout(geo) {
     const ns = nodes.filter(n => !special(n) && !n.ghost && n.tasks > 0), pos = new Map(geo), groups = {};
     ns.forEach(n => (groups[n.cluster] = groups[n.cluster] || []).push(n));
-    const keys = Object.keys(groups).map(Number).sort((a, b) => groups[b].length - groups[a].length), total = ns.length || 1, sectors = []; let a0 = -Math.PI / 2;
+    const keys = Object.keys(groups).map(Number).sort((a, b) => layoutSeed() ? seededHash("topic" + a) - seededHash("topic" + b) : groups[b].length - groups[a].length), total = ns.length || 1, sectors = []; let a0 = -Math.PI / 2;
     keys.forEach(c => { const span = Math.max(0.25, groups[c].length / total * 2 * Math.PI * 0.92 + 0.08); sectors.push({ c, a0, a1: a0 + span, n: groups[c].length }); a0 += span; });
     const scale = 2 * Math.PI / (a0 + Math.PI / 2); sectors.forEach(s => { s.a0 = -Math.PI / 2 + (s.a0 + Math.PI / 2) * scale; s.a1 = -Math.PI / 2 + (s.a1 + Math.PI / 2) * scale; });
     // distance from the centre = how long its oldest open task has waited (first journal or standup it appeared in)
     const RMAX = 420, rOf = n => 50 + (RMAX - 50) * (1 - Math.min(1, Math.log1p(n.taskAge ?? n.age ?? 0) / Math.log1p(365)));
-    sectors.forEach(s => groups[s.c].forEach(n => { const a = s.a0 + (s.a1 - s.a0) * (0.1 + 0.8 * ((hash(n.id) % 100) / 100)), r = rOf(n) + ((hash(n.id) >>> 7) % 41) - 20; pos.set(n.id, [Math.cos(a) * r, Math.sin(a) * r]); }));
+    sectors.forEach(s => groups[s.c].forEach(n => { const a = s.a0 + (s.a1 - s.a0) * (0.1 + 0.8 * ((seededHash(n.id) % 100) / 100)), r = rOf(n) + ((seededHash(n.id) >>> 7) % 41) - 20; pos.set(n.id, [Math.cos(a) * r, Math.sin(a) * r]); }));
     const e = RMAX + 34;   // fit frames the whole scope and its topic names, not only the blips
     return { pos, sectors, RMAX, hold: rOf({ taskAge: 90 }), count: ns.reduce((s, n) => s + n.tasks, 0), notes: ns.length, bounds: [[-e, -e], [e, e], [-e, e], [e, -e]] };
   }

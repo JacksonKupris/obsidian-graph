@@ -218,7 +218,7 @@
   const PICK_TOOLS = [["vg-lassobtn", "lasso", "Lasso"], ["vg-savebtn", "star", "Save view"], ["vg-timebtn", "clock", "Time-lapse"],
     ["randomize", "sparkles", "Randomize layout"], ["resetlayout", "refresh", "Reset layout"]];
   // the tools, wherever they're offered (the Tools menu, the phone's picker sheet): which apply now, and one way to run one
-  const tools = () => PICK_TOOLS.filter(([c]) => (c !== "randomize" || !isCosmos()) && (c !== "resetlayout" || canReset()));
+  const tools = () => PICK_TOOLS.filter(([c]) => (c !== "randomize" || !isGame()) && (c !== "resetlayout" || canReset()));
   const runTool = c => ({ randomize: randomizeLayout, resetlayout: resetLayout }[c] || (() => $("." + c).click()))();
   const toolOn = c => { const b = c.startsWith("vg-") && $("." + c); return !!b && b.getAttribute("aria-pressed") === "true"; };
   function syncToolsBtn() { const b = $(".vg-toolsbtn"); if (b) b.setAttribute("aria-pressed", PICK_TOOLS.some(([c]) => toolOn(c))); }
@@ -413,17 +413,19 @@
     if (!k && layoutClean() && !neural() && applyLayout()) { rebuild(false); alpha = 0.05; } else rebuild(true);   // back to the familiar map
     hideStats();
   };
-  // Randomize / Reset layout (sidebar and the Views menu's tools): one pair of actions for every view but Cosmos,
-  // whose bodies you place yourself
+  // Randomize / Reset layout (sidebar and the Views menu's tools): one pair of actions for every view
   const canReset = () => !!layoutSeeds[st.view] || ((st.view === "2d" || st.view === "3d") && !!layoutBackup[mode()]);
   function syncLayoutBtns() {
-    $$(".vg-randlayout").forEach(b => b.hidden = isCosmos());
+    $$(".vg-randlayout").forEach(b => b.hidden = isGame());   // a game builds its own map
     $$(".vg-resetlayout").forEach(b => b.hidden = !canReset());
   }
   function randomizeLayout() {
-    if (isCosmos()) return;
+    if (isGame()) return;
     const v = st.view;
-    if (v === "2d" || v === "3d") {
+    if (isCosmos()) {
+      if (!cos.bodies.length) { toast("Nothing to randomize: add a star from the bar below"); return; }
+      layoutSeeds[v] = 1 + Math.floor(Math.random() * 1e9); randomizeSky();
+    } else if (v === "2d" || v === "3d") {
       if (!layoutBackup[mode()]) layoutBackup[mode()] = Object.fromEntries(nodes.map(n => [n.id, st.three ? [r1(n.x), r1(n.y), r1(n.z)] : [r1(n.x), r1(n.y)]]));
       layoutSeeds[v] = 1 + Math.floor(Math.random() * 1e9);
       layouts[mode()] = {};
@@ -441,7 +443,8 @@
     if (!canReset()) return;
     const v = st.view;
     delete layoutSeeds[v];
-    if (v === "2d" || v === "3d") {
+    if (isCosmos()) resetSky();
+    else if (v === "2d" || v === "3d") {
       const back = layoutBackup[mode()]; delete layoutBackup[mode()];
       layouts[mode()] = back || {};
       if (back && applyLayout()) { rebuild(false); alpha = 0.05; } else { alpha = 1; rebuild(false); }

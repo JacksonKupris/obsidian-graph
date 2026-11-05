@@ -591,6 +591,8 @@ function mountVaultGraph(root, DATA, opts) {
     const inLobe = VGScience.assignLobes(cl.map(c => ({ id: c.id, size: noteCount[c.id] || 1 }))), perLobe = {}; neuralLobes = {};
     cl.forEach(c => { const lobe = inLobe[c.id]; (perLobe[lobe] = perLobe[lobe] || []).push(c.id); neuralLobes[c.id] = LOBE_NUM[lobe]; });
     Object.entries(perLobe).forEach(([lobe, ids]) => { const spots = VGScience.lobeSpots(lobe, ids.length); ids.forEach((id, i) => { centre[id] = spots[i]; }); });
+    // lobes go by size, so a new order alone changes nothing: randomized, the topics swap the places themselves
+    if (layoutSeed()) { const ids = Object.keys(centre), slots = ids.map(id => [centre[id], neuralLobes[id]]).sort((x, y) => seededHash(String(x[0])) - seededHash(String(y[0]))); ids.forEach((id, i) => { centre[id] = slots[i][0]; neuralLobes[id] = slots[i][1]; }); }
     lobeDir = centre;
     const shell = onCortex;
     const members = {};
