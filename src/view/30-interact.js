@@ -1,8 +1,8 @@
   // ---------------------------------------------------------------- frame loop
-  let settledShown = false, lastNeural = 0, onScreen = true, lastMapAnim = 0, drawMs = 0;
+  let settledShown = false, lastNeural = 0, onScreen = true, lastMapAnim = 0, lastCosmos = 0, drawMs = 0;
   const liveEdits = [];   // notes edited while the graph is open (from live sync): {id, t}
   const tickOf = (o, now) => { const dt = Math.min(100, now - (o.last || now)); o.last = now; return reducedMotion() ? 0 : dt; };
-  const PHONE_REST_MS = 20000;
+  const PHONE_REST_MS = 20000, PHONE_FPS = 20;
   const ANIM_MAPS = { ...Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.fps || 30])), radar: 60, weather: 30, foodweb: 30, subway: 30, clock: 30 };   // divisors of 60 Hz: an even cadence, no judder
   // An embed scrolled out of view (or a hidden pane) costs nothing: the loop stops and restarts when it's back
   const io = typeof IntersectionObserver === "function" ? new IntersectionObserver(es => {
@@ -25,7 +25,7 @@
     if (replay && replay.playing) { stepTime(now); more = true; dirty = true; }
     if (isCosmos() && !morph) alpha = Math.max(alpha, 0.1);   // orbits keep moving
     if (alpha > 0.005 && !neural() && !mapView() && !(isCosmos() && st.paused)) {
-      tick(); more = true; dirty = true;
+      tick(); more = true; if (!(MOBILE && isCosmos())) dirty = true;   // Cosmos on a phone keeps its own rate, below
       if (alpha <= 0.005) { persistSoon(); renderStatus(); }   // settled: remember layout
       else if (settledShown) renderStatus();
     }
@@ -41,7 +41,10 @@
       if (u >= 1) tween = null; else more = true;
       dirty = true;
     }
-    if (isCosmos()) { dirty = true; more = true; if (st.ship) shipStep(); }
+    if (isCosmos()) {   // a phone gets the rate the other views get there; moving it stays smooth
+      const busy = morph || tween || drag || st.ship, fps = !MOBILE || busy ? 0 : now - lastInteract > PHONE_REST_MS ? 10 : PHONE_FPS;
+      if (!fps || now - lastCosmos >= 1000 / fps - 2) { lastCosmos = now; dirty = true; }
+      more = true; if (st.ship) shipStep(); }
     // Animated maps (radar sweep, ships, wind, twinkling, swaying plants, pulses) redrew only on input, so they
     // jumped. Like neural: a steady budget while visible, full rate while moving, 3 fps when Obsidian isn't focused.
     // A phone gets less, and less again once it's left alone: it's held in the hand and runs on a battery. A game keeps its rate;
