@@ -5,8 +5,9 @@
   /* colour: what things mean, from the theme */
   --ds-bg: var(--background-primary, #fffcf0); --ds-surface: var(--background-secondary, #f2f0e5); --ds-line: var(--background-modifier-border, #e6e4d9);
   --ds-hover: color-mix(in srgb, var(--ds-text) 6%, transparent);
-  --ds-text: var(--text-normal, #100f0f); --ds-muted: var(--text-muted, #6f6e69); --ds-faint: var(--text-faint, #878580);
-  --ds-accent: var(--interactive-accent, #bc5215); --ds-accent-ink: var(--text-on-accent, #fffcf0); --ds-accent-text: var(--text-accent, #bc5215);
+  --ds-text: var(--text-normal, #100f0f); --ds-muted: color-mix(in srgb, var(--text-muted, #6f6e69) 84%, var(--ds-text));   /* a theme's muted grey falls just short of AA on its panels */
+   --ds-faint: var(--text-faint, #878580);
+  --ds-accent: var(--interactive-accent, #bc5215); --ds-accent-ink: var(--text-on-accent, #fffcf0); --ds-accent-text: color-mix(in srgb, var(--text-accent, #bc5215) 84%, var(--ds-text));
   --ds-accent-soft: color-mix(in srgb, var(--ds-accent) 13%, transparent);
   --ds-ok: var(--color-green, #66800b); --ds-warn: var(--color-yellow, #ad8301); --ds-danger: var(--color-red, #af3029); --ds-info: var(--color-blue, #205ea6); --ds-special: var(--color-purple, #5e409d); --ds-cyan: var(--color-cyan, #24837b); --ds-orange: var(--color-orange, #bc5215);
   --ds-status-ink: #fffcf0;   /* text on a solid status colour */
@@ -27,8 +28,9 @@
 /* the test pages have no theme: the same palette, dark */
 .theme-dark .vg-root, .theme-dark .vg-hq, .theme-dark.vg-root, .theme-dark.vg-hq {
   --ds-bg: var(--background-primary, #100f0f); --ds-surface: var(--background-secondary, #1c1b1a); --ds-line: var(--background-modifier-border, #282726);
-  --ds-text: var(--text-normal, #cecdc3); --ds-muted: var(--text-muted, #878580); --ds-faint: var(--text-faint, #6f6e69);
-  --ds-accent: var(--interactive-accent, #da702c); --ds-accent-ink: var(--text-on-accent, #100f0f); --ds-accent-text: var(--text-accent, #f9ae77);
+  --ds-text: var(--text-normal, #cecdc3); --ds-muted: color-mix(in srgb, var(--text-muted, #878580) 84%, var(--ds-text));
+   --ds-faint: var(--text-faint, #6f6e69);
+  --ds-accent: var(--interactive-accent, #da702c); --ds-accent-ink: var(--text-on-accent, #100f0f); --ds-accent-text: color-mix(in srgb, var(--text-accent, #f9ae77) 84%, var(--ds-text));
   --ds-ok: var(--color-green, #879a39); --ds-warn: var(--color-yellow, #d0a215); --ds-danger: var(--color-red, #d14d41); --ds-info: var(--color-blue, #4385be); --ds-special: var(--color-purple, #8b7ec8); --ds-cyan: var(--color-cyan, #3aa99f); --ds-orange: var(--color-orange, #da702c);
   --ds-status-ink: #100f0f;
 }

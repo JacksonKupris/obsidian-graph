@@ -7,9 +7,9 @@
   // to write) and a nebula (unlinked notes). Placing bodies only changes the view; anything that writes
   // to a note asks, as everywhere else. XP and achievements come from real vault changes.
   const BODY = {
-    star: { label: "Star", glyph: "☀", hint: "A note or MOC — linked notes orbit it by link distance", mass: 1 },
-    planet: { label: "Planet", glyph: "◍", hint: "A search — tag:, folder:, cluster:, moc: or words — matching notes become moons", mass: 0.5 },
-    binary: { label: "Binary", glyph: "⚭", hint: "Two MOCs orbiting each other — notes linked to both sit in the middle", mass: 1.2 },
+    star: { label: "Star", glyph: "☀", hint: "A note or map: linked notes orbit it by link distance", mass: 1 },
+    planet: { label: "Planet", glyph: "◍", hint: "A search (tag:, folder:, topic:, map: or words): matching notes become moons", mass: 0.5 },
+    binary: { label: "Binary", glyph: "⚭", hint: "Two maps orbiting each other: notes linked to both sit in the middle", mass: 1.2 },
     blackhole: { label: "Black hole", glyph: "●", hint: "A filter — stale, orphans, stubs… — matching notes fall into a review queue", mass: 2.2 },
     repulsor: { label: "Repulsor", glyph: "◎", hint: "Pushes a topic away to clear space", mass: -1 },
   };
@@ -34,8 +34,8 @@
     const m = q.match(/^(\w+):\s*(.+)$/), v = (m ? m[2] : q).toLowerCase();
     if (m && m[1] === "tag") return n => (n.tags || []).some(x => x === v || x.startsWith(v + "/"));
     if (m && m[1] === "folder") return n => (n.folder || "").toLowerCase().startsWith(v);
-    if (m && m[1] === "cluster") return n => String(n.cluster) === v || clusterName(n.cluster).toLowerCase().includes(v);
-    if (m && m[1] === "moc") { const mm = mocs.find(x => x.title.toLowerCase().includes(v)); return n => onMap(mm, n.id); }
+    if (m && (m[1] === "topic" || m[1] === "cluster")) return n => String(n.cluster) === v || clusterName(n.cluster).toLowerCase().includes(v);
+    if (m && (m[1] === "map" || m[1] === "moc")) { const mm = mocs.find(x => x.title.toLowerCase().includes(v)); return n => onMap(mm, n.id); }
     return n => n.name.toLowerCase().includes(v) || (n.tags || []).some(x => x.includes(v));
   }
   const bhTest = f => f === "notinmap" ? (n => inMoc(n.id) === false) : OVERLAYS[f] ? OVERLAYS[f].test : matchQuery(f);
@@ -554,7 +554,7 @@
     if (cos.auto.motion) { if (type === "planet") releaseBody(b, 0, 0); else circularHere(b, null); }
     st.placing = null; root.classList.remove("is-placing"); $$(".vg-dockbtn").forEach(x => x.setAttribute("aria-pressed", "false"));
     cosmosCapture(); selectBody(b.id); persistSoon(); alpha = Math.max(alpha, 0.4); kick();
-    if (type === "star" || type === "planet" || type === "repulsor") toast(type === "star" ? "Pick the note or MOC this star is" : "Type a search for this " + BODY[type].label.toLowerCase());
+    if (type === "star" || type === "planet" || type === "repulsor") toast(type === "star" ? "Pick the note or map this star is" : "Type a search for this " + BODY[type].label.toLowerCase());
   }
   function selectBody(id) {
     select(null); st.body = id; const b = cos.bodies.find(x => x.id === id); if (!b) { st.body = null; return; }
@@ -563,7 +563,7 @@
     const got = (bodyCaptured.get(b.id) || []).filter(i => byId[i]), hp = health(b);
     const opt = (v, l, cur) => `<option value="${esc(v)}" ${v === cur ? "selected" : ""}>${esc(l)}</option>`;
     const noteOpts = cur => mocs.filter(m => byId[m.id]).map(m => opt(m.id, "Map · " + m.title, cur)).join("") + ranked.slice(0, 40).map(i => opt(i, byId[i].name, cur)).join("");
-    const cfg = b.type === "star" ? `<div class="vg-field"><span class="vg-flabel">Centre</span><button class="vg-btn" data-b="pick">${icon("search", 14)} ${b.target && byId[b.target] ? esc(byId[b.target].name) : "Choose a note or MOC…"}</button></div>`
+    const cfg = b.type === "star" ? `<div class="vg-field"><span class="vg-flabel">Centre</span><button class="vg-btn" data-b="pick">${icon("search", 14)} ${b.target && byId[b.target] ? esc(byId[b.target].name) : "Choose a note or map…"}</button></div>`
       : b.type === "binary" ? `<div class="vg-field"><span class="vg-flabel">Stars</span><select class="vg-select" data-b="ba">${noteOpts((b.target || [])[0])}</select><select class="vg-select" data-b="bb">${noteOpts((b.target || [])[1])}</select></div>`
       : b.type === "blackhole" ? `<div class="vg-field"><span class="vg-flabel">Swallows</span><select class="vg-select" data-b="filter">${Object.entries(BH_FILTERS).map(([k, l]) => opt(k, l, b.target)).join("")}</select></div>`
       : `<div class="vg-field"><span class="vg-flabel">Search</span><input class="vg-input" data-b="query" value="${esc(b.target || "")}" placeholder="tag:technology/aws · folder:02-Projects · cluster:5 · moc:Odoo · words" list="vg-q-suggest">
@@ -711,11 +711,11 @@
     ACH.forEach(a => { if (!cos.ach[a.id] && a.test()) { cos.ach[a.id] = today(); if (announce) { toast(`Achievement unlocked: ${a.name}`, "ok"); celebrate(a.name); } } });
     renderTodayList(); persistSoon();
   }
-  // The Today panel is the same in every view: the cosmos shows it by default, the toolbar star (G) shows or hides
+  // The Upkeep panel is the same in every view: the cosmos shows it by default, the toolbar flag (G) shows or hides
   // it anywhere, and that choice sticks for this pane
   let missionsPref = null;
   function setMissionsShown(on, byHand) {
-    if (byHand) missionsPref = on;
+    if (byHand) { missionsPref = on; if (on) $(".vg-missions").classList.remove("is-collapsed"); }   // the button opens the list itself, on a phone too
     if (on) closeDrawer();
     root.classList.toggle("show-missions", !!on);
     const b = $(".vg-gamebtn"); if (b) b.setAttribute("aria-pressed", String(!!on));
@@ -729,12 +729,12 @@
     ensureDaily();
     const next = RANKS.find(r => r[0] > cos.xp), prev = RANKS.filter(r => r[0] <= cos.xp).pop(), pct = next ? Math.round(100 * (cos.xp - prev[0]) / (next[0] - prev[0])) : 100;
     const sk = streak(), wk = weeklyCount();
-    box.innerHTML = `<button class="vg-ms-head" aria-expanded="${!box.classList.contains("is-collapsed")}"><b>TODAY</b><span>${sk ? `🔥${sk} · ` : ""}${rankOfXp(cos.xp).toUpperCase()} · ${cos.xp} XP</span></button>
+    box.innerHTML = `<button class="vg-ms-head" aria-expanded="${!box.classList.contains("is-collapsed")}"><b>UPKEEP</b><span>${sk ? `🔥${sk} · ` : ""}${rankOfXp(cos.xp).toUpperCase()} · ${cos.xp} XP</span></button>
       <div class="vg-ms-rank"><i style="width:${pct}%"></i></div>
       <div class="vg-ms-body">
-        <div class="vg-ms-stats"><span><b>${vaultHealth()}</b> vault health</span><span><b>${sk}</b>-day streak</span><span>${next ? `<b>${next[0] - cos.xp}</b> XP to ${next[1]}` : "<b>MAX</b> rank"}</span></div><div class="vg-ms-note">Vault health, 0 to 100: 40% from notes that link to something, 35% from topics covered by a map, 25% from notes edited recently.</div>
-        <div class="vg-ms-sec">TODAY ${cos.daily.bonus ? "· ✓ +25 BONUS" : "· +8 EACH OF THE THREE, +25 FOR ALL"}</div>
-        <div class="vg-ms-today">${todayHtml(4)}</div>
+        <div class="vg-ms-stats"><span title="0 to 100: 40% from notes that link to something, 35% from topics covered by a map, 25% from notes edited recently."><b>${vaultHealth()}</b> vault health</span><span><b>${sk}</b> day streak</span><span>${next ? `<b>${next[0] - cos.xp}</b> XP to ${next[1]}` : "<b>MAX</b> rank"}</span></div>
+        <div class="vg-ms-sec">${cos.daily.bonus ? "✓ +25 BONUS" : "+8 EACH · +25 FOR ALL THREE"}</div>
+        <div class="vg-ms-today">${todayHtml(5)}</div>
         <div class="vg-ms-sec">WEEKLY · LINK 10 NOTES ${cos.weekly && cos.weekly.claimed ? "· ✓ +50" : "· +50"}</div>
         <div class="vg-ms-bar"><i style="width:${Math.min(100, wk * 10)}%"></i></div><div class="vg-ms-how">${Math.min(wk, 10)} / 10 this week</div>
         ${VGParts.more({ cls: "vg-ms-log", label: `DISCOVERY LOG · ${(cos.log || []).length}`, body: (cos.log || []).slice(0, 25).map(e => `<div><span>${esc(e.date.slice(5))}</span> ${esc(e.text)}</div>`).join("") || "<div>Nothing yet — act on a suggestion.</div>" })}

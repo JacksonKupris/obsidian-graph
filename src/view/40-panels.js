@@ -1,4 +1,9 @@
   // ---------------------------------------------------------------- tabs + panels
+  // the arrow keys move along a row of tabs, and open what they land on
+  $(".vg-tabs").addEventListener("keydown", e => {
+    const tabs = $$(".vg-tab"), i = tabs.indexOf(e.target), step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+    if (i < 0 || !step) return; const to = tabs[(i + step + tabs.length) % tabs.length]; setTab(to.dataset.tab); to.focus(); e.preventDefault(); e.stopPropagation();
+  });
   function setTab(name) {
     st.tab = name;
     $$(".vg-tab").forEach(t => { const on = t.dataset.tab === name; t.setAttribute("aria-selected", on); t.tabIndex = on ? 0 : -1; });
@@ -24,16 +29,17 @@
       <span class="vg-item-main"><span>${esc(clusterName(g.a))} <span class="vg-muted">↔</span> ${esc(clusterName(g.b))}</span>
       <span class="vg-item-sub">${g.comentions} co-mentions · only ${plural(g.links, "link")}</span></span></button>
       ${opts.writeNote ? `<button class="vg-ibtn vg-bridgebtn" data-a="${g.a}" data-b="${g.b}" title="Draft a bridge note for this gap" aria-label="Draft bridge note">${icon("bridge", 15)}</button>` : ""}</div>`;
+  const wordFor = (n, one, many) => plural(n, one, many).replace(/^\S+ /, "");   // the word alone, for when the number sits apart from it
   function renderChanges() {
     const c = DATA.changes || {};
     if (!c.since) return card("Since last run", "", `<div class="vg-empty">First snapshot saved today.</div>`);
-    const line = (n, text) => n ? `<li><b>${n}</b> ${text}</li>` : "";
+    const line = (n, one, many) => n ? `<li>${plural(n, one, many).replace(/^\d+/, "<b>$&</b>")}</li>` : "";
     const pairName = p => p.split("|").map(id => byId[id] ? byId[id].name : VGShared.nameOf(id)).join(" ↔ ");
     const body = `<ul class="vg-changes">
-      ${c.linked_delta ? `<li><b>${c.linked_delta > 0 ? "+" : ""}${c.linked_delta}</b> linked notes</li>` : ""}
-      ${line((c.acted || []).length, "suggestions acted on")}${line((c.gaps_closed || []).length, "gaps closed")}${line((c.gaps_new || []).length, "new gaps")}
-      ${line((c.new_clusters || []).length, `new topics: ${esc((c.new_clusters || []).join(", "))}`)}${line((c.new_notes || []).length, "new notes")}
-      ${line((c.active || []).length, "notes became active")}${line((c.quiet || []).length, "notes went quiet")}</ul>` +
+      ${c.linked_delta ? `<li><b>${c.linked_delta > 0 ? "+" : ""}${c.linked_delta}</b> ${wordFor(Math.abs(c.linked_delta), "linked note")}</li>` : ""}
+      ${line((c.acted || []).length, "suggestion acted on", "suggestions acted on")}${line((c.gaps_closed || []).length, "gap closed", "gaps closed")}${line((c.gaps_new || []).length, "new gap", "new gaps")}
+      ${line((c.new_clusters || []).length, `new topic: ${esc((c.new_clusters || []).join(", "))}`, `new topics: ${esc((c.new_clusters || []).join(", "))}`)}${line((c.new_notes || []).length, "new note", "new notes")}
+      ${line((c.active || []).length, "note became active", "notes became active")}${line((c.quiet || []).length, "note went quiet", "notes went quiet")}</ul>` +
       ((c.acted || []).length ? VGParts.section({ title: "Acted on", count: c.acted.length, body: sideList(c.acted.map(p => `<div class="vg-item-sub vg-pad">${esc(pairName(p))}</div>`), "more") }) : "") +
       ((c.quiet || []).length ? VGParts.section({ title: "Went quiet", count: c.quiet.length, body: sideList(c.quiet.filter(id => byId[id]).map(id => noteRow(id))) }) : "");
     return card(`Since ${esc(c.since)}`, "what changed since the last analysis", body);
@@ -45,7 +51,7 @@
   let review = { skipped: {} };
   const todayData = () => ({ ...DATA, links, mocs, wanted: ghosts.filter(g => !g.created).map(g => ({ id: g.id, name: g.name, refs: g.from, creatable: g.creatable })) });
   const todayItems = () => VGRules.todayList(todayData(), { review, hidden: cos.hidden, today: today(), skipDays: UI.time.skipDays, groups: ["upkeep"] });
-  function pinReview(id) { review.pinned = [...new Set([...(review.pinned || []), id])]; persistSoon(); renderTodayList(); toast(`${byId[id].name} added to Today`, "ok"); }
+  function pinReview(id) { review.pinned = [...new Set([...(review.pinned || []), id])]; persistSoon(); renderTodayList(); toast(`${byId[id].name} added to Upkeep`, "ok"); }
   function todayRow(it, pick) {
     const done = !!(pick && pick.done), can = !done && VGActions.todayWhen(it, actionCtx());
     return `<div class="vg-td ${done ? "is-done" : ""}" data-tkey="${esc(it.key)}"><div class="vg-td-main"><b class="vg-rv-title">${pick ? (done ? "✓ " : "○ ") : ""}${esc(it.title)}</b>${it.why && !done ? `<span class="vg-item-sub">${esc(VGRules.whyWords(it.why))}</span>` : ""}</div>` +
@@ -89,11 +95,9 @@
     });
     wireNext(box);
   }
-  // the Insights card, and the game panel when it's open
+  // the count on the Upkeep button, and the panel when it's open: the one place the graph lists these
   function renderTodayList() {
-    const box = $(".vg-review");
-    if (box) { box.innerHTML = card("Today", "one small improvement at a time", todayHtml(5)); wireToday(box); }
-    const badge = $(".vg-reviewcount"); if (badge) { const n = (cos.daily ? cos.daily.quests.filter(q => !q.done).length : 0); badge.textContent = n; badge.parentElement.hidden = !n || opts.compact; }
+    const badge = $(".vg-gamecount"); if (badge) { const n = cos.daily ? cos.daily.quests.filter(q => !q.done).length : 0; badge.textContent = n; badge.hidden = !n; }
     if (root.classList.contains("show-missions")) renderMissions();
   }
 
@@ -145,13 +149,13 @@
       return { m, size, miss, pct };
     }).sort((a, b) => b.miss - a.miss);
     const unmapped = DATA.clusters.filter(c => !mocOf[c.id] && c.size >= 6);
-    return card("Maps", "how much of each topic its MOC lists · click to light up what it misses",
+    return card("Maps", "how much of each topic its map lists · click to light up what it misses",
       rows.map(({ m, size, miss, pct }) => `<button class="vg-item vg-maprow" data-moc="${esc(m.id)}"><span class="vg-hex" style="--c:${colorOf(m.clusters[0])}"></span>
         <span class="vg-item-main"><span><b>${esc(m.title)}</b></span>
         <span class="vg-bar"><i style="width:${Math.max(3, pct)}%;background:${colorOf(m.clusters[0])}"></i></span>
         <span class="vg-item-sub">${pct}% of ${size} · ${miss ? `${miss} missing` : "complete"}${m.clusters.length > 1 ? ` · ${m.clusters.length} topics` : ""}</span></span></button>`).join("") +
       (unmapped.length ? VGParts.section({ title: "No map yet", count: unmapped.length, body: sideList(unmapped.map(c => `<button class="vg-item vg-unmapped" data-c="${c.id}"><span class="vg-dot" style="background:${colorOf(c.id)}"></span>
-        <span class="vg-item-main"><span>${esc(c.name)}</span><span class="vg-item-sub">${plural(c.size, "note")}${opts.writeNote ? " · click the hub button in Clusters to create one" : ""}</span></span></button>`), "topics") }) : ""));
+        <span class="vg-item-main"><span>${esc(c.name)}</span><span class="vg-item-sub">${plural(c.size, "note")}${opts.writeNote ? " · make one from its row under Topics" : ""}</span></span></button>`), "topics") }) : ""));
   }
   function showMocMissing(id) {
     const m = mocs.find(x => x.id === id); if (!m) return;
@@ -166,9 +170,9 @@
     // each count is a button that shows what it counts: the whole graph, the topics, the gaps, the unlinked notes
     const stat = (value, label, tone, go, title) => ({ value, label, tone, title, data: { stat: go } });
     const html =
-      `${VGParts.cards([stat(linked, "linked notes", "", "all", "Fit the whole graph"), stat(DATA.clusters.length, "topic clusters", "", "topics", "List the topics"),
-        stat(DATA.gaps.length, "cluster gaps", DATA.gaps.length ? "accent" : "", "gaps", "Topic pairs that barely link"), stat(iso, "unlinked notes", iso > linked * 0.25 ? "warn" : "", "unlinked", "Show the notes with no links")])}${VGParts.howTo("A topic cluster is a group found from how your notes link. A gap is two topics that share tags or mentions but barely link. Bigger notes on the graph have more routes between other notes running through them.")}` +
-      `<div class="vg-review"></div>` + renderChanges() + renderMaps() +
+      `${VGParts.cards([stat(linked, "linked notes", "", "all", "Fit the whole graph"), stat(DATA.clusters.length, "topics", "", "topics", "List the topics"),
+        stat(DATA.gaps.length, "topic gaps", DATA.gaps.length ? "accent" : "", "gaps", "Topic pairs that barely link"), stat(iso, "unlinked notes", iso > linked * 0.25 ? "warn" : "", "unlinked", "Show the notes with no links")])}` +
+      renderChanges() + renderMaps() +
       card("Biggest gaps", opts.writeNote ? "related topics that barely link · draft a bridge note" : "related topics that barely link",
         DATA.gaps.length ? sideList(DATA.gaps.slice(0, 30).map(gapRow), "gaps") : `<div class="vg-empty">No gaps found.</div>`) +
       card("Bridge notes", "hold topics together — keep them current",
@@ -204,17 +208,17 @@
         const off = st.hiddenClusters.has(c.id), ms = nodes.filter(n => n.cluster === c.id);
         const healthy = ms.length ? Math.round(100 * ms.filter(n => n.words >= Q.stub_words && !staleFor(n, Q.stale_days) && n.broken === 0).length / ms.length) : 0;
         return `<div class="vg-cluster ${off ? "is-off" : ""}" data-c="${c.id}">
-          <button class="vg-item vg-cl-main" data-c="${c.id}" title="Show this cluster">
+          <button class="vg-item vg-cl-main" data-c="${c.id}" title="Show this topic">
             <span class="vg-dot" style="background:${colorOf(c.id)}"></span>
-            <span class="vg-item-main"><span><b>${esc(clusterName(c.id))}</b> <span class="vg-muted">C${c.id}</span></span>
+            <span class="vg-item-main"><span><b>${esc(clusterName(c.id))}</b></span>
             <span class="vg-bar"><i style="width:${Math.max(4, 100 * c.size / max)}%;background:${colorOf(c.id)}"></i></span>
             <span class="vg-item-sub">${plural(c.size, "note")} · ${healthy}% healthy (not a stub or stale, no broken links)${c.keywords ? ` · <i>${esc(c.keywords)}</i>` : ""} · ${c.core.map(esc).join(", ")}</span></span></button>
           <div class="vg-cl-acts">
-            ${opts.writeNote ? `<button class="vg-ibtn vg-cl-hub" data-c="${c.id}" title="Create or refresh a hub note for this cluster" aria-label="Hub note for ${esc(c.name)}">${icon("hub", 15)}</button>` : ""}
-            <button class="vg-ibtn vg-cl-eye" data-c="${c.id}" aria-pressed="${!off}" aria-label="${off ? "Show" : "Hide"} ${esc(c.name)}" title="${off ? "Show" : "Hide"} cluster">${icon(off ? "eyeOff" : "eye", 15)}</button>
+            ${opts.writeNote ? `<button class="vg-ibtn vg-cl-hub" data-c="${c.id}" title="Create or refresh this topic's map" aria-label="Map for ${esc(c.name)}">${icon("hub", 15)}</button>` : ""}
+            <button class="vg-ibtn vg-cl-eye" data-c="${c.id}" aria-pressed="${!off}" aria-label="${off ? "Show" : "Hide"} ${esc(c.name)}" title="${off ? "Show" : "Hide"} topic">${icon(off ? "eyeOff" : "eye", 15)}</button>
           </div>
         </div>`;
-      }).join("") || `<div class="vg-empty">No clusters match.</div>`;
+      }).join("") || `<div class="vg-empty">No topics match.</div>`;
     $$(".vg-cl-main").forEach(e => e.onclick = () => focusClusters([+e.dataset.c]));
     $$(".vg-cl-hub").forEach(e => e.onclick = () => writeHub(+e.dataset.c));
     $$(".vg-cl-eye").forEach(e => e.onclick = () => {
@@ -302,7 +306,7 @@
       <div class="vg-muted vg-ins-path">${esc(n.folder || "/")}</div>
       <div class="vg-ins-actions vg-wrap vg-noteacts"></div>
       ${VGParts.cards([stat(nb[id].size, "links", "Notes linked to this one, listed below by topic."), stat(rankOf[id] ? "#" + rankOf[id] : "—", "influence", "Its rank by how many routes between other notes run through it."),
-        stat(n.mentions, "daily mentions", "Daily notes that link or name it."), stat(n.recent, `last ${DATA.recent_days} days`, `Daily notes that link or name it in the last ${DATA.recent_days} days.`),
+        stat(n.mentions, wordFor(n.mentions, "daily mention"), "Daily notes that link or name it."), stat(n.recent, `last ${DATA.recent_days} days`, `Daily notes that link or name it in the last ${DATA.recent_days} days.`),
         stat(n.tasks, "open tasks", "Tasks not yet finished in this note."), stat(n.age + "d", n.edited ? `unchanged · since ${n.edited.slice(2)}` : "since edit", "Days since the note's text last changed.")], { small: true })}
       ${mapLine(id)}
       <div class="vg-ins-sec vg-needs" hidden><div class="vg-ins-h">Needs attention <span class="vg-count"></span></div><div class="vg-needs-rows"></div></div>
@@ -438,7 +442,7 @@
     const m = mocs.find(x => x.id === n.id) || { clusters: [n.cluster], missing: {}, members: [] };
     const miss = m.clusters.flatMap(c => m.missing[c] || []).filter(i => byId[i]);
     box.innerHTML = `<div class="vg-sheet-handle" aria-hidden="true"></div>
-      <div class="vg-ins-head"><span class="vg-chip" style="--c:${colorOf(n.cluster)}">Map of content</span>
+      <div class="vg-ins-head"><span class="vg-chip" style="--c:${colorOf(n.cluster)}">Map</span>
         <button class="vg-ibtn vg-ins-close" aria-label="Close" title="Close (Esc)">${icon("close")}</button></div>
       <h2 class="vg-ins-title">${esc(n.name)}</h2>
       <div class="vg-muted vg-ins-path">${esc(n.id)}</div>
@@ -637,11 +641,11 @@
     const ms = membersOf(c), name = clusterName(c);
     const bridges = ms.filter(n => [...nb[n.id]].some(m => byId[m].cluster !== c && byId[m].cluster >= 0)).slice(0, 12);
     const md = `---\ntags:\n  - meta/hub\nupdated: ${today()}\n---\n# ${name} Hub\n\n` +
-      `Topic cluster C${c} as of ${DATA.date} (${plural(ms.length, "note")}).\n\n${MARK}\n\n` +
+      `Topic as of ${DATA.date} (${plural(ms.length, "note")}).\n\n${MARK}\n\n` +
       `## Core\n${ms.slice(0, 6).map(n => `- ${mdLink(n.id)}`).join("\n")}\n\n` +
       (bridges.length ? `## Bridges to other topics\n${bridges.map(n => `- ${mdLink(n.id)} — also links ${[...new Set([...nb[n.id]].map(m => byId[m].cluster).filter(x => x !== c && x >= 0))].map(clusterName).join(", ")}`).join("\n")}\n\n` : "") +
       `## All notes\n${ms.map(n => `- ${mdLink(n.id)}`).join("\n")}\n`;
-    write(`${FOLDERS.inbox}/${safeName(name)} Hub.md`, md, "regen", "Hub note");
+    write(`${FOLDERS.inbox}/${safeName(name)} Hub.md`, md, "regen", "Map");
   }
   function writeBridge(a, b) {
     const A = clusterName(a), B = clusterName(b), ma = membersOf(a).slice(0, 5), mb = membersOf(b).slice(0, 5);
@@ -669,12 +673,7 @@
   function writeMap(ids, title) {
     const groups = {}; ids.forEach(id => (groups[byId[id].cluster] = groups[byId[id].cluster] || []).push(id));
     const md = `---\ncreated: ${today()}\n---\n# Map — ${title} ${today()}\n\n` + Object.entries(groups).map(([c, ms]) => `## ${clusterName(+c)}\n${ms.map(m => `- ${mdLink(m)}`).join("\n")}`).join("\n\n") + "\n";
-    write(`${FOLDERS.inbox}/Map — ${title} ${today()}.md`, md, "create", "Map note");
-  }
-  function writeSelectionHub(ids) {
-    const md = `---\ntags:\n  - meta/hub\nupdated: ${today()}\n---\n# Selection Hub ${today()}\n\n${MARK}\n\n` +
-      ids.sort((a, b) => byId[b].bc - byId[a].bc).map(id => `- ${mdLink(id)}`).join("\n") + "\n";
-    write(`${FOLDERS.inbox}/Selection Hub ${today()}.md`, md, "regen", "Hub note");
+    write(`${FOLDERS.inbox}/Map — ${title} ${today()}.md`, md, "create", "Map");
   }
   async function saveImage() {
     draw(performance.now());

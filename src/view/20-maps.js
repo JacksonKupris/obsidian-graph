@@ -530,26 +530,30 @@
       }
     });
     ctx.globalAlpha = 1;
+    // stations hold their places before any name is written, line names included
+    order.forEach(s => { const p = P.get(s.id); if (p) labelRects.push([p.x - p.r + 3, p.y - p.r + 3, 2 * p.r - 6, 2 * p.r - 6]); });
     // line names at each end, as coloured pills
     S.lines.forEach(L => {
       const stops = L.stops.filter(id => visible(byId[id])); if (stops.length < 2) return;
       const name = clip(shortName(L.c), 22);
       [stops[0]].forEach((id, e) => {
         const n = byId[id], p = scr(n.x, n.y, R); ctx.font = `700 11px ${font}`;
-        const w = ctx.measureText(name).width + 14, x = Math.max(4, Math.min(W - w - 4, p.x + (e ? 12 : -12 - w))), y = p.y - 24;
-        if (!freeSpot(x, y - 9, w, 18)) return;
+        const w = ctx.measureText(name).width + 14, x = Math.max(4, Math.min(W - w - 4, p.x + (e ? 12 : -12 - w))), y = [p.y - 24, p.y + 24, p.y - 44, p.y + 44].find(v => freeSpot(x, v - 9, w, 18));
+        if (y == null) return;
         ctx.globalAlpha = !litSet || L.stops.some(i => litSet.has(i)) ? 1 : 0.25;
         ctx.fillStyle = L.color; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y - 9, w, 18, 9) : ctx.rect(x, y - 9, w, 18); ctx.fill();
         ctx.fillStyle = "#fff"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(name, x + 7, y + 0.5);
       });
     });
-    // station names where there's room, most relied-on first
+    // station names where there's room, most relied-on first; the rest show as you zoom in. The stations take their places first and
+    // each name keeps a small gap on both sides, so two names never read as one
+    const GAP = 4;
     order.forEach(s => {
       const n = byId[s.id], p = P.get(s.id); if (!p) return;
       const on = !litSet || litSet.has(s.id), text = clip(n.name, MOBILE ? 22 : 30), f = `${s.lines.length > 1 ? 600 : 500} 11px ${font}`;
       ctx.font = f; const w = ctx.measureText(text).width;
       let x = p.x + p.r + 3, al = "left";
-      if (!freeSpot(x, p.y - 7, w, 14)) { x = p.x - p.r - 3; al = "right"; if (!freeSpot(x - w, p.y - 7, w, 14)) return; }
+      if (!freeSpot(x - GAP, p.y - 7, w + 2 * GAP, 14)) { x = p.x - p.r - 3; al = "right"; if (!freeSpot(x - w - GAP, p.y - 7, w + 2 * GAP, 14)) return; }
       ctx.globalAlpha = on ? 1 : 0.3; haloText(text, x, p.y, fg, bg, f, al);
     });
     ctx.globalAlpha = 1;
