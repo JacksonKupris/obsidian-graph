@@ -66,7 +66,7 @@
     flowlens: { name: "Flow", hint: "Lean manufacturing and queueing theory: how much work is open, whether it's growing, and how long it takes", render: () => "", load: loadFlow },
     twoway: { name: "Hierarchy", hint: "Ecology: what blurs which way your notes lean, and the notes with no way up", render: () => "", load: loadTwoWay },
     adjacent: { name: "Adjacent possible", hint: "Notes one step past what you're working on, and strange pairs to combine", render: lensAdjacent },
-    ...(opts.mocReport ? { mocalign: { name: "MOC alignment", hint: "Tick the report's rows here; apply when ready", render: () => "", load: lensMocAlign } } : {}),
+    ...(opts.mocReport ? { mocalign: { name: "Map alignment", hint: "Tick the report's rows here; apply when ready", render: () => "", load: lensMocAlign } } : {}),
   };
   let lensKey = null;
   $(".vg-lens-close").onclick = () => closeLens();
@@ -123,7 +123,7 @@
     if (ap) ap.onclick = async () => {
       if (!await confirmBox("Apply ticked rows", "Only ticked rows are applied. Undo takes them back.", "Apply")) return;
       ap.disabled = true;
-      try { await opts.mocReport.apply(); logDiscovery("Applied the ticked MOC alignment rows"); toast("Applied", "ok"); }
+      try { await opts.mocReport.apply(); logDiscovery("Applied the ticked map alignment rows"); toast("Applied", "ok"); }
       catch (err) { ap.disabled = false; }
     };
   }
@@ -251,7 +251,7 @@
 
   async function lensMocAlign() {
     const rep = await opts.mocReport.load();
-    if (!rep) return emptyNext("No MOC Alignment report yet.", "lens:triage");
+    if (!rep) return emptyNext("No map alignment report yet.", "lens:triage");
     const groups = {}; rep.rows.forEach(r => (groups[r.section] = groups[r.section] || []).push(r));
     const ticked = rep.rows.filter(r => /[xX]/.test(r.state)).length;
     return `<p class="vg-muted vg-lens-note">${esc(rep.path)} · ${rep.rows.length} rows · <b>${ticked}</b> ticked. Ticking here edits the report; nothing else changes until you apply.</p>
@@ -317,7 +317,7 @@
 
   // Map tree: every map (MOC) with its topics, what it lists and what it's missing, fixable in place
   function lensMapTree() {
-    if (!mocs.length) return emptyNext("No maps (MOCs) yet.", "draftmap:" + (DATA.clusters.slice().sort((a, b) => b.size - a.size)[0] || {}).id, "lens:blind");
+    if (!mocs.length) return emptyNext("No maps yet.", "draftmap:" + (DATA.clusters.slice().sort((a, b) => b.size - a.size)[0] || {}).id, "lens:blind");
     const row = (id, extra, add) => byId[id] ? `<div class="vg-sugg">${noteRow(id, extra)}${add && canAddToMap() ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-addmap="${esc(add)}|${esc(id)}">${icon("plus", 12)} Add</button></span>` : ""}</div>` : "";
     const cards = mocs.map(m => {
       const miss = m.clusters.flatMap(c => (m.missing[c] || []).filter(id => byId[id]));

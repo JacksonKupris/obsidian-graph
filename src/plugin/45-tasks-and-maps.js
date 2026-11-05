@@ -41,7 +41,7 @@
   // list can be made again
   mapNote(data, c, path, name) {
     const members = data.nodes.filter(x => x.cluster === c.id && !x.person && !x.moc && !x.ghost).sort((x, y) => (y.bc || 0) - (x.bc || 0));
-    return `---\ncreated: ${today()}\ntags:\n  - meta/hub\n---\n# ${name} Hub\n\nTopic cluster C${c.id} as of ${today()} (${members.length} notes).\n\n` +
+    return `---\ncreated: ${today()}\ntags:\n  - meta/hub\n---\n# ${name} Hub\n\nTopic as of ${today()} (${members.length} notes).\n\n` +
       `${MARKER} — edit above this line; everything below is regenerated %%\n\n## All notes\n${members.map(x => `- ${this.linkText(x.id, path)}`).join("\n")}\n`;
   }
   async createMap(clusterId) {

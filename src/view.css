@@ -16,7 +16,7 @@
   --vg-warn: var(--ds-danger); --vg-ok: var(--ds-ok);
   --vg-person: var(--ds-orange); --vg-task: var(--ds-cyan); --vg-hud: #38bdf8;
   /* the Cosmos game's night-sky HUD: its own palette on purpose, named once here */
-  --vg-hud-panel: rgba(6, 12, 30, .72); --vg-hud-line: rgba(125, 211, 252, .25); --vg-hud-text: #d6ecff; --vg-hud-sky: #7dd3fc; --vg-hud-gold: #fbbf24; --vg-hud-gold-soft: #fde68a; --vg-hud-gold-ink: #1a1205; --vg-hud-go: #4ade80; --vg-hud-night: #01040b;
+  --vg-hud-panel: rgba(6, 12, 30, .72); --vg-hud-panel-solid: rgba(6, 12, 30, .94); --vg-hud-line: rgba(125, 211, 252, .25); --vg-hud-text: #d6ecff; --vg-hud-sky: #7dd3fc; --vg-hud-gold: #fbbf24; --vg-hud-gold-soft: #fde68a; --vg-hud-gold-ink: #1a1205; --vg-hud-go: #4ade80; --vg-hud-night: #01040b;
   --vg-mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
   /* shape + type + motion */
   --vg-r: var(--ds-r-lg); --vg-r-sm: var(--ds-r-md); --vg-r-xs: var(--ds-r-xs);
@@ -93,7 +93,7 @@
 .vg-input, .vg-select { width: 100%; padding: 6px 9px; border: 1px solid var(--vg-line); border-radius: var(--vg-r-sm); background: var(--vg-raised); }
 .vg-field { display: flex; flex-direction: column; gap: 4px; }
 .vg-flabel { font-size: var(--vg-fs-sm); font-weight: 550; }
-.vg-range { width: 100%; accent-color: var(--vg-accent); }
+.vg-range { width: 100%; min-height: 24px; accent-color: var(--vg-accent); }
 .vg-switch { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; padding: 4px 2px; position: relative; }
 .vg-switch > span:last-child { display: flex; flex-direction: column; font-size: var(--vg-fs-sm); }
 .vg-switch > span:last-child .vg-muted { font-size: var(--vg-fs-xs); }
@@ -199,7 +199,7 @@
 .vg-ins-sec { margin-top: 16px; }
 .vg-ins-h { font-size: var(--vg-fs-xs); text-transform: uppercase; letter-spacing: .06em; color: var(--vg-muted); margin-bottom: 6px; display: flex; gap: 6px; align-items: center; }
 .vg-chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
-  background: color-mix(in srgb, var(--c) 12%, transparent); color: var(--c); border-radius: var(--ds-r-pill); padding: 1px 9px; margin: 0 4px 4px 0;
+  background: color-mix(in srgb, var(--c) 12%, transparent); color: color-mix(in srgb, var(--c) 45%, var(--vg-fg)); border-radius: var(--ds-r-pill); padding: 1px 9px; margin: 0 4px 4px 0;
   font-size: var(--vg-fs-xs); font-weight: 600; }
 .vg-chip.is-btn { cursor: pointer; } .vg-chip.is-btn:hover { background: color-mix(in srgb, var(--c) 22%, transparent); }
 .vg-sugg { display: flex; align-items: flex-start; gap: 4px; border-radius: var(--vg-r-sm); }
@@ -227,6 +227,13 @@
 .vg-palette-foot { display: flex; gap: 16px; padding: 8px 14px; border-top: 1px solid var(--vg-line); font-size: var(--vg-fs-xs); flex-wrap: wrap; }
 .vg-palette-foot span { display: inline-flex; gap: 4px; align-items: center; }
 
+/* ---------- an open note gets the sidebar's room where both wouldn't leave the graph enough: the sidebar slides over instead (drawerMode, the same width) ---------- */
+@container vg (min-width: 761px) and (max-width: 1319px) {
+  .has-inspector .vg-app, .vg-side-hidden.has-inspector .vg-app { grid-template-columns: minmax(0, 1fr) auto; }   /* the sidebar is out of the grid here */
+  .has-inspector .vg-side { position: absolute; z-index: 8; left: 0; top: 0; bottom: 0; width: var(--vg-side-w); visibility: visible;
+    transform: translateX(-102%); transition: transform var(--ds-base) var(--ds-ease); box-shadow: var(--vg-shadow); }
+  .has-inspector.vg-side-open .vg-side { transform: none; }
+}
 /* ---------- narrow panes: sidebar becomes a drawer, inspector a bottom sheet ---------- */
 @container vg (max-width: 760px) {
   .vg-app, .vg-side-hidden .vg-app { grid-template-columns: minmax(0, 1fr); --vg-under-bar: 56px; }
@@ -278,15 +285,15 @@
 .vg-root .vg-btn { padding: 5px 10px; gap: 6px; border: 1px solid var(--vg-line); background: var(--vg-raised); font-weight: 550;
   font-size: var(--vg-fs-sm); justify-content: center; }
 .vg-root .vg-btn:hover { background: var(--vg-hover); }
-.vg-root .vg-btn-sm { padding: 2px 7px; font-size: var(--vg-fs-xs); gap: 4px; }
+.vg-root .vg-btn-sm { padding: 2px 7px; min-height: 24px; font-size: var(--vg-fs-xs); gap: 4px; }
 .vg-root .vg-btn-primary { background: var(--vg-accent); border-color: var(--vg-accent); color: var(--vg-accent-fg); }
 .vg-root .vg-btn-primary:hover { background: color-mix(in srgb, var(--vg-accent) 88%, var(--vg-fg)); }
 .vg-root .vg-btn-ghost, .vg-root .vg-btn-ghost:hover { background: transparent; border-color: transparent; color: var(--vg-muted); }
 .vg-root .vg-btn-ghost:hover { color: var(--vg-fg); }
 .vg-root .vg-mitem { padding: 7px 9px; flex-direction: column; align-items: flex-start; background: transparent; }
 .vg-root .vg-mitem:hover, .vg-root .vg-mitem:focus-visible { background: var(--vg-hover); }
-.vg-root .vg-chip.is-btn { padding: 1px 9px; border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); background: color-mix(in srgb, var(--c) 12%, transparent);
-  color: var(--c); border-radius: var(--ds-r-pill); font-size: var(--vg-fs-xs); font-weight: 600; }
+.vg-root .vg-chip.is-btn { padding: 1px 9px; min-height: 24px; border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); background: color-mix(in srgb, var(--c) 12%, transparent);
+  color: color-mix(in srgb, var(--c) 45%, var(--vg-fg)); border-radius: var(--ds-r-pill); font-size: var(--vg-fs-xs); font-weight: 600; }
 .vg-root .vg-chip.is-btn:hover { background: color-mix(in srgb, var(--c) 22%, transparent); }
 
 /* evidence behind a suggestion */
@@ -615,7 +622,6 @@
 .is-playing .vg-nextbtn { display: none; }
 .vg-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }   /* for screen readers: Obsidian shows any aria-label as a hover tooltip */
 .vg-rv .vg-ins-actions { margin: 8px 0 2px; }
-.vg-review .vg-card { border-color: color-mix(in srgb, var(--vg-accent) 45%, var(--vg-line)); }
 .vg-savedrow { display: flex; align-items: flex-start; gap: 2px; }
 .vg-savedform { display: flex; gap: 6px; }
 .vg-savedform .vg-input { flex: 1; min-width: 0; }
@@ -637,20 +643,22 @@
 .vg-root .vg-autobtn { padding: 5px 8px; font: 600 var(--ds-fs-2xs)/1.2 var(--vg-mono); color: rgba(207, 233, 255, .55); border-radius: var(--ds-r-md); white-space: nowrap; display: inline-flex; }
 .vg-root .vg-autobtn[aria-pressed="true"] { color: var(--vg-hud-text); background: rgba(125, 211, 252, .14); }
 .is-placing .vg-cv { cursor: crosshair !important; }
+/* always the dark HUD, in either theme: what sits in it (shared parts, buttons) reads these */
 .show-missions .vg-missions { display: block; position: absolute; z-index: 3; right: 10px; top: 88px; width: min(300px, calc(100% - 20px)); color: var(--vg-hud-text);
-  font: 500 var(--ds-fs-xs)/1.45 var(--vg-mono); background: var(--vg-hud-panel); border: 1px solid var(--vg-hud-line); border-radius: var(--ds-r-md);
+  --ds-text: var(--vg-hud-text); --vg-fg: var(--vg-hud-text); --ds-muted: #a9c3da; --vg-muted: #a9c3da; --ds-faint: #a9c3da; --vg-faint: #a9c3da; --ds-line: var(--vg-hud-line); --vg-line: var(--vg-hud-line); --ds-hover: rgba(125, 211, 252, .14); --vg-hover: rgba(125, 211, 252, .14); --vg-raised: transparent; --ds-bg: transparent;
+  font: 500 var(--ds-fs-xs)/1.45 var(--vg-mono); background: var(--vg-hud-panel-solid); border: 1px solid var(--vg-hud-line); border-radius: var(--ds-r-md);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); max-height: calc(100% - 190px); overflow: auto; }
 .vg-root .vg-ms-head { display: flex; width: 100%; justify-content: space-between; padding: 8px 10px; color: var(--vg-hud-gold); letter-spacing: .1em; font: inherit; }
 .vg-ms-head span { color: var(--vg-hud-text); opacity: .8; }
 .vg-missions.is-collapsed .vg-ms-body { display: none; }
 .vg-ms-body { padding: 0 10px 10px; display: grid; gap: 10px; }
 .vg-ms-t { font-weight: 700; } .vg-ms-xp { color: var(--vg-hud-gold); }
-.vg-ms-how { opacity: .65; font-size: var(--ds-fs-xs); }
+.vg-ms-how { color: var(--vg-muted); font-size: var(--ds-fs-xs); }
 .vg-ms-bar { height: 4px; background: rgba(255, 255, 255, .1); border-radius: var(--ds-r-2xs); margin: 5px 0 3px; overflow: hidden; }
 .vg-ms-bar i { display: block; height: 100%; background: linear-gradient(90deg, #38bdf8, var(--vg-hud-go)); }
 .vg-root .vg-ms-show { padding: 1px 6px; font: 600 var(--ds-fs-2xs) var(--vg-mono); color: var(--vg-hud-sky); border: 1px solid rgba(125, 211, 252, .3); border-radius: var(--ds-r-xs); }
 .vg-ms-ach { display: flex; flex-wrap: wrap; gap: 4px; border-top: 1px solid rgba(125, 211, 252, .15); padding-top: 8px; }
-.vg-ach { font-size: var(--ds-fs-2xs); padding: 1px 6px; border-radius: var(--ds-r-pill); border: 1px solid rgba(255, 255, 255, .15); opacity: .4; }
+.vg-ach { font-size: var(--ds-fs-2xs); padding: 1px 6px; border-radius: var(--ds-r-pill); border: 1px solid rgba(255, 255, 255, .15); color: var(--vg-hud-text); opacity: .72; }
 .vg-ach.is-on { opacity: 1; border-color: var(--vg-hud-gold); color: var(--vg-hud-gold); }
 .vg-root.is-cosmos .vg-toolbar > .vg-ibtn, .is-cosmos .vg-seg, .vg-root.is-cosmos .vg-searchbtn, .vg-root.is-cosmos .vg-menuwrap > .vg-ibtn, .is-cosmos .vg-status {
   background: rgba(6, 12, 30, .65); border-color: var(--vg-hud-line); color: var(--vg-hud-text); }
@@ -704,13 +712,10 @@
 .vg-tl-row:has(.vg-tl-pin) { grid-template-columns: minmax(140px, 32%) 1fr auto; }
 .vg-bh-row { display: flex; flex-direction: column; }
 .vg-bh-acts { display: flex; gap: 4px; padding: 0 8px 6px 25px; }
-.vg-root .vg-reviewbtn { position: relative; }
-.vg-reviewcount { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: var(--ds-r-md); background: var(--vg-accent); color: var(--vg-accent-fg);
+.vg-root .vg-gamebtn { position: relative; }
+.vg-gamecount { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: var(--ds-r-md); background: var(--vg-accent); color: var(--vg-accent-fg);
   font: 700 var(--ds-fs-2xs)/17px var(--vg-font); text-align: center; }
-.vg-review.is-flash .vg-card { animation: vg-flash .9s var(--ds-ease); }
-@keyframes vg-flash { 30% { box-shadow: 0 0 0 3px var(--vg-accent); } }
 .show-missions.has-inspector .vg-missions .vg-ms-body { display: none; }   /* details panel open: missions fold to their header */
-@container vg (max-width: 520px) { .vg-reviewbtn { display: none !important; } }
 
 /* deeper cosmos */
 .vg-timebar { display: none; }
@@ -809,7 +814,7 @@
 }
 
 /* Maps menu: one toolbar button for Subway, Terrain, City, Garden and Palace */
-.vg-root .vg-caret { font-size: var(--ds-fs-2xs); opacity: .7; margin-left: -1px; }
+.vg-root .vg-caret { font-size: var(--ds-fs-2xs); color: var(--vg-muted); margin-left: -1px; }
 .vg-root .vg-mapsicon { display: inline-flex; }
 .vg-root .vg-mapmenu { width: 300px; max-height: min(70vh, 560px); overflow-y: auto; }
 .vg-root .vg-mapitem b { display: inline-flex; align-items: center; gap: 6px; }
@@ -863,10 +868,11 @@
 .vg-picker-q { flex: 1; min-width: 0; height: 36px; padding: 0 12px; border-radius: var(--ds-r-md); border: 1px solid var(--vg-line); background: var(--vg-bg); color: var(--vg-fg); font: inherit; }
 .vg-picker-tabs { display: flex; gap: 4px; padding: 0 10px 8px; border-bottom: 1px solid var(--vg-line); overflow-x: auto; scrollbar-width: none; }
 .vg-picker-tabs::-webkit-scrollbar { display: none; }
-.vg-picker-tab { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 12px;
+/* under the root: .vg-root button clears min-height and weight (Obsidian's button rule ties with a single class) */
+.vg-root .vg-picker-tab { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 12px;
   border: 0; border-radius: var(--ds-r-md); background: none; color: var(--vg-muted); font: inherit; font-weight: 600; cursor: pointer; }
-.vg-picker-tab:hover { color: var(--vg-fg); }
-.vg-picker-tab[aria-selected="true"] { background: var(--vg-hover); color: var(--vg-fg); }
+.vg-root .vg-picker-tab:hover { color: var(--vg-fg); }
+.vg-root .vg-picker-tab[aria-selected="true"] { background: var(--vg-hover); color: var(--vg-fg); }
 .vg-picker-body { flex: 1; min-height: 0; overflow-y: auto; padding: 10px; overscroll-behavior: contain; }
 .vg-picker-body .ds-heading:first-child { margin-top: 0; }
 .vg-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px; }
@@ -887,7 +893,7 @@
 .vg-pick-sheet .vg-sheet-grip { display: block; flex: none; width: 40px; height: 4px; border-radius: var(--ds-r-2xs); background: var(--vg-line); margin: 8px auto 0; }
 .vg-pick-sheet .vg-picker-q { height: 44px; font-size: var(--ds-fs-lg); }   /* 16px: iOS doesn't zoom into the field */
 .vg-pick-sheet .vg-picker-x { width: 44px; height: 44px; }
-.vg-pick-sheet .vg-picker-tab { min-height: 44px; }
+.vg-root.vg-pick-sheet .vg-picker-tab { min-height: 44px; }
 .vg-pick-sheet .vg-tiles { grid-template-columns: 1fr 1fr; gap: 8px; }
 .vg-pick-sheet .vg-tile { min-height: 72px; flex-direction: column; gap: 6px; padding: 12px; }
 .vg-pick-sheet .vg-picker-tools { display: flex; flex: none; gap: 6px; padding: 8px 10px calc(10px + var(--vg-bottom, 0px)); border-top: 1px solid var(--vg-line); overflow-x: auto; }   /* clear of Obsidian's mobile bar */
@@ -999,7 +1005,6 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-root.is-neural .vg-viewhelp:not([hidden]) { top: 146px; } .vg-root.is-neural .vg-viewcard:not([hidden]) { top: 180px; max-height: calc(100% - 240px); }
 @container (max-width: 760px) { .vg-root.is-neural .vg-viewhelp:not([hidden]) { top: var(--vg-under-bar); } .vg-root.is-neural .vg-viewcard:not([hidden]) { top: calc(var(--vg-under-bar) + 34px); } }
 .vg-viewcard dl { margin: 0; } .vg-viewcard dt { font-weight: 700; margin-top: 8px; } .vg-viewcard dt:first-child { margin-top: 0; } .vg-viewcard dd { margin: 1px 0 0; opacity: .9; }
-.vg-ms-note { margin-top: 6px; font-size: var(--ds-fs-2xs); line-height: 1.4; opacity: .8; }
 .vg-sci-bar { flex: 0 0 48px; height: 6px; margin: 8px 6px 0 0; border-radius: var(--ds-r-pill); background: var(--vg-line); overflow: hidden; } .vg-sci-bar i { display: block; height: 100%; background: var(--vg-accent); }
 
 /* the shared parts inside the lenses: a timeline's strips line up with its axis, so its show more doesn't indent */

@@ -50,7 +50,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
     // after each plugin update, test every view and lens once in the background (desktop); a notice only if something broke
     this.app.workspace.onLayoutReady(() => { if (Platform.isDesktopApp) setTimeout(async () => { const sig = await this.buildSig(); if (sig && (this.settings.lastSelfTest || {}).sig !== sig) this.selfTest(true); }, 45000); });
     this.addCommand({ id: "gaps-report", name: "Write the Gaps & Bridges report", callback: () => this.writeGapsReport() });
-    this.addCommand({ id: "map-report", name: "Write the MOC Alignment report", callback: () => this.writeMapReport() });
+    this.addCommand({ id: "map-report", name: "Write the map alignment report", callback: () => this.writeMapReport() });
     this.addCommand({ id: "state-note", name: "Write the State of the vault note", callback: () => this.writeStateNote() });
     this.addCommand({ id: "self-test", name: "Run self-test (every view, in the background; writes a report to the reports folder)", callback: () => this.selfTest(false) });
     this.addCommand({ id: "state-snapshots", name: "Add map snapshots to the latest State of the vault note", callback: () => this.stateSnapshots() });

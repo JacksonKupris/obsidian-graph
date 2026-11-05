@@ -52,7 +52,7 @@
     palMode = mode && (mode.pathFrom || mode.pickFor || mode.linkFrom || mode.pick) ? mode : null;
     const p = $(".vg-palette"); p.hidden = false;
     const input = $(".vg-pq"); input.value = (mode && mode.query) || "";
-    input.placeholder = palMode && palMode.pick ? palMode.placeholder || "Choose a note…" : palMode && palMode.linkFrom ? `Link “${byId[palMode.linkFrom].name}” from which note?` : palMode && palMode.pickFor ? "Which note or MOC is this star?" : palMode ? `Path from “${byId[palMode.pathFrom].name}” to…` : "Search notes and clusters…";
+    input.placeholder = palMode && palMode.pick ? palMode.placeholder || "Choose a note…" : palMode && palMode.linkFrom ? `Link “${byId[palMode.linkFrom].name}” from which note?` : palMode && palMode.pickFor ? "Which note or map is this star?" : palMode ? `Path from “${byId[palMode.pathFrom].name}” to…` : "Search notes and topics…";
     renderPalette(input.value); input.focus();
   }
   function closePalette() {
@@ -82,9 +82,9 @@
       : it.kind === "saved"
       ? `<div class="vg-pitem" role="option" data-i="${i}">${icon("layers", 14)}<span class="vg-item-main"><b>${esc(savedViews[it.i].name)}</b><span class="vg-item-sub">Saved view</span></span></div>`
       : it.kind === "cluster"
-      ? `<div class="vg-pitem" role="option" data-i="${i}"><span class="vg-dot" style="background:${colorOf(it.c)}"></span><span class="vg-item-main"><b>${esc(clusterName(it.c))}</b><span class="vg-item-sub">Cluster · ${plural(clusterById[it.c].size, "note")}</span></span></div>`
+      ? `<div class="vg-pitem" role="option" data-i="${i}"><span class="vg-dot" style="background:${colorOf(it.c)}"></span><span class="vg-item-main"><b>${esc(clusterName(it.c))}</b><span class="vg-item-sub">Topic · ${plural(clusterById[it.c].size, "note")}</span></span></div>`
       : `<div class="vg-pitem" role="option" data-i="${i}"><span class="vg-dot ${byId[it.id].ghost ? "is-ghost" : ""}" style="background:${dotOf(it.id)}"></span><span class="vg-item-main">${label(it.id)}<span class="vg-item-sub">${esc(byId[it.id].folder || "/")}</span></span></div>`).join("")
-      || `<div class="vg-empty">No note or cluster names match.</div>`;
+      || `<div class="vg-empty">No note or topic names match.</div>`;
     list.querySelectorAll(".vg-pitem").forEach(el => {
       el.onmousemove = () => movePal(+el.dataset.i);
       el.onclick = () => choosePal(+el.dataset.i, false);
@@ -177,14 +177,10 @@
   };
   $(".vg-palette").onclick = e => { if (e.target.classList.contains("vg-palette")) closePalette(); };
   $(".vg-searchbtn").onclick = () => openPalette();
-  $(".vg-reviewbtn").onclick = () => {
-    setTab("insights"); if (narrow()) root.classList.add("vg-side-open"); else root.classList.remove("vg-side-hidden");
-    const r = $(".vg-review"); if (r) { $(".vg-panels").scrollTop = 0; r.classList.add("is-flash"); setTimeout(() => r.classList.remove("is-flash"), 900); }
-  };
 
   // ---------------------------------------------------------------- presets
   const PRESETS = {
-    explore: { name: "Explore", hint: "Clusters, influence and gaps", apply: () => ({ sizeBy: "bc", colorBy: "cluster", gaps: true, overlays: [] }) },
+    explore: { name: "Explore", hint: "Topics, influence and gaps", apply: () => ({ sizeBy: "bc", colorBy: "cluster", gaps: true, overlays: [] }) },
     attention: { name: "Attention map", hint: "Big + grey = important but not mentioned lately",
       apply: () => ({ sizeBy: "bc", colorBy: "recent", gaps: false, overlays: [] }) },
     recent: { name: "Recent work", hint: `What your dailies talked about in the last ${DATA.recent_days} days`, apply: () => ({ sizeBy: "recent", colorBy: "recent", gaps: false, overlays: [] }) },
@@ -212,7 +208,7 @@
     ...Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, [d.icon, d.blurb]])) };
   // ---------------------------------------------------------------- the Views picker: graphs, maps, lenses and styles in one place
   // One button, one panel (a popover under the button on wide panes, a bottom sheet on phones): tabs, big tiles, a filter
-  const GRAPH_INFO = { "2d": ["hub", "2D", "Force layout: topics, influence and gaps"], "3d": ["layers", "3D", "The same graph in depth; drag to turn it"],
+  const GRAPH_INFO = { "2d": ["hub", "Graph", "Notes and links: topics, influence and gaps"], "3d": ["layers", "Graph in 3D", "The same graph in depth; drag to turn it"],
     neural: ["brain", "Neural", "Topics as brain lobes, links firing between them"], cosmos: ["orbit", "Cosmos", "Maps become stars; place planets and fly between them"] };
   // Everything you open is a view, grouped by what you want to know. A view draws on the canvas or opens a report beside it; that's how
   // it's built, not something to choose between (in the code: a graph view or map, a scene, a lens). Display = style presets + node size/colour,
@@ -316,6 +312,9 @@
     const tiles = [...$$(".vg-picker-body .vg-tile")], i = tiles.indexOf(document.activeElement);
     if (e.key === "Enter" && e.target.classList.contains("vg-picker-q") && tiles[0]) { e.preventDefault(); tiles[0].click(); return; }
     const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+    if (e.target.classList.contains("vg-picker-tab") && (e.key === "ArrowRight" || e.key === "ArrowLeft")) {   // along the tabs, which redraw when one opens
+      const tabs = [...$$(".vg-picker-tab")], to = tabs[(tabs.indexOf(e.target) + step + tabs.length) % tabs.length].dataset.tab;
+      pickTab = to; $(".vg-picker-q").value = ""; renderPicker(); $(`.vg-picker-tab[data-tab="${to}"]`).focus(); e.preventDefault(); e.stopPropagation(); return; }
     if (step && i >= 0) { tiles[(i + step + tiles.length) % tiles.length].focus(); e.preventDefault(); e.stopPropagation(); }
   };
   $(".vg-picker").addEventListener("click", e => e.stopPropagation());   // tabs re-render under the click: it must not read as "outside"
@@ -454,7 +453,7 @@
   $$(".vg-randlayout").forEach(b => b.onclick = randomizeLayout);
   $$(".vg-resetlayout").forEach(b => b.onclick = resetLayout);
   $(".vg-toggle").onclick = () => {
-    if (narrow()) root.classList.toggle("vg-side-open");
+    if (drawerMode()) root.classList.toggle("vg-side-open");
     else { root.classList.toggle("vg-side-hidden"); persistSoon(); }
   };
   $(".vg-side").addEventListener("change", persistSoon);
@@ -620,7 +619,11 @@
       },
       neuro() { const N = neuro; if (!N) return { spikes: 0, ok: false }; const P = N.net.P; let ok = true; for (const v of N.net.V) if (!isFinite(v) || v > P.threshold + 40 || v < -200) ok = false; return { spikes: N.net.total(), hz: neuroRate(), ok, n: N.list.length, time: N.net.time(), morph: !!morph, vMax: Math.max(...N.net.V), vMean: N.net.V.reduce((x, y) => x + y, 0) / N.net.V.length, shown: neuroSpikes.length }; },
       drawNow() { if (!W) return null; const t0 = performance.now(); draw(performance.now()); dirty = false; return performance.now() - t0; },   // tests: a frame now, its ms
-      views: () => [...Object.keys(GRAPH_INFO), ...Object.keys(MAPS)], lenses: () => Object.keys(LENSES), saved: { snapshot: snapshotView, apply: applySaved, bodies: () => cos.bodies, auto: () => cos.auto, captured: () => Object.fromEntries(cos.bodies.map(b => [b.id, (bodyCaptured.get(b.id) || []).length])) }, openLens, closeLens, lensFps, noteGraph, renewLinks: () => { linkGen++; }, dropLink: () => { const at = links.findIndex(l => l.kind === "link"), l = links[at]; links.splice(at, 1); return () => links.splice(at, 0, l); }, st, cam, active: () => active, P, alpha: () => alpha, layouts, setView, scenes: () => SCENES, drawMs: () => drawMs, maps: () => mapCache, cos: () => cos, nodes, nb, replay: () => replay, visible, rules: VGRules },
+      views: () => [...Object.keys(GRAPH_INFO), ...Object.keys(MAPS)], lenses: () => Object.keys(LENSES), clusters: () => DATA.clusters, screen: id => { const p = P.get(id); return p ? { x: p.x, y: p.y, r: p.r } : null; },
+      radarScope() { const A = mapCache.radar; if (!A) return null; const R = rot(), k = cam.k, o = scr(0, 0, R), r = A.RMAX * k, under = parseFloat(getComputedStyle(wrap).getPropertyValue("--vg-under-bar")) || 0;
+        const held = nodes.find(n => !special(n) && n.tasks > 0 && P.get(n.id) && Math.hypot(P.get(n.id).x - o.x, P.get(n.id).y - o.y) < A.hold * k * 0.9);
+        return { cx: o.x, cy: o.y, top: o.y - r, bottom: o.y + r, left: o.x - r, right: o.x + r, W, H, under, held: held ? held.id : null }; },
+      clockRing(i) { const C = mapCache.clock; if (!C || !C.cs[i]) return null; const R = rot(), k = cam.k, [dx, dy] = C.DIAL[0], o = scr(dx, dy, R), a = -Math.PI / 2 + 0.25 * Math.PI / 7, d = (C.ring(i) + 9) * k; return { x: o.x + Math.cos(a) * d, y: o.y + Math.sin(a) * d, c: C.cs[i].c }; }, saved: { snapshot: snapshotView, apply: applySaved, bodies: () => cos.bodies, auto: () => cos.auto, captured: () => Object.fromEntries(cos.bodies.map(b => [b.id, (bodyCaptured.get(b.id) || []).length])) }, openLens, closeLens, lensFps, noteGraph, renewLinks: () => { linkGen++; }, dropLink: () => { const at = links.findIndex(l => l.kind === "link"), l = links[at]; links.splice(at, 1); return () => links.splice(at, 0, l); }, st, cam, active: () => active, P, alpha: () => alpha, layouts, setView, scenes: () => SCENES, drawMs: () => drawMs, maps: () => mapCache, cos: () => cos, nodes, nb, replay: () => replay, visible, rules: VGRules },
     syncNext: syncNextBtn,
     destroy() { persistNow(); destroyed = true; GL.destroy(); clearTimeout(persistTimer); 
       if (RM && RM.removeEventListener) RM.removeEventListener("change", onReduced);

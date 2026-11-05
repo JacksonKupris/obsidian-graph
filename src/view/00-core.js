@@ -58,7 +58,7 @@ function mountVaultGraph(root, DATA, opts) {
   const neonOf = c => (c < 0 || c >= NEON.length) ? "#94a3b8" : NEON[c];
   const clusterById = Object.fromEntries(DATA.clusters.map(c => [c.id, c]));
   const clusterName = c => clusterById[c] ? (clusterById[c].label || clusterById[c].name) : "Unclustered";
-  const clusterTag = c => clusterById[c] ? `C${c} · ${clusterName(c)}` : "unclustered";
+  const clusterTag = c => clusterById[c] ? clusterName(c) : "no topic";
   const plural = VGShared.plural;
   // local date, not UTC: in Central time the UTC date rolls over at 7 PM, which dated notes and quests a day early
   const { today, localDay, safeName } = VGRules;   // the shared date and file-name rules
@@ -211,39 +211,39 @@ function mountVaultGraph(root, DATA, opts) {
 
   // ---------------------------------------------------------------- DOM
   const ageDays = Math.round((Date.now() - VGShared.noon(DATA.date).getTime()) / VGShared.DAY_MS);
-  const ageText = ageDays <= 0 ? "today" : ageDays === 1 ? "yesterday" : `${ageDays} days ago`;
+  const ageText = ageDays <= 0 ? "Analysed today" : ageDays === 1 ? "Analysed yesterday" : `Analysed ${ageDays} days ago`;
   const switchRow = (cls, title, hint, on) => `<label class="vg-switch"><input type="checkbox" class="${cls}" ${on ? "checked" : ""}><span class="vg-track" aria-hidden="true"></span>
     <span><b>${title}</b><span class="vg-muted">${hint}</span></span></label>`;
   root.classList.add("vg-root");
   if (opts.compact) root.classList.add("is-compact");
   if (MOBILE) root.classList.add("is-mobile");
   root.tabIndex = -1;
+  const vgId = root.dataset.vgId = root.dataset.vgId || Math.random().toString(36).slice(2, 8);   // ids this graph owns: a note can hold several
   root.innerHTML = `
   <div class="vg-app">
     <aside class="vg-side" aria-label="Graph panels">
       <header class="vg-head">
         <div class="vg-title">Vault Graph</div>
         <div class="vg-sub-head">
-          <span class="vg-badge ${ageDays > 8 ? "is-warn" : ""}" title="Analysis date">${ageDays > 8 ? "Stale · " : ""}${esc(ageText)}</span>
-          <span class="vg-muted">${plural(ranked.length, "linked note")} · ${plural(DATA.clusters.length, "cluster")}</span>
-          ${DATA.live ? `<span class="vg-badge is-live" title="Links are read live from Obsidian; clusters and gaps are from the ${esc(DATA.date)} analysis. Since then: +${DATA.live.gained} / −${DATA.live.lost} links, ${plural(DATA.live.added, "new note")}, ${DATA.live.removed} removed.">Links live${DATA.live.gained + DATA.live.lost + DATA.live.added ? ` · ${DATA.live.gained + DATA.live.lost + DATA.live.added} changes` : ""}</span>` : ""}
+          <span class="vg-badge ${ageDays > 8 ? "is-warn" : ""}" title="${esc(DATA.date)}">${esc(ageText)}</span>
+          ${DATA.live ? `<span class="vg-badge is-live" title="Since the ${esc(DATA.date)} analysis: +${DATA.live.gained} / −${DATA.live.lost} links, ${plural(DATA.live.added, "new note")}, ${DATA.live.removed} removed.">${plural(DATA.live.gained + DATA.live.lost + DATA.live.added, "change")} since</span>` : ""}
         </div>
       </header>
       <div class="vg-tabs" role="tablist" aria-label="Panels">
-        <button role="tab" class="vg-tab" data-tab="insights" aria-selected="true">Insights</button>
-        <button role="tab" class="vg-tab" data-tab="clusters" aria-selected="false">Clusters</button>
+        <button role="tab" class="vg-tab" id="vg-tab-insights-${vgId}" aria-controls="vg-panel-insights-${vgId}" data-tab="insights" aria-selected="true">Insights</button>
+        <button role="tab" class="vg-tab" id="vg-tab-clusters-${vgId}" aria-controls="vg-panel-clusters-${vgId}" data-tab="clusters" aria-selected="false" tabindex="-1">Topics</button>
       </div>
       <div class="vg-panels">
-        <section role="tabpanel" class="vg-panel" data-panel="insights"></section>
-        <section role="tabpanel" class="vg-panel" data-panel="clusters" hidden>
-          <input type="search" class="vg-input vg-cfilter" placeholder="Filter clusters…" aria-label="Filter clusters">
+        <section role="tabpanel" class="vg-panel" id="vg-panel-insights-${vgId}" aria-labelledby="vg-tab-insights-${vgId}" data-panel="insights"></section>
+        <section role="tabpanel" class="vg-panel" id="vg-panel-clusters-${vgId}" aria-labelledby="vg-tab-clusters-${vgId}" data-panel="clusters" hidden>
+          <input type="search" class="vg-input vg-cfilter" placeholder="Filter topics…" aria-label="Filter topics">
           <div class="vg-clusters vg-list"></div>
         </section>
       </div>
     </aside>
     <main class="vg-canvas">
-      <span class="vg-sr" id="vg-cv-label-${root.dataset.vgId = root.dataset.vgId || Math.random().toString(36).slice(2, 8)}">Graph of ${VGRules.noteCounts(nodes).notes} notes in ${DATA.clusters.length} topic clusters.</span>
-      <canvas class="vg-cv" role="img" aria-labelledby="vg-cv-label-${root.dataset.vgId}"></canvas>
+      <span class="vg-sr" id="vg-cv-label-${vgId}">Graph of ${VGRules.noteCounts(nodes).notes} notes in ${plural(DATA.clusters.length, "topic")}.</span>
+      <canvas class="vg-cv" role="img" aria-labelledby="vg-cv-label-${vgId}"></canvas>
       <div class="vg-hud" aria-hidden="true"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
         <div class="vg-hud-title"></div><div class="vg-hud-tele"></div><div class="vg-scan"></div></div>
       <button class="vg-viewhelp" hidden aria-expanded="false">How to read this</button>
@@ -252,9 +252,9 @@ function mountVaultGraph(root, DATA, opts) {
       <div class="vg-today" hidden><span class="vg-today-text"></span><button class="vg-btn vg-btn-sm vg-today-act"></button><button class="vg-ibtn vg-today-x" aria-label="Hide" title="Hide for this view">${icon("close", 12)}</button></div>
       <div class="vg-triage" hidden><span class="vg-triage-text"></span><button class="vg-btn vg-btn-sm vg-triage-prev" aria-label="Previous">‹</button><button class="vg-btn vg-btn-sm vg-triage-next">Next ›</button><button class="vg-btn vg-btn-sm vg-btn-ghost vg-triage-stop">Done</button></div>
       <div class="vg-dock" role="toolbar" aria-label="Celestial bodies">
-        <button class="vg-dockbtn" data-body="star" aria-pressed="false" title="Star: a note or MOC; linked notes orbit it"><span>☀</span>Star</button>
+        <button class="vg-dockbtn" data-body="star" aria-pressed="false" title="Star: a note or map; linked notes orbit it"><span>☀</span>Star</button>
         <button class="vg-dockbtn" data-body="planet" aria-pressed="false" title="Planet: a search; matching notes become moons"><span>◍</span>Planet</button>
-        <button class="vg-dockbtn" data-body="binary" aria-pressed="false" title="Binary stars: two MOCs; shared notes sit between"><span>⚭</span>Binary</button>
+        <button class="vg-dockbtn" data-body="binary" aria-pressed="false" title="Binary stars: two maps; shared notes sit between"><span>⚭</span>Binary</button>
         <button class="vg-dockbtn" data-body="blackhole" aria-pressed="false" title="Black hole: a filter; matching notes fall into a review queue"><span>●</span>Black hole</button>
         <button class="vg-dockbtn" data-body="repulsor" aria-pressed="false" title="Repulsor: push a topic away"><span>◎</span>Repulsor</button>
         <span class="vg-docksep"></span>
@@ -273,10 +273,9 @@ function mountVaultGraph(root, DATA, opts) {
       </div>
       <button class="vg-pausepill" hidden>❚❚ PAUSED · RESUME</button>
       <div class="vg-timebar" hidden><button class="vg-time-play" aria-label="Play">▶</button><input type="range" min="0" value="0" step="1" aria-label="Date"><b class="vg-time-label">Now</b><button class="vg-ibtn vg-time-close" aria-label="Close time-lapse" title="Back to now">✕</button></div>
-      <div class="vg-missions"></div>
+      <div class="vg-missions" role="region" aria-label="Upkeep"></div>
       <div class="vg-toolbar" role="toolbar" aria-label="Graph controls">
         <button class="vg-ibtn vg-toggle" aria-label="Toggle panels" title="Toggle panels">${icon("menu")}</button>
-        <button class="vg-ibtn vg-reviewbtn" title="Today's review" aria-label="Today's review" hidden>${icon("sparkles")}<span class="vg-tlabel">Review</span><span class="vg-reviewcount">0</span></button>
         <button class="vg-searchbtn" aria-label="Search notes" title="Search (/ or Ctrl K)">${icon("search", 14)}<span>Search notes</span><kbd>/</kbd></button>
         <div class="vg-menuwrap">
           <button class="vg-ibtn vg-pickbtn" aria-haspopup="dialog" aria-expanded="false" title="Views and display (M)"><span class="vg-pickicon">${icon("hub", 16)}</span><span class="vg-pickname">Views</span><span class="vg-caret" aria-hidden="true">▾</span></button>
@@ -290,7 +289,7 @@ function mountVaultGraph(root, DATA, opts) {
           <button class="vg-ibtn vg-savebtn" title="Save this view (it appears under Saved, and as a constellation in Cosmos)">${icon("star")}<span class="vg-tlabel">Save view</span></button>
           <button class="vg-ibtn vg-timebtn vg-maptime" aria-pressed="false" title="Time-lapse: the vault as it was, note by note (T)">${icon("clock")}<span class="vg-tlabel">Time-lapse</span></button>
         </span>
-        <button class="vg-ibtn vg-gamebtn" aria-pressed="false" title="Today (G)" aria-label="Today">${icon("flag")}<span class="vg-tlabel">Today</span></button>
+        <button class="vg-ibtn vg-gamebtn" aria-pressed="false" title="Upkeep (G)" aria-label="Upkeep">${icon("flag")}<span class="vg-tlabel">Upkeep</span><span class="vg-gamecount" hidden>0</span></button>
         <span class="vg-spacer"></span>
         <div class="vg-seg vg-depthseg vg-compact-only" role="group" aria-label="Local depth">
           <button class="vg-segbtn" data-depth="1" aria-pressed="true">1</button><button class="vg-segbtn" data-depth="2" aria-pressed="false">2</button>
@@ -325,17 +324,17 @@ function mountVaultGraph(root, DATA, opts) {
                 <option value="bc">Influence (betweenness)</option><option value="recent">Daily mentions (${DATA.recent_days} days)</option></select></div>
             <div class="vg-field"><label class="vg-flabel" for="vg-color">Node colour</label>
               <select id="vg-color" class="vg-select vg-color">
-                <option value="cluster">Topic cluster</option>
+                <option value="cluster">Topic</option>
                 <option value="recent">Daily mentions (${DATA.recent_days} days)</option></select></div>
             <div class="vg-flabel">Layers</div>
-            ${switchRow("vg-l-mocs", "Maps (MOCs)", `${mocs.length} maps of content, anchored to the topics they map (hexagons)`, true)}
+            ${switchRow("vg-l-mocs", "Maps", `${plural(mocs.length, "map")}, drawn as hexagons on the topics they cover`, true)}
             ${switchRow("vg-l-wanted", "Notes to write", `${ghosts.length} notes you link to that don't exist yet (hollow)`)}
             ${switchRow("vg-l-people", "People", "Who is connected to which topics (diamonds)")}
             ${switchRow("vg-l-tasks", "Open tasks", "Badge with the number of unchecked tasks")}
             <div class="vg-flabel">Display</div>
             ${switchRow("vg-gaps", "Gap suggestions", "Dashed edges between related, unlinked notes", true)}
-            ${switchRow("vg-leaves", "Collapse leaf notes", "Fold stubs into their hub as a +N badge")}
-            ${switchRow("vg-cohesion", "Cluster gravity", "Pull each topic's notes toward its centre", true)}
+            ${switchRow("vg-leaves", "Collapse leaf notes", "Fold short notes into the note they hang from, as a +N badge")}
+            ${switchRow("vg-cohesion", "Topic gravity", "Pull each topic's notes toward its centre", true)}
             ${switchRow("vg-isolated", "Show unlinked notes", "Notes with no links to other knowledge notes")}
             <div class="vg-field"><label class="vg-flabel" for="vg-hide">Hide the <b class="vg-hideN">0</b> most influential notes</label>
               <input id="vg-hide" type="range" class="vg-range vg-hide" min="0" max="25" value="0">
@@ -369,7 +368,7 @@ function mountVaultGraph(root, DATA, opts) {
   </div>
   <div class="vg-palette" hidden>
     <div class="vg-palette-box" role="dialog" aria-modal="true" aria-label="Search notes">
-      <div class="vg-palette-input">${icon("search")}<input type="text" class="vg-pq" placeholder="Search notes and clusters…" aria-label="Search" autocomplete="off" spellcheck="false"><kbd>Esc</kbd></div>
+      <div class="vg-palette-input">${icon("search")}<input type="text" class="vg-pq" placeholder="Search notes and topics…" aria-label="Search" autocomplete="off" spellcheck="false"><kbd>Esc</kbd></div>
       <div class="vg-palette-list" role="listbox"></div>
       <div class="vg-palette-foot vg-muted"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>Enter</kbd> go to</span><span><kbd>Shift Enter</kbd> highlight all</span></div>
     </div>

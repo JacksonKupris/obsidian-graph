@@ -219,6 +219,10 @@
     return { pos, cs, DIAL, ring, rOut };
   }
   let clockSpots = [];
+  // the dial ring under a point on screen: its topic, or null
+  function clockRingUnder(x, y) { const C = mapCache.clock; if (!C) return null; const R = rot(), k = cam.k;
+    for (const [dx, dy] of C.DIAL) { const o = scr(dx, dy, R), d = Math.hypot(x - o.x, y - o.y) / k, i = C.cs.findIndex((c, j) => d >= C.ring(j) && d <= C.ring(j) + 18); if (i >= 0) return C.cs[i].c; }
+    return null; }
   function drawClock(now) {
     const { R, litSet, font, k } = mapFrame(), C = mapCache.clock; clockSpots = [];
     ctx.fillStyle = "#101418"; ctx.fillRect(0, 0, W, H); if (!C) return;
@@ -285,7 +289,8 @@
     // distance from the centre = how long its oldest open task has waited (first journal or standup it appeared in)
     const RMAX = 420, rOf = n => 50 + (RMAX - 50) * (1 - Math.min(1, Math.log1p(n.taskAge ?? n.age ?? 0) / Math.log1p(365)));
     sectors.forEach(s => groups[s.c].forEach(n => { const a = s.a0 + (s.a1 - s.a0) * (0.1 + 0.8 * ((hash(n.id) % 100) / 100)), r = rOf(n) + ((hash(n.id) >>> 7) % 41) - 20; pos.set(n.id, [Math.cos(a) * r, Math.sin(a) * r]); }));
-    return { pos, sectors, RMAX, hold: rOf({ taskAge: 90 }), count: ns.reduce((s, n) => s + n.tasks, 0), notes: ns.length };
+    const e = RMAX + 34;   // fit frames the whole scope and its topic names, not only the blips
+    return { pos, sectors, RMAX, hold: rOf({ taskAge: 90 }), count: ns.reduce((s, n) => s + n.tasks, 0), notes: ns.length, bounds: [[-e, -e], [e, e], [-e, e], [e, -e]] };
   }
   let radarStatic = null, radarTasks = null, radarFx = [];   // still layer { key, canvas, blips: [[id, x, y, r, holding, lit, angle]] }; open tasks per note; arrivals/landings
   function drawRadar(now) {
@@ -301,19 +306,22 @@
       ctx.strokeStyle = `rgba(${green},.22)`; ctx.lineWidth = 1; for (let r = 1; r <= 4; r++) { ctx.beginPath(); ctx.arc(o.x, o.y, RM * r / 4, 0, 2 * Math.PI); ctx.stroke(); }
       ctx.strokeStyle = "rgba(239,68,68,.55)"; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.arc(o.x, o.y, A.hold * k, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
       A.sectors.forEach(s0 => { ctx.strokeStyle = `rgba(${green},.25)`; ctx.beginPath(); ctx.moveTo(o.x, o.y); ctx.lineTo(o.x + Math.cos(s0.a0) * RM, o.y + Math.sin(s0.a0) * RM); ctx.stroke();
-        const am = (s0.a0 + s0.a1) / 2, name = `${clip(clusterById[s0.c] ? clusterName(s0.c) : "No topic", 20).toUpperCase()} · ${s0.n}`;
+        const am = (s0.a0 + s0.a1) / 2, name = `${clip(clusterById[s0.c] ? clusterName(s0.c) : "No topic", 30).toUpperCase()} · ${s0.n}`;
         const lx = o.x + Math.cos(am) * (RM + 16), ly = o.y + Math.sin(am) * (RM + 16), al = Math.cos(am) > 0.2 ? "left" : Math.cos(am) < -0.2 ? "right" : "center", f = `600 10px ${mono}`;
         ctx.font = f; const w = ctx.measureText(name).width, bx = al === "left" ? lx : al === "right" ? lx - w : lx - w / 2;
         if (freeSpot(bx, ly - 7, w, 14)) haloText(name, lx, ly, `rgb(${green})`, "#020a05", f, al); });
       const blips = [];
       ctx.font = `600 9px ${mono}`; ctx.textAlign = "left";
-      for (const n of nodes.filter(n => !special(n) && !n.ghost && n.tasks > 0 && mapShown(n)).sort((a, b) => b.tasks - a.tasks)) {   // biggest first: they get the label room
+      const onScope = nodes.filter(n => !special(n) && !n.ghost && n.tasks > 0 && mapShown(n)).sort((a, b) => b.tasks - a.tasks);   // biggest first: they get the label room
+      // every blip takes its place before any name does, so a name never lands on a blip drawn later
+      for (const n of onScope) {
         const p = scr(n.x, n.y, R), holding = Math.hypot(p.x - o.x, p.y - o.y) < A.hold * k, lit = !litSet || litSet.has(n.id), r = Math.max(1.6, (2 + 2.2 * Math.sqrt(n.tasks)) * Math.min(Math.sqrt(k), k * 1.6) * (opts.compact ? 0.45 : 1));   // scales with the scope, so a small card isn't all blip
         blips.push([n.id, p.x, p.y, r, holding, lit, Math.atan2(p.y - o.y, p.x - o.x)]);
-        const t = `${clip(n.name, 18)} · ${n.tasks}`, w = ctx.measureText(t).width;
-        if ((k > 1.2 || n.tasks >= 4) && freeSpot(p.x + r + 3, p.y - 6, w, 12)) { ctx.fillStyle = holding ? "#fecaca" : "#bbf7d0"; ctx.globalAlpha = lit ? 0.85 : 0.25; ctx.fillText(t, p.x + r + 4, p.y + 3); ctx.globalAlpha = 1; }
+        labelRects.push([p.x - r, p.y - r, 2 * r, 2 * r]);
         P.set(n.id, { x: p.x, y: p.y, s: p.s, depth: -n.tasks, r: Math.max(6, r + 3), a: lit ? 1 : 0.3 });
       }
+      onScope.forEach((n, i) => { const [, x, y, r, holding, lit] = blips[i], t = `${clip(n.name, 22)} · ${n.tasks}`, w = ctx.measureText(t).width;
+        if ((k > 1.2 || n.tasks >= 4) && freeSpot(x + r + 3, y - 6, w, 12)) { ctx.fillStyle = holding ? "#fecaca" : "#bbf7d0"; ctx.globalAlpha = lit ? 0.85 : 0.25; ctx.fillText(t, x + r + 4, y + 3); ctx.globalAlpha = 1; } });
       setSceneStat(`${plural(A.count, "open task")} · ${plural(A.notes, "note")}`);
       ctx = main; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       // tasks added since the last frame fly in from the rim; notes whose tasks went down (ticked off) land at the centre
@@ -336,10 +344,10 @@
     const blink = 0.55 + 0.45 * Math.abs(Math.sin(now / 300)), flying = new Set(radarFx.filter(f => f.kind === "in").map(f => f.id));
     for (const [id, x0, y0, r, holding, lit, ang] of radarStatic.blips) {
       let x = x0, y = y0;
-      if (holding && !reducedMotion()) {   // a holding pattern: circle slowly at its distance, with a short trail
-        const rad = Math.hypot(x0 - o.x, y0 - o.y), a = ang + now * 0.00007 + (hash(id) % 7) * 0.1;
+      if (holding && !reducedMotion()) {   // a holding pattern: sways at its distance, staying in its topic's slice and beside its name
+        const rad = Math.hypot(x0 - o.x, y0 - o.y), a = ang + 0.05 * Math.sin(now * 0.0005 + hash(id) % 7);
         x = o.x + Math.cos(a) * rad; y = o.y + Math.sin(a) * rad;
-        ctx.globalAlpha = lit ? 0.35 : 0.1; ctx.strokeStyle = "#f87171"; ctx.lineWidth = Math.max(1, r * 0.6); ctx.beginPath(); ctx.arc(o.x, o.y, rad, a - 0.22, a); ctx.stroke();
+        ctx.globalAlpha = lit ? 0.35 : 0.1; ctx.strokeStyle = "#f87171"; ctx.lineWidth = Math.max(1, r * 0.6); ctx.beginPath(); ctx.arc(o.x, o.y, rad, ang - 0.06, ang + 0.06); ctx.stroke();
         const q = P.get(id); if (q) { q.x = x; q.y = y; }
       }
       if (flying.has(id)) continue;

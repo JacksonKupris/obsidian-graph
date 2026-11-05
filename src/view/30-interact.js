@@ -94,7 +94,9 @@
   // a lens over the picture leaves little to see, and one beside it has your attention: the picture needn't animate at full rate
   const lensFps = fps => (!fps || !lensKey ? fps : Math.min(fps, lensBeside() ? 12 : 3));
   // in a narrow pane the side panel is a drawer over the toolbar: anything that opens a panel or acts on the graph closes it
-  const closeDrawer = () => { if (narrow()) root.classList.remove("vg-side-open"); };
+  // the sidebar slides over the graph on a narrow pane, and where an open note would leave the graph too little room (view.css: the same width)
+  const drawerMode = () => narrow() || (root.classList.contains("has-inspector") && root.clientWidth < 1320);
+  const closeDrawer = () => { if (drawerMode()) root.classList.remove("vg-side-open"); };
 
   // ---------------------------------------------------------------- pointer (mouse, pen, touch)
   // the notes a pointer can reach: what's drawn (map views also draw unlinked notes, through mapShown)
@@ -241,7 +243,7 @@
       lastTap = n ? { id: n.id, t: now } : null;
     }
     if (!n) { const sp = spots.slice().reverse().find(([sx, sy, w, h]) => x >= sx && x <= sx + w && y >= sy && y <= sy + h); if (sp) { sp[4](x, y); dirty = true; kick(); return; } }
-    if (!n && st.view === "clock") { const cs = clockSpots.find(([cx, cy, w, h]) => x >= cx && x <= cx + w && y >= cy && y <= cy + h); if (cs) { st.clockFocus = st.clockFocus === cs[4] ? null : cs[4]; dirty = true; kick(); return; } }
+    if (!n && st.view === "clock") { const cs = clockSpots.find(([cx, cy, w, h]) => x >= cx && x <= cx + w && y >= cy && y <= cy + h), c = cs ? cs[4] : clockRingUnder(x, y); if (c != null) { st.clockFocus = st.clockFocus === c ? null : c; dirty = true; kick(); return; } }
     if (!n && isCosmos()) {
       const moon = moonSpots.find(([mx, my]) => Math.hypot(mx - x, my - y) < 6);
       if (moon) { select(moon[2]); const tb = $(".vg-inspector .vg-tasksbox"); if (tb) renderTasks(moon[2], tb); return; }
@@ -302,13 +304,12 @@
       <h2 class="vg-ins-title">${plural(ids.length, "note")} selected</h2>
       <div class="vg-ins-actions vg-wrap">
         <button class="vg-btn" data-act="copy">${icon("copy", 14)} Copy links</button>
-        ${opts.writeNote ? `<button class="vg-btn" data-act="hub">${icon("hub", 14)} Hub note</button><button class="vg-btn" data-act="map">${icon("file", 14)} Map note</button>` : ""}
+        ${opts.writeNote ? `<button class="vg-btn" data-act="map">${icon("file", 14)} Map note</button>` : ""}
       </div>
       <div class="vg-ins-sec">${Object.entries(groups).sort((a, b) => b[1].length - a[1].length).map(([c, ms]) =>
         groupHtml(c, ms, true)).join("")}</div>`;
     box.querySelector(".vg-ins-close").onclick = clearMulti;
     box.querySelector('[data-act="copy"]').onclick = () => copy(ids.map(id => mdLink(id)).join("\n"), `Copied ${plural(ids.length, "link")}`);
-    const hub = box.querySelector('[data-act="hub"]'); if (hub) hub.onclick = () => writeSelectionHub(ids);
     const map = box.querySelector('[data-act="map"]'); if (map) map.onclick = () => writeMap(ids, "Selection");
     wire(box); wireSheet(box);
   }
@@ -334,7 +335,7 @@
       if (tour) endTour();
       else if (closeTools()) { $(".vg-toolsbtn").focus(); }
       else if (!$(".vg-palette").hidden) { closePalette(); }
-      else if (!$(".vg-picker").hidden) closeMenu();
+      else if (!$(".vg-picker").hidden) { closeMenu(); $(".vg-pickbtn").focus(); }
       else if (!$(".vg-lens").hidden) closeLens();
       else if (typing) { e.target.blur(); return; }
       else if (st.lasso) setLassoMode(false);
@@ -361,7 +362,7 @@
       run: e => { SCENES[st.view].key(e.key.toLowerCase(), true); kick(); } },
     { keys: ["W A S D", "Q E"], label: "Fly the ship (Cosmos, ship on)", prevent: true, match: e => st.ship && isCosmos() && /^(w|a|s|d|q|e|arrowup|arrowdown|arrowleft|arrowright)$/.test(e.key.toLowerCase()),
       run: e => { ship.keys.add(e.key.toLowerCase()); kick(); } },
-    { keys: ["/", "Ctrl K"], label: "Search notes, clusters and inside notes", prevent: true, run: () => openPalette() },
+    { keys: ["/", "Ctrl K"], label: "Search notes, topics and inside notes", prevent: true, run: () => openPalette() },
     { keys: ["Esc"], label: "Close what's open, or step back one level" },
     { keys: ["Enter"], label: "Open the selected note (Ctrl+Enter: in a new tab)", match: e => e.key === "Enter", when: () => st.selected && opts.openNote && !special(byId[st.selected]), run: e => opts.openNote(st.selected, e.ctrlKey || e.metaKey) },
     { keys: ["F"], label: "Focus on the selected note and its neighbours", when: () => st.selected, run: () => enterFocus(st.selected) },
@@ -374,7 +375,7 @@
     { keys: ["N"], label: "Neural view", run: () => setView(neural() ? "3d" : "neural") },
     { keys: ["C"], label: "Cosmos view", run: () => setView(isCosmos() ? "2d" : "cosmos") },
     { keys: ["T"], label: "Time-lapse: the vault as it grew", run: () => toggleTime() },
-    { keys: ["G"], label: "Today", when: () => !opts.compact, run: () => setMissionsShown(!root.classList.contains("show-missions"), true) },
+    { keys: ["G"], label: "Upkeep", when: () => !opts.compact, run: () => setMissionsShown(!root.classList.contains("show-missions"), true) },
     { keys: ["Space"], label: "Pause or play (Cosmos)", prevent: true, match: e => e.key === " ", when: () => isCosmos(), run: () => setPaused(!st.paused) },
     { keys: ["?"], label: "This list", match: e => e.key === "?", run: () => showKeys() },
   ];
@@ -461,7 +462,7 @@
     { sel: ".vg-nextbtn", title: "The next step", text: "The one thing to do now. It opens Vault HQ at that step." },
     { sel: ".vg-pickbtn", title: "Views", text: "Every way of looking at the vault, grouped by what you want to know: the map, your tasks, notes that need you, topics. Some draw a picture, some open a report beside it." },
     { sel: ".vg-searchbtn", title: "Search", text: "Jump to any note, topic or saved view. Press / or Ctrl K." },
-    { sel: ".vg-reviewbtn", title: "Today's review", text: "One small improvement at a time: a link to add, a note to put on its map, a note to write." },
+    { sel: ".vg-gamebtn", title: "Upkeep", text: "One small improvement at a time: a link to add, a note to put on its map, a note to write." },
     { sel: ".vg-toggle", title: "Insights", text: "What changed since the last analysis, your topics and the gaps between them. Tap a count to see those notes." },
     { sel: ".vg-cv", ring: false, title: "Tap a note", text: "Its panel lists what it needs, each with the button that fixes it." },
   ];
@@ -555,7 +556,7 @@
       $(".vg-legend").innerHTML = SCENES[st.view] ? (SCENES[st.view].legend ? SCENES[st.view].legend(item) : "") : st.view === "subway" ? item(`<i class="vg-lg-line" style="height:4px;background:${colorOf(0)}"></i>`, "line = topic") + item(`<i class="vg-lg-stn"></i>`, "note") + item(`<i class="vg-lg-stn is-x"></i>`, "connects topics")
         : st.view === "weather" ? item("<b style='color:#b91c1c'>L</b>", "busier than usual") + item("<b style='color:#1d4ed8'>H</b>", "quieter") + item("⛈", "burst this week") + item("<i class='vg-lg-line' style='border-color:#dc2626'></i>", "front = come up together")
         : st.view === "foodweb" ? item("↑", "height is trophic level, the base at the bottom") + item("<b style='color:#f87171'>◯</b>", "endangered: relied on, stale")
-        : st.view === "clock" ? item("◔", "ring = topic") + item("<i class='vg-lg-win'></i>", "brighter = more of its mentions")
+        : st.view === "clock" ? item("◔", "ring = topic") + item("<i class='vg-lg-win'></i>", "brighter = more of its mentions") + item("↗", "click a ring for its weeks")
         : st.view === "radar" ? item("<b style='color:#22c55e'>●</b>", "note with open tasks") + item("<b style='color:#f87171'>●</b>", "oldest task 90+ days") + item("↻", "click a blip to tick off")
         : item(`<i class="vg-lg-bld"></i>`, "height = relied on") + item(`<i class="vg-lg-win"></i>`, "lit = recent activity") + item(`<i class="vg-lg-bld is-stale"></i>`, "grey = stale") + item(`<i class="vg-lg-lot"></i>`, "empty lot = not written") + item("<b style='color:#ef4444'>•</b>", "beacon = open tasks") + item("🏛", "town hall = the topic's map");
       return;
@@ -568,7 +569,7 @@
       `<span class="vg-lg-item"><i class="vg-lg-line"></i>link</span>` +
       (neural() ? `<span class="vg-lg-item" title="Pulses fire along links of notes edited or mentioned lately; lobes glow by the same activity">✦ pulse · recent activity</span>` : "") +
       (st.gaps ? `<span class="vg-lg-item"><i class="vg-lg-line is-gap"></i>co-mentioned</span><span class="vg-lg-item"><i class="vg-lg-line is-sim"></i>similar</span>` : "") +
-      (st.layers.mocs && mocs.length ? `<span class="vg-lg-item"><i class="vg-lg-hex"></i>map (MOC)</span>` : "") +
+      (st.layers.mocs && mocs.length ? `<span class="vg-lg-item"><i class="vg-lg-hex"></i>map</span>` : "") +
       (st.layers.people ? `<span class="vg-lg-item"><i class="vg-lg-diamond"></i>person</span>` : "") +
       (st.layers.wanted ? `<span class="vg-lg-item"><i class="vg-lg-ghost"></i>not written</span>` : "");
   }
@@ -588,7 +589,7 @@
     if (st.highlightLabel) parts.push(st.highlightLabel);
     if (st.path) parts.push(`path · ${plural(st.path.ids.length - 1, "step")}`);
     if (st.multi) parts.push(`${st.multi.size} selected`);
-    if (st.hiddenClusters.size) parts.push(`${plural(st.hiddenClusters.size, "cluster")} hidden`);
+    if (st.hiddenClusters.size) parts.push(`${plural(st.hiddenClusters.size, "topic")} hidden`);
     if (st.hidden.size) parts.push(`top ${st.hidden.size} hidden`);
     $(".vg-status").innerHTML = `${settling ? '<span class="vg-spin" aria-hidden="true"></span>Laying out · ' : ""}${parts.map(esc).join(" · ")}`;
   }

@@ -40,7 +40,7 @@ for (const [file, text] of Object.entries(files)) {
 { const lum = hex => { const h = hex.length === 4 ? "#" + [...hex.slice(1)].map(c => c + c).join("") : hex, c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
   const [light, dark] = tokens.split(".theme-dark .vg-root");
-  const pick = (block, name) => (block.match(new RegExp(`${name}: var\\([^,]+, (#[0-9a-f]{3,6})\\)`, "i")) || [])[1];
+  const pick = (block, name) => (block.match(new RegExp(`${name}: (?:color-mix\\(in srgb, )?var\\([^,]+, (#[0-9a-f]{3,6})\\)`, "i")) || [])[1];
   for (const [theme, block] of [["light", light], ["dark", dark]]) {
     const bg = pick(block, "--ds-bg"), accent = pick(block, "--ds-accent"), ink = pick(block, "--ds-accent-ink"), text = pick(block, "--ds-accent-text"), body = pick(block, "--ds-text"), muted = pick(block, "--ds-muted");
     for (const [what, a, b, min] of [["a button's label", ink, accent, 4.5], ["accent text", text, bg, 4.5], ["body text", body, bg, 7], ["muted text", muted, bg, 4.5]]) {

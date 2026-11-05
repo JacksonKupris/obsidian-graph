@@ -71,8 +71,8 @@
     return this.mocReportFile().then(file => {
       if (!file) throw new Error("no report");
       return this.applyMapRows(file).then(
-        text => { new Notice("MOC alignment applied:\n" + text.slice(0, 400), 8000); return text; },
-        err => { new Notice(`MOC apply failed: ${err.message}`, 10000); throw err; });
+        text => { new Notice("Map alignment applied:\n" + text.slice(0, 400), 8000); return text; },
+        err => { new Notice(`Map alignment failed: ${err.message}`, 10000); throw err; });
     });
   }
 
