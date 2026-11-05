@@ -357,6 +357,26 @@
     return Math.round(100 * s / ids.length);
   }
   const STARFIELD = Array.from({ length: 260 }, (_, i) => { const h = hash("star" + i); return [(h % 10000) / 10000, ((h >>> 14) % 10000) / 10000, 0.3 + ((h >>> 7) % 70) / 100, (h >>> 3) % 3]; });
+  // Every link as one long path: on a phone that's most of a frame, and these lines are too faint to need redrawing each time. So a phone
+  // keeps them as a picture, at one pixel per point, made again a couple of times a second, and slides and scales it with the camera.
+  const LINKS_EVERY_MS = 500;
+  let linkLayer = null;
+  function strokeFaintLinks(c) {
+    c.beginPath(); c.strokeStyle = "rgba(148,197,255,.07)"; c.lineWidth = 0.8;
+    for (const l of visLinks) { if (l.kind !== "link" && l.kind !== "moc") continue; const a = P.get(l.s.id), b = P.get(l.t.id); if (a && b) { c.moveTo(a.x, a.y); c.lineTo(b.x, b.y); } }
+    c.stroke();
+  }
+  function drawFaintLinks(now) {
+    if (!MOBILE) { strokeFaintLinks(ctx); return; }
+    const [ox, oy] = toScreen(0, 0);
+    if (!linkLayer || linkLayer.W !== W || linkLayer.H !== H) linkLayer = { W, H, canvas: Object.assign(document.createElement("canvas"), { width: Math.ceil(W), height: Math.ceil(H) }), at: -Infinity };
+    if (now - linkLayer.at >= LINKS_EVERY_MS && !drag && !tween) {
+      const c = linkLayer.canvas.getContext("2d"); c.clearRect(0, 0, W, H); strokeFaintLinks(c);
+      Object.assign(linkLayer, { at: now, k: cam.k, ox, oy, made: (linkLayer.made || 0) + 1 });
+    }
+    if (linkLayer.at === -Infinity) return;
+    const s = cam.k / linkLayer.k; ctx.drawImage(linkLayer.canvas, ox - linkLayer.ox * s, oy - linkLayer.oy * s, W * s, H * s);
+  }
   function drawCosmos(now) {
     const dpr = screenDpr();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -413,9 +433,7 @@
     });
     // links, faint
     ctx.globalCompositeOperation = "lighter";
-    ctx.beginPath(); ctx.strokeStyle = "rgba(148,197,255,.07)"; ctx.lineWidth = 0.8;
-    for (const l of visLinks) { if (l.kind !== "link" && l.kind !== "moc") continue; const a = P.get(l.s.id), b = P.get(l.t.id); if (a && b) { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); } }
-    ctx.stroke();
+    drawFaintLinks(now);
     // wormholes: link suggestions as unstable portals at both ends
     if (cos.auto.wormholes && st.gaps) {
       for (const l of visLinks) { if (l.kind !== "gap" && l.kind !== "similar") continue;
@@ -448,7 +466,7 @@
       if (n.ghost) { ctx.fillStyle = "#64748b"; ctx.beginPath(); for (let i = 0; i < 6; i++) { const ang = i * Math.PI / 3 + hash(n.id) % 3, rr = r * (0.7 + ((hash(n.id) >>> i) % 5) / 10); i ? ctx.lineTo(p.x + Math.cos(ang) * rr, p.y + Math.sin(ang) * rr) : ctx.moveTo(p.x + Math.cos(ang) * rr, p.y + Math.sin(ang) * rr); } ctx.fill(); }
       else if (n.isolated) { ctx.fillStyle = "rgba(216,180,254,.8)"; ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(1, r * 0.6), 0, 2 * Math.PI); ctx.fill(); }
       else {
-        if (a > 0.3) { ctx.globalAlpha = a * 0.45; blit("glow", col, p.x, p.y, r * 2.6); ctx.globalAlpha = a; }
+        if (a > 0.3 && (!MOBILE || r >= 5 || n.id === st.selected)) { ctx.globalAlpha = a * 0.45; blit("glow", col, p.x, p.y, r * 2.6); ctx.globalAlpha = a; }   // on a phone only the bigger notes glow: hundreds of small glows are half a frame
         if (n.moc) { ctx.fillStyle = col; ctx.beginPath(); hexagon(p.x, p.y, r * 1.3); ctx.fill(); }
         else blit("orb", col, p.x, p.y, r);
       }
