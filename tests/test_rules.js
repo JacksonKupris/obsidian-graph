@@ -23,6 +23,15 @@ check("dated name is a record", VGRules.isStale({ ...old, name: "Fix 2026-01-02"
 check("release notes folder", VGRules.isStale({ ...old, id: "03-Resources/Release-Notes/x.md" }), false);
 check("young note", VGRules.isStale({ ...old, age: 3 }), false);
 check("custom days", VGRules.isStale({ ...old, age: 40 }, 30), true);
+// notes no daily mentions: only real knowledge notes, the most-linked first
+{ const n = (id, o = {}) => ({ id, name: id.replace(/.*\//, "").replace(".md", ""), mentions: 0, inlinks: 0, ...o });
+  const out = VGRules.unmentioned([n("a/Few.md", { inlinks: 1 }), n("a/Many.md", { inlinks: 5 }), n("a/Said.md", { mentions: 2, inlinks: 9 }), n("a/Ghost.md", { ghost: true, inlinks: 9 }),
+    n("a/Person.md", { person: true }), n("a/Map.md", { moc: true }), n(R.folders.daily + "/2026/11-November/Journal/2026-11-01.md"), n(R.folders.archive + "/Old.md")]).map(x => x.name);
+  check("unmentioned: the unmentioned notes, most-linked first", out, ["Many", "Few"]);
+  check("unmentioned: none left", VGRules.unmentioned([n("a/Said.md", { mentions: 1 })]).length, 0);
+  const lenses = srcOf("view.js");
+  check("the Missing from dailies lens is listed and uses the shared rule", /missing: \{ name: "Missing from dailies"/.test(lenses) && lenses.includes("VGRules.unmentioned(nodes)"), true);
+  check("FEATURES.md lists the lens", /Missing from dailies/.test(fs.readFileSync(path.join(env.ROOT, "FEATURES.md"), "utf8")), true); }
 // a map candidate: a tagged map in a topic folder, never in the archive (the rules file's folder, at any depth)
 const moc = { tags: ["meta/moc"] }, A = R.folders.archive;
 check("a tagged map is a map", VGRules.isMapCandidate("02-Systems/Kiosk/Kiosk.md", moc), true);
