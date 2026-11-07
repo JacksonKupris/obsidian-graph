@@ -24,6 +24,14 @@ Installed 0.6.15 in .obsidian/plugins/jk-vault-graph
 Obsidian reloaded it: 0.6.15 is running        (or: Obsidian isn't running: it loads this version when it opens)
 ```
 
+## The queue: what is waiting
+
+```sh
+npm run queue
+```
+
+Prints, from git and GitHub at that moment: open pull requests with their checks and the next step for each, what has merged since the last release, and pushed branches with no pull request. Nothing is stored, so it can't be out of date. It needs the GitHub CLI (`gh auth login`); without it, or offline, the git half still prints and says what is missing. A release is still your decision: when "Merged, not released" lists what you want out, run the release above.
+
 ## How a release travels
 
 ```

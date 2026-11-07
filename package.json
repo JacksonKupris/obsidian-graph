@@ -12,7 +12,8 @@
     "release": "node scripts/release.js",
     "sample": "node fixtures/make_sample.js",
     "install-release": "node scripts/install_release.js",
-    "sync": "node scripts/sync.js"
+    "sync": "node scripts/sync.js",
+    "queue": "node scripts/queue.js"
   },
   "engines": {
     "node": ">=22"

@@ -98,6 +98,11 @@ async function open(o) {
     if (proc && proc.exitCode === null) { const gone = new Promise(r => proc.once("exit", r)); try { proc.kill(); } catch (e) {} await Promise.race([gone, sleep(5000)]); }
     try { if (tmp) fs.unlinkSync(tmp); } catch (e) {}
     try { if (prof) fs.rmSync(prof, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch (e) {} };
+  // Page.navigate returns before the page has loaded, so the first evaluation could run on about:blank (it did, on a cold Chrome in CI).
+  // Wait until the file is the document and it has finished loading.
+  if (tmp) { let ready = "";
+    for (let i = 0; i < 120 && ready !== "file:complete"; i++) { try { ready = await ev("location.protocol + document.readyState"); } catch (e) { ready = ""; } if (ready !== "file:complete") await sleep(250); }
+    if (ready !== "file:complete") { await close(); throw new Error("the page didn't finish loading in 30 s"); } }
   return { send, ev, waitFor, close };
 }
 
