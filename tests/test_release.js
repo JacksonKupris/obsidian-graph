@@ -6,7 +6,7 @@ const source = fs.readFileSync(path.join(__dirname, "../scripts/release.js"), "u
 const libSource = fs.readFileSync(path.join(__dirname, "../scripts/lib.js"), "utf8");
 const libWith = context => { const module = { exports: {} }; vm.runInNewContext(libSource, { ...context, module }); return module.exports; };
 async function run(options = {}) {
-  let now = 1e12; const calls = [], writes = [], messages = [], asked = [], ranTests = [];
+  let now = 1e12; const calls = [], writes = [], messages = [], asked = [], ranTests = [], spawned = [];
   const states = options.runs || [[{ path: ".github/workflows/test.yml", status: "completed", conclusion: "success", html_url: "u" }]];
   const fetch = async url => { asked.push(url); const list = states[Math.min(asked.length - 1, states.length - 1)]; return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({ workflow_runs: list }) }; };
   let exit = null;
@@ -28,14 +28,14 @@ async function run(options = {}) {
   };
   const context = {
     __dirname: path.join(__dirname, "../scripts"),
-    require: name => name === "fs" ? { readFileSync: () => '{"version":"0.6.14"}', writeFileSync: (...args) => writes.push(args) } :
-      name === "child_process" ? { spawnSync } : name === "./sync" ? { sync: () => (calls.push(["sync"]), { ok: !options.behind, lines: [] }) } :
+    require: name => name === "fs" ? { readFileSync: () => '{"version":"0.6.14"}', writeFileSync: (...args) => writes.push(args), openSync: () => 9 } :
+      name === "child_process" ? { spawnSync, spawn: (command, args) => { spawned.push([command, ...args]); return { once: (event, fn) => { if (event === "exit" && options.childExit !== undefined) fn(options.childExit); }, unref() { calls.push(["unref"]); } }; } } : name === "./sync" ? { sync: () => (calls.push(["sync"]), { ok: !options.behind, lines: [] }) } :
       name === "./lib" ? libWith(context) : require(name),
     process: { execPath: process.execPath, versions: process.versions, env: {}, argv: ["node", "release.js", "--no-wait", ...(options.args || [])], exit: code => { if (exit === null) exit = code; throw stop; } },
     console: { log: message => messages.push(message), warn() {} }, fetch, Promise, setTimeout: (fn, ms) => { now += ms; fn(); }, Date: { now: () => now, parse: Date.parse },
   };
   try { await vm.runInNewContext(source, context); } catch (error) { if (error !== stop) throw error; }
-  return { calls, writes, messages, exit, asked, ranTests };
+  return { calls, writes, messages, exit, asked, ranTests, spawned };
 }
 const t = (status, conclusion) => [{ path: ".github/workflows/test.yml", status, conclusion, html_url: "u" }];
 (async () => {
@@ -44,6 +44,14 @@ const t = (status, conclusion) => [{ path: ".github/workflows/test.yml", status,
   assert.strictEqual(empty.exit, 1, "an empty release should be refused"); assert(empty.messages.some(m => /nothing has changed since 0\.6\.14/.test(m)), "it should say why");
   assert(!empty.calls.some(c => c[1] === "push" || c[1] === "tag" && c[2] !== "--list") && !empty.writes.length, "a refused release changes nothing");
   assert.strictEqual((await run({ tagged: true, commits: "abc A change" })).exit, 0, "new commits should release"); assert.strictEqual((await run({ tagged: true, args: ["--force"] })).exit, 0, "--force should re-issue"); }
+// --background: a release still going after 8 s is left running with its log named; a quick refusal is reported as in the foreground
+{ const bg = await run({ args: ["--background", "patch"] });
+  assert.strictEqual(bg.exit, 0, "background should return at once"); assert.strictEqual(bg.spawned.length, 1, "one detached release");
+  assert(bg.spawned[0].some(x => /release\.js$/.test(x)) && !bg.spawned[0].includes("--background") && bg.spawned[0].includes("patch"), "the child is the same release without --background: " + bg.spawned[0]);
+  assert(bg.calls.some(c => c[0] === "unref"), "the child is left running"); assert(bg.messages.some(m => /Releasing in the background/.test(m)), "it names the log");
+  assert(!bg.calls.some(c => c[0] === "git" && c[1] === "push"), "the parent itself tags and pushes nothing");
+  const refused = await run({ args: ["--background"], childExit: 1 });
+  assert.strictEqual(refused.exit, 1, "a quick refusal keeps its exit code"); assert(!refused.calls.some(c => c[0] === "unref"), "nothing left running after a refusal"); }
 const good = await run();
 assert.strictEqual(good.exit, 0);
 assert.strictEqual(JSON.parse(good.writes[0][1]).version, "0.6.15");

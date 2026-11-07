@@ -3,9 +3,10 @@
 // which checks the same and makes the GitHub release (main.js, manifest.json, styles.css). Then install_release.js puts it in this computer's vault
 // (local.json or --vault) and reloads it in a running Obsidian; BRAT installs it everywhere else.
 //   node scripts/release.js [patch|minor|major|<x.y.z>] [--no-wait] [--vault <dir>]        default: patch
+//   node scripts/release.js [patch|minor|major|<x.y.z>] --background     the same release in a separate process that logs to a file; returns at once
 //   node scripts/release.js --resume [--vault <dir>]     wait for the current version's release (after a re-run, or offline)
 // Run on main with everything committed. Works from any clone with push access; the same steps by hand: RELEASING.md.
-const fs = require("fs"), path = require("path"), { spawnSync } = require("child_process");
+const fs = require("fs"), path = require("path"), { spawnSync, spawn } = require("child_process");
 const { ROOT, fail, gitOrFail, githubSlug } = require("./lib"), PKG = path.join(ROOT, "package.json");
 const run = (cmd, args) => spawnSync(cmd, args, { cwd: ROOT, encoding: "utf8" });
 const git = gitOrFail(ROOT);
@@ -90,7 +91,19 @@ async function bumpAndTag() {
   if (flag("--no-wait")) process.exit(0);
 }
 
+// --background: the same release (tests wait, tag, publish, install) in a detached process, so the terminal is free for the next change.
+// A refusal comes fast (wrong branch, dirty tree, nothing changed), so a child that exits within 8 s is reported here as it would be
+// in the foreground; one still going is left running and its log named.
+async function inBackground() {
+  const log = path.join(require("os").tmpdir(), `vault-graph-release-${Date.now()}.log`), fd = fs.openSync(log, "w");
+  const child = spawn(process.execPath, [path.join(__dirname, "release.js"), ...args.filter(a => a !== "--background")], { cwd: ROOT, detached: true, stdio: ["ignore", fd, fd], windowsHide: true });
+  const early = await new Promise(done => { child.once("exit", code => done(code)); child.once("error", () => done(1)); setTimeout(() => done(null), 8000); });
+  if (early === null) { child.unref(); console.log(`Releasing in the background. Progress: ${log}\nWhen it ends the log says Released <version> and what was installed; npm run queue shows what is still waiting.`); process.exit(0); }
+  console.log(fs.readFileSync(log, "utf8").trim()); process.exit(early);
+}
+
 (async () => {
+  if (flag("--background")) await inBackground();
   if (flag("--resume")) await publish(); else await bumpAndTag();
   const end = Date.now() + 20 * 60e3, actions = `https://github.com/${slug}/actions`;
   console.log(`Waiting for GitHub to publish ${version} (usually under a minute)...`);
