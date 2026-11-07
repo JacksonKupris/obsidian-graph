@@ -108,12 +108,30 @@
   const BIN_SEP = 156;  // binary separation a; each star sits a/2 from the barycentre
   const rsOf = b => 4 + 4 * (b.mass || 1);   // Schwarzschild radius, at display scale
   let physT = 0;        // simulation clock (frames), advanced by the time warp
-  function binaryAngle(b) {   // Kepler III: omega = sqrt(G(M1+M2)/a^3), both stars of mass GM
-    return physT * Math.sqrt(2 * gmOf(b) / Math.pow(BIN_SEP, 3)) + hash(b.id) % 6;
+  // ---- binary physics (the two stars integrate their own relative orbit; nothing is on rails)
+  // Equal masses, so the stars sit at +/- rel/2 from the barycentre and rel obeys rel'' = -(2 GM) rel / |rel|^3.
+  // Kick-drift-kick leapfrog is symplectic: energy and angular momentum stay bounded over long runs.
+  function binInit(gm, sep, phase) {
+    const w = Math.sqrt(2 * gm / (sep * sep * sep));
+    return { x: Math.cos(phase) * sep, y: Math.sin(phase) * sep, vx: -Math.sin(phase) * sep * w, vy: Math.cos(phase) * sep * w };
   }
+  function binStep(bin, gm, dt) {
+    const k = 2 * gm, acc = () => { const r2 = bin.x * bin.x + bin.y * bin.y, i = 1 / (r2 * Math.sqrt(r2)); return [-k * bin.x * i, -k * bin.y * i]; };
+    let [ax, ay] = acc(); bin.vx += ax * dt / 2; bin.vy += ay * dt / 2;
+    bin.x += bin.vx * dt; bin.y += bin.vy * dt;
+    [ax, ay] = acc(); bin.vx += ax * dt / 2; bin.vy += ay * dt / 2;
+  }
+  // a test particle in the field of both stars (positions relative to the barycentre), softened like every other orbit
+  function binAccel(bin, gm, px, py) {
+    let ax = 0, ay = 0;
+    for (const sgn of [1, -1]) { const dx = px - sgn * bin.x / 2, dy = py - sgn * bin.y / 2, d2 = dx * dx + dy * dy + SOFT2, i = gm / (d2 * Math.sqrt(d2)); ax -= dx * i; ay -= dy * i; }
+    return [ax, ay];
+  }
+  // ---- end binary physics
+  const binOf = b => b.bin || (b.bin = binInit(gmOf(b), BIN_SEP, hash(b.id) % 6));
   function anchorPos(b, i) {
-    const a = binaryAngle(b) + i * Math.PI;
-    return [b.x + Math.cos(a) * BIN_SEP / 2, b.y + Math.sin(a) * BIN_SEP / 2];
+    const r = binOf(b), s = i ? -0.5 : 0.5;
+    return [b.x + r.x * s, b.y + r.y * s];
   }
   function centreOf(c) { return c.anchor != null ? anchorPos(c.b, c.anchor) : [c.b.x, c.b.y]; }
   // put a note on a fresh orbit around its captor: keep its bearing, set radius and the right speed
@@ -124,12 +142,13 @@
     // long ellipse (e up to 0.55 as it goes untouched), which precesses into a rosette; a current one stays round.
     const comet = n.recent > 0 && !c.hole && !c.lagrange;
     const e = comet ? 0.6 : c.hole || c.lagrange ? 0 : Math.min(0.55, Math.max(0, ((n.age || 0) - 30) / (Q.stale_days * 2)));
-    const r = c.r * (1 - e), dir = c.retro ? -1 : 1;   // start at perihelion; c.r is the orbit's semi-major axis
-    const v = Math.sqrt(gm * (1 + e) / r) * dir;
+    const r = c.lagrange ? BIN_SEP * 2.6 + c.r : c.r * (1 - e), dir = c.retro ? -1 : 1;   // start at perihelion; c.r is the orbit's semi-major axis
+    const v = Math.sqrt((c.lagrange ? 2 * gm : gm) * (1 + e) / r) * dir;
     n.orb = { b: c.b.id, role: c.lagrange ? "trojan" : c.hole ? "hole" : "orbit", anchor: c.anchor, rx: dx * r, ry: dy * r, vx: -dy * v, vy: dx * v, isco: 0, retro: !!c.retro };
     if (c.hole) n.orb.isco = 3 * rsOf(c.b) + (hash(n.id) % 6) * 3;
   }
   function stepOrbits(dt) {
+    for (const b of cos.bodies) if (b.type === "binary") { const n = Math.max(1, Math.ceil(dt / 2)); for (let i = 0; i < n; i++) binStep(binOf(b), gmOf(b), dt / n); }
     for (const n of active) {
       const o = n.orb; if (!o || n.pin) continue;
       if (o.role === "galaxy") {
@@ -150,10 +169,12 @@
         n.x = cx + o.rx; n.y = cy + o.ry; n.vx = n.vy = 0; continue;
       }
       const c = capture.get(n.id); if (!c) { n.orb = null; continue; }
-      if (o.role === "trojan") {   // L4/L5: equilateral with both stars, 60 deg ahead of / behind star 0, co-rotating
-        const lead = hash(n.id) % 2 ? 1 : -1, lib = 0.12 * Math.sin(physT / 240 + hash(n.id) % 9);   // small libration about the point
-        const ang = binaryAngle(c.b) + lead * Math.PI / 3 + lib, R = BIN_SEP * 0.866 + (hash(n.id) % 14) - 7;
-        n.x = c.b.x + Math.cos(ang) * R; n.y = c.b.y + Math.sin(ang) * R; n.vx = n.vy = 0; continue;
+      if (o.role === "trojan") {   // linked to both stars: a test particle in both fields. L4 and L5 are unstable for equal masses, so it orbits the pair
+        const bin = binOf(c.b), g = gmOf(c.b);
+        let [ax, ay] = binAccel(bin, g, o.rx, o.ry); o.vx += ax * dt / 2; o.vy += ay * dt / 2;
+        o.rx += o.vx * dt; o.ry += o.vy * dt;
+        [ax, ay] = binAccel(bin, g, o.rx, o.ry); o.vx += ax * dt / 2; o.vy += ay * dt / 2;
+        n.x = c.b.x + o.rx; n.y = c.b.y + o.ry; n.vx = n.vy = 0; continue;
       }
       const gm = gmOf(c.b);
       const r2 = o.rx * o.rx + o.ry * o.ry, L = o.rx * o.vy - o.ry * o.vx;

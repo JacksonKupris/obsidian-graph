@@ -247,7 +247,7 @@
   const VIEW_GROUPS = [
     ["See the vault", ["2d", "3d", "neural", "cosmos", "subway", "weather", "cyberpunk", "clock"]],
     ["Tasks", ["lens:flowlens", "lens:control", "lens:survival", "radar", "lens:follow"]],
-    ["Notes that need you", ["lens:triage", "lens:twoway", "foodweb", "lens:drift", "lens:dupes", "lens:blind", "lens:write", "lens:missing", "lens:blast", "lens:spof"]],
+    ["Notes that need you", ["lens:stale", "lens:twoway", "foodweb", "lens:drift", "lens:dupes", "lens:blind", "lens:write", "lens:missing", "lens:blast", "lens:spof"]],
     ["Topics and structure", ["lens:attention", "lens:river", "lens:timeline", "lens:matrix", "lens:folders", "lens:ring", "lens:maptree", "lens:mocalign", "lens:projects", "lens:people", "lens:code", "lens:path", "lens:adjacent", "lens:netlens"]],
     ["Play", ["triage", "wikirace", "survivors", "dungeon"]],
   ];
