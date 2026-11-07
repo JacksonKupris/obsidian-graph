@@ -82,6 +82,10 @@ https://github.com/JacksonKupris/obsidian-graph/releases. Install it with `npm r
 After an install by hand or with Obsidian open, turn Vault Graph off and on in Settings > Community plugins (or
 restart Obsidian) to load it. The script does this itself on Jackson's vault, where it can talk to Obsidian.
 
+## Releasing without waiting
+
+`npm run release -- --background` does the whole release (wait for the tests, bump, tag, publish, install) in a separate process and returns at once, so the terminal is free for the next change. A refusal (wrong branch, uncommitted changes, nothing new) shows within a few seconds as usual. Otherwise it prints the log file to read; the log ends with `Released <version>` and what was installed. Merge several pull requests first and release once: one wait covers them all.
+
 ## When the GitHub run fails
 
 The script prints the run's link. Open it; the red lines under **Annotations** name the failing test.
