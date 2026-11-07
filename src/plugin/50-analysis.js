@@ -222,7 +222,7 @@
     for (const w of ["weather", "radar", "foodweb"]) {
       v.handle.setView(w); await sleep(3200);
       const name = `${VGRules.folders.attachments}/state-${day}-${w}.png`;
-      await this.saveBinary(name, await v.handle.snapshot()); lines.push(`![[${VGShared.baseOf(name)}]]`);
+      await this.saveBinary(name, await v.handle.snapshot(), { replace: true }); lines.push(`![[${VGShared.baseOf(name)}]]`);
     }
     v.handle.setView(was);
     await this.ioProcess(notes[0], t => t.replace(/^_Run \*\*Vault Graph: Add map snapshots[^\n]*\n?/m, ""));   // the placeholder has done its job
