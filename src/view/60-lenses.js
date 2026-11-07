@@ -55,7 +55,7 @@
     dupes: { name: "Duplicates", hint: "Likely duplicate notes side by side, with the links each one has", render: lensDupes },
     ...((DATA.code && (DATA.code.repos || []).length) ? { code: { name: "Code ↔ docs", hint: "Code that changes often with no note, and notes that have fallen behind their code", render: lensCode } } : {}),   // only where work repos exist
     path: { name: "Reading path", hint: "An ordered reading list for getting up to speed on a topic", render: lensPath },
-    triage: { name: "Stale notes", hint: "Finance: which old notes would cost most if they've gone out of date, and what to do with each", render: lensTriage },
+    stale: { name: "Stale notes", hint: "Finance: which old notes would cost most if they've gone out of date, and what to do with each", render: lensStale },
     blind: { name: "Blind spots", hint: "What you name but never link, topics gone quiet, islands and dead ends", render: lensBlind },
     blast: { name: "Blast radius", hint: "Epidemiology: if a note is wrong, how far does the mistake travel, and where's the tipping point?", render: lensBlast },
     survival: { name: "Task survival", hint: "Clinical trials: how long tasks stay open, counting the ones still open, and what makes them finish", render: () => "", load: loadSurvival },
@@ -72,7 +72,7 @@
   let lensKey = null;
   $(".vg-lens-close").onclick = () => closeLens();
   VGParts.wire($(".vg-lens-body"), { details: () => lensCards, onOpen: panel => wireLens(panel), openNote: (p, e) => { if (opts.openNote) opts.openNote(p, e.ctrlKey || e.metaKey); } });
-  const LENS_MOVED = { stale: "triage", debt: "triage" };   // merged into Stale notes
+  const LENS_MOVED = { triage: "stale", debt: "stale" };   // "triage" was this lens before the game took the word; debt merged into it
   function openLens(k, keep) {
     k = LENS_MOVED[k] || k; lensKey = k; lensCards = {}; closeDrawer(); const box = $(".vg-lens"), l = LENSES[k];
     box.hidden = false; box.dataset.lens = k; root.classList.add("has-lens");
@@ -232,7 +232,7 @@
     }).join("");
     return `<p class="vg-muted vg-lens-note">Each bar is a folder, split by topic. One colour = the folder matches a topic; many colours = the folder mixes topics.</p>${bars}
       ${odd.length ? lensSec("Possibly misfiled", odd.sort((a, b) => b[0].bc - a[0].bc).slice(0, 40).map(([n, h]) => `<div class="vg-sugg">${noteRow(n.id, `in ${esc(top(n.id))} · its topic lives in <b>${esc(h)}</b>`)}
-        ${opts.moveNote && !VGRules.RULES.not_map_tops.includes(h.split("/")[0]) ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-move="${esc(n.id)}" data-to="${esc(h)}">Move to ${esc(VGShared.baseOf(h))}</button></span>` : ""}</div>`), { count: odd.length, word: "notes" }) : emptyNext("Nothing looks misfiled.", "lens:triage")}`;
+        ${opts.moveNote && !VGRules.RULES.not_map_tops.includes(h.split("/")[0]) ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-move="${esc(n.id)}" data-to="${esc(h)}">Move to ${esc(VGShared.baseOf(h))}</button></span>` : ""}</div>`), { count: odd.length, word: "notes" }) : emptyNext("Nothing looks misfiled.", "lens:stale")}`;
   }
 
   function lensProjects() {
@@ -252,7 +252,7 @@
 
   async function lensMocAlign() {
     const rep = await opts.mocReport.load();
-    if (!rep) return emptyNext("No map alignment report yet.", "lens:triage");
+    if (!rep) return emptyNext("No map alignment report yet.", "lens:stale");
     const groups = {}; rep.rows.forEach(r => (groups[r.section] = groups[r.section] || []).push(r));
     const ticked = rep.rows.filter(r => /[xX]/.test(r.state)).length;
     return `<p class="vg-muted vg-lens-note">${esc(rep.path)} · ${rep.rows.length} rows · <b>${ticked}</b> ticked. Ticking here edits the report; nothing else changes until you apply.</p>
@@ -421,7 +421,7 @@
     const wanted = nodes.filter(n => n.ghost && !n.created).sort((a, b) => b.from.length - a.from.length);
     const stubs = nodes.filter(n => !special(n) && !n.ghost && (n.words || 0) < Q.stub_words && (n.inlinks || 0) >= 2)
       .sort((a, b) => b.inlinks - a.inlinks || b.mentions - a.mentions);
-    if (!wanted.length && !stubs.length) return emptyNext("Every link points at a real note, and no short note has several links in.", "new:note", "lens:triage");
+    if (!wanted.length && !stubs.length) return emptyNext("Every link points at a real note, and no short note has several links in.", "new:note", "lens:stale");
     const named = opts.wantedCounts ? opts.wantedCounts() : null, ch = named && named.length >= 10 ? VGScience.chao1(named) : null;
     return `${ch ? `${sciFacts([[String(ch.S), "notes linked but not written", "Every link in the vault that points at a note that doesn't exist."], [`${ch.f1} / ${ch.f2}`, "linked once / twice", "Most wanted notes are named only once or twice, which is what the estimate reads."], [`${Math.round(ch.unseen)}+`, "never named yet", "Chao1's estimate: how many more you'd expect to find if you kept writing. A lower bound, from the way ecologists count species they haven't seen."]])}` : ""}<p class="vg-muted vg-lens-note">Notes other notes already point at, ranked by how many. Writing these fills the biggest holes first.</p>
       ${lensSec("Linked but never written", wanted.slice(0, 100).map(n => `<div class="vg-sugg"><button class="vg-item" data-id="${esc(n.id)}"><span class="vg-dot is-ghost"></span><span class="vg-item-main"><span>${esc(n.name)}</span>
@@ -434,7 +434,7 @@
   function lensMissing() {
     if (DATA.dailies_used == null) return needsAnalysis("Finding notes missing from dailies") || emptyNext("No daily notes have been read yet.", "daily");
     const miss = VGRules.unmentioned(nodes);
-    if (!miss.length) return emptyNext("Every note is mentioned in a standup or journal.", "lens:write", "lens:triage");
+    if (!miss.length) return emptyNext("Every note is mentioned in a standup or journal.", "lens:write", "lens:stale");
     return `<p class="vg-muted vg-lens-note">${miss.length} of ${nodes.filter(n => !special(n)).length} notes aren't mentioned in any of the ${DATA.dailies_used} daily notes read. Name one in the next standup or journal.</p>
       ${lensSec("Not in any daily", miss.slice(0, 100).map(n => noteLine(n.id, `${plural(n.inlinks || 0, "link")} in`, opts.openNote ? actBtn("data-open", n.id, `${icon("open", 12)} Open`) : "")), { count: miss.length, word: "notes" })}`;
   }
@@ -498,7 +498,7 @@
     const byName = {}; real.forEach(n => (byName[n.name.toLowerCase()] = byName[n.name.toLowerCase()] || []).push(n));
     Object.values(byName).filter(g => g.length > 1).forEach(g => add(g[0].id, g[1].id, "same name, different folders"));
     (DATA.near_dupes || []).forEach(([a, b, s, how]) => add(a, b, how === "text" ? `${Math.round(s * 100)}% the same text` : `${Math.round(s * 100)}% same wording`));
-    if (!pairs.length) return needsAnalysis("Finding duplicates") || emptyNext("No likely duplicates.", "lens:triage");
+    if (!pairs.length) return needsAnalysis("Finding duplicates") || emptyNext("No likely duplicates.", "lens:stale");
     const side = (id, other) => { const n = byId[id], mine = [...nb[id]].filter(x => x !== other), theirs = other ? new Set(nb[other]) : new Set();
       const only = mine.filter(x => !theirs.has(x));
       return `<div class="vg-dp-side"><button class="vg-item" data-id="${esc(id)}"><span class="vg-item-main"><span>${esc(n.name)}</span><span class="vg-item-sub">${esc(n.folder || "/")} · ${n.words || 0} words · ${n.age}d since edit · ${n.inlinks} links in</span></span></button>
@@ -527,7 +527,7 @@
 
   // Stale triage: an old note isn't a problem by itself. Records are exempt; the rest split by what to do about them,
   // riskiest first, each group with the button that does its job. A note sits in the first group it fits.
-  function lensTriage() {
+  function lensStale() {
     const ns = nodes.filter(n => !special(n) && !n.ghost), stale = ns.filter(n => staleFor(n, Q.stale_days)), records = ns.filter(n => isRecord(n) && n.age > Q.stale_days);
     const used = new Set(), take = f => stale.filter(n => !used.has(n.id) && f(n)).map(n => (used.add(n.id), n));
     const debt = debtOf(), cost = new Map(debt.rows.map(r => [r.n.id, r])), relied = debt.known ? take(n => cost.has(n.id)).sort((a, b) => cost.get(b.id).cost - cost.get(a.id).cost) : take(n => (n.inlinks || 0) >= 4).sort(byImportance);
