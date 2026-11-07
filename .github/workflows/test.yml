@@ -7,9 +7,15 @@ on:
   push:
     branches: [main]
     paths-ignore: [package.json, manifest.json]
+# The suite runs in 4 shards side by side (tests/run.js --shard=i/n; test_shards.js checks none is dropped). The workflow
+# passes only when every shard does, which is what a release checks.
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -18,4 +24,4 @@ jobs:
       - name: Test
         run: |
           set -o pipefail
-          npm test 2>&1 | tee test.log || { grep -E "FAIL|Error" test.log | head -20 | sed 's/^/::error::/'; exit 1; }
+          npm test -- --shard=${{ matrix.shard }}/4 2>&1 | tee test.log || { grep -E "FAIL|Error" test.log | head -20 | sed 's/^/::error::/'; exit 1; }
