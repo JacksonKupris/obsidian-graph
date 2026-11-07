@@ -53,6 +53,7 @@ npm run build                 # dist/: main.js, styles.css, manifest.json, rules
 npm run deploy                # test on the vault, install its check file there (--plugin: this build too, until the next release)
 npm run release [-- minor]    # bump, test, tag and push from main; CI publishes the release, then it's installed in local.json's vault
 npm run sync                  # this computer and GitHub the same, on any branch (before work, after each commit)
+npm run queue                 # open pull requests and their checks, merged-not-released, branches with no pull request
 npm run install-release       # install the latest release (or -- 0.6.15, -- --vault <dir>) into a vault
 ```
 
