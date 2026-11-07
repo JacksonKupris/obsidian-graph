@@ -19,7 +19,7 @@
   // The nebula (unlinked notes) is a gas cloud on a slow circular orbit about the core; its notes circle inside it
   const NEB_R = Math.hypot(...NEBULA), NEB_A0 = Math.atan2(NEBULA[1], NEBULA[0]), GM_NEB = 6;
   const nebulaPos = () => { const a = NEB_A0 + physT * Math.sqrt(GM_CORE / Math.pow(NEB_R, 3)); return [Math.cos(a) * NEB_R, Math.sin(a) * NEB_R]; };
-  let cos = { bodies: [], auto: { comets: true, wormholes: true, belt: true, nebula: true, grid: true, motion: true, trails: true }, done: [], ach: {}, xp: 0 };
+  let cos = { bodies: [], auto: { links: true, comets: true, wormholes: true, belt: true, nebula: true, grid: true, motion: true, trails: true }, done: [], ach: {}, xp: 0 };
   let capture = new Map(), repelled = new Map(), bodyCaptured = new Map();
   const mocMembers = {}; links.filter(l => l.kind === "moc").forEach(l => (mocMembers[l.s.id] = mocMembers[l.s.id] || new Set()).add(l.t.id));
   const graphNb = id => new Set([...(nb[id] || []), ...(mocMembers[id] || [])]);
@@ -476,7 +476,7 @@
     });
     // links, faint
     ctx.globalCompositeOperation = "lighter";
-    drawFaintLinks(now);
+    if (cos.auto.links) drawFaintLinks(now);
     // wormholes: link suggestions as unstable portals at both ends
     if (cos.auto.wormholes && st.gaps) {
       for (const l of visLinks) { if (l.kind !== "gap" && l.kind !== "similar") continue;
@@ -616,6 +616,43 @@
     st.placing = null; root.classList.remove("is-placing"); $$(".vg-dockbtn").forEach(x => x.setAttribute("aria-pressed", "false"));
     cosmosCapture(); selectBody(b.id); persistSoon(); alpha = Math.max(alpha, 0.4); kick();
     if (type === "star" || type === "planet" || type === "repulsor") toast(type === "star" ? "Pick the note or map this star is" : "Type a search for this " + BODY[type].label.toLowerCase());
+  }
+  // ---- seed the sky from the vault: stars on the biggest maps and the Context notes, planets on the main project tags.
+  // One rule set (SEED) decides what is proposed; the preview and the accept step both read its result, and anything
+  // already in the sky is left out so running it twice proposes nothing new.
+  const SEED = { maps: 6, minMapNotes: 3, contexts: 4, tags: 4, minTagNotes: 5, tagPrefix: "project/", contextName: /\bContext$/ };
+  function seedProposal() {
+    const have = new Set(cos.bodies.map(b => b.type === "star" ? "star:" + b.target : b.type === "planet" ? "planet:" + String(b.target).toLowerCase() : ""));
+    const out = [], star = (target, name, kind) => { if (have.has("star:" + target)) return; have.add("star:" + target); out.push({ type: "star", target, name, kind, count: anchorNb(target).size }); };
+    mocs.filter(m => byId[m.id] && (m.members || []).length >= SEED.minMapNotes).sort((a, b) => b.members.length - a.members.length || a.title.localeCompare(b.title)).slice(0, SEED.maps).forEach(m => star(m.id, m.title, "Map"));
+    nodes.filter(n => !n.ghost && !n.moc && SEED.contextName.test(n.name)).sort((a, b) => b.bc - a.bc || a.name.localeCompare(b.name)).slice(0, SEED.contexts).forEach(n => star(n.id, n.name, "Context"));
+    const tagN = {}; nodes.forEach(n => !n.ghost && (n.tags || []).forEach(t => { if (t.startsWith(SEED.tagPrefix)) tagN[t] = (tagN[t] || 0) + 1; }));
+    Object.entries(tagN).filter(([, c]) => c >= SEED.minTagNotes).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, SEED.tags).forEach(([t, c]) => {
+      const target = "tag:" + t; if (have.has("planet:" + target)) return; have.add("planet:" + target); out.push({ type: "planet", target, name: t.slice(SEED.tagPrefix.length), kind: "Tag", count: c }); });
+    return out;
+  }
+  function acceptSeed(items) {
+    const before = Object.fromEntries(cos.bodies.map(b => [b.id, Object.fromEntries(ORBIT_KEYS.map(k => [k, b[k]]))]));
+    const added = items.map((it, i) => ({ id: "b" + Date.now().toString(36) + i, type: it.type, x: 0, y: 0, target: it.target, name: "" }));
+    cos.bodies.push(...added);
+    if (cos.auto.motion) arrangeOrbits(false); else { cosmosCapture(); persistSoon(); kick(); }
+    toast(`Added ${added.length} ${added.length === 1 ? "body" : "bodies"}`, "ok", () => {
+      const gone = new Set(added.map(b => b.id)); cos.bodies = cos.bodies.filter(b => !gone.has(b.id));
+      cos.bodies.forEach(b => before[b.id] && ORBIT_KEYS.forEach(k => { b[k] = before[b.id][k]; })); cos.bodies.forEach(placeFromOrbit); trails.clear(); noteTrails.clear(); cosmosCapture(); persistSoon(); kick(); });
+  }
+  function seedPreview() {
+    select(null); st.body = null; const box = $(".vg-inspector"), items = seedProposal(); box.hidden = false; root.classList.add("has-inspector");
+    const rows = items.map((it, i) => `<label class="vg-bh-row"><input type="checkbox" data-seed="${i}" checked> <span class="vg-chip" style="--c:#fbbf24">${BODY[it.type].glyph} ${esc(it.kind)}</span> <b>${esc(it.name)}</b> <span class="vg-muted">${it.count} notes</span></label>`).join("");
+    box.innerHTML = `<div class="vg-sheet-handle" aria-hidden="true"></div>
+      <div class="vg-ins-head"><span class="vg-chip" style="--c:#fbbf24">✦ Populate from the vault</span><button class="vg-ibtn vg-ins-close" aria-label="Close" title="Close (Esc)">${icon("close")}</button></div>
+      <h2 class="vg-ins-title">${items.length ? `${items.length} bodies proposed` : "Nothing new to add"}</h2>
+      <div class="vg-muted vg-ins-path">${items.length ? "Stars on the largest maps and the Context notes, planets on the main project tags." : "Every map, Context note and project tag that qualifies already has a body."}</div>
+      ${rows ? `<div class="vg-ins-sec">${rows}</div><div class="vg-ins-actions vg-wrap"><button class="vg-btn" data-seed="go">Add selected</button><button class="vg-btn vg-btn-ghost" data-seed="cancel">Cancel</button></div>` : `<div class="vg-ins-actions vg-wrap"><button class="vg-btn vg-btn-ghost" data-seed="cancel">Close</button></div>`}`;
+    const close = () => { box.hidden = true; root.classList.remove("has-inspector"); };
+    box.querySelector(".vg-ins-close").onclick = close;
+    box.querySelector('[data-seed="cancel"]').onclick = close;
+    const go = box.querySelector('[data-seed="go"]');
+    if (go) go.onclick = () => { const pick = [...box.querySelectorAll('input[data-seed]')].filter(c => c.checked).map(c => items[+c.dataset.seed]); close(); if (pick.length) acceptSeed(pick); };
   }
   function selectBody(id) {
     select(null); st.body = id; const b = cos.bodies.find(x => x.id === id); if (!b) { st.body = null; return; }
@@ -811,6 +848,7 @@
     if (on) toast(`${BODY[b.dataset.body].hint}. Click in space to place it.`); dirty = true; kick();
   });
   $$(".vg-arrangebtn").forEach(b => b.onclick = () => arrangeOrbits(true));
+  $$(".vg-seedbtn").forEach(b => b.onclick = () => seedPreview());
   $$(".vg-autobtn").forEach(b => b.onclick = () => { const k = b.dataset.auto; cos.auto[k] = !cos.auto[k]; b.setAttribute("aria-pressed", cos.auto[k]); if (isCosmos()) cosmosCapture(); persistSoon(); alpha = Math.max(alpha, 0.2); kick(); });
   // ---- deeper cosmos: moons, supernovas, constellations, time travel, expeditions, ship
   let moonSpots = [], constSpots = [];
