@@ -1422,7 +1422,7 @@ const VGRules = (() => {
     { since: "0.6.43", text: "Version drift: notes naming a version you don't run", to: { graph: { lens: "drift" } } },
     { since: "0.6.43", text: "Flow: which open tasks are already unusually old", to: { graph: { lens: "flowlens" } } },
     { since: "0.6.42", text: "Hierarchy: two-way links, and a parent for notes with no way up", to: { graph: { lens: "twoway" } } },
-    { since: "0.6.42", text: "Stale notes: one view for old notes, and which to review first", to: { graph: { lens: "triage" } } },
+    { since: "0.6.42", text: "Stale notes: one view for old notes, and which to review first", to: { graph: { lens: "stale" } } },
     { since: "0.6.41", text: "Sweep: subtasks stay with their tasks, Move sends them to a project, leftovers get their own group", to: { screen: "sweep" } },
   ];
   const versionAfter = (a, b) => { const x = String(a).split(".").map(Number), y = String(b || "0").split(".").map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
