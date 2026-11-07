@@ -5,7 +5,7 @@
 const { checks, finish } = require("./kit");
 const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
 const { checkState, gitState, render, openPrs } = require("../scripts/queue");
-const { fails, that: check } = checks();
+const { fails, ok: check } = checks();
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "vg-queue-"));
 const git = (dir, ...a) => { const r = spawnSync("git", a, { cwd: dir, encoding: "utf8" }); if (r.status) throw new Error(`git ${a.join(" ")}: ${r.stderr}`); return (r.stdout || "").trim(); };
 const commit = (dir, f, msg) => { fs.writeFileSync(path.join(dir, f), msg + "\n"); git(dir, "add", f); git(dir, "commit", "-q", "-m", msg); };

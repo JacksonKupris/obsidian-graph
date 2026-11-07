@@ -32,6 +32,14 @@ npm run queue
 
 Prints, from git and GitHub at that moment: open pull requests with their checks and the next step for each, what has merged since the last release, and pushed branches with no pull request. Nothing is stored, so it can't be out of date. It needs the GitHub CLI (`gh auth login`); without it, or offline, the git half still prints and says what is missing. A release is still your decision: when "Merged, not released" lists what you want out, run the release above.
 
+## Ship a pull request in one command
+
+```sh
+npm run ship -- 36
+```
+
+Waits for the pull request's checks, merges it when they pass, then runs the release above. It ends with one line: `SHIPPED #36: Released 0.6.65: ...`, or `NOT SHIPPED` / `MERGED ... but NOT RELEASED` with the reason and the next step. A failed check, a conflict, a failed merge or a failed release stops it. Start it in the background and the end line is what tells you it finished (an agent's background task notifies when it exits). By hand: wait for the checks, merge on GitHub, `git switch main`, `npm run release`.
+
 ## How a release travels
 
 ```
