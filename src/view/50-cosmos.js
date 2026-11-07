@@ -196,14 +196,14 @@
   }
   // ---- the bodies move too: a galactic core holds them, they tug on each other, planets orbit a star
   // Stars, binaries, black holes and repulsors orbit the core (GM_CORE). A planet orbits the star or binary whose
-  // notes it shares most, in that body's frame, as moons do. Bodies pull on each other at BODY_COUPLE of their
-  // strength, as Plummer spheres the size of a system (a planet feels it as a tide): enough for resonances, precession and the odd slingshot, not
-  // enough to wreck a system. arrangeOrbits() lays out rings of up to three co-orbital bodies 120 degrees apart.
+  // notes it shares most, in that body's frame, as moons do. Bodies change each other's orbits only on close passes (passBys): a constant pull
+  // (BODY_COUPLE, a fraction of their strength as Plummer spheres the size of a system) is off at 0, because it needed friction to stay bound and
+  // lost a body from a crowded sky after about 100,000 frames (tests/test_cosmos_coupling.js). Set it above 0 for resonances and tides. arrangeOrbits() lays out rings of up to three co-orbital bodies 120 degrees apart.
   // Neighbouring rings' periods differ by the golden ratio (radius ratio phi^(2/3), Kepler III): the least resonant
   // spacing (KAM), since a 2:1 chain pumped eccentricities until stars were flung out. Dynamical friction with the
   // disc slowly re-circularises stars and planets after a disturbance; the black hole keeps its diving ellipse and
   // repulsors their wide retrograde one.
-  const GM_CORE = 260, BODY_COUPLE = 0.06, BODY_GM_CAP = 45, BODY_SOFT2 = 150 * 150, RING0 = 360, RING_RATIO = Math.pow((1 + Math.sqrt(5)) / 2, 2 / 3), DYN_FRICTION = 0.0003, PASS_BY = 1, PASS_REACH = 0.5;
+  const GM_CORE = 260, BODY_COUPLE = 0, BODY_GM_CAP = 45, BODY_SOFT2 = 150 * 150, RING0 = 360, RING_RATIO = Math.pow((1 + Math.sqrt(5)) / 2, 2 / 3), DYN_FRICTION = 0.0003, PASS_BY = 1, PASS_REACH = 0.5;
   const FIELD_COUPLE = 0.35, GAS_DRAG = 0.0025, PREC = 3 / 27;
   let wells = [];   // [x, y, GM] of each body, refreshed every step; field notes feel them
   const bodyById = id => cos.bodies.find(b => b.id === id);

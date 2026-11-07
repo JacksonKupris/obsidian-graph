@@ -8,11 +8,11 @@ const source = fs.readFileSync(require("node:path").join(__dirname, "../src/view
 const a = source.indexOf("  const GM_UNIT"), b = source.indexOf("  // let go of a dragged body");
 assert(a > 0 && b > a, "the physics block is missing from 50-cosmos.js");
 const block = source.slice(a, b);
-const need = ["BODY_COUPLE = 0.06", "DYN_FRICTION = 0.0003", "PASS_BY = 1, PASS_REACH = 0.5", "setOrbit(b, p, p ? 230 : Math.min(r, 1400), 0, Math.atan2(b.ry, b.rx), 1);"];
+const need = ["BODY_COUPLE = 0,", "DYN_FRICTION = 0.0003", "PASS_BY = 1, PASS_REACH = 0.5", "setOrbit(b, p, p ? 230 : Math.min(r, 1400), 0, Math.atan2(b.ry, b.rx), 1);"];
 for (const n of need) assert(block.includes(n), "source changed, cannot find: " + n);
 
-function sky({ coupling = 0.06, friction = 0.0003, passBy = 1, reach = 0.5, bodies }) {
-  const code = block.replace(need[0], `BODY_COUPLE = ${coupling}`).replace(need[1], `DYN_FRICTION = ${friction}`).replace(need[2], `PASS_BY = ${passBy}, PASS_REACH = ${reach}`)
+function sky({ coupling = 0, friction = 0.0003, passBy = 1, reach = 0.5, bodies }) {
+  const code = block.replace(need[0], `BODY_COUPLE = ${coupling},`).replace(need[1], `DYN_FRICTION = ${friction}`).replace(need[2], `PASS_BY = ${passBy}, PASS_REACH = ${reach}`)
     .replace(need[3], `{ globalThis.__flung.push(b.id); setOrbit(b, p, p ? 230 : Math.min(r, 1400), 0, Math.atan2(b.ry, b.rx), 1); }`);
   const cos = { bodies: bodies.map(x => ({ ...x })), auto: { motion: true }, arranged: 0 };
   const ctx = { cos, Math, __flung: [], hash: s => [...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7), nodes: [], special: () => false, matchQuery: () => () => false,
@@ -53,15 +53,20 @@ function flyby(passBy, { speed = 4, offset = 60 } = {}) {
 const skies = {
   small: [B("s1", "star"), B("s2", "star"), B("s3", "star")],
   default: [B("s1", "star"), B("s2", "star"), B("s3", "star"), B("s4", "star"), B("bin", "binary", { target: ["a", "b"] }), B("p1", "planet"), B("p2", "planet"), B("bh", "blackhole"), B("rep", "repulsor")],
+  crowded: [..."12345678".split("").map(i => B("s" + i, "star")), B("bin1", "binary", { target: ["a", "b"] }), B("bin2", "binary", { target: ["c", "d"] }), B("bh1", "blackhole"), B("bh2", "blackhole"), B("rep", "repulsor")],
 };
-const FRAMES = 30000;
+const FRAMES = 100000;   // about 28 minutes at 60 fps
 for (const [name, bodies] of Object.entries(skies)) {
-  const s = sky({ coupling: 0, friction: 0.0003, passBy: 1, bodies }); s.api.arrangeOrbits(false);
+  const s = sky({ bodies }); s.api.arrangeOrbits(false);   // the source's own defaults
   for (let f = 0; f < FRAMES; f++) { s.api.stepBodies(0.5); s.api.stepBodies(0.5); }
   assert(s.cos.bodies.every(x => Number.isFinite(x.x) && Number.isFinite(x.y)), name + ": a body went to NaN");
   assert.equal(s.flung.length, 0, `${name}: ${s.flung.length} bodies were flung out (first ${s.flung[0]})`);
   console.log(`ok - ${name}: ${FRAMES} frames, ${s.api.count()} passes, none flung out`);
 }
+// the reason the default is 0: the old 6% constant pull loses a body from the crowded arranged sky in this time
+{ const old = sky({ coupling: 0.06, bodies: skies.crowded }); old.api.arrangeOrbits(false);
+  for (let f = 0; f < FRAMES; f++) { old.api.stepBodies(0.5); old.api.stepBodies(0.5); }
+  assert(old.flung.length >= 1, "the 6% coupling no longer loses a body from the crowded sky: re-measure before keeping the default at 0"); }
 // 5. random crossing skies, no constant coupling: passes do happen (and not with pass-by off), and almost nothing is flung out.
 //    Measured over 12 skies of 30,000 frames: reach 1 gave 111 passes and 2 flung bodies per sky; 0.5 gave 6 passes and 0.1; 0.25 gave none.
 {
