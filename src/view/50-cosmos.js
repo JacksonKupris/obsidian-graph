@@ -203,7 +203,7 @@
   // spacing (KAM), since a 2:1 chain pumped eccentricities until stars were flung out. Dynamical friction with the
   // disc slowly re-circularises stars and planets after a disturbance; the black hole keeps its diving ellipse and
   // repulsors their wide retrograde one.
-  const GM_CORE = 260, BODY_COUPLE = 0.06, BODY_GM_CAP = 45, BODY_SOFT2 = 150 * 150, RING0 = 360, RING_RATIO = Math.pow((1 + Math.sqrt(5)) / 2, 2 / 3), DYN_FRICTION = 0.0003;
+  const GM_CORE = 260, BODY_COUPLE = 0.06, BODY_GM_CAP = 45, BODY_SOFT2 = 150 * 150, RING0 = 360, RING_RATIO = Math.pow((1 + Math.sqrt(5)) / 2, 2 / 3), DYN_FRICTION = 0.0003, PASS_BY = 1, PASS_REACH = 0.5;
   const FIELD_COUPLE = 0.35, GAS_DRAG = 0.0025, PREC = 3 / 27;
   let wells = [];   // [x, y, GM] of each body, refreshed every step; field notes feel them
   const bodyById = id => cos.bodies.find(b => b.id === id);
@@ -303,7 +303,31 @@
       if (p ? r > 520 : r > 2600) setOrbit(b, p, p ? 230 : Math.min(r, 1400), 0, Math.atan2(b.ry, b.rx), 1);   // flung out: it settles back in
       placeFromOrbit(b);
     }
+    passBys();
     wells = cos.bodies.filter(b => gmOf(b) > 0).map(b => [b.x, b.y, gmOf(b)]);
+  }
+  // Pass-by events: when two bodies that don't hold each other sweep past periapsis within PASS_REACH mutual Hill radii on an
+  // unbound relative orbit, their relative velocity turns by the hyperbolic deflection angle tan(d/2) = GM/(b v^2) toward each other.
+  // Speed relative to each other is kept, momentum is shared by mass, so the pair's energy and momentum are conserved
+  // and the new orbits come from the integration. Periapsis distance stands in for the impact parameter.
+  let passPrev = new Map(), passByCount = 0;
+  const absV = b => { const p = parentOf(b); return p ? [b.vx + absV(p)[0], b.vy + absV(p)[1]] : [b.vx, b.vy]; };
+  function passBys() {
+    if (!PASS_BY) return;
+    const bs = cos.bodies.filter(b => gmOf(b) > 0 && b.rx != null), vs = new Map(bs.map(b => [b.id, absV(b)])), seen = new Map();
+    for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) {
+      const b = bs[i], o = bs[j]; if (b.parent === o.id || o.parent === b.id) continue;
+      const key = b.id + "|" + o.id, ex = b.x - o.x, ey = b.y - o.y, [bvx, bvy] = vs.get(b.id), [ovx, ovy] = vs.get(o.id), wx = bvx - ovx, wy = bvy - ovy;
+      const rv = ex * wx + ey * wy; seen.set(key, rv);
+      if (!(passPrev.get(key) < 0 && rv >= 0)) continue;   // only the step that crosses periapsis
+      const d = Math.hypot(ex, ey), gb = gmOf(b), go = gmOf(o), gm = gb + go, rbar = (Math.hypot(b.x, b.y) + Math.hypot(o.x, o.y)) / 2;
+      const reach = PASS_REACH * rbar * Math.cbrt(gm / (3 * GM_CORE)), v2 = wx * wx + wy * wy;
+      if (d > reach || v2 / 2 < gm / Math.max(d, 1)) continue;   // too far, or bound to each other
+      const dl = 2 * Math.atan(gm / (Math.max(d, 40) * v2)) * (ex * wy - ey * wx >= 0 ? 1 : -1), c = Math.cos(dl), s = Math.sin(dl);
+      const dx = wx * c - wy * s - wx, dy = wx * s + wy * c - wy;
+      b.vx += dx * go / gm; b.vy += dy * go / gm; o.vx -= dx * gb / gm; o.vy -= dy * gb / gm; passByCount++;
+    }
+    passPrev = seen;
   }
   // let go of a dragged body: it keeps the throw, or settles on a circular orbit where it was dropped. A planet
   // dropped near a star or binary is captured by it.
