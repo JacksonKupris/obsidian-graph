@@ -258,6 +258,7 @@ function mountVaultGraph(root, DATA, opts) {
         <button class="vg-dockbtn" data-body="blackhole" aria-pressed="false" title="Black hole: a filter; matching notes fall into a review queue"><span>●</span>Black hole</button>
         <button class="vg-dockbtn" data-body="repulsor" aria-pressed="false" title="Repulsor: push a topic away"><span>◎</span>Repulsor</button>
         <span class="vg-docksep"></span>
+        <button class="vg-autobtn" data-auto="links" aria-pressed="true" title="Lines between linked notes">Links</button>
         <button class="vg-autobtn" data-auto="comets" aria-pressed="true" title="Notes from recent dailies trail tails">Comets</button>
         <button class="vg-autobtn" data-auto="wormholes" aria-pressed="true" title="Link suggestions as portals">Wormholes</button>
         <button class="vg-autobtn" data-auto="belt" aria-pressed="true" title="Notes to write as an asteroid belt">Belt</button>
@@ -265,6 +266,7 @@ function mountVaultGraph(root, DATA, opts) {
         <button class="vg-autobtn" data-auto="grid" aria-pressed="true" title="Warped space grid">Grid</button>
         <button class="vg-autobtn" data-auto="motion" aria-pressed="true" title="Bodies orbit the galactic core and tug on each other">Orbits</button>
         <button class="vg-autobtn" data-auto="trails" aria-pressed="true" title="Faint trails behind bodies and the selected system's notes">Trails</button>
+        <button class="vg-dockbtn vg-seedbtn" title="Propose bodies from the vault's maps, Context notes and project tags"><span>✦</span>Populate</button>
         <button class="vg-dockbtn vg-arrangebtn" title="Arrange the bodies on resonant orbits"><span>✺</span>Arrange</button>
         <span class="vg-docksep"></span>
         <button class="vg-dockbtn vg-shipbtn" aria-pressed="false" title="Ship mode: fly between systems"><span>➤</span>Ship</button>
