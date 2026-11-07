@@ -13,7 +13,8 @@
     "sample": "node fixtures/make_sample.js",
     "install-release": "node scripts/install_release.js",
     "sync": "node scripts/sync.js",
-    "queue": "node scripts/queue.js"
+    "queue": "node scripts/queue.js",
+    "ship": "node scripts/ship.js"
   },
   "engines": {
     "node": ">=22"
