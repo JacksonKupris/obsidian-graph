@@ -893,12 +893,15 @@ const VGRules = (() => {
   const PEOPLE_KINDS = new Set(["task", "plan", "carried", "approval", "review"]);   // your work; a suggestion or a backlog line that names someone isn't
   function hqPeople(data, list) {
     const ambiguous = new Set(((R.hq && R.hq.people_ambiguous) || []).map(s => s.toLowerCase()));
-    const esc = VGShared.escapeRegex;
+    const esc = VGShared.escapeRegex, byId = new Map((data.nodes || []).map(n => [n.id, n])), end = e => (e && e.id) || e, linked = new Map();
+    // the notes a person is linked from (the graph's person links), the ones you come back to most first
+    for (const l of data.links || []) { if (l.kind !== "person") continue; const p = end(l.source), t = byId.get(end(l.target)); if (!t) continue; if (!linked.has(p)) linked.set(p, []); linked.get(p).push(t); }
+    const notesOf = id => (linked.get(id) || []).slice().sort((a, b) => (b.recent || 0) - (a.recent || 0) || (b.mentions || 0) - (a.mentions || 0) || a.name.localeCompare(b.name)).map(t => ({ id: t.id, name: t.name }));
     return (data.nodes || []).filter(n => n.person).map(n => { const plain = !ambiguous.has(n.name.toLowerCase()) && n.name.length > 2 ? new RegExp(`\\b${esc(n.name)}\\b`) : null, link = `[[${n.name}`;
       const items = list.filter(it => { if (!PEOPLE_KINDS.has(it.kind)) return false; const t = `${it.text || ""} ${it.title || ""}`; return t.includes(link) || (plain && plain.test(t)); });
       const decisions = ((data.hq && data.hq.decisions) || []).filter(d => (d.by || "").includes(n.name)).slice(0, 3);
-      return { id: n.id, name: n.name, items, decisions, mentions: n.mentions || 0, recent: n.recent || 0 }; })
-      .sort((a, b) => b.items.length - a.items.length || b.recent - a.recent || a.name.localeCompare(b.name));
+      return { id: n.id, name: n.name, items, decisions, notes: notesOf(n.id), mentions: n.mentions || 0, recent: n.recent || 0 }; })
+      .sort((a, b) => b.items.length - a.items.length || b.recent - a.recent || b.mentions - a.mentions || b.notes.length - a.notes.length || a.name.localeCompare(b.name));
   }
   // More / Less like this: each reaction moves that kind of item up or down the list, by a small and capped amount, so one
   // kind can't bury everything. Upkeep suggestions can also be hidden outright; your own work can't.

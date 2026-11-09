@@ -119,12 +119,21 @@
     return capture("task", to === TODAY ? null : projects.find(p => p.path === to), given);
   }
   // ---- People: who your open work is about, for the moment before you talk to them
+  const PERSON_NOTES = 4, PEOPLE_QUIET = 24;
   function peopleScreen() {
     const people = VGRules.hqPeople(DATA, LIST), withWork = people.filter(p => p.items.length), others = people.filter(p => !p.items.length);
-    const card = p => `<section class="vg-hq-sec vg-hq-person"><h3>${api.openNote ? `<button class="vg-hq-linkbtn" data-open="${esc(p.id)}">${esc(p.name)}</button>` : esc(p.name)}<span>${p.items.length}</span></h3>${taskRows(p.items)}${p.decisions.length ? `<div class="vg-hq-row">${p.decisions.map(d => `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-open="${esc(d.path)}">Decided: ${esc(d.title)}</button>`).join("")}</div>` : ""}</section>`;
-    return `<h1 class="vg-hq-h1">People</h1><p class="vg-hq-lede">${withWork.length ? `${plural(withWork.length, "person", "people")} in your open work.` : "No open work names anyone yet."}</p>` +
-      (withWork.length ? withWork.map(card).join("") : empty("Link a person in a task and they show up here.", [["Today", 'data-go="today"']])) +
-      (others.length ? `<p class="vg-hq-status">Nothing open with ${others.slice(0, 12).map(p => api.openNote ? `<button class="vg-hq-linkbtn" data-open="${esc(p.id)}">${esc(p.name)}</button>` : esc(p.name)).join(", ")}</p>` : "");
+    const name = p => api.openNote ? `<button class="vg-hq-linkbtn" data-open="${esc(p.id)}">${esc(p.name)}</button>` : esc(p.name);
+    const noteBtn = n => api.openNote ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-open="${esc(n.id)}">${esc(n.name)}</button>` : `<span class="vg-hq-chip">${esc(n.name)}</span>`;
+    // what the notes hold on someone: where they're linked, how often the journals name them, what they decided
+    const about = p => (p.notes.length ? `<p class="vg-hq-status">${p.notes.length > PERSON_NOTES ? `Linked in ${plural(p.notes.length, "note")}, most used first` : "Linked in"}</p><div class="vg-hq-row">${p.notes.slice(0, PERSON_NOTES).map(noteBtn).join("")}</div>` : "") +
+      (p.decisions.length ? `<div class="vg-hq-row">${p.decisions.map(d => `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-open="${esc(d.path)}">Decided: ${esc(d.title)}</button>`).join("")}</div>` : "");
+    const count = p => p.items.length ? `<span>${p.items.length}</span>` : p.mentions ? `<span title="Times your journals name them">${p.mentions}</span>` : "";
+    const card = p => `<section class="vg-hq-sec vg-hq-person"><h3>${name(p)}${count(p)}</h3>${p.items.length ? taskRows(p.items) : `<p class="vg-hq-status">Nothing open.</p>`}${about(p)}</section>`;
+    const quiet = others.slice(0, PEOPLE_QUIET);
+    return `<h1 class="vg-hq-h1">People</h1><p class="vg-hq-lede">${withWork.length ? `${plural(withWork.length, "person", "people")} in your open work.` : people.length ? `No open work names anyone. ${plural(people.length, "person", "people")} in your notes.` : "No open work names anyone yet."}</p>` +
+      (people.length ? withWork.map(card).join("") + quiet.map(card).join("") +
+        (others.length > quiet.length ? `<p class="vg-hq-status">${plural(others.length - quiet.length, "more person", "more people")} with nothing open.</p>` : "")
+        : empty("Link a person in a task and they show up here.", [["Today", 'data-go="today"']]));
   }
   const greeting = () => { const h = now().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; };
 
