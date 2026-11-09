@@ -17,6 +17,11 @@ function mountVaultHQ(root, data, opts) {
   const api = opts.api || {};
   let DATA = data || { nodes: [], links: [] }, STATE = opts.state || {}, cur = SCREENS.some(s => s[0] === opts.screen) || opts.screen === "automations" ? opts.screen : "home";
   let kept = new Set(), rowsPath = null;   // the sweep's Keep (this visit only); the report whose rows are open
+  // What you just acted on is off the list at once. The host's next data can still be the old one (a note's index
+  // lags its file by a moment), so a key stays off for GONE_HOLD after the action, then the data decides again.
+  const GONE_HOLD = 5000, goneAt = new Map(), clock = opts.clock || (() => Date.now());
+  const takeOff = key => { gone.add(key); goneAt.set(key, clock()); };
+  const settleGone = () => { const t = clock(); gone = new Set([...gone].filter(k => t - (goneAt.get(k) || 0) < GONE_HOLD)); [...goneAt.keys()].forEach(k => { if (!gone.has(k)) goneAt.delete(k); }); };
   let gone = new Set(), feedAt = 0, filter = "active", kindFilter = "all", needFilter = "all", systemFilter = "all",
     globalQuery = "", noteHits = [], noteSearchError = "", searchPending = false, searchTimer = null, searchToken = 0,
     compactProjects = false, drawer = null, focusDrawerOnRender = false, carriedAll = false, clockTimer = null;
@@ -135,6 +140,6 @@ function mountVaultHQ(root, data, opts) {
     const ok = kind === "main" ? await VGActions.runToday(it, c) : await VGActions.runMore(kind, it, c);
     if (btn && btn.isConnected) btn.disabled = false;
     // a write that changes the item (Done, Later, Accept...) takes it off at once; the host's update brings the truth
-    if (ok && !(kind === "open" || (kind === "main" && VGActions.todayLabel(it) === "Open"))) { gone.add(key); picked.delete(key); relist(); if (session && session.key === key) sessionNext(); render(); }
+    if (ok && !(kind === "open" || (kind === "main" && VGActions.todayLabel(it) === "Open"))) { takeOff(key); picked.delete(key); relist(); if (session && session.key === key) sessionNext(); render(); }
   }
 

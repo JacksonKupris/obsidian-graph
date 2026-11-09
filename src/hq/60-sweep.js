@@ -35,7 +35,7 @@
     if (how === "move") { const projects = projectsToAdd(); to = await chooseFrom(`Move ${plural(list.length, "task")} to which project?`, "Filter projects", "No project matches.", projects.map(p => ({ value: p.path, label: p.title, sub: VGRules.statusWords(p.status) }))); if (to === null) return; title = (projects.find(p => p.path === to) || {}).title || to; }
     if (btn) btn.disabled = true;
     const ok = await (how === "move" ? VGActions.runMove(list, to, title, ctx()) : VGActions.runBatch(list, how, ctx(), from));
-    if (ok) { list.forEach(it => gone.add(it.key)); relist(); render(); } else if (btn && btn.isConnected) btn.disabled = false;
+    if (ok) { list.forEach(it => takeOff(it.key)); relist(); render(); } else if (btn && btn.isConnected) btn.disabled = false;
   }
 
   // ---- Recent changes: everything the plugin changed that can still be undone, newest first. The message's Undo goes in seconds; this stays.
@@ -65,6 +65,6 @@
     if (!row) return;
     if (btn) btn.disabled = true;
     const r = { ...row, path: rep.path };
-    if (await VGActions.runRow(r, mark, ctx())) { gone.add(rowKey(r)); relist(); render(); } else if (btn && btn.isConnected) btn.disabled = false;
+    if (await VGActions.runRow(r, mark, ctx())) { takeOff(rowKey(r)); relist(); render(); } else if (btn && btn.isConnected) btn.disabled = false;
   }
 
