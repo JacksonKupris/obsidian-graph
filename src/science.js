@@ -440,6 +440,47 @@ const VGScienceMake = () => {
         if (r.hits.length || r.near.length) out.notes.push({ path, hits: r.hits.slice(0, keep).map(h => guideExcerpt(h)), near: r.near.slice(0, keep).map(h => guideExcerpt(h)), hitsCount: r.hits.length, nearCount: r.near.length }); },
       done() { out.notes.sort((a, b) => b.hitsCount - a.hitsCount || b.nearCount - a.nearCount || (a.path < b.path ? -1 : 1)); return out; } };
   }
-  return { GUIDE_WHERE, GUIDE_DEFAULT, guideMismatches, guideLines, guideScan, guideExcerpt, guideSurvey, areaBalance, serviceLevel, daysToLimit, xmr, hill, kCore, chao1, locationQuotient, twoWayPairs, incoherenceWithout, debtRanks, vitals, vitalsSample, vitalsDelta, NET_RHOS, NET_SEEDS, netStudySteps, netStudyNow, netStudy, netStats, graphKey, flow, reachCounts, reliance, trophic, surfaceWind, WIND_INFLOW, directedGraph, largestAbsEigen, reservoir, ridge, r2, memoryCapacity, narma, narmaError, clustering, meanPath, rewired, randomGraph, smallWorld, rng, graphOf, moments, spectralRadius, outbreak, outbreakStats, epidemic, sweep, kaplanMeier, survivalAt, medianOf, conditional, restrictedMean, logRank, erfc, taskLives, components, cutPoints, cutDamage, percolationCurve, randomOrder, attackOrder, robustnessR, robustness, concentration, busFactor, LIF, lifRate, lifNetwork, BRAIN, lobeOf, gyri, cortexAt, CEREBELLUM, STEM, LOBE_SHARE, assignLobes, lobeSpots };
+  // ---- the repair. A cut is one line of a note with the guide's exact sites on it rewritten:
+  // { line, where, sites, before, after }. repair.to is what each site becomes. Empty takes the site out, with one of the
+  // two spaces it leaves and, in frontmatter, the comma of an [a, b] list; after is null when only a list mark is left
+  // (the line goes, so a YAML list stays a list). Look-alikes are never cut.
+  const BARE_ITEM = /^\s*(?:(?:[-*+]|\d+[.)])(?:\s+\[.\])?)?\s*(?:""|'')?\s*$/;
+  function guideCuts(text, guide, repair) {
+    const to = String(repair && repair.to != null ? repair.to : ""), byLine = new Map(), out = [];
+    for (const h of guideScan(text, { ...guide, mismatches: 0 }).hits) { if (!byLine.has(h.line)) byLine.set(h.line, []); byLine.get(h.line).push(h); }
+    for (const [line, hits] of byLine) {
+      const was = hits[0].text; let t = was;
+      for (const h of hits.slice().sort((a, b) => b.col - a.col)) {
+        let a = h.col, b = h.col + h.found.length;
+        if (!to) {
+          if (h.where === "frontmatter") { const next = /^\s*,\s*/.exec(t.slice(b)), prev = /,\s*$/.exec(t.slice(0, a)); if (next) b += next[0].length; else if (prev) a -= prev[0].length; }
+          else if (t[b] === " " && (a === 0 || t[a - 1] === " ")) b++;
+          else if (b === t.length && t[a - 1] === " ") a--;
+        }
+        t = t.slice(0, a) + to + t.slice(b);
+      }
+      if (t !== was) out.push({ line, where: hits[0].where, sites: hits.length, before: was, after: !to && BARE_ITEM.test(t) && !BARE_ITEM.test(was) ? null : t });
+    }
+    return out.sort((a, b) => a.line - b.line);
+  }
+  // Write cuts into a note's text as it reads now: { text, done, left }. A cut whose line no longer reads as it did when
+  // shown is left (its line number is in left). Line ends are kept. What is written is exactly each cut's after.
+  function guideApply(text, cuts) {
+    const s = String(text == null ? "" : text), nl = s.includes("\r\n") ? "\r\n" : "\n", lines = s.split(/\r?\n/), left = [], seen = new Set(); let done = 0;
+    for (const c of (cuts || []).slice().sort((a, b) => b.line - a.line)) {
+      if (seen.has(c.line) || lines[c.line - 1] !== c.before) { left.push(c.line); continue; }
+      seen.add(c.line); if (c.after == null) lines.splice(c.line - 1, 1); else lines[c.line - 1] = c.after; done++;
+    }
+    return { text: done ? lines.join(nl) : s, done, left: left.sort((a, b) => a - b) };
+  }
+  // the report note of one applied run: run is the log's entry, notes are [{ path, cuts, left }] with the cuts written
+  function guideReport(run, notes) {
+    const code = s => (s.includes("`") ? "`` " + s + " ``" : "`" + s + "`"), sc = run.scope || {};
+    const head = [`# Guide Scan ${run.id}`, "", `- Guide: ${code(run.guide.seq)}${run.guide.after ? `, only when followed by ${code(run.guide.after)}` : ""}`, `- Repair: ${run.to ? `replaced with ${code(run.to)}` : "taken out"}`,
+      `- Where: ${sc.folder ? `folder ${sc.folder}` : sc.tag ? `tag #${sc.tag}` : "the whole vault"}`, `- Written: ${run.cuts} ${run.cuts === 1 ? "line" : "lines"} in ${run.notes} ${run.notes === 1 ? "note" : "notes"}${run.left ? `; ${run.left} left because the line had changed` : ""}`, `- Originals: ${run.kept}`, ""];
+    const body = notes.map(n => [`## [[${n.path.replace(/\.md$/, "")}]]`, ...n.cuts.filter(c => !n.left.includes(c.line)).flatMap(c => [`- Line ${c.line}`, `  - Before: ${code(c.before)}`, `  - After: ${c.after == null ? "line removed" : code(c.after)}`]), ...(n.left.length ? [`- Left as it was: line ${n.left.join(", ")}`] : []), ""]);
+    return [...head, ...body.flat()].join("\n");
+  }
+  return { GUIDE_WHERE, GUIDE_DEFAULT, guideMismatches, guideLines, guideScan, guideExcerpt, guideSurvey, guideCuts, guideApply, guideReport,areaBalance, serviceLevel, daysToLimit, xmr, hill, kCore, chao1, locationQuotient, twoWayPairs, incoherenceWithout, debtRanks, vitals, vitalsSample, vitalsDelta, NET_RHOS, NET_SEEDS, netStudySteps, netStudyNow, netStudy, netStats, graphKey, flow, reachCounts, reliance, trophic, surfaceWind, WIND_INFLOW, directedGraph, largestAbsEigen, reservoir, ridge, r2, memoryCapacity, narma, narmaError, clustering, meanPath, rewired, randomGraph, smallWorld, rng, graphOf, moments, spectralRadius, outbreak, outbreakStats, epidemic, sweep, kaplanMeier, survivalAt, medianOf, conditional, restrictedMean, logRank, erfc, taskLives, components, cutPoints, cutDamage, percolationCurve, randomOrder, attackOrder, robustnessR, robustness, concentration, busFactor, LIF, lifRate, lifNetwork, BRAIN, lobeOf, gyri, cortexAt, CEREBELLUM, STEM, LOBE_SHARE, assignLobes, lobeSpots };
 };
 const VGScience = VGScienceMake();
