@@ -13,7 +13,7 @@
 in vec2 c; in vec3 p; in float r; in vec4 col; in float kind; in float dr; uniform vec2 u_size; out vec2 uv; out vec4 v_col; flat out float v_kind; out float v_d; flat out float v_dr; uniform float u_pad; uniform float u_flat;
 void main() { uv = c * u_pad; v_col = col; v_kind = kind; v_d = p.z; v_dr = dr; vec2 px = p.xy + vec2(uv.x, uv.y * (u_flat > 0.0 ? u_flat : 1.0)) * r; gl_Position = vec4(px.x / u_size.x * 2.0 - 1.0, 1.0 - px.y / u_size.y * 2.0, p.z * 2.0 - 1.0, 1.0); }`;
     const LIT_FS = `#version 300 es
-precision highp float; in vec2 uv; in vec4 v_col; flat in float v_kind; in float v_d; flat in float v_dr; uniform vec3 u_light; uniform vec3 u_bg; uniform float u_dark; out vec4 o;
+precision highp float; in vec2 uv; in vec4 v_col; flat in float v_kind; in float v_d; flat in float v_dr; uniform vec3 u_light; uniform vec3 u_bg; uniform float u_dark; uniform float u_matte; out vec4 o;
 float fog(float d) { return smoothstep(0.42, 0.72, d) * 0.72; }
 void main() {
   float d2 = dot(uv, uv), a = v_col.a; vec3 col = v_col.rgb, N;
@@ -22,7 +22,7 @@ void main() {
   else if (v_kind < 2.5) { float q = abs(uv.x) + abs(uv.y) * 0.84; if (q > 1.0) discard; N = normalize(vec3(sign(uv.x) * 0.6, sign(uv.y) * 0.6, -0.8)); }            // a person: a cut stone
   else { float h = max(abs(uv.x) * 0.866 + abs(uv.y) * 0.5, abs(uv.y)); if (h > 0.96) discard; float rim = smoothstep(0.74, 0.8, h); N = normalize(vec3(uv * 0.5, -1.0)); a *= mix(0.42, 1.0, rim); col = mix(col * 0.75, col, rim); }   // a map: a hexagonal plate
   vec3 L = normalize(u_light), R = reflect(L, N); float diff = max(dot(N, L), 0.0), hemi = 0.5 - 0.5 * N.y, spec = pow(max(R.z, 0.0), 28.0), rimL = pow(1.0 - abs(N.z), 3.0);
-  vec3 lit = col * (0.34 + 0.2 * hemi + 0.62 * diff) + vec3(1.0) * spec * 0.42 + col * rimL * (u_dark > 0.5 ? 0.55 : 0.12);
+  vec3 lit = col * (0.34 + 0.2 * hemi + 0.62 * diff) + vec3(1.0) * spec * 0.42 * (1.0 - 0.85 * u_matte) + col * rimL * (u_dark > 0.5 ? 0.55 : 0.12) * (1.0 - 0.8 * u_matte);   // matte: a printed model, not a glass bead
   lit = mix(lit, u_bg, fog(v_d)); o = vec4(lit * a, a); gl_FragDepth = clamp(v_d + N.z * v_dr, 0.0, 1.0);
 }`;
     const GLOW_FS = `#version 300 es
@@ -64,7 +64,7 @@ void main() { vec3 N = normalize(v_n); N = normalize(vec3(N.xy, -abs(N.z))); /* 
     }
     function build() {
       const sprite = ["c", "p", "r", "col", "kind", "dr"], base = ["u_size", "u_pad", "u_flat"];
-      P.lit = compile(QUAD_VS, LIT_FS, [...base, "u_light", "u_bg", "u_dark"], sprite); P.glow = compile(QUAD_VS, GLOW_FS, [...base, "u_add"], sprite);
+      P.lit = compile(QUAD_VS, LIT_FS, [...base, "u_light", "u_bg", "u_dark", "u_matte"], sprite); P.glow = compile(QUAD_VS, GLOW_FS, [...base, "u_add"], sprite);
       P.line = compile(LINE_VS, LINE_FS, ["u_size", "u_bg", "u_add"], ["c", "a", "b", "col", "w", "dash"]);
       P.mesh = compile(MESH_VS, MESH_FS, ["u_size", "u_rot", "u_c", "u_cam", "u_focal", "u_range", "u_home", "u_tint", "u_light", "u_act", "u_pass"], ["pos", "nor", "fold", "lobe"]);
       P.terrain = compile(MESH_VS, TERRAIN_FS, ["u_size", "u_rot", "u_c", "u_cam", "u_focal", "u_range", "u_home", "u_light"], ["pos", "nor", "fold", "lobe"]);
@@ -77,7 +77,7 @@ void main() { vec3 N = normalize(v_n); N = normalize(vec3(N.xy, -abs(N.z))); /* 
     const SPRITE = [["p", 3], ["r", 1], ["col", 4], ["kind", 1], ["dr", 1]], STRIDE = 40;
     function sprites(prog, data, n, o = {}) {
       if (!n) return; const pr = prog === "lit" ? P.lit : P.glow; gl.useProgram(pr.p); gl.uniform2f(pr.u.u_size, el.width / sizeScale, el.height / sizeScale); gl.uniform1f(pr.u.u_pad, 1); gl.uniform1f(pr.u.u_flat, o.flat || 0);
-      if (prog === "lit") { gl.uniform3fv(pr.u.u_light, o.light); gl.uniform3fv(pr.u.u_bg, bg); gl.uniform1f(pr.u.u_dark, o.dark ? 1 : 0); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(true); }
+      if (prog === "lit") { gl.uniform3fv(pr.u.u_light, o.light); gl.uniform3fv(pr.u.u_bg, bg); gl.uniform1f(pr.u.u_dark, o.dark ? 1 : 0); gl.uniform1f(pr.u.u_matte, o.matte || 0); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(true); }
       else { gl.uniform1f(pr.u.u_add, o.add ? 1 : 0); gl.blendFunc(gl.ONE, o.add ? gl.ONE : gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false); }
       gl.bindBuffer(gl.ARRAY_BUFFER, quad); const c = pr.a.c; gl.enableVertexAttribArray(c); gl.vertexAttribPointer(c, 2, gl.FLOAT, false, 0, 0); gl.vertexAttribDivisor(c, 0);
       gl.bindBuffer(gl.ARRAY_BUFFER, inst); gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, n * 10), gl.DYNAMIC_DRAW); bindInst(pr.a, SPRITE, STRIDE);
@@ -132,7 +132,7 @@ void main() { vec3 N = normalize(v_n); N = normalize(vec3(N.xy, -abs(N.z))); /* 
     return { ok, begin, sprites, lines, brain, field, show(on) { if (el) el.hidden = !on; }, info: () => ({ ok: !!gl && !dead, ...drew, renderer: gl ? gl.getParameter(gl.VERSION) : null }), pixel(x, y) { const d = new Uint8Array(4); gl.readPixels(Math.round(x * sizeScale), el.height - 1 - Math.round(y * sizeScale), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, d); return [...d]; }, flushRead() { gl.finish(); }, destroy() { if (gl) { const x = gl.getExtension("WEBGL_lose_context"); if (x) x.loseContext(); } if (el) el.remove(); el = null; gl = null; } };
   })();
   // used where it pays: the 3D graph and the 3D brain, in a pane big enough to look at
-  const glWanted = () => !opts.compact && !opts.embed && st.three && (st.view === "3d" || neural() || st.view === "weather");
+  const glWanted = () => !opts.compact && !opts.embed && st.three && (st.view === "3d" || neural() || st.view === "weather" || !!(SCENES[st.view] && SCENES[st.view].gl));   // gl: true on a scene in space draws its solids here
   const glOn = () => glWanted() && GL.ok();
 
   // what the frame sends: grown as needed, and reused so a frame makes no garbage

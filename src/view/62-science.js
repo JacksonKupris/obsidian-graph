@@ -346,7 +346,7 @@
     return `${form}${applied}<p class="vg-muted vg-lens-note">“${esc(R.guide.seq)}”${inScope}: ${R.hits} exact in ${plural(hits.length, "note")} of ${R.scanned}${R.near ? `, ${plural(R.near, "look-alike")}` : ""}.${left ? ` Left out: ${left}.` : ""}${cap}</p>
       ${sciRead("An exact match is the guide letter for letter, in the places ticked, with the text you asked for right after it. A look-alike differs by a letter or more: it is listed apart, is never counted as a match and is never cut, the way gene editing scores off-target sites. Code is skipped unless ticked.")}
       ${guidePreviewHtml()}
-      ${lensSec("Exact matches", hits.slice(0, 200), { count: hits.length, word: "notes", first: 12, empty: "None.", lead: hits.length ? `<div class="vg-ins-actions">${show("hits", "Show on the graph")}${repair}</div>` : "" })}
+      ${lensSec("Exact matches", hits.slice(0, 200), { count: hits.length, word: "notes", first: 12, empty: "None.", lead: hits.length ? `<div class="vg-ins-actions">${show("hits", "Show on the graph")}<button class="vg-btn vg-btn-sm" data-toview="cas9">${icon("cas9", 12)} Show on the Cas9 model</button>${repair}</div>` : "" })}
       ${R.near ? lensSec("Look-alikes", near.slice(0, 200), { count: near.length, word: "notes", first: 8, lead: `<div class="vg-ins-actions">${show("near", "Show on the graph")}</div>` }) : ""}
       ${guideLogHtml()}`;
   }
@@ -355,7 +355,7 @@
     if (G.error || G.busy) { redraw(); return; }
     G.busy = true; redraw();
     const guide = { seq: G.seq, after: G.after, mismatches: G.mismatches, word: G.word, where: [...G.where] }, scope = guideScopeOf(G);
-    try { G.result = { ...await opts.guideScan(guide, scope), guide, scope }; } catch (e) { console.error("Vault Graph: the guide scan failed", e); G.error = `The scan stopped: ${e.message}`; }
+    try { G.result = { ...await opts.guideScan(guide, scope), guide, scope }; dirty = true; kick(); /* the Cas9 scene draws this result */ } catch (e) { console.error("Vault Graph: the guide scan failed", e); G.error = `The scan stopped: ${e.message}`; }
     G.busy = false; if (lensKey === "guide") redraw();
   }
   function wireGuide(body, redraw) {

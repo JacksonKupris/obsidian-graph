@@ -167,11 +167,10 @@
   }
   // The notes a guide reads. scope { folder } or { tag } narrows them: a note in the folder, or carrying the tag or one under it.
   guideFiles(scope) {
-    const skip = [VGRules.folders.reports + "/", VGRules.folders.archive + "/", ...EXCLUDE_PREFIXES], S = scope || {};
-    const folder = String(S.folder || "").trim().replace(/^\/+|\/+$/g, ""), tag = String(S.tag || "").trim().replace(/^#/, "").toLowerCase();
-    const tagged = f => { const c = this.app.metadataCache.getFileCache(f) || {}, fm = this.fmOf(f) || {};
-      return [].concat(fm.tags || []).flatMap(t => String(t).split(/[,\s]+/)).concat((c.tags || []).map(t => t.tag)).map(t => String(t).replace(/^#/, "").toLowerCase()).some(t => t === tag || t.startsWith(tag + "/")); };
-    return this.app.vault.getMarkdownFiles().filter(f => !skip.some(x => f.path.startsWith(x)) && (!folder || f.path.startsWith(folder + "/")) && (!tag || tagged(f)));
+    const skip = [VGRules.folders.reports + "/", VGRules.folders.archive + "/", ...EXCLUDE_PREFIXES], needTags = !!VGShared.scopeOf(scope).tag;
+    const tagsOf = f => { const c = this.app.metadataCache.getFileCache(f) || {}, fm = this.fmOf(f) || {};
+      return [].concat(fm.tags || []).flatMap(t => String(t).split(/[,\s]+/)).concat((c.tags || []).map(t => t.tag)); };
+    return this.app.vault.getMarkdownFiles().filter(f => !skip.some(x => f.path.startsWith(x)) && VGShared.scopeHas(scope, f.path, needTags ? tagsOf(f) : []));
   }
   // A repair may be written only inside a folder or a tag, so a wrong guide stays small. The rules file's
   // guide_whole_vault: true lifts that.

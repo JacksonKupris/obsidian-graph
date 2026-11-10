@@ -45,6 +45,10 @@ const VGSharedMake = () => {
       catch (e) { console.warn(`Vault Graph: ${label} running on the main thread:`, e.message); } }
     stats.via = "here"; return here();
   }
-  return { escapeHtml, escapeRegex, baseOf, nameOf, plural, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, shortDate, canUseWorker, inWorker, offThread };
+  // Is a note inside a scope { folder } or { tag }: in the folder, or carrying the tag or one under it. No scope: every note.
+  const scopeOf = s => ({ folder: String((s && s.folder) || "").trim().replace(/^\/+|\/+$/g, ""), tag: String((s && s.tag) || "").trim().replace(/^#/, "").toLowerCase() });
+  const scopeHas = (scope, path, tags) => { const { folder, tag } = scopeOf(scope);
+    return (!folder || path.startsWith(folder + "/")) && (!tag || (tags || []).map(t => String(t).replace(/^#/, "").toLowerCase()).some(t => t === tag || t.startsWith(tag + "/"))); };
+  return { scopeOf, scopeHas, escapeHtml, escapeRegex, baseOf, nameOf, plural, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, shortDate, canUseWorker, inWorker, offThread };
 };
 const VGShared = VGSharedMake();

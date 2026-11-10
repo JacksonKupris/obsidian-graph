@@ -607,6 +607,30 @@ const VGScienceMake = () => {
     const body = notes.map(n => [`## [[${n.path.replace(/\.md$/, "")}]]`, ...n.cuts.filter(c => !n.left.includes(c.line)).flatMap(c => [`- Line ${c.line}`, `  - Before: ${code(c.before)}`, `  - After: ${c.after == null ? "line removed" : code(c.after)}`]), ...(n.left.length ? [`- Left as it was: line ${n.left.join(", ")}`] : []), ""]);
     return [...head, ...body.flat()].join("\n");
   }
-  return { contactMap, balance, expectedBySeparation, contactDistances, symEigen, topEigen, classicalMDS, stress, stressGrade, insulation, contactLoops, genomeFold, GUIDE_WHERE, GUIDE_DEFAULT, guideMismatches, guideLines, guideScan, guideExcerpt, guideSurvey, guideCuts, guideApply, guideReport,areaBalance, serviceLevel, daysToLimit, xmr, hill, kCore, chao1, locationQuotient, twoWayPairs, incoherenceWithout, debtRanks, vitals, vitalsSample, vitalsDelta, NET_RHOS, NET_SEEDS, netStudySteps, netStudyNow, netStudy, netStats, graphKey, flow, reachCounts, reliance, trophic, surfaceWind, WIND_INFLOW, directedGraph, largestAbsEigen, reservoir, ridge, r2, memoryCapacity, narma, narmaError, clustering, meanPath, rewired, randomGraph, smallWorld, rng, graphOf, moments, spectralRadius, outbreak, outbreakStats, epidemic, sweep, kaplanMeier, survivalAt, medianOf, conditional, restrictedMean, logRank, erfc, taskLives, components, cutPoints, cutDamage, percolationCurve, randomOrder, attackOrder, robustnessR, robustness, concentration, busFactor, LIF, lifRate, lifNetwork, BRAIN, lobeOf, gyri, cortexAt, CEREBELLUM, STEM, LOBE_SHARE, assignLobes, lobeSpots };
+  // ---- A double helix laid along a path (the Cas9 view's DNA). frame { o, x, y, z, phase }: where the first pair sits, its
+  // axes (z along the helix) and how far round it starts. step { turn, rise }: one pair to the next. Pair j sits at o[j],
+  // turned turn * j about the path. No coil: a straight helix. With coil { lead, radius, pitch, axis } the path runs straight
+  // for lead, then winds into a spring of that radius and pitch whose length runs along axis (as near as a direction square
+  // to the path can be): the way a long strand is packed into a fibre. ease is the length over which the bend comes on.
+  // Returns Float64Array rows of 12: o, ex, ey, ez. The frame is carried along the path without twisting, so the only
+  // turn about the path is the helix's own.
+  function helixArm(frame, count, step, coil) {
+    const out = new Float64Array(count * 12), dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], unit = a => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+    const turned = (a, b, t) => { const c = Math.cos(t), s = Math.sin(t); return [a.map((v, i) => c * v + s * b[i]), b.map((v, i) => c * v - s * a[i])]; };   // a toward b by t, and b with it
+    let o = frame.o.slice(), T = unit(frame.z), U = unit(frame.x), V = cross(T, U), len = 0, N = null, B = null, k = 0, tau = 0;
+    if (coil) { const w = coil.pitch / (2 * Math.PI * coil.radius); k = 1 / (coil.radius * (1 + w * w)); tau = k * w; const ax = coil.axis, d = dot(ax, T); B = unit([ax[0] - d * T[0], ax[1] - d * T[1], ax[2] - d * T[2]]); N = cross(B, T); }
+    for (let j = 0; j < count; j++) {
+      const a = frame.phase + j * step.turn, c = Math.cos(a), s = Math.sin(a), at = j * 12;
+      for (let i = 0; i < 3; i++) { out[at + i] = o[i]; out[at + 3 + i] = c * U[i] + s * V[i]; out[at + 6 + i] = c * V[i] - s * U[i]; out[at + 9 + i] = T[i]; }
+      if (coil && len >= coil.lead) {
+        const on = Math.min(1, (len - coil.lead) / (coil.ease || 1) + 1e-9), e = on * on * (3 - 2 * on);
+        [T, N] = turned(T, N, k * e * step.rise); [N, B] = turned(N, B, tau * e * step.rise); T = unit(T);
+        const d = dot(U, T); U = unit([U[0] - d * T[0], U[1] - d * T[1], U[2] - d * T[2]]); V = cross(T, U);
+      }
+      for (let i = 0; i < 3; i++) o[i] += T[i] * step.rise; len += step.rise;
+    }
+    return out;
+  }
+  return { helixArm, contactMap, balance, expectedBySeparation, contactDistances, symEigen, topEigen, classicalMDS, stress, stressGrade, insulation, contactLoops, genomeFold, GUIDE_WHERE, GUIDE_DEFAULT, guideMismatches, guideLines, guideScan, guideExcerpt, guideSurvey, guideCuts, guideApply, guideReport,areaBalance, serviceLevel, daysToLimit, xmr, hill, kCore, chao1, locationQuotient, twoWayPairs, incoherenceWithout, debtRanks, vitals, vitalsSample, vitalsDelta, NET_RHOS, NET_SEEDS, netStudySteps, netStudyNow, netStudy, netStats, graphKey, flow, reachCounts, reliance, trophic, surfaceWind, WIND_INFLOW, directedGraph, largestAbsEigen, reservoir, ridge, r2, memoryCapacity, narma, narmaError, clustering, meanPath, rewired, randomGraph, smallWorld, rng, graphOf, moments, spectralRadius, outbreak, outbreakStats, epidemic, sweep, kaplanMeier, survivalAt, medianOf, conditional, restrictedMean, logRank, erfc, taskLives, components, cutPoints, cutDamage, percolationCurve, randomOrder, attackOrder, robustnessR, robustness, concentration, busFactor, LIF, lifRate, lifNetwork, BRAIN, lobeOf, gyri, cortexAt, CEREBELLUM, STEM, LOBE_SHARE, assignLobes, lobeSpots };
 };
 const VGScience = VGScienceMake();

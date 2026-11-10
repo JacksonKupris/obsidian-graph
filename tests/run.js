@@ -29,7 +29,7 @@ const steps = [["main.js", ["--check", path.join(dir, "main.js")]], ["rules.js",
   ["test_hq_navigation.js", [path.join(__dirname, "test_hq_navigation.js"), ...env.args]],
   ["test_hq_improvements.js", [path.join(__dirname, "test_hq_improvements.js"), ...env.args]],
   ["test_hq_usability.js", [path.join(__dirname, "test_hq_usability.js"), ...env.args]],
-  ["test_other_vault.js", [path.join(__dirname, "test_other_vault.js")]], ["test_lens_load.js", [path.join(__dirname, "test_lens_load.js"), ...env.args]], ["test_guide_scan.js", [path.join(__dirname, "test_guide_scan.js"), ...env.args]], ["test_sweep_vitals.js", [path.join(__dirname, "test_sweep_vitals.js"), ...env.args]],
+  ["test_other_vault.js", [path.join(__dirname, "test_other_vault.js")]], ["test_lens_load.js", [path.join(__dirname, "test_lens_load.js"), ...env.args]], ["test_guide_scan.js", [path.join(__dirname, "test_guide_scan.js"), ...env.args]], ["test_cas9.js", [path.join(__dirname, "test_cas9.js"), ...env.args]], ["test_sweep_vitals.js", [path.join(__dirname, "test_sweep_vitals.js"), ...env.args]],
   ["test_select.js", [path.join(__dirname, "test_select.js")]],
   ["smoke_page.js", [path.join(__dirname, "smoke_page.js"), ...env.args]]];
 const stop = msg => { console.error("FAIL  " + msg); process.exit(1); };

@@ -264,4 +264,27 @@ const again = S.outbreakStats(K5, 1, 0.4, 100, 5), twice = S.outbreakStats(K5, 1
   assert.deepStrictEqual(S.genomeFold([["a"], ["a"]]).X, [[0, 0, 0], [1, 0, 0]], "too few days to fold: laid in a line");
   assert.deepStrictEqual([0.02, 0.05, 0.1, 0.29].map(S.stressGrade), ["excellent", "good", "fair", "poor"], "Kruskal's grades for a fit");
 }
-console.log("ok - science: Kaplan-Meier and log-rank on the 6-MP trial, SIR and its threshold, cut points, percolation, the neuron's closed form, anatomy, guide search, the genome fold");
+// ---- a double helix along a path (the Cas9 view's DNA arms)
+{
+  const frame = { o: [5, -2, 1], x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1], phase: 0.5 }, step = { turn: Math.PI / 5, rise: 3.4 }, row = (X, j) => Array.from(X.slice(j * 12, j * 12 + 12));
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const orthonormal = (r, what) => { const [ex, ey, ez] = [r.slice(3, 6), r.slice(6, 9), r.slice(9, 12)]; for (const v of [ex, ey, ez]) near(Math.hypot(...v), 1, 1e-9, what + ": a unit axis"); near(dot(ex, ey), 0, 1e-9, what); near(dot(ex, ez), 0, 1e-9, what); near(dot(ey, ez), 0, 1e-9, what); };
+  // straight: ten pairs to a turn, each a rise further along z
+  const X = S.helixArm(frame, 21, step); assert.strictEqual(X.length, 21 * 12);
+  assert.deepStrictEqual(row(X, 0).slice(0, 3), [5, -2, 1], "the first pair sits on the frame");
+  near(row(X, 0)[3], Math.cos(0.5), 1e-12, "the first pair starts at the frame's phase"); near(row(X, 0)[4], Math.sin(0.5), 1e-12, "phase turns x toward y");
+  for (let j = 0; j < 21; j++) { const r = row(X, j); near(r[2], 1 + 3.4 * j, 1e-9, "a rise a pair along the axis"); near(r[0], 5, 1e-12, "straight"); orthonormal(r, "pair " + j); }
+  near(dot(row(X, 0).slice(3, 6), row(X, 1).slice(3, 6)), Math.cos(Math.PI / 5), 1e-12, "a pair is one turn step round from the last");
+  near(dot(row(X, 0).slice(3, 6), row(X, 10).slice(3, 6)), 1, 1e-9, "ten pairs: once round");
+  assert.strictEqual(S.helixArm(frame, 0, step).length, 0, "no pairs, no rows");
+  // coiled: straight for the lead, then a spring of the radius and pitch asked for, its length along the axis asked for
+  const coil = { lead: 20, ease: 10, radius: 50, pitch: 30, axis: [0, 1, 0] }, N = 1500, C = S.helixArm(frame, N, step, coil), at = j => row(C, j).slice(0, 3);
+  for (let j = 0; j < 5; j++) near(at(j)[2], 1 + 3.4 * j, 1e-9, "the lead is straight");
+  for (let j = 1; j < N; j += 97) { near(dist(at(j), at(j - 1)), 3.4, 1e-9, "every pair a rise from the last, bent or not"); orthonormal(row(C, j), "coiled pair " + j); }
+  const turnLen = 2 * Math.PI * Math.hypot(50, 30 / (2 * Math.PI)), perTurn = turnLen / 3.4, a = 400, b = Math.round(a + perTurn * 3), climb = [0, 1, 2].map(k => at(b)[k] - at(a)[k]);
+  near(Math.hypot(...climb), 90, 2.5, "three times round the spring climbs three pitches");
+  assert(Math.abs(climb[1]) > 80, `the spring runs along the axis asked for: ${climb.map(v => v.toFixed(1))}`);
+  const mid = [0, 1, 2].map(k => { let s = 0, m = 0; for (let j = a; j < a + perTurn; j++, m++) s += at(j)[k]; return s / m; });
+  near(Math.hypot(at(a)[0] - mid[0], at(a)[2] - mid[2]), 50, 2, "the spring's radius");
+}
+console.log("ok - science: a helix along a path, Kaplan-Meier and log-rank on the 6-MP trial, SIR and its threshold, cut points, percolation, the neuron's closed form, anatomy, guide search, the genome fold");

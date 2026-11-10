@@ -171,6 +171,13 @@
   // frame; a click on empty canvas inside one runs fn
   let spots = [];
   const spot = (x, y, w, h, fn, title) => spots.push([x, y, w, h, fn, title]);
+  // a button a scene draws on the canvas, centred on (x, y): what an empty scene offers next, or a step control. Returns its width.
+  function sceneButton(label, x, y, fn, title, o = {}) {
+    const f = `600 13px ${css("--vg-font") || "system-ui, sans-serif"}`; ctx.font = f; const w = ctx.measureText(label).width + 28, h = 30;
+    ctx.globalAlpha = o.off ? 0.4 : 1; ctx.fillStyle = "#1e293b"; ctx.strokeStyle = "#475569"; ctx.lineWidth = 1; ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, 6); ctx.fill(); ctx.stroke();
+    haloText(label, x, y, "#e5e7eb", "#1e293b", f, "center", 1); ctx.globalAlpha = 1;
+    labelRects.push([x - w / 2, y - h / 2, w, h]); if (!o.off) spot(x - w / 2, y - h / 2, w, h, fn, title || label); return w;
+  }
   let pressing = false;   // a scene's press() has the pointer
   // ---- isometric kit: 3D for any scene. A scene keeps its flat world layout (x, y as its layout placed the notes)
   // and draws through this instead of scr(): the plane is turned 45° and tilted around the pane's centre, z is height
@@ -199,7 +206,7 @@
   const SPACE_HOME = { yaw: 0.6, pitch: -0.35 };
   const isSpace = (v = st.view) => !!(SCENES[v] && SCENES[v].space);
   const spaceOn = (v = st.view) => isSpace(v) && st.angles[v] !== "flat";
-  function enterSpace(v = st.view) { st.three = spaceOn(v); cam.spin = null; cv.style.cursor = st.three ? "grab" : "default"; return st.three ? SPACE_HOME : { yaw: 0, pitch: 0 }; }
+  function enterSpace(v = st.view) { st.three = spaceOn(v); cam.spin = null; cv.style.cursor = st.three ? "grab" : "default"; return st.three ? (SCENES[v] && SCENES[v].home) || SPACE_HOME : { yaw: 0, pitch: 0 }; }   // home: the angle a scene asks to open at
   const laySpace = () => { animateTo({ ...enterSpace(), d: 0 }, 600); afterMorph(() => fit(mapFitPred(), 600), 650); };
   const leansBack = () => !isGame() && !isSpace() && !(SCENES[st.view] && SCENES[st.view].own3d) && !isoAngle() && !neural() && !weather3D() && st.view !== "2d" && st.view !== "3d" && st.angles[st.view] === "tilt3d";
   function dimOf() {
