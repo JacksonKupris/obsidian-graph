@@ -496,8 +496,8 @@
 .vg-guide-note { padding-bottom: 6px; }
 .vg-guide-note .vg-sugg > input[type="checkbox"] { flex: none; margin: 0 8px 0 0; }
 .vg-guide-cut { display: grid; gap: 2px; margin: 2px 0 6px 26px; font-size: var(--vg-fs-sm); overflow-wrap: anywhere; }
-.vg-guide-cut del { color: var(--text-error, #c0392b); text-decoration: line-through; }
-.vg-guide-cut ins { color: var(--text-success, #2e8b57); text-decoration: none; }
+.vg-guide-cut del { color: var(--vg-warn); text-decoration: line-through; }
+.vg-guide-cut ins { color: var(--vg-ok); text-decoration: none; }
 .has-lens .vg-legend, .has-lens .vg-focusbar, .has-lens .vg-pathbar { display: none; }
 .is-neural .vg-lens { background: rgba(4, 14, 32, .9); color: var(--vg-hud-text); border-color: color-mix(in srgb, var(--vg-hud) 30%, transparent); }
 /* matrix */
