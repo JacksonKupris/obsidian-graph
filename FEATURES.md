@@ -22,6 +22,7 @@ What Vault Graph already does, and where. "Lens" and "scene" below are code word
 | The tasks as a queue, what's unusually old, and where the pile is | Flow lens (Little's law, aging WIP, location quotient) | `src/view/62-science.js` |
 | Is this week really different | Control chart lens (Shewhart XmR) | `src/view/62-science.js` |
 | Focused or spread | Attention lens (Hill numbers) | `src/view/62-science.js` |
+| One tag, word or line everywhere it occurs, look-alikes apart (read-only) | Guide scan lens: `VGScience.guideScan`, presets in the rules file's `guides`; `tag_lint.py` owns the retired-tag list in the vault | `src/science.js`, `src/plugin/45-tasks-and-maps.js`, `src/view/62-science.js` |
 | Notes out of step with what you run | Version drift lens (the rules file's `drift`); `ref_lint.py` owns URL rules in the vault | `src/plugin/`, `src/view/62-science.js` |
 | How long tasks last | Task survival lens | `src/view/62-science.js` |
 | Old notes: which first, what to do with each | Stale notes lens (`VGScience.debtRanks`); Vitals and Weekly review read the same list | `src/view/60-lenses.js`, `src/view/62-science.js` |

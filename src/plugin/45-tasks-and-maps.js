@@ -158,6 +158,13 @@
       const lines = (await this.app.vault.cachedRead(f)).split(/\r?\n/); for (const r of res) { let hit = null; for (const l of lines) { r.re.lastIndex = 0; for (const m of l.matchAll(r.re)) if (m[1] && !String(m[1]).startsWith(r.current)) { hit = { found: m[1], text: l.trim() }; break; } if (hit) break; } if (hit) out.push({ path: f.path, name: r.name, current: r.current, ...hit }); } }
     return out;
   }
+  // A guide's sites in every note (VGScience.guideSurvey; the lens is Guide scan, its presets the rules file's guides). Reports,
+  // the archive and the tooling folders aren't read. Nothing is written.
+  async guideScan(guide) {
+    const skip = [VGRules.folders.reports + "/", VGRules.folders.archive + "/", ...EXCLUDE_PREFIXES], survey = VGScience.guideSurvey(guide);
+    for (const f of this.app.vault.getMarkdownFiles()) { if (skip.some(x => f.path.startsWith(x))) continue; survey.add(f.path, await this.app.vault.cachedRead(f)); }
+    return survey.done();
+  }
   // Give notes a way up: parent: "[[Hub]]" in the frontmatter, as one action. A note that already has a parent keeps it. Rows: { path, hub }.
   async setParents(rows) {
     this.vitalsMemo = null; let n = 0;

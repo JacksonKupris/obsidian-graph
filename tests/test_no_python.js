@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The scoreboard for leaving Python: every view in a vault with no analysis file, on the real plugin path (graphData:
 // engineData, then liveMerge), against the same view with the analysis's data. What reads Obsidian directly (task
-// history, written links, version drift) comes from the real plugin methods on both sides.
+// history, written links, version drift, the guide scan) comes from the real plugin methods on both sides.
 //
 // EXPECT is a ratchet: it fails if a view gets worse, and also if one gets better without the list being updated, so
 // the list is always the honest state. When a stage moves data into the engine, shorten it.
@@ -41,7 +41,7 @@ async function readLenses(data, hooks) {
   if (!engine || !engine.engine) { console.log("FAIL - no-Python: the plugin didn't build its own graph"); process.exit(1); }
   const hq = env.hqData(), history = await p.taskHistory(), written = p.writtenLinks(), drift = await p.driftScan();
   if (!history.length || !Object.keys(written).length) fails.push(`the sample has no journals (${history.length}) or written links, so views reading them compare nothing`);
-  const hooks = `taskHistory: async () => ${env.inlineJson(history)}, writtenLinks: () => (${env.inlineJson(written)}), driftScan: async () => ${env.inlineJson(drift)},`;
+  const hooks = `taskHistory: async () => ${env.inlineJson(history)}, writtenLinks: () => (${env.inlineJson(written)}), driftScan: async () => ${env.inlineJson(drift)}, guideScan: async () => (${env.inlineJson(await p.guideScan({ seq: "" }))}),`;
   const q = Object.assign(Object.create(Plugin.prototype), { app, base: env.data(), settings: p.settings }); q.saveSettings = p.saveSettings; q.writeLiveDiag = p.writeLiveDiag; q.sceneBlocks = p.sceneBlocks;
   const full = await readLenses({ ...await q.graphData(), hq }, hooks);
   const own = await readLenses({ ...engine, hq }, hooks);
