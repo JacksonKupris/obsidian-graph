@@ -30,7 +30,7 @@ check("custom days", VGRules.isStale({ ...old, age: 40 }, 30), true);
   check("unmentioned: the unmentioned notes, most-linked first", out, ["Many", "Few"]);
   check("unmentioned: none left", VGRules.unmentioned([n("a/Said.md", { mentions: 1 })]).length, 0);
   const lenses = srcOf("view.js");
-  check("the Missing from dailies lens is listed and uses the shared rule", /missing: \{ name: "Missing from dailies"/.test(lenses) && lenses.includes("VGRules.unmentioned(nodes)"), true);
+  check("the Missing from dailies lens is listed and uses the shared rule", /missing: \{ menu: "notes", name: "Missing from dailies"/.test(lenses) && lenses.includes("VGRules.unmentioned(nodes)"), true);
   check("FEATURES.md lists the lens", /Missing from dailies/.test(fs.readFileSync(path.join(env.ROOT, "FEATURES.md"), "utf8")), true); }
 // a map candidate: a tagged map in a topic folder, never in the archive (the rules file's folder, at any depth)
 const moc = { tags: ["meta/moc"] }, A = R.folders.archive;
@@ -417,6 +417,23 @@ for (const f of ["view.js", "plugin.js", "hq"]) {
       if (/Math\.random\(\) [<>] [^;]*\bdt\b/.test(code) && !/const chance/.test(code)) fails.push(`${f}:${i + 1} times its own random event (use chance)`);
       if (/selected[^;]*(strokeStyle|fillStyle) = "#[0-9a-f]{6}"/.test(code)) fails.push(`${f}:${i + 1} colours the selection itself (use UI.colour.selected)`);
     }));
+    // every view is defined once, in VIEWS (view(), scene(), the LENSES list): no second table of view names, icons, hints or groups
+    {
+      const src = [...build.viewParts(), ...scenes.map(([f, t]) => ["scenes/" + f, t])], whole = src.map(([, t]) => t).join("\n");
+      const defs = [...whole.matchAll(/\b(?:view|scene)\("([\w-]+)", \{/g)].map(m => m[1]);
+      const lensBlock = whole.slice(whole.indexOf("const LENSES = {"), whole.indexOf("Object.keys(LENSES).forEach"));
+      const lensKeys = [...lensBlock.matchAll(/(\w+): \{ menu: "\w+", name: /g)].map(m => m[1]);
+      check("the view list is there to check", [defs.length >= 14, lensKeys.length >= 25, ["2d", "subway", "radar", "dungeon"].every(k => defs.includes(k))], [true, true, true]);
+      defs.filter((k, i) => defs.indexOf(k) !== i).forEach(k => fails.push(`view "${k}" is defined twice`));
+      const hints = [...whole.matchAll(/\bhint: "([^"]{12,})"/g)].map(m => m[1]);
+      [...new Set(hints)].forEach(h => { const n = whole.split(`"${h}"`).length - 1; if (n !== 1) fails.push(`the hint "${h.slice(0, 40)}…" is written ${n} times (a view's text lives in its definition)`); });
+      const keyRe = new RegExp(`["'](?:${defs.join("|")}|lens:\\w+)["']`, "g");
+      src.forEach(([f, t]) => t.split(/\r?\n/).forEach((l, i) => { const code = l.replace(/\/\/.*$/, "");
+        if (/\b(GRAPH_INFO|MAP_INFO|VIEW_GROUPS|ANIM_MAPS|MAPS)\b\s*(=[^=]|\[)/.test(code)) fails.push(`${f}:${i + 1} keeps its own table of views (define them in VIEWS)`);
+        if (/\b(?:view|scene)\("/.test(code)) return;   // a definition names its own key
+        const named = new Set(code.match(keyRe) || []);
+        if (named.size >= 3) fails.push(`${f}:${i + 1} lists views by name (${[...named].join(", ")}): read VIEWS, or put it on each view's definition`); }));
+    }
     // scene blocks: every word a block may use has its part in the renderer (a word without one would draw nothing),
     // and sceneSpec reports unknown words instead of guessing
     const P_ = VGRules.SCENE_PARTS, sprites = view.slice(view.indexOf("const SPRITES = {"), view.indexOf("const drawSprite = ")), motions = view.slice(view.indexOf("const MOTION = {"), view.indexOf("const gridDims"));

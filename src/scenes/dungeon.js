@@ -660,7 +660,7 @@
   // ---------------------------------------------------------------- the scene
   scene("dungeon", {
     name: "Dungeon", icon: "dungeon", fps: 60, game: true,
-    blurb: "A first-person shooter: every note is an enemy, every topic a level",
+    menu: "play", hint: "A first-person shooter: every note is an enemy, every topic a level",
     toast: "Dungeon — every note is an enemy, every topic a level",
     layout() {   // the notes need places for the rest of the graph (fit, search); the game itself plays on its own levels
       G.levels = null; const pos = new Map(), span = 800; nodes.forEach(n => { const [u, v] = scatter("dg:" + n.id); pos.set(n.id, [u * span, v * span]); });
