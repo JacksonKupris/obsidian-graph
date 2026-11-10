@@ -44,7 +44,7 @@
       said_unlinked: [], wanted, series: [], nodes, links, mocs: [],
       clusters: E.topics.map(t => ({ id: t.id, name: t.name, keywords: t.keywords, stack: t.stack, label: null, size: t.size, folder: t.folder, core: t.core.slice(0, 3).map(VGRules.stem) })),
       gaps: [], quality: { stub_words: VGRules.RULES.stub_words, stale_days: VGRules.RULES.stale_days }, pairs: [], snapshots: [],
-      timeline: { weeks: [], clusters: {}, notes: {} }, near_dupes: [] };
+      timeline: { weeks: [], clusters: {}, notes: {} }, strand: { days: [], paths: [], ids: [], rows: [] }, near_dupes: [] };
     VGRules.applyEngineNotes(out, N, VGRules.ENGINE_PARTS); out.since = null;
     out.nodes.forEach(n => { if (n.person || n.moc || CONTENT.log[n.id]) return; const f = this.fileAt(n.id), fm = (f instanceof TFile && this.fmOf(f)) || {};
       const dates = ["modified", "updated", "date modified", "reviewed"].map(k => String(fm[k] || "").slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));

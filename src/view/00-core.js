@@ -689,7 +689,7 @@ function mountVaultGraph(root, DATA, opts) {
     project();
     const onScreen = pick.map(n => P.get(n.id)).filter(Boolean);
     let [x0, x1] = onScreen.length ? span(onScreen.map(p => p.x)) : [Infinity, -Infinity], [y0, y1] = onScreen.length ? span(onScreen.map(p => p.y)) : [Infinity, -Infinity];
-    if (mapView() && pick.length) ((mapCache[st.view] || {}).bounds || []).forEach(([x, y]) => { const p = proj(x, y, 0, rot()); if (!p) return;   // the scene's own outline (roof, slab...)
+    if (mapView() && pick.length) ((mapCache[st.view] || {}).bounds || []).forEach(([x, y, z]) => { const p = proj(x, y, z || 0, rot()); if (!p) return;   // the scene's own outline (roof, slab, a strand in space...)
       x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); });
     Object.assign(cam, saved);
     if (x0 === Infinity) return;

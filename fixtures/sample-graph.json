@@ -4806,6 +4806,401 @@
    ]
   }
  },
+ "strand": {
+  "days": [
+   "2026-09-28",
+   "2026-09-29",
+   "2026-09-30",
+   "2026-10-01",
+   "2026-10-02",
+   "2026-10-03",
+   "2026-10-04",
+   "2026-10-05",
+   "2026-10-06",
+   "2026-10-07",
+   "2026-10-08",
+   "2026-10-09",
+   "2026-10-10",
+   "2026-10-11",
+   "2026-10-12",
+   "2026-10-13",
+   "2026-10-14",
+   "2026-10-15",
+   "2026-10-16",
+   "2026-10-17",
+   "2026-10-18",
+   "2026-10-19",
+   "2026-10-20",
+   "2026-10-21",
+   "2026-10-22",
+   "2026-10-23",
+   "2026-10-24",
+   "2026-10-25",
+   "2026-10-26",
+   "2026-10-27",
+   "2026-10-28",
+   "2026-10-29",
+   "2026-10-30",
+   "2026-10-31",
+   "2026-11-01",
+   "2026-11-02",
+   "2026-11-03",
+   "2026-11-04",
+   "2026-11-05",
+   "2026-11-06",
+   "2026-11-07",
+   "2026-11-08",
+   "2026-11-09"
+  ],
+  "paths": [
+   "01-Daily/2026/09-September/Journal/2026-09-28.md",
+   "01-Daily/2026/09-September/Journal/2026-09-29.md",
+   "01-Daily/2026/09-September/Journal/2026-09-30.md",
+   "01-Daily/2026/10-October/Journal/2026-10-01.md",
+   "01-Daily/2026/10-October/Journal/2026-10-02.md",
+   "01-Daily/2026/10-October/Journal/2026-10-03.md",
+   "01-Daily/2026/10-October/Journal/2026-10-04.md",
+   "01-Daily/2026/10-October/Journal/2026-10-05.md",
+   "01-Daily/2026/10-October/Journal/2026-10-06.md",
+   "01-Daily/2026/10-October/Journal/2026-10-07.md",
+   "01-Daily/2026/10-October/Journal/2026-10-08.md",
+   "01-Daily/2026/10-October/Journal/2026-10-09.md",
+   "01-Daily/2026/10-October/Journal/2026-10-10.md",
+   "01-Daily/2026/10-October/Journal/2026-10-11.md",
+   "01-Daily/2026/10-October/Journal/2026-10-12.md",
+   "01-Daily/2026/10-October/Journal/2026-10-13.md",
+   "01-Daily/2026/10-October/Journal/2026-10-14.md",
+   "01-Daily/2026/10-October/Journal/2026-10-15.md",
+   "01-Daily/2026/10-October/Journal/2026-10-16.md",
+   "01-Daily/2026/10-October/Journal/2026-10-17.md",
+   "01-Daily/2026/10-October/Journal/2026-10-18.md",
+   "01-Daily/2026/10-October/Journal/2026-10-19.md",
+   "01-Daily/2026/10-October/Journal/2026-10-20.md",
+   "01-Daily/2026/10-October/Journal/2026-10-21.md",
+   "01-Daily/2026/10-October/Journal/2026-10-22.md",
+   "01-Daily/2026/10-October/Journal/2026-10-23.md",
+   "01-Daily/2026/10-October/Journal/2026-10-24.md",
+   "01-Daily/2026/10-October/Journal/2026-10-25.md",
+   "01-Daily/2026/10-October/Journal/2026-10-26.md",
+   "01-Daily/2026/10-October/Journal/2026-10-27.md",
+   "01-Daily/2026/10-October/Journal/2026-10-28.md",
+   "01-Daily/2026/10-October/Journal/2026-10-29.md",
+   "01-Daily/2026/10-October/Journal/2026-10-30.md",
+   "01-Daily/2026/10-October/Journal/2026-10-31.md",
+   "01-Daily/2026/11-November/Journal/2026-11-01.md",
+   "01-Daily/2026/11-November/Journal/2026-11-02.md",
+   "01-Daily/2026/11-November/Journal/2026-11-03.md",
+   "01-Daily/2026/11-November/Journal/2026-11-04.md",
+   "01-Daily/2026/11-November/Journal/2026-11-05.md",
+   "01-Daily/2026/11-November/Journal/2026-11-06.md",
+   "01-Daily/2026/11-November/Journal/2026-11-07.md",
+   "01-Daily/2026/11-November/Journal/2026-11-08.md",
+   "01-Daily/2026/11-November/Journal/2026-11-09.md"
+  ],
+  "ids": [
+   "02-Projects/Fleet/Tyre Checks.md",
+   "02-Projects/Rental App - Context.md",
+   "02-Projects/Rental App/Payment Integration.md",
+   "02-Projects/Warehouse/Barcode Scanner Setup.md",
+   "02-Projects/Warehouse/Reorder Rules.md",
+   "02-Projects/Fleet Maintenance - Context.md",
+   "02-Projects/Fleet/Brake Service Schedule.md",
+   "03-Resources/Infrastructure/Database Upgrade.md",
+   "03-Resources/Marketing/Spring Campaign.md",
+   "02-Projects/Rental App/App Store Release.md",
+   "02-Projects/Rental App/Push Notifications.md",
+   "03-Resources/Infrastructure - Context.md",
+   "03-Resources/Infrastructure/VPN Setup.md",
+   "02-Projects/Rental App/API Design.md",
+   "02-Projects/Rental App/Booking Flow.md",
+   "02-Projects/Warehouse/Inventory Counts.md",
+   "03-Resources/Infrastructure/Monitoring Alerts.md",
+   "03-Resources/Marketing/Partner Shops.md",
+   "03-Resources/Marketing/Newsletter Plan.md",
+   "03-Resources/Support/Escalation Process.md",
+   "02-Projects/Rental App/Map Screen.md",
+   "03-Resources/Infrastructure/Server Backup.md",
+   "02-Projects/Warehouse/Supplier List.md",
+   "03-Resources/Customer Support - Context.md",
+   "02-Projects/Rental App/Login Timeout Bug.md",
+   "03-Resources/Support/Common Questions.md",
+   "02-Projects/Fleet/Repair Log Template.md",
+   "03-Resources/Infrastructure/SSL Certificates.md",
+   "03-Resources/Marketing - Context.md",
+   "03-Resources/Support/Ticket Triage.md",
+   "02-Projects/Fleet/Battery Swaps.md",
+   "03-Resources/Support/Refund Policy.md",
+   "02-Projects/Warehouse - Context.md",
+   "02-Projects/Rental App/Offline Mode.md",
+   "02-Projects/Warehouse/Stock Transfer Procedure.md"
+  ],
+  "rows": [
+   [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   [
+    5,
+    6,
+    0,
+    4,
+    7,
+    8
+   ],
+   [
+    6,
+    9,
+    10,
+    11,
+    7,
+    12
+   ],
+   [
+    1,
+    13,
+    14,
+    3,
+    15
+   ],
+   [
+    3,
+    11,
+    7,
+    16,
+    17,
+    8
+   ],
+   [
+    18
+   ],
+   [
+    10,
+    19
+   ],
+   [
+    14,
+    20,
+    16,
+    21,
+    18
+   ],
+   [
+    0,
+    14,
+    22,
+    23,
+    19
+   ],
+   [
+    1,
+    24,
+    2,
+    4,
+    25
+   ],
+   [
+    26,
+    24,
+    11,
+    27,
+    25
+   ],
+   [
+    0,
+    10,
+    3,
+    28,
+    18
+   ],
+   [
+    26,
+    9
+   ],
+   [
+    9,
+    29
+   ],
+   [
+    3,
+    11,
+    12,
+    17,
+    29
+   ],
+   [
+    30,
+    16,
+    28,
+    18,
+    31
+   ],
+   [
+    9,
+    23,
+    7,
+    16,
+    12,
+    31
+   ],
+   [
+    32,
+    15,
+    17,
+    29
+   ],
+   [
+    1,
+    33,
+    31,
+    29
+   ],
+   [
+    20,
+    18
+   ],
+   [
+    20,
+    19
+   ],
+   [
+    6,
+    2,
+    34
+   ],
+   [
+    5,
+    6,
+    33,
+    11,
+    16,
+    27,
+    12
+   ],
+   [
+    33,
+    32,
+    15,
+    34
+   ],
+   [
+    30,
+    26,
+    1,
+    9
+   ],
+   [
+    30,
+    20,
+    21,
+    28,
+    18
+   ],
+   [
+    15,
+    27
+   ],
+   [
+    10,
+    4
+   ],
+   [
+    20,
+    2,
+    27,
+    18,
+    29
+   ],
+   [
+    20,
+    2,
+    11,
+    21,
+    31
+   ],
+   [
+    30,
+    9,
+    16,
+    27
+   ],
+   [
+    1,
+    14,
+    24,
+    10,
+    16
+   ],
+   [
+    9,
+    14,
+    2,
+    11,
+    16,
+    8
+   ],
+   [
+    33,
+    3
+   ],
+   [
+    17,
+    19
+   ],
+   [
+    30,
+    20,
+    2,
+    32,
+    4
+   ],
+   [
+    30,
+    27,
+    21,
+    28,
+    17
+   ],
+   [
+    0,
+    33,
+    23,
+    27,
+    29
+   ],
+   [
+    5,
+    0,
+    32,
+    15,
+    34,
+    17
+   ],
+   [
+    3,
+    22,
+    16,
+    29
+   ],
+   [
+    26,
+    27
+   ],
+   [
+    21,
+    29
+   ],
+   [
+    9,
+    15,
+    22,
+    28,
+    8
+   ]
+  ]
+ },
  "near_dupes": [
   [
    "03-Resources/Infrastructure/Backup Restore Test.md",

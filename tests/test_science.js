@@ -211,4 +211,57 @@ const again = S.outbreakStats(K5, 1, 0.4, 100, 5), twice = S.outbreakStats(K5, 1
   const rep = S.guideReport({ id: "2026-11-09 101500", guide: { seq: "tech/python" }, to: "", scope: { tag: "x" }, notes: 1, cuts: 2, left: 1, kept: ".trash/k" }, [{ path: "a/Note.md", cuts: S.guideCuts(note, G, {}), left: [8] }]);
   assert.ok(/## \[\[a\/Note\]\]/.test(rep) && /After: line removed/.test(rep) && /Left as it was: line 8/.test(rep) && !/retag`\n/.test(rep) && /tag #x/.test(rep), "the report lists what was written and what was left");
 }
-console.log("ok - science: Kaplan-Meier and log-rank on the 6-MP trial, SIR and its threshold, cut points, percolation, the neuron's closed form, anatomy, guide search");
+// ---- the genome's fold: each step against an answer known without this code
+{ // contacts: two days are in contact once per note both name; a note on most days is left out
+  const cm = S.contactMap([["a", "b"], ["a", "b", "c"], ["c"], ["a"], ["z"], ["z", "a"]], 0.5);
+  assert.deepStrictEqual([cm.C[0][1], cm.C[1][2], cm.C[0][2], cm.C[4][5], cm.C[0][3]], [1, 1, 0, 1, 0], "shared notes, and 'a' (4 of 6 days) left out");
+  assert.deepStrictEqual([cm.dropped, cm.days.get("a")], [["a"], [0, 1, 3, 5]], "the dropped note still knows its days");
+  assert.strictEqual(S.contactMap([["a", "a", "b"], ["a", "b"]]).C[0][1], 2, "a note named twice in a day counts once");
+  // balancing: a matrix with equal row sums, hidden under known biases, comes back with equal row sums and the same ratios
+  const base = [[0, 2, 1, 1], [2, 0, 1, 1], [1, 1, 0, 2], [1, 1, 2, 0]], bias = [1, 3, 0.5, 2], seen = base.map((r, i) => r.map((v, j) => v * bias[i] * bias[j]));
+  const bal = S.balance(seen, 500).B, sums = bal.map(r => r.reduce((x, y) => x + y, 0));
+  sums.forEach(s => near(s, sums[0], 1e-6, "balanced row sums are equal")); near(bal[0][1] / bal[0][2], 2, 1e-6, "balancing gives back the hidden ratios"); near(bal[2][3] / bal[0][1], 1, 1e-6, "and across rows");
+  assert.deepStrictEqual(Array.from(S.balance([[0, 0, 0], [0, 0, 1], [0, 1, 0]]).B[0]), [0, 0, 0], "a day with no contact stays empty");
+  // expected contact by separation
+  near(S.expectedBySeparation([[0, 4, 1], [4, 0, 2], [1, 2, 0]])[1], 3, 1e-12, "mean of the first off-diagonal"); near(S.expectedBySeparation([[0, 4, 1], [4, 0, 2], [1, 2, 0]])[2], 1, 1e-12, "and the second");
+  // distances: 1/contact, the strand ties next-door days at the middle contact distance, the rest is the shortest path
+  const D = S.contactDistances([[0, 2, 0, 0], [2, 0, 0, 0], [0, 0, 0, 4], [0, 0, 4, 0]]);
+  assert.deepStrictEqual([D[0][1], D[2][3], D[1][2], D[0][3]], [0.5, 0.25, 0.5, 1.25], "1/contact, the strand's own tie, and the path through both");
+  { const six = Array.from({ length: 6 }, () => [0, 0, 0, 0, 0, 0]); [[0, 1, 4], [2, 3, 2], [4, 5, 1]].forEach(([a, b, v]) => { six[a][b] = six[b][a] = v; });
+    const D6 = S.contactDistances(six); assert.deepStrictEqual([D6[1][2], D6[3][4], D6[4][5], D6[0][5]], [0.5, 0.5, 0.5, 2.25], "next-door days are no further apart than the middle distance (0.5), whatever the weakest is (1)");
+    assert.strictEqual(S.contactDistances(six, 0.5)[0][1], 0.5, "alpha softens: 1 / sqrt(4)"); }
+  // Jacobi: [[2,1],[1,2]] has eigenvalues 3 and 1, vectors (1,1) and (1,-1)
+  const e2 = S.symEigen([[2, 1], [1, 2]]); near(e2.values[0], 3, 1e-12, "eigenvalue 3"); near(e2.values[1], 1, 1e-12, "eigenvalue 1"); near(Math.abs(e2.vectors[0][0] / e2.vectors[0][1]), 1, 1e-9, "vector (1,1)");
+  // the path graph's Laplacian on 6 points: eigenvalues 2 - 2cos(pi k / 6), the textbook closed form; the large solver agrees with Jacobi
+  const L = Array.from({ length: 6 }, (_, i) => Array.from({ length: 6 }, (_, j) => (i === j ? (i === 0 || i === 5 ? 1 : 2) : Math.abs(i - j) === 1 ? -1 : 0)));
+  const eL = S.symEigen(L); for (let k = 0; k < 6; k++) near(eL.values[5 - k], 2 - 2 * Math.cos(Math.PI * k / 6), 1e-10, `path Laplacian eigenvalue ${k}`);
+  const top = S.topEigen(L, 3); for (let k = 0; k < 3; k++) near(top.values[k], eL.values[k], 1e-8, `subspace iteration, eigenvalue ${k}`);
+  // classical scaling: a 3-4-5 triangle comes back with its sides
+  const tri = S.classicalMDS([[0, 3, 4], [3, 0, 5], [4, 5, 0]], 2).X, side = (a, b) => Math.hypot(tri[a][0] - tri[b][0], tri[a][1] - tri[b][1]);
+  near(side(0, 1), 3, 1e-8, "side 3"); near(side(0, 2), 4, 1e-8, "side 4"); near(side(1, 2), 5, 1e-8, "side 5");
+  // a helix: its own distances give back the same helix (every pairwise distance, so the same shape up to turning it)
+  const helix = Array.from({ length: 60 }, (_, i) => [Math.cos(i * 0.4) * 3, Math.sin(i * 0.4) * 3, i * 0.25]), dist = (P, i, j) => Math.hypot(P[i][0] - P[j][0], P[i][1] - P[j][1], P[i][2] - P[j][2]);
+  const HD = helix.map((_, i) => helix.map((_, j) => dist(helix, i, j))), back = S.classicalMDS(HD, 3);
+  near(S.stress(back.X, HD), 0, 1e-6, "the helix's stress"); let worst = 0; for (let i = 0; i < 60; i++) for (let j = 0; j < 60; j++) worst = Math.max(worst, Math.abs(dist(back.X, i, j) - HD[i][j])); near(worst, 0, 1e-5, "the helix's worst distance");
+  near(S.stress(S.classicalMDS(HD, 1).X, HD) > 0.2 ? 1 : 0, 1, 0, "one dimension can't hold a helix: the stress says so");
+  // the same helix from contacts alone (contact = 1 / distance, as the method assumes)
+  const viaContacts = S.contactDistances(HD.map(r => r.map(d => (d ? 1 / d : 0)))); near(S.stress(S.classicalMDS(viaContacts, 3).X, HD), 0, 1e-6, "helix from its contacts");
+  // insulation: three blocks of 10, 15 and 8 days that only meet inside themselves have borders at 10 and 25
+  const blockOf = i => (i < 10 ? 0 : i < 25 ? 1 : 2), blocks = Array.from({ length: 33 }, (_, i) => Array.from({ length: 33 }, (_, j) => (i !== j && blockOf(i) === blockOf(j) ? 1 : 0)));
+  const ins = S.insulation(blocks); assert.deepStrictEqual([ins.borders, ins.domains], [[10, 25], [[0, 9], [10, 24], [25, 32]]], "borders at the block edges");
+  assert.deepStrictEqual(S.insulation(blocks.map(r => r.map((v, j) => (v || 1)))).borders, [], "an even map has no border");
+  // loops: one planted contact far from the diagonal is found, exactly there; a smooth map has none
+  const smooth = Array.from({ length: 40 }, (_, i) => Array.from({ length: 40 }, (_, j) => (i === j ? 0 : 1)));
+  assert.deepStrictEqual(S.contactLoops(smooth), [], "no loop in an even map");
+  smooth[8][30] = smooth[30][8] = 9; assert.deepStrictEqual(S.contactLoops(smooth).map(l => [l.a, l.b, l.count]), [[8, 30, 9]], "the planted loop");
+  smooth[8][11] = smooth[11][8] = 9; assert.strictEqual(S.contactLoops(smooth).length, 1, "closer than a week is the strand, not a loop");
+  // the whole method: two topics that take turns fold into two domains, and the days of one topic sit nearer each other than the other's
+  const rows = Array.from({ length: 40 }, (_, i) => (i < 20 ? ["a1", "a2", i % 2 ? "a3" : "a4"] : ["b1", "b2", i % 2 ? "b3" : "b4"]));
+  const f = S.genomeFold(rows); assert.deepStrictEqual(f.borders, [20], "the border between the two topics"); assert.strictEqual(f.X.length, 40);
+  near(Math.max(...f.X.map(p => Math.hypot(...p))), 1, 1e-9, "scaled so the furthest day is 1 from the centre");
+  const mean = (a, b, c, d) => { let t = 0, m = 0; for (let i = a; i <= b; i++) for (let j = c; j <= d; j++) if (i !== j) { t += Math.hypot(f.X[i][0] - f.X[j][0], f.X[i][1] - f.X[j][1], f.X[i][2] - f.X[j][2]); m++; } return t / m; };
+  assert(mean(0, 19, 0, 19) < mean(0, 19, 20, 39) * 0.5, "days of one topic are nearer each other than to the other topic's");
+  assert.deepStrictEqual(S.genomeFold([["a"], ["a"]]).X, [[0, 0, 0], [1, 0, 0]], "too few days to fold: laid in a line");
+  assert.deepStrictEqual([0.02, 0.05, 0.1, 0.29].map(S.stressGrade), ["excellent", "good", "fair", "poor"], "Kruskal's grades for a fit");
+}
+console.log("ok - science: Kaplan-Meier and log-rank on the 6-MP trial, SIR and its threshold, cut points, percolation, the neuron's closed form, anatomy, guide search, the genome fold");
