@@ -84,7 +84,7 @@
   // The graph data every device reads, written by this desktop. Not over what another PC built from newer notes: until its
   // edits sync here, this run would bring back suggestions already acted on. Returns that PC's name when it kept theirs.
   async writeGraphFile() {
-    const A = this.app.vault.adapter, file = normalizePath(this.settings.dataPath), dir = file.slice(0, file.lastIndexOf("/")), snaps = `${dir}/snapshots`, mkdirs = async p => { const parts = p.split("/"); for (let i = 1; i <= parts.length; i++) { const d = parts.slice(0, i).join("/"); if (d && !await A.exists(d)) await A.mkdir(d); } }, readJson = p => this.readJson(p);
+    const A = this.app.vault.adapter, file = normalizePath(this.settings.dataPath), dir = file.slice(0, file.lastIndexOf("/")), snaps = `${dir}/snapshots`, mkdirs = p => this.mkdirs(p), readJson = p => this.readJson(p);
     const old = await readJson(file), G = await this.engineGather(), known = new Map(), names = {};
     ((old && old.nodes) || []).forEach(n => { const b = VGShared.baseOf(n.id); names[b] = (names[b] || 0) + 1; });
     ((old && old.nodes) || []).forEach(n => { if (n.born) { known.set(n.id, n.born); const b = VGShared.baseOf(n.id); if (names[b] === 1) known.set(b, n.born); } });
@@ -173,7 +173,7 @@
     try {
       handle = mountVaultGraph(host.createDiv(), structuredClone(data), { mobile: Platform.isMobile, alwaysOn: true, layoutSeed: () => this.layoutSeed(),
         // what reads the real vault, so a view that needs it is really tested; nothing that writes
-        taskHistory: () => this.taskHistory(), writtenLinks: () => this.writtenLinks(), linkHow: rows => this.linkHow(rows), wantedCounts: () => this.wantedCounts(), driftScan: () => this.driftScan(), guideScan: guide => this.guideScan(guide) });
+        taskHistory: () => this.taskHistory(), writtenLinks: () => this.writtenLinks(), linkHow: rows => this.linkHow(rows), wantedCounts: () => this.wantedCounts(), driftScan: () => this.driftScan(), ...this.guideReaders() });
       await sleep(1500);
       const D = handle._debug, q = s => host.querySelector(s);
       for (const w of D.views()) {

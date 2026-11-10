@@ -343,6 +343,7 @@
   "hierarchy": { "system_root": "", "tag_hubs": {} },
   "drift": [],
   "guides": [],
+  "guide_whole_vault": false,
   "stray_folder": "",
   "generated_link_sections": "^(related\\b|merged from\\b|also in this topic\\b)",
   "hq": {

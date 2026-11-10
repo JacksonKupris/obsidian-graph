@@ -16,7 +16,9 @@
   async ioRename(file, dest) { const from = file.path; await this.app.fileManager.renameFile(file, dest); if (this.undoCur) this.undoCur.ops.push({ kind: "rename", from, to: dest }); }
   async ioFolder(path) { await this.app.vault.createFolder(path); }   // a folder an action made stays after an undo (empty is harmless)
   async ioTrash(file) { await this.app.fileManager.trashFile(file); }   // the user's trash setting: never deleted outright
-  async ioData(path, text) { await this.app.vault.adapter.write(path, text); }   // the plugin's data files the analysis reads (dismissals); not undoable
+  async ioData(path, text) { await this.app.vault.adapter.write(path, text); }   // the plugin's data files the analysis reads (dismissals) and kept originals; not undoable
+  // a folder and every folder above it, for a file the adapter writes
+  async mkdirs(dir) { const A = this.app.vault.adapter, parts = normalizePath(dir).split("/"); for (let i = 1; i <= parts.length; i++) { const d = parts.slice(0, i).join("/"); if (d && !await A.exists(d)) await A.mkdir(d); } }
 
   // An entry closes when its action finishes: note what each file looks like now, so an undo can tell if it changed since
   async closeUndo(e) {

@@ -185,6 +185,31 @@ const again = S.outbreakStats(K5, 1, 0.4, 100, 5), twice = S.outbreakStats(K5, 1
   assert.strictEqual(S.guideScan("---\ntags: x\nfleet", { seq: "fleet" }).hits[0].where, "body", "no closing line, no frontmatter");
   assert.deepStrictEqual(S.guideScan(note, { seq: "" }), { hits: [], near: [], skipped: { where: 0, context: 0 } });
   assert.strictEqual(S.guideScan("the fleet. A flee. sleet", { seq: "fleet", mismatches: 1 }).near.map(h => h.found).join(), "sleet", "a near match is a whole word too");
+  // ---- the repair: the cuts shown are the lines written, a look-alike and code are never cut
+  const G = { seq: "tech/python", mismatches: 1 };
+  let cuts = S.guideCuts(note, G, { to: "technology/python" });
+  assert.deepStrictEqual(cuts.map(c => [c.line, c.after]), [[3, "  - technology/python"], [7, "Uses technology/python daily and `tech/python` inline."], [8, "- [ ] retag technology/python"]], "replace: three lines, inline code as it was");
+  let w = S.guideApply(note, cuts), wl = w.text.split("\n"), nl = note.split("\n");
+  assert.deepStrictEqual([w.done, w.left], [3, []]);
+  assert.deepStrictEqual(wl.map((t, i) => (t === nl[i] ? 0 : i + 1)).filter(Boolean), [3, 7, 8], "only the previewed lines changed");
+  cuts.forEach(c => assert.strictEqual(wl[c.line - 1], c.after, "what was written is what was shown"));
+  assert.deepStrictEqual([wl[9], wl[11]], ["echo tech/python", "tech/pythons and teck/python"], "the fenced line and the look-alike are untouched");
+  assert.deepStrictEqual(S.guideCuts(w.text, G, { to: "technology/python" }), [], "a second run finds nothing left to cut");
+  // taking it out: the YAML item's line goes, a flow list keeps its commas right, a sentence keeps one space
+  cuts = S.guideCuts(note, G, {}); assert.deepStrictEqual(cuts.map(c => [c.line, c.after]), [[3, null], [7, "Uses daily and `tech/python` inline."], [8, "- [ ] retag"]]);
+  w = S.guideApply(note, cuts); assert.deepStrictEqual(w.text.split("\n").slice(0, 4), ["---", "tags:", "  - technology/python", "---"], "the list is still a list");
+  const flow = t => S.guideCuts(`---\ntags: ${t}\n---\n`, { seq: "tech/python" }, {})[0].after;
+  assert.deepStrictEqual([flow("[tech/python, a]"), flow("[a, tech/python]"), flow("[a, tech/python, b]"), flow("[tech/python]")], ["tags: [a]", "tags: [a]", "tags: [a, b]", "tags: []"]);
+  assert.strictEqual(S.guideCuts('---\ntags:\n  - "tech/python"\n---', { seq: "tech/python" }, {})[0].after, null, "a quoted item goes with its quotes");
+  assert.strictEqual(S.guideCuts("the fleet", { seq: "fleet" }, {})[0].after, "the"); assert.strictEqual(S.guideCuts("- fleet", { seq: "fleet" }, {})[0].after, null, "a list line with nothing left goes");
+  // a line that changed since the preview is left, the rest are written; Windows line ends stay
+  cuts = S.guideCuts(note, G, { to: "X" }); const edited = note.replace("- [ ] retag tech/python", "- [x] retag tech/python");
+  w = S.guideApply(edited, cuts); assert.deepStrictEqual([w.done, w.left, w.text.split("\n")[7]], [2, [8], "- [x] retag tech/python"], "the changed line is left as it is");
+  w = S.guideApply("new first line\n" + note, cuts); assert.deepStrictEqual([w.done, w.left.length, w.text], [0, 3, "new first line\n" + note], "lines that moved are left, and nothing is rewritten");
+  w = S.guideApply(note.replace(/\n/g, "\r\n"), cuts); assert.ok(w.done === 3 && w.text.split("\r\n").length === nl.length && !/[^\r]\n/.test(w.text), "Windows line ends");
+  assert.strictEqual(S.guideApply(note, [...cuts, cuts[0]]).done, 3, "the same line twice is written once");
+  const rep = S.guideReport({ id: "2026-11-09 101500", guide: { seq: "tech/python" }, to: "", scope: { tag: "x" }, notes: 1, cuts: 2, left: 1, kept: ".trash/k" }, [{ path: "a/Note.md", cuts: S.guideCuts(note, G, {}), left: [8] }]);
+  assert.ok(/## \[\[a\/Note\]\]/.test(rep) && /After: line removed/.test(rep) && /Left as it was: line 8/.test(rep) && !/retag`\n/.test(rep) && /tag #x/.test(rep), "the report lists what was written and what was left");
 }
 // ---- the genome's fold: each step against an answer known without this code
 { // contacts: two days are in contact once per note both name; a note on most days is left out
