@@ -50,6 +50,7 @@
     stale: { menu: "notes", name: "Stale notes", hint: "Finance: which old notes would cost most if they've gone out of date, and what to do with each", render: lensStale },
     twoway: { menu: "notes", name: "Hierarchy", hint: "Ecology: what blurs which way your notes lean, and the notes with no way up", render: () => "", load: loadTwoWay },
     drift: { menu: "notes", name: "Version drift", hint: "Notes and doc links that name a version other than the one you run", render: () => "", load: loadDrift },
+    guide: { menu: "notes", name: "Guide scan", icon: "search", hint: "Gene editing: one tag, word or line everywhere it occurs, with look-alikes kept apart", render: lensGuide },
     dupes: { menu: "notes", name: "Duplicates", hint: "Likely duplicate notes side by side, with the links each one has", render: lensDupes },
     blind: { menu: "notes", name: "Blind spots", hint: "What you name but never link, topics gone quiet, islands and dead ends", render: lensBlind },
     write: { menu: "notes", name: "Write these next", hint: "Links to notes that don't exist yet, and short notes many others rely on", render: lensWrite },

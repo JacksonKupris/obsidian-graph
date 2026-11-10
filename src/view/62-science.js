@@ -281,10 +281,64 @@
     if (!rows.length) return `<div class="vg-empty">Every version your notes name matches what you run.</div>`;
     const by = new Map(); rows.forEach(r => { if (!by.has(r.name)) by.set(r.name, []); by.get(r.name).push(r); });
     return `${sciRead("Notes that name a version other than the one you run. Some are right: history, or an upgrade's starting point. The rest quietly send someone to the wrong instructions. Dated records aren't checked, since they're meant to stay as written.")}
-      ${[...by].map(([name, list]) => lensSec(`${name}: you run ${list[0].current}`, list.slice(0, 40).map(r => `<div class="vg-sugg">${byId[r.path] ? noteRow(r.path, `says ${esc(r.found)}: ${esc(r.text.slice(0, 110))}`) : `<span class="vg-item-main"><span>${esc(VGActions.nameOf(r.path))}</span><span class="vg-item-sub">says ${esc(r.found)}: ${esc(r.text.slice(0, 110))}</span></span>`}<span class="vg-sugg-acts">${opts.openNote ? `<button class="vg-btn vg-btn-sm" data-twopen="${esc(r.path)}">Open</button>` : ""}</span></div>`), { count: list.length, word: "notes" })).join("")}`;
+      ${[...by].map(([name, list]) => lensSec(`${name}: you run ${list[0].current}`, list.slice(0, 40).map(r => `<div class="vg-sugg">${hostRow(r.path, `says ${esc(r.found)}: ${esc(r.text.slice(0, 110))}`)}<span class="vg-sugg-acts">${hostOpen(r.path)}</span></div>`), { count: list.length, word: "notes" })).join("")}`;
+  }
+  // a row for a note the host named: the graph's own row when the graph holds it, its name when it doesn't. sub is HTML.
+  const hostRow = (path, sub) => (byId[path] ? noteRow(path, sub) : `<span class="vg-item-main"><span>${esc(VGActions.nameOf(path))}</span><span class="vg-item-sub">${sub}</span></span>`);
+  const hostOpen = path => (opts.openNote ? `<button class="vg-btn vg-btn-sm" data-twopen="${esc(path)}">Open</button>` : "");
+  // ---- Guide scan (CRISPR): one piece of text, everywhere it occurs. The host reads the notes (opts.guideScan) and
+  // VGScience.guideScan does the matching; nothing here writes. The guide and its last result are kept while the page is
+  // open, so going into a note and back shows the same list. Presets are the rules file's guides.
+  const guideNow = { seq: "", after: "", mismatches: 0, word: true, where: [...VGScience.GUIDE_DEFAULT], result: null, busy: false, error: "" };
+  const GUIDE_PLACES = { frontmatter: "Properties", task: "Tasks", body: "Text", code: "Code" };
+  const guidePresets = () => (VGRules.RULES.guides || []).filter(p => p && p.seq);
+  function lensGuide() {
+    if (!opts.guideScan) return emptyNext("Guide scan reads your notes, which this page can't.", "search");
+    const G = guideNow, R = G.result, presets = guidePresets();
+    const form = `<form class="vg-guide">
+      <label class="vg-field"><span class="vg-flabel">Guide</span><input class="vg-input" data-guide="seq" value="${esc(G.seq)}" placeholder="A tag, word, link or line to find" autocomplete="off" spellcheck="false"></label>
+      ${presets.length ? `<div class="vg-ins-actions">${presets.map((p, i) => `<button type="button" class="vg-btn vg-btn-sm" data-guide-preset="${i}" title="${esc(p.why || p.seq)}">${esc(p.name || p.seq)}</button>`).join("")}</div>` : ""}
+      <label class="vg-field"><span class="vg-flabel">Only when followed by</span><input class="vg-input" data-guide="after" value="${esc(G.after)}" placeholder="Optional: the text right after it" autocomplete="off" spellcheck="false"></label>
+      <div class="vg-guide-row">${VGScience.GUIDE_WHERE.map(w => `<label><input type="checkbox" data-guide-where="${w}" ${G.where.includes(w) ? "checked" : ""}> ${GUIDE_PLACES[w]}</label>`).join("")}<label><input type="checkbox" data-guide="word" ${G.word ? "checked" : ""}> Whole words</label></div>
+      <label class="vg-field"><span class="vg-flabel">Look-alikes</span><select class="vg-select" data-guide="mismatches">${[0, 1, 2, 3, 4].map(k => `<option value="${k}" ${k === G.mismatches ? "selected" : ""}>${k ? `Up to ${plural(k, "letter")} different` : "None"}</option>`).join("")}</select></label>
+      <div class="vg-ins-actions"><button class="vg-btn" type="submit" ${G.busy ? "disabled" : ""}>${icon("search", 12)} ${G.busy ? "Scanning…" : "Scan"}</button></div></form>`;
+    if (G.busy) return form;
+    if (G.error) return `${form}<div class="vg-empty">${esc(G.error)}</div>`;
+    if (!R) return `${form}<p class="vg-muted vg-lens-note">A scan reads every note and writes nothing.</p>`;
+    const left = [R.skipped.where ? `${R.skipped.where} in places this guide doesn't look` : "", R.skipped.context ? `${R.skipped.context} without “${esc(R.guide.after)}” after` : ""].filter(Boolean).join(", ");
+    if (!R.hits && !R.near) return `${form}${emptyNext(`No “${esc(R.guide.seq)}” in ${plural(R.scanned, "note")}.${left ? ` Left out: ${left}.` : ""}`, "search:" + R.guide.seq)}`;
+    const site = h => `${h.where === "body" ? "" : GUIDE_PLACES[h.where] + " · "}line ${h.line}: ${esc(h.pre)}<b>${esc(h.found)}</b>${esc(h.post)}`;
+    const rows = kind => R.notes.filter(n => n[kind].length).map(n => `<div class="vg-sugg">${hostRow(n.path, `${n[kind + "Count"] > 1 ? `${n[kind + "Count"]} places · ` : ""}${kind === "near" ? `${plural(n.near[0].mismatches, "letter")} different · ` : ""}${site(n[kind][0])}`)}<span class="vg-sugg-acts">${hostOpen(n.path)}</span></div>`);
+    const hits = rows("hits"), near = rows("near"), show = (kind, label) => `<button class="vg-btn vg-btn-sm" data-guide-show="${kind}">${icon("target", 12)} ${label}</button>`;
+    const cap = R.guide.mismatches > R.allowed ? ` A guide of ${plural(R.guide.seq.length, "letter")} allows ${R.allowed ? `${R.allowed} different` : "no look-alikes"}.` : "";
+    return `${form}<p class="vg-muted vg-lens-note">“${esc(R.guide.seq)}”: ${R.hits} exact in ${plural(hits.length, "note")} of ${R.scanned}${R.near ? `, ${plural(R.near, "look-alike")}` : ""}.${left ? ` Left out: ${left}.` : ""}${cap}</p>
+      ${sciRead("An exact match is the guide letter for letter, in the places ticked, with the text you asked for right after it. A look-alike differs by a letter or more: it is listed apart and is never counted as a match, the way gene editing scores off-target sites. Code is skipped unless ticked.")}
+      ${lensSec("Exact matches", hits.slice(0, 200), { count: hits.length, word: "notes", first: 12, empty: "None.", lead: hits.length ? `<div class="vg-ins-actions">${show("hits", "Show on the graph")}</div>` : "" })}
+      ${R.near ? lensSec("Look-alikes", near.slice(0, 200), { count: near.length, word: "notes", first: 8, lead: `<div class="vg-ins-actions">${show("near", "Show on the graph")}</div>` }) : ""}`;
+  }
+  async function guideRun(redraw) {
+    const G = guideNow; G.seq = G.seq.trim(); G.result = null; G.error = !G.seq ? "Type a guide first." : !G.where.length ? "Tick at least one place to look." : "";
+    if (G.error || G.busy) { redraw(); return; }
+    G.busy = true; redraw();
+    const guide = { seq: G.seq, after: G.after, mismatches: G.mismatches, word: G.word, where: [...G.where] };
+    try { G.result = { ...await opts.guideScan(guide), guide }; } catch (e) { console.error("Vault Graph: the guide scan failed", e); G.error = `The scan stopped: ${e.message}`; }
+    G.busy = false; if (lensKey === "guide") redraw();
+  }
+  function wireGuide(body, redraw) {
+    const form = body.querySelector(".vg-guide"), G = guideNow; if (!form) return;
+    const read = () => { G.seq = form.querySelector('[data-guide="seq"]').value; G.after = form.querySelector('[data-guide="after"]').value; G.mismatches = +form.querySelector('[data-guide="mismatches"]').value; G.word = form.querySelector('[data-guide="word"]').checked;
+      G.where = [...form.querySelectorAll("[data-guide-where]")].filter(c => c.checked).map(c => c.dataset.guideWhere); };
+    form.onsubmit = e => { e.preventDefault(); read(); guideRun(redraw); };
+    form.querySelectorAll("[data-guide-preset]").forEach(d => d.onclick = () => { const p = guidePresets()[+d.dataset.guidePreset]; if (!p) return;
+      Object.assign(G, { seq: p.seq, after: p.after || "", mismatches: p.mismatches || 0, word: p.word !== false, where: p.where && p.where.length ? [...p.where] : [...VGScience.GUIDE_DEFAULT] }); guideRun(redraw); });
+    body.querySelectorAll("[data-guide-show]").forEach(d => d.onclick = e => { e.stopPropagation(); if (!G.result) return;
+      const ids = new Set(G.result.notes.filter(n => n[d.dataset.guideShow].length && byId[n.path]).map(n => n.path));
+      if (!ids.size) { toast("None of these notes are in the graph", "warn"); return; }
+      if (!lensBeside()) closeLens(); setHighlight(ids, `guide · ${G.result.guide.seq}`); select(null); fit(n => ids.has(n.id), 400); });
   }
   function wireScience(body) {
     const again = () => { const y = body.scrollTop, was = VGParts.opened(body); body.innerHTML = lensKey === "survival" ? renderSurvival() : lensKey === "flowlens" ? renderFlow() : lensKey === "control" ? renderControl() : LENSES[lensKey].render(); wireLens(body); VGParts.reopen(body, was); body.scrollTop = y; };
+    wireGuide(body, again);
     body.querySelectorAll("[data-blast-t]").forEach(d => { d.oninput = () => { const o = d.parentElement.querySelector("b"); if (o) o.textContent = (+d.value).toFixed(2); }; d.onchange = () => { blastT = +d.value; again(); }; });
     body.querySelectorAll("[data-blast-seed]").forEach(d => d.onclick = e => { e.stopPropagation(); blastSeed = d.dataset.blastSeed; again(); });
     body.querySelectorAll("[data-blast-show]").forEach(d => d.onclick = e => { e.stopPropagation(); blastShow(d.dataset.blastShow); });

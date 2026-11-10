@@ -158,4 +158,32 @@ const again = S.outbreakStats(K5, 1, 0.4, 100, 5), twice = S.outbreakStats(K5, 1
   const B = S.areaBalance(rows, "2026-11-02", 90, t => (t === "x" ? null : t)); assert.strictEqual(B.open, 4); assert.strictEqual(B.done, 4, "old work outside the window"); assert.strictEqual(B.rows[0].area, "a"); near(B.rows[0].lq, 2, 1e-9, "half of open, a quarter of finished"); near(B.rows[1].lq, 2 / 3, 1e-9, "the other"); }
 // aging: with nothing censored the 85% point is the time the survival curve reaches 15%; open tasks past it are listed oldest first
 { const done = Array.from({ length: 20 }, (_, i) => ({ t: i + 1, event: true })); assert.strictEqual(S.serviceLevel(done, 0.85).days, 17, "17 of 20 by day 17"); const L = S.serviceLevel([...done, { t: 40, event: false, text: "old" }, { t: 60, event: false, text: "older" }, { t: 2, event: false, text: "new" }], 0.85); assert.deepStrictEqual(L.late.map(r => r.text), ["older", "old"]); assert.strictEqual(S.serviceLevel([{ t: 5, event: false }], 0.85).days, null, "never reached"); }
-console.log("ok - science: Kaplan-Meier and log-rank on the 6-MP trial, SIR and its threshold, cut points, percolation, the neuron's closed form, anatomy");
+// ---- guide search (CRISPR): sequences you can count by hand
+{ const at = r => r.map(h => [h.line, h.col, h.mismatches]);
+  // exact, one letter off, two letters off: a 7-letter guide tolerates one mismatch at most (one in five), however many are asked for
+  const dna = "GATTACA GATTAGA CATTAGA";
+  assert.deepStrictEqual(S.guideMismatches(7, 3), 1); assert.deepStrictEqual(S.guideMismatches(4, 1), 0, "a short guide has no near matches"); assert.deepStrictEqual(S.guideMismatches(20, 9), 4);
+  let r = S.guideScan(dna, { seq: "GATTACA" }); assert.deepStrictEqual([at(r.hits), at(r.near)], [[[1, 0, 0]], []], "exact only");
+  r = S.guideScan(dna, { seq: "GATTACA", mismatches: 3 }); assert.deepStrictEqual([at(r.hits), at(r.near)], [[[1, 0, 0]], [[1, 8, 1]]], "the near match is reported apart, and two letters off is not one");
+  assert.strictEqual(r.near[0].found, "GATTAGA");
+  r = S.guideScan("GATTACAGAT CATTAGAGAT", { seq: "GATTACAGAT", mismatches: 2 }); assert.deepStrictEqual(at(r.near), [[1, 11, 2]], "ten letters tolerate two");
+  // the PAM: a site counts only with the required neighbour right beside it
+  r = S.guideScan("ACGTACGTAGG ACGTACGTATT", { seq: "ACGTACGT", word: false, after: "AGG" }); assert.deepStrictEqual([at(r.hits), r.skipped.context], [[[1, 0, 0]], 1], "no PAM, no match");
+  r = S.guideScan("Dr Smith and Mr Smith", { seq: "Smith", before: "Dr " }); assert.deepStrictEqual([at(r.hits), r.skipped.context], [[[1, 3, 0]], 1], "a neighbour before");
+  // a note: frontmatter, a body line, inline code, a task, a fenced block, a longer word and a misspelling
+  const note = ["---", "tags:", "  - tech/python", "  - technology/python", "---", "# Note", "Uses tech/python daily and " + "`tech/python`" + " inline.", "- [ ] retag tech/python", "```sh", "echo tech/python", "```", "tech/pythons and teck/python"].join("\n");
+  r = S.guideScan(note, { seq: "tech/python" });
+  assert.deepStrictEqual(r.hits.map(h => [h.line, h.col, h.where]), [[3, 4, "frontmatter"], [7, 5, "body"], [8, 12, "task"]], "code is skipped, and a longer word is not a match");
+  assert.deepStrictEqual([r.skipped.where, r.near.length], [2, 0], "inline code and the fenced line are counted as skipped");
+  r = S.guideScan(note, { seq: "tech/python", mismatches: 1 }); assert.deepStrictEqual(r.near.map(h => [h.line, h.found]), [[12, "teck/python"]], "the misspelling is near, never a match");
+  r = S.guideScan(note, { seq: "tech/python", where: ["frontmatter"] }); assert.deepStrictEqual([r.hits.length, r.skipped.where], [1, 4]);
+  r = S.guideScan(note, { seq: "tech/python", where: ["code"] }); assert.deepStrictEqual(r.hits.map(h => h.line), [7, 10], "code when the guide asks for it");
+  assert.deepStrictEqual(S.guideScan(note.replace(/\n/g, "\r\n"), { seq: "tech/python" }).hits.length, 3, "Windows line ends");
+  // case, overlaps, a frontmatter block that never closes, an empty guide
+  r = S.guideScan("The Fleet is out", { seq: "fleet" }); assert.strictEqual(r.hits[0].found, "Fleet"); assert.strictEqual(S.guideScan("The Fleet is out", { seq: "fleet", caseSensitive: true }).hits.length, 0);
+  r = S.guideScan("aaaaaa", { seq: "aaaaa", word: false, mismatches: 1 }); assert.deepStrictEqual([r.hits.length, r.near.length], [1, 0], "sites on a line don't overlap");
+  assert.strictEqual(S.guideScan("---\ntags: x\nfleet", { seq: "fleet" }).hits[0].where, "body", "no closing line, no frontmatter");
+  assert.deepStrictEqual(S.guideScan(note, { seq: "" }), { hits: [], near: [], skipped: { where: 0, context: 0 } });
+  assert.strictEqual(S.guideScan("the fleet. A flee. sleet", { seq: "fleet", mismatches: 1 }).near.map(h => h.found).join(), "sleet", "a near match is a whole word too");
+}
+console.log("ok - science: Kaplan-Meier and log-rank on the 6-MP trial, SIR and its threshold, cut points, percolation, the neuron's closed form, anatomy, guide search");

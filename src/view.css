@@ -490,6 +490,9 @@
 .vg-lens-h .vg-lens-sub { flex: 1; font-size: var(--vg-fs-xs); }
 .vg-lens-body { flex: 1; overflow: auto; padding: 10px 14px 16px; overscroll-behavior: contain; }
 .vg-lens-note { font-size: var(--vg-fs-xs); margin: 8px 0; }
+.vg-guide { display: grid; gap: 10px; margin-bottom: 10px; }
+.vg-guide-row { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--vg-fs-sm); }
+.vg-guide-row label { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; }
 .has-lens .vg-legend, .has-lens .vg-focusbar, .has-lens .vg-pathbar { display: none; }
 .is-neural .vg-lens { background: rgba(4, 14, 32, .9); color: var(--vg-hud-text); border-color: color-mix(in srgb, var(--vg-hud) 30%, transparent); }
 /* matrix */

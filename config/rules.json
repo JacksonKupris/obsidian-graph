@@ -342,6 +342,7 @@
   },
   "hierarchy": { "system_root": "", "tag_hubs": {} },
   "drift": [],
+  "guides": [],
   "stray_folder": "",
   "generated_link_sections": "^(related\\b|merged from\\b|also in this topic\\b)",
   "hq": {
