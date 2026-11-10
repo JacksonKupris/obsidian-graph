@@ -76,10 +76,14 @@
     });
   }
 
-  async saveBinary(notePath, buf) {
+  // opts.replace: a picture that stands for a day (the State of the vault maps) takes the place of the one already there
+  // (that one goes to the trash) instead of becoming `name 2.png`
+  async saveBinary(notePath, buf, opts = {}) {
     let path = normalizePath(notePath);
     const folder = path.split("/").slice(0, -1).join("/");
     if (folder && !this.pathTaken(folder)) await this.ioFolder(folder);
+    const old = opts.replace && this.fileAt(path);
+    if (old instanceof TFile) await this.ioTrash(old);
     for (let i = 2; this.pathTaken(path); i++) path = notePath.replace(/(\.\w+)$/, ` ${i}$1`);
     await this.ioCreateBinary(path, buf);
     new Notice(`Saved ${path}`);

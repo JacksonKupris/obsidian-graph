@@ -24,7 +24,7 @@ function mountVaultHQ(root, data, opts) {
   const settleGone = () => { const t = clock(); gone = new Set([...gone].filter(k => t - (goneAt.get(k) || 0) < GONE_HOLD)); [...goneAt.keys()].forEach(k => { if (!gone.has(k)) goneAt.delete(k); }); };
   let gone = new Set(), feedAt = 0, filter = "active", kindFilter = "all", needFilter = "all", systemFilter = "all",
     globalQuery = "", noteHits = [], noteSearchError = "", searchPending = false, searchTimer = null, searchToken = 0,
-    compactProjects = false, drawer = null, focusDrawerOnRender = false, carriedAll = false, clockTimer = null;
+    compactProjects = false, drawer = null, focusDrawerOnRender = false, carriedAll = false, clockTimer = null, trail = [];   // trail: the screens you came from, for Back
   const now = () => opts.now || new Date(), day = () => VGRules.localDay(now());
   const esc = VGShared.escapeHtml;
   const plural = VGShared.plural;
@@ -106,7 +106,13 @@ function mountVaultHQ(root, data, opts) {
     fail: msg => toast(msg, null, true),
     showRows: path => { rowsPath = path; setScreen("rows"); },
     chooseFolder,
+    pick: opts.pick || chooseNote,   // "Link to…" needs a note picker; without one HQ hid the action
   });
+  // a note to choose: the notes in the graph data, filtered as you type. Resolves the note's id (its path), or null.
+  function chooseNote(placeholder, filter) {
+    const nodes = (DATA.nodes || []).filter(n => !n.ghost && (!filter || filter(n.id)));
+    return chooseFrom(placeholder || "Choose a note", "Filter notes", "No note matches.", nodes.map(n => ({ value: n.id, label: n.name, sub: n.folder })));
+  }
   // where a note can be filed: the folders the vault's notes already live in, biggest first, and a filter to find one
   function chooseFolder(it) {
     const counts = new Map(); (DATA.nodes || []).forEach(n => { const parts = String(n.folder || "").split("/"); [1, 2, 3].forEach(d => { if (parts.length >= d && parts[0]) { const f = parts.slice(0, d).join("/"); counts.set(f, (counts.get(f) || 0) + 1); } }); });

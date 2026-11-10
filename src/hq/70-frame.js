@@ -20,7 +20,7 @@
       ? [search.selectionStart, search.selectionEnd] : null;
     const focusedFilter = document.activeElement && document.activeElement.dataset.projectFilter;
     const onRow = document.activeElement && document.activeElement.matches && document.activeElement.matches(".vg-hq-item[data-key]") ? document.activeElement.dataset.key : null;
-    const html = `<header class="vg-hq-top"><span class="vg-hq-crumb"><b>Vault HQ</b> / ${esc(label)}</span>${nextChip()}
+    const html = `<header class="vg-hq-top">${canGoBack() ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-backbtn" data-back aria-label="Back" title="Back (Esc)">${icon("left", 14)} Back</button>` : ""}<span class="vg-hq-crumb"><b>Vault HQ</b> / ${esc(label)}</span>${nextChip()}
       <div class="vg-hq-global-tools"><label class="vg-hq-global-searchlabel"><input class="vg-hq-global-search vg-hq-project-search" type="search" value="${esc(globalQuery)}"
         placeholder="Search projects, tasks, and notes  ( / )" aria-label="Search all HQ and vault notes"></label>
         ${globalQuery ? '<button class="vg-hq-btn vg-hq-btn-sm vg-hq-global-clear" data-clear-global aria-label="Clear HQ search">Clear</button>' : ""}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-keysbtn" data-keys aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</button></div>
@@ -109,6 +109,7 @@
     else if (d.graphview) { if (opts.openGraph) opts.openGraph({ view: d.graphview }); }
     else if (d.vitalCurrent) { const n = (DATA.nodes || []).find(x => x.id === d.vitalCurrent) || { id: d.vitalCurrent, name: d.vitalName, age: 0 }; VGActions.run("current", n, ctx()); }
     else if (d.row) tickRow(+d.rline, d.row, b);
+    else if (d.back !== undefined) goBack();
     else if (d.go) { if (d.needsTo) needFilter = d.needsTo; setScreen(d.go); }
     else if (d.open !== undefined) { if (api.openNote) api.openNote(d.open); }
     else if (d.weekday) chooseDaily(d.weekday, b);
@@ -180,7 +181,7 @@
     else if (k === "s" && api.hqSession) { e.preventDefault(); sessionStart(onRow()); }
     else if (k === "p" && session) { e.preventDefault(); sessionPause(); }
     else if (k === "v" && onRow() && BY_KEY.get(onRow()) && pickable(BY_KEY.get(onRow()))) { e.preventDefault(); togglePick(onRow(), e.shiftKey); }
-    else if (k === "Escape" && picked.size && !drawer) { e.preventDefault(); picked.clear(); render(); }
+    else if (k === "Escape" && picked.size && !drawer) { e.preventDefault(); e.vgHandled = true; picked.clear(); render(); }
     else if (k === "w") { e.preventDefault(); setScreen("wrap"); }
     else if (k === "r") { e.preventDefault(); setScreen("review"); }
     else if (k === "o" && onRow()) { const it = BY_KEY.get(onRow()); if (it && (it.path || (it.ids || [])[0]) && api.openNote) { e.preventDefault(); api.openNote(it.path || it.ids[0]); } }
@@ -192,6 +193,7 @@
   });
   el.addEventListener("input", e => { if (e.target.matches(".vg-hq-captureinput")) captureText = e.target.value; });
   el.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !e.vgHandled && !peek && !drawer && !e.target.matches("input, textarea, select") && !el.querySelector(".vg-hq-dialog, .vg-hq-palette") && !(picked.size) && goBack()) { e.preventDefault(); return; }
     if (e.key === "Escape" && peek) { e.preventDefault(); peek = null; render(); return; }
     if (e.key === "Escape" && drawer) {
       e.preventDefault(); const path = drawer; drawer = null; render();
@@ -204,7 +206,10 @@
       if (line && e.target.matches(".vg-hq-item")) { e.preventDefault(); e.target.scrollIntoView({ block: "center" }); }
     }
   });
-  function setScreen(s) { if (!known(s)) return; const moved = s !== cur; if (moved) { selKey = null; needsWalk = false; } if (s === "sweep" && cur !== "sweep") kept = new Set(); cur = s; drawer = null; peek = null; if (moved) { needsWalk = false; leaving = true; sayEl.textContent = SUB[s] ? SUB[s][0] : SCREENS.find(x => x[0] === s)[1]; } render(); const m = el.querySelector(".vg-hq-main"); if (m) { m.scrollTop = 0; if (moved) { const col = m.querySelector(".vg-hq-col"); if (col) col.classList.add("vg-hq-enter"); } } if (opts.onScreen) opts.onScreen(s); }
+  // Back: the screen you came from (or, on a screen reached from another, the one it belongs to); Escape does the same
+  const canGoBack = () => trail.length > 0 || !!SUB[cur];
+  function goBack() { if (!canGoBack()) return false; const to = trail.length ? trail[trail.length - 1] : SUB[cur][1]; trail = trail.slice(0, -1); setScreen(to, true); return true; }
+  function setScreen(s, back) { if (!known(s)) return; const moved = s !== cur; if (moved && !back) trail = [...trail.slice(-19), cur]; if (moved) { selKey = null; needsWalk = false; } if (s === "sweep" && cur !== "sweep") kept = new Set(); cur = s; drawer = null; peek = null; if (moved) { needsWalk = false; leaving = true; sayEl.textContent = SUB[s] ? SUB[s][0] : SCREENS.find(x => x[0] === s)[1]; } render(); const m = el.querySelector(".vg-hq-main"); if (m) { m.scrollTop = 0; if (moved) { const col = m.querySelector(".vg-hq-col"); if (col) col.classList.add("vg-hq-enter"); } } if (opts.onScreen) opts.onScreen(s); }
   render();
   setTimeout(() => { if (el.isConnected) loadVitals(); }, 600);   // after the first paint: it reads every journal
   // a first open: the tour, once HQ has settled. A vault with nothing in it has its own welcome instead.
@@ -223,6 +228,7 @@
     tick,
     update(data, state) { DATA = data || DATA; if (state) STATE = state; settleGone(); relist(); searchNotes(globalQuery, 80); fromHost = true; try { render(); } finally { fromHost = false; } loadVitals(); },
     setScreen, screen: () => cur, palette: () => openPalette(), session: () => session, next: () => goNext(), tour: () => startHQTour(),
+    pickNote: (placeholder, filter) => ctx().pick(placeholder, filter),   // the picker "Link to…" uses
     showRows: path => ctx().showRows(path),   // a report's rows (the sidebar's Review rows opens HQ there)
     items: () => LIST.slice(),
     destroy() { sessionLog(); session = null; sessionTell(); clearInterval(sessionTick); clearInterval(clockTimer); clearTimeout(tourTimer); clearTimeout(toastTimer); clearTimeout(searchTimer); clearTimeout(typeTimer); searchToken++; el.remove(); },
