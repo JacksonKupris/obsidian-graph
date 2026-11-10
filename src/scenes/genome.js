@@ -7,7 +7,7 @@
   ICON.genome = '<path d="M7 3c0 6 10 6 10 9s-10 3-10 9M17 3c0 6-10 6-10 9s10 3 10 9M9.5 7.5h5M9.5 16.5h5"/>';
   const GN = { SIZE: 520, MIN_DAYS: 4, INK: "#070b14", LOOP: "250,204,21", TEXT: "#e5e7eb" };
   const gnDay = d => { const [, m, day] = d.split("-"); return `${MONTHS[+m - 1].slice(0, 3)} ${+day}`; };
-  const gnApart = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
+  const gnApart = VGShared.daysBetween;
   function genomeLayout() {
     const s = DATA.strand || { days: [], paths: [], ids: [], rows: [] }, f = VGScience.genomeFold(s.rows), pos = new Map(), daysOf = new Map();
     const beads = f.X.map(p => [p[0] * GN.SIZE, p[1] * GN.SIZE, (p[2] || 0) * GN.SIZE]), domain = new Array(f.n).fill(0);
