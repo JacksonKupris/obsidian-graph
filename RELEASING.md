@@ -40,6 +40,16 @@ npm run ship -- 36
 
 Waits for the pull request's checks, merges it when they pass, then runs the release above. It ends with one line: `SHIPPED #36: Released 0.6.65: ...`, or `NOT SHIPPED` / `MERGED ... but NOT RELEASED` with the reason and the next step. A failed check, a conflict, a failed merge or a failed release stops it. Start it in the background and the end line is what tells you it finished (an agent's background task notifies when it exits). By hand: wait for the checks, merge on GitHub, `git switch main`, `npm run release`.
 
+## Sync and release everything that is waiting
+
+```sh
+npm run ship -- --all
+```
+
+Runs `npm run sync`, then takes every open pull request oldest first: waits for its checks and merges it when they pass. A draft is skipped and a pull request with a failed check or a conflict is left open, each with a line that says why. Then it releases once, covering what it merged and anything merged earlier that was not released. It ends with one line: `SHIPPED #45, #46: Released ...`, `NOTHING TO RELEASE`, `NOTHING SHIPPED` (the sync or GitHub failed) or `MERGED ... but NOT RELEASED` with the reason. It does not commit or open pull requests: work that is not committed, or a pushed branch with no pull request, is not shipped (`npm run queue` lists those).
+
+On Windows, `scripts/ship-all.cmd` runs it from any folder and keeps the window open; copy it to the desktop to run it with a double click. If the repository is not at `%USERPROFILE%/Projects/vault-graph`, set `VAULT_GRAPH_REPO` to its folder. On Mac and Linux, run the command above in the repository.
+
 ## How a release travels
 
 ```
