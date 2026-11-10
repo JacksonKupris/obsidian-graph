@@ -3,7 +3,8 @@ const { today, localDay } = VGRules;   // the shared date rules (this device's c
 // Every plugin method that writes to the vault. onload wraps each so it announces the change when done (every open
 // surface redraws); viewActions hands the same methods to every graph surface. A new write action goes in this list.
 const WRITE_ACTIONS = ["applyMapRows", "setParents", "dropLinkLines", "moveTasks", "planLine", "capture", "openDaily", "linkNotes", "writeNote", "appendSection", "moveNote", "renameMap", "setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "setNoteTasks", "stampReviewed", "dismiss", "linkMentions",
-  "addReference", "tickMocRow", "saveBinary", "stateSnapshots", "undo"];
+  "addReference", "tickMocRow", "saveBinary", "stateSnapshots", "guideApply", "undo"];
+const GUIDE_KEPT = ".trash";   // where a guide repair copies each note before writing it: Obsidian's own trash folder, emptied by hand
 // The only methods that touch the vault for a write action. Each notes what it's about to change in the open undo
 // entry, so every action can be undone from the message that confirms it. tests/test_rules.js fails on a vault write
 // anywhere else (outside STATE_WRITERS).
