@@ -13,6 +13,10 @@ assert.strictEqual(VGRules.addTaskLine(`### ${heading}\r\n- [ ] one\r\n`, "a"), 
 const ppl = VGRules.hqPeople({ nodes: [{ id: "p/Brian.md", name: "Brian", person: true }, { id: "p/Show.md", name: "Show", person: true }, { id: "p/Ann.md", name: "Ann", person: true }, { id: "x.md", name: "X" }] },
   [{ key: "a", kind: "task", text: "Ask [[Brian]] about AWS" }, { key: "b", kind: "task", title: "Show and Tell prep" }, { key: "c", kind: "plan", text: "Send to [[Show]]" }, { key: "d", kind: "carried", title: "Brian wants the report" }, { key: "e", kind: "link", title: "Link Brian Review to Other" }, { key: "f", kind: "backlog", title: "the [[Brian links" }]);
 assert.deepStrictEqual(ppl.map(p => [p.name, p.items.map(i => i.key)]), [["Brian", ["a", "d"]], ["Show", ["c"]], ["Ann", []]], "people matched wrongly (Show and Tell isn't Show)");
+// someone with nothing open still shows what the notes hold on them: the notes they're linked from, most used first
+const quiet = VGRules.hqPeople({ nodes: [{ id: "p/Ann.md", name: "Ann", person: true, mentions: 2 }, { id: "p/Cy.md", name: "Cy", person: true, mentions: 9 }, { id: "a.md", name: "A", recent: 1 }, { id: "b.md", name: "B", recent: 5 }],
+  links: [{ source: "p/Ann.md", target: "a.md", kind: "person" }, { source: { id: "p/Ann.md" }, target: { id: "b.md" }, kind: "person" }, { source: "p/Ann.md", target: "missing.md", kind: "person" }, { source: "a.md", target: "b.md" }] }, []);
+assert.deepStrictEqual(quiet.map(p => [p.name, p.notes.map(n => n.id)]), [["Cy", []], ["Ann", ["b.md", "a.md"]]], "a person's linked notes, or the order of people with nothing open, is wrong");
 
 // the day's loop
 const day0 = "2026-10-28", list0 = [{ key: "a" }, { key: "b" }];
@@ -69,6 +73,28 @@ assert.strictEqual(VGRules.hqKind(`${VGRules.folders.inbox}/Idea.md`, {}, day0),
     // People opens and doesn't dead-end
     await tab.ev(`window.vaultHQ.setScreen("people")`); await sleep(50);
     check(await tab.ev(`/People/.test(document.querySelector(".vg-hq-main").textContent) && document.querySelectorAll(".vg-hq-main button").length > 0`), "People is a dead end");
+    // someone no open item names has a card of their own, and the notes on it open
+    const mountWith = `window.vaultHQ.destroy(); window.__calls = []; window.__t = 0; const D = { ...DATA, nodes: [...DATA.nodes, { id: "People/Zed Quiet.md", name: "Zed Quiet", person: true, mentions: 3 }], links: [...DATA.links, { source: "People/Zed Quiet.md", target: DATA.nodes.find(n => !n.person && !n.ghost).id, kind: "person" }] }; window.__D = D;
+      window.vaultHQ = mountVaultHQ(document.getElementById("hq"), D, { now: new Date("2026-10-28T12:00:00"), clock: () => window.__t, ask: async () => true, api: { openNote: p => window.__calls.push(["open", p]), hqMark: async () => true, setTaskStatus: async () => true, completeTask: async () => true, logWork: async () => false, hqFocus: async () => true } });`;
+    await tab.ev(`(() => { ${mountWith} window.vaultHQ.setScreen("people"); })()`); await sleep(80);
+    const zed = await tab.ev(`(() => { const c = [...document.querySelectorAll(".vg-hq-person")].find(s => /Zed Quiet/.test(s.querySelector("h3").textContent)); if (!c) return null; const b = [...c.querySelectorAll("button[data-open]")].find(x => x.dataset.open !== "People/Zed Quiet.md"); if (b) b.click(); return { text: c.textContent, note: b && b.dataset.open }; })()`);
+    check(zed && /Nothing open\./.test(zed.text) && /Linked in/.test(zed.text), "someone with nothing open has no card saying so: " + JSON.stringify(zed));
+    check(zed && zed.note && (await tab.ev("window.__calls")).some(c => c[0] === "open" && c[1] === zed.note), "a note on a person's card doesn't open");
+    // Done takes an item off; the host's next data can still hold it (the index lags the file): it stays off, the page
+    // isn't redrawn when nothing on it changed, and once the hold is over the data decides again
+    await tab.ev(`window.vaultHQ.setScreen("today")`); await sleep(80);
+    const done = await tab.ev(`(() => { const b = [...document.querySelectorAll('.vg-hq-main .vg-hq-item[data-key] [data-act="main"]')].find(x => x.textContent.trim() === "Done"); if (!b) return null; const k = b.dataset.key; b.click(); return k; })()`);
+    if (!done) throw new Error("no item with a Done button on Today");
+    await sleep(200); const listed = () => tab.ev(`window.vaultHQ.items().some(i => i.key === ${JSON.stringify(done)})`);
+    check(!(await listed()), "Done left the item on the list");
+    await tab.ev(`window.vaultHQ.update(window.__D)`); await sleep(60);
+    check(!(await listed()), "the host's old data put a done item back on the list");
+    await tab.ev(`document.querySelector(".vg-hq-main").__kept = true; window.vaultHQ.update(window.__D)`); await sleep(60);
+    check(await tab.ev(`document.querySelector(".vg-hq-main").__kept === true`), "an update that changed nothing redrew the page");
+    await tab.ev(`window.vaultHQ.setScreen("needs")`); await sleep(40); await tab.ev(`document.querySelector(".vg-hq-main").__kept = true; window.vaultHQ.setScreen("today")`); await sleep(40);
+    check(await tab.ev(`document.querySelector(".vg-hq-main").__kept !== true`), "going to a screen didn't draw it");
+    await tab.ev(`window.__t = 60000; window.vaultHQ.update(window.__D)`); await sleep(60);
+    check(await listed(), "after the hold, data that still holds the item should show it again");
   } catch (e) { fails.push(e.message); }
   await tab.close();
   finish(fails, "HQ: capture, context from your notes, keyboard, People", "hq brain");

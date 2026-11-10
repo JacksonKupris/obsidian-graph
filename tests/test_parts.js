@@ -46,6 +46,7 @@ assert(P.cards([{ value: "<b>", label: "'" }]).includes("&lt;b&gt;") && P.row({ 
     check(second.panels === 1 && second.firstClosed, `one panel at a time (${JSON.stringify(second)})`);
     check(await ev(`B.querySelector(".ds-detail-close").click(); return B.querySelectorAll(".ds-detail").length === 0 && B.querySelectorAll('[aria-expanded="true"]').length === 0;`), "the close button closes it");
     check(await ev(`const c = B.querySelectorAll("button.ds-card")[0]; c.click(); c.click(); return B.querySelectorAll(".ds-detail").length === 0;`), "pressing the card again closes it");
+    check(await ev(`const c = B.querySelectorAll("button.ds-card")[0]; c.click(); if (!B.querySelector(".ds-detail")) return false; c.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); return B.querySelectorAll(".ds-detail").length === 0 && document.activeElement === c;`), "Escape closes the open panel and returns to its card");
     const age = await ev(`const c = B.querySelector(".ds-cards.is-small button.ds-card"); if (!c) return null; c.click(); const d = c.closest(".ds-cards").nextElementSibling; const out = { label: c.dataset.cardLabel, rows: d && d.classList.contains("ds-detail") ? d.querySelectorAll(".ds-row").length : -1 }; const go = d && d.querySelector("button.ds-row"); if (go) go.click(); return out;`);
     check(age && age.rows > 0, `an age's card lists the tasks at that age (${JSON.stringify(age)})`);
     check((await tab.ev("(window.__opened || []).length")) === 1, "a task in a panel opens its note");

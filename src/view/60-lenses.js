@@ -40,35 +40,39 @@
     try { await opts.writeNote(path, md, { mode: "create", open: true }); toast(`Created ${title}`, "ok"); }
     catch (e) { toast(e.message, "warn"); }
   }
+  // The reports beside the picture. Each is a view like any other (VIEWS, in 20-maps.js): menu says which group of the picker
+  // it's in, and the order here is the order within that group.
   const LENSES = {
-    matrix: { name: "Topic matrix", hint: "Every pair of topics: links vs. co-mentions — red cells are gaps", render: lensMatrix },
-    timeline: { name: "Timeline", hint: `What your dailies talked about, week by week (${(DATA.timeline || { weeks: [] }).weeks.length} weeks)`, render: lensTimeline },
-    folders: { name: "Folders vs topics", hint: "Where folder structure disagrees with what notes are about", render: lensFolders },
-    projects: { name: "Context notes", hint: "Each Context note as a card: activity, tasks, staleness", render: lensProjects },
-    people: { name: "People by topic", hint: "Who you work with on which topics", render: lensPeople },
-    river: { name: "Topic river", hint: "Your dailies' topics as a stream over time, and each month's top topics", render: lensRiver },
-    maptree: { name: "Map tree", hint: "Each map's topics: what it lists, what it's missing — add in place", render: lensMapTree },
-    ring: { name: "Folder ring", hint: "Links between folders — thin chords are knowledge that doesn't connect", render: lensRing },
-    write: { name: "Write these next", hint: "Links to notes that don't exist yet, and short notes many others rely on", render: lensWrite },
-    missing: { name: "Missing from dailies", hint: "Notes no standup or journal mentions, most-linked first", render: lensMissing },
-    follow: { name: "Standup follow-through", hint: "What you planned for tomorrow vs. what the next standups say got done", render: lensFollow },
-    dupes: { name: "Duplicates", hint: "Likely duplicate notes side by side, with the links each one has", render: lensDupes },
-    ...((DATA.code && (DATA.code.repos || []).length) ? { code: { name: "Code ↔ docs", hint: "Code that changes often with no note, and notes that have fallen behind their code", render: lensCode } } : {}),   // only where work repos exist
-    path: { name: "Reading path", hint: "An ordered reading list for getting up to speed on a topic", render: lensPath },
-    stale: { name: "Stale notes", hint: "Finance: which old notes would cost most if they've gone out of date, and what to do with each", render: lensStale },
-    blind: { name: "Blind spots", hint: "What you name but never link, topics gone quiet, islands and dead ends", render: lensBlind },
-    blast: { name: "Blast radius", hint: "Epidemiology: if a note is wrong, how far does the mistake travel, and where's the tipping point?", render: lensBlast },
-    survival: { name: "Task survival", hint: "Clinical trials: how long tasks stay open, counting the ones still open, and what makes them finish", render: () => "", load: loadSurvival },
-    spof: { name: "Single points of failure", hint: "Reliability engineering: the notes that hold the vault together, and how it breaks when they go", render: lensSpof },
-    netlens: { name: "As a neural net", hint: "Reservoir computing: wire a recurrent network the way your notes link, and measure what it can do against random wiring", render: () => "", load: loadNetLens },
-    control: { name: "Control chart", hint: "Manufacturing: is this week really different, or the normal up and down of your work?", render: () => "", load: loadControl },
-    attention: { name: "Attention", hint: "Ecology: how many topics your week really went to, and whether you're focused or spread", render: lensAttention },
-    drift: { name: "Version drift", hint: "Notes and doc links that name a version other than the one you run", render: () => "", load: loadDrift },
-    flowlens: { name: "Flow", hint: "Lean manufacturing and queueing theory: how much work is open, whether it's growing, and how long it takes", render: () => "", load: loadFlow },
-    twoway: { name: "Hierarchy", hint: "Ecology: what blurs which way your notes lean, and the notes with no way up", render: () => "", load: loadTwoWay },
-    adjacent: { name: "Adjacent possible", hint: "Notes one step past what you're working on, and strange pairs to combine", render: lensAdjacent },
-    ...(opts.mocReport ? { mocalign: { name: "Map alignment", hint: "Tick the report's rows here; apply when ready", render: () => "", load: lensMocAlign } } : {}),
+    flowlens: { menu: "tasks", name: "Flow", hint: "Lean manufacturing and queueing theory: how much work is open, whether it's growing, and how long it takes", render: () => "", load: loadFlow },
+    control: { menu: "tasks", name: "Control chart", hint: "Manufacturing: is this week really different, or the normal up and down of your work?", render: () => "", load: loadControl },
+    survival: { menu: "tasks", name: "Task survival", hint: "Clinical trials: how long tasks stay open, counting the ones still open, and what makes them finish", render: () => "", load: loadSurvival },
+    follow: { menu: "tasks", name: "Standup follow-through", hint: "What you planned for tomorrow vs. what the next standups say got done", render: lensFollow },
+    stale: { menu: "notes", name: "Stale notes", hint: "Finance: which old notes would cost most if they've gone out of date, and what to do with each", render: lensStale },
+    twoway: { menu: "notes", name: "Hierarchy", hint: "Ecology: what blurs which way your notes lean, and the notes with no way up", render: () => "", load: loadTwoWay },
+    drift: { menu: "notes", name: "Version drift", hint: "Notes and doc links that name a version other than the one you run", render: () => "", load: loadDrift },
+    guide: { menu: "notes", name: "Guide scan", icon: "search", hint: "Gene editing: one tag, word or line everywhere it occurs, with look-alikes kept apart", render: lensGuide },
+    dupes: { menu: "notes", name: "Duplicates", hint: "Likely duplicate notes side by side, with the links each one has", render: lensDupes },
+    blind: { menu: "notes", name: "Blind spots", hint: "What you name but never link, topics gone quiet, islands and dead ends", render: lensBlind },
+    write: { menu: "notes", name: "Write these next", hint: "Links to notes that don't exist yet, and short notes many others rely on", render: lensWrite },
+    missing: { menu: "notes", name: "Missing from dailies", hint: "Notes no standup or journal mentions, most-linked first", render: lensMissing },
+    blast: { menu: "notes", name: "Blast radius", hint: "Epidemiology: if a note is wrong, how far does the mistake travel, and where's the tipping point?", render: lensBlast },
+    spof: { menu: "notes", name: "Single points of failure", hint: "Reliability engineering: the notes that hold the vault together, and how it breaks when they go", render: lensSpof },
+    attention: { menu: "topics", name: "Attention", hint: "Ecology: how many topics your week really went to, and whether you're focused or spread", render: lensAttention },
+    river: { menu: "topics", name: "Topic river", hint: "Your dailies' topics as a stream over time, and each month's top topics", render: lensRiver },
+    timeline: { menu: "topics", name: "Timeline", hint: `What your dailies talked about, week by week (${(DATA.timeline || { weeks: [] }).weeks.length} weeks)`, render: lensTimeline },
+    matrix: { menu: "topics", name: "Topic matrix", hint: "Every pair of topics: links vs. co-mentions — red cells are gaps", render: lensMatrix },
+    folders: { menu: "topics", name: "Folders vs topics", hint: "Where folder structure disagrees with what notes are about", render: lensFolders },
+    ring: { menu: "topics", name: "Folder ring", hint: "Links between folders — thin chords are knowledge that doesn't connect", render: lensRing },
+    maptree: { menu: "topics", name: "Map tree", hint: "Each map's topics: what it lists, what it's missing — add in place", render: lensMapTree },
+    ...(opts.mocReport ? { mocalign: { menu: "topics", name: "Map alignment", hint: "Tick the report's rows here; apply when ready", render: () => "", load: lensMocAlign } } : {}),
+    projects: { menu: "topics", name: "Context notes", hint: "Each Context note as a card: activity, tasks, staleness", render: lensProjects },
+    people: { menu: "topics", name: "People by topic", hint: "Who you work with on which topics", render: lensPeople },
+    ...((DATA.code && (DATA.code.repos || []).length) ? { code: { menu: "topics", name: "Code ↔ docs", hint: "Code that changes often with no note, and notes that have fallen behind their code", render: lensCode } } : {}),   // only where work repos exist
+    path: { menu: "topics", name: "Reading path", hint: "An ordered reading list for getting up to speed on a topic", render: lensPath },
+    adjacent: { menu: "topics", name: "Adjacent possible", hint: "Notes one step past what you're working on, and strange pairs to combine", render: lensAdjacent },
+    netlens: { menu: "topics", name: "As a neural net", hint: "Reservoir computing: wire a recurrent network the way your notes link, and measure what it can do against random wiring", render: () => "", load: loadNetLens },
   };
+  Object.keys(LENSES).forEach(k => { LENSES[k] = view("lens:" + k, { kind: "lens", lens: k, ...LENSES[k] }); });
   let lensKey = null;
   $(".vg-lens-close").onclick = () => closeLens();
   VGParts.wire($(".vg-lens-body"), { details: () => lensCards, onOpen: panel => wireLens(panel), openNote: (p, e) => { if (opts.openNote) opts.openNote(p, e.ctrlKey || e.metaKey); } });
@@ -422,11 +426,13 @@
     const stubs = nodes.filter(n => !special(n) && !n.ghost && (n.words || 0) < Q.stub_words && (n.inlinks || 0) >= 2)
       .sort((a, b) => b.inlinks - a.inlinks || b.mentions - a.mentions);
     if (!wanted.length && !stubs.length) return emptyNext("Every link points at a real note, and no short note has several links in.", "new:note", "lens:stale");
-    const named = opts.wantedCounts ? opts.wantedCounts() : null, ch = named && named.length >= 10 ? VGScience.chao1(named) : null;
-    return `${ch ? `${sciFacts([[String(ch.S), "notes linked but not written", "Every link in the vault that points at a note that doesn't exist."], [`${ch.f1} / ${ch.f2}`, "linked once / twice", "Most wanted notes are named only once or twice, which is what the estimate reads."], [`${Math.round(ch.unseen)}+`, "never named yet", "Chao1's estimate: how many more you'd expect to find if you kept writing. A lower bound, from the way ecologists count species they haven't seen."]])}` : ""}<p class="vg-muted vg-lens-note">Notes other notes already point at, ranked by how many. Writing these fills the biggest holes first.</p>
-      ${lensSec("Linked but never written", wanted.slice(0, 100).map(n => `<div class="vg-sugg"><button class="vg-item" data-id="${esc(n.id)}"><span class="vg-dot is-ghost"></span><span class="vg-item-main"><span>${esc(n.name)}</span>
+    const wantedRow = n => `<div class="vg-sugg"><button class="vg-item" data-id="${esc(n.id)}"><span class="vg-dot is-ghost"></span><span class="vg-item-main"><span>${esc(n.name)}</span>
         <span class="vg-item-sub">linked from ${plural(n.from.length, "note")}: ${n.from.filter(id => byId[id]).slice(0, 3).map(id => esc(byId[id].name)).join(", ")}${n.from.length > 3 ? "…" : ""}</span></span></button>
-        ${opts.writeNote && n.creatable ? `<span class="vg-sugg-acts">${actBtn("data-ghost", n.id, `${icon("file", 12)} Create`)}</span>` : ""}</div>`), { count: wanted.length, word: "notes", empty: "Every link points at a real note." })}
+        ${opts.writeNote && n.creatable ? `<span class="vg-sugg-acts">${actBtn("data-ghost", n.id, `${icon("file", 12)} Create`)}</span>` : ""}</div>`;
+    lensCards = { wanted: rowsDetail("Linked but never written", () => wanted.map(wantedRow), "notes"), once: rowsDetail("Named once", () => wanted.filter(n => n.from.length === 1).map(wantedRow), "notes") };
+    const named = opts.wantedCounts ? opts.wantedCounts() : null, ch = named && named.length >= 10 ? VGScience.chao1(named) : null;
+    return `${ch ? `${sciFacts([[String(ch.S), "notes linked but not written", "Every link in the vault that points at a note that doesn't exist.", "wanted"], [`${ch.f1} / ${ch.f2}`, "linked once / twice", "Most wanted notes are named only once or twice, which is what the estimate reads.", "once"], [`${Math.round(ch.unseen)}+`, "never named yet", "Chao1's estimate: how many more you'd expect to find if you kept writing. A lower bound, from the way ecologists count species they haven't seen."]])}` : ""}<p class="vg-muted vg-lens-note">Notes other notes already point at, ranked by how many. Writing these fills the biggest holes first.</p>
+      ${lensSec("Linked but never written", wanted.slice(0, 100).map(wantedRow), { count: wanted.length, word: "notes", empty: "Every link points at a real note." })}
       ${lensSec("Short notes that others rely on", stubs.slice(0, 100).map(n => noteLine(n.id, `${n.words || 0} words · ${n.inlinks} links in${n.mentions ? ` · ${n.mentions} mentions` : ""}`, opts.openNote ? actBtn("data-open", n.id, `${icon("open", 12)} Open`) : "")), { count: stubs.length, word: "notes", empty: "No thin notes with several links in." })}`;
   }
 

@@ -44,9 +44,6 @@
     GL.show(glOn());
     if (neural()) return drawNeural(now);
     if (isCosmos()) return drawCosmos(now);
-    if (st.view === "subway") return drawSubway(now);
-    const more = { weather: drawWeather, foodweb: drawFoodweb, clock: drawClock, radar: drawRadar }[st.view];
-    if (more) return more(now);
     if (SCENES[st.view]) return SCENES[st.view].draw(now);
     const dpr = screenDpr();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);

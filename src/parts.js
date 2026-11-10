@@ -65,6 +65,13 @@ const VGParts = (() => {
       const c = e.target.closest("[data-card]"); if (!c) return;
       const panel = openDetail(c, P.details || {}); if (panel && P.onOpen) P.onOpen(panel);
     });
+    // Escape closes the open card's panel first and puts focus back on the card; with none open it passes through to the view
+    root.addEventListener("keydown", e => {
+      if (e.key !== "Escape") return;
+      const open = root.querySelector('.ds-detail'); if (!open) return;
+      const grid = open.previousElementSibling, was = grid && grid.querySelector('[aria-expanded="true"]');
+      e.stopPropagation(); e.preventDefault(); if (grid) closeDetail(grid); if (was) was.focus();
+    }, true);
   }
   return { cards, heading, section, more, howTo, row, list, wire, opened, reopen };
 })();

@@ -82,7 +82,7 @@ if (H.journal) { const Q = new Function(`${require("../build").rulesSource({ ...
 assert.strictEqual(R.versionAfter("0.6.100", "0.6.99"), true, "by number, not by text"); assert.strictEqual(R.versionAfter("0.6.42", "0.6.42"), false); assert.strictEqual(R.versionAfter("0.6.1", undefined), true);
 assert.ok(R.newsSince("0.6.41").every(n => R.versionAfter(n.since, "0.6.41")) && R.newsSince("99.0.0").length === 0, "since a version");
 { const shell = ["00-core", "60-lenses"].map(f => require("fs").readFileSync(require("path").join(__dirname, "..", "src", "view", `${f}.js`), "utf8")).join(""), core = require("fs").readFileSync(require("path").join(__dirname, "..", "src", "hq", "00-core.js"), "utf8");
-  for (const n of R.NEWS) { if (n.to.screen) assert.ok(core.includes(`"${n.to.screen}"`) || new RegExp(`\\b${n.to.screen}:`).test(core), `news goes to a screen that isn't there: ${n.to.screen}`); if (n.to.graph && n.to.graph.lens) assert.ok(new RegExp(`\\b${n.to.graph.lens}: \\{ name:`).test(shell), `news goes to a view that isn't there: ${n.to.graph.lens}`); } }
+  for (const n of R.NEWS) { if (n.to.screen) assert.ok(core.includes(`"${n.to.screen}"`) || new RegExp(`\\b${n.to.screen}:`).test(core), `news goes to a screen that isn't there: ${n.to.screen}`); if (n.to.graph && n.to.graph.lens) assert.ok(new RegExp(`\\b${n.to.graph.lens}: \\{ menu: "\\w+", name:`).test(shell), `news goes to a view that isn't there: ${n.to.graph.lens}`); } }
 // ---- moving: the text a project note gets
 { const out = R.addProjectTask("# Note\n\n## Tasks\n\n- [ ] Was here\n", "Moved (from [[2026-03-24]])", ["Child one", "Grandchild"]);
   assert.ok(out.includes("- [ ] Was here\n- [ ] Moved (from [[2026-03-24]])\n    - [ ] Child one\n    - [ ] Grandchild"), `moved text: ${out}`);

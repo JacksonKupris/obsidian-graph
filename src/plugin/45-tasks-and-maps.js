@@ -158,6 +158,56 @@
       const lines = (await this.app.vault.cachedRead(f)).split(/\r?\n/); for (const r of res) { let hit = null; for (const l of lines) { r.re.lastIndex = 0; for (const m of l.matchAll(r.re)) if (m[1] && !String(m[1]).startsWith(r.current)) { hit = { found: m[1], text: l.trim() }; break; } if (hit) break; } if (hit) out.push({ path: f.path, name: r.name, current: r.current, ...hit }); } }
     return out;
   }
+  // A guide's sites in every note (VGScience.guideSurvey; the lens is Guide scan, its presets the rules file's guides). Reports,
+  // the archive and the tooling folders aren't read. Nothing is written by a scan or a preview; guideApply writes.
+  async guideScan(guide, scope) {
+    const survey = VGScience.guideSurvey(guide);
+    for (const f of this.guideFiles(scope)) survey.add(f.path, await this.app.vault.cachedRead(f));
+    return survey.done();
+  }
+  // The notes a guide reads. scope { folder } or { tag } narrows them: a note in the folder, or carrying the tag or one under it.
+  guideFiles(scope) {
+    const skip = [VGRules.folders.reports + "/", VGRules.folders.archive + "/", ...EXCLUDE_PREFIXES], S = scope || {};
+    const folder = String(S.folder || "").trim().replace(/^\/+|\/+$/g, ""), tag = String(S.tag || "").trim().replace(/^#/, "").toLowerCase();
+    const tagged = f => { const c = this.app.metadataCache.getFileCache(f) || {}, fm = this.fmOf(f) || {};
+      return [].concat(fm.tags || []).flatMap(t => String(t).split(/[,\s]+/)).concat((c.tags || []).map(t => t.tag)).map(t => String(t).replace(/^#/, "").toLowerCase()).some(t => t === tag || t.startsWith(tag + "/")); };
+    return this.app.vault.getMarkdownFiles().filter(f => !skip.some(x => f.path.startsWith(x)) && (!folder || f.path.startsWith(folder + "/")) && (!tag || tagged(f)));
+  }
+  // A repair may be written only inside a folder or a tag, so a wrong guide stays small. The rules file's
+  // guide_whole_vault: true lifts that.
+  guideScoped(scope) { const S = scope || {}; return !!(String(S.folder || "").trim() || String(S.tag || "").trim() || VGRules.RULES.guide_whole_vault); }
+  // What a repair would write: every cut (VGScience.guideCuts) in each note of the scope. Nothing is written.
+  async guidePreview(guide, repair, scope) {
+    const out = { notes: [], scanned: 0, cuts: 0 };
+    for (const f of this.guideFiles(scope)) { out.scanned++; const cuts = VGScience.guideCuts(await this.app.vault.cachedRead(f), guide, repair); if (cuts.length) { out.notes.push({ path: f.path, cuts }); out.cuts += cuts.length; } }
+    out.notes.sort((a, b) => (a.path < b.path ? -1 : 1));
+    return out;
+  }
+  // Write the ticked notes' cuts, as one action. run: { guide, repair, scope, notes: [{ path, cuts }] } with the cuts a
+  // preview showed. Each note's text is first copied to the trash folder; a line that changed since the preview is
+  // left. The run goes in the shared file's guideLog and in a report note. A note outside the scope is never written.
+  async guideApply(run) {
+    if (!this.guideScoped(run.scope)) throw new Error("choose a folder or a tag first");
+    const inScope = new Set(this.guideFiles(run.scope).map(f => f.path)), notes = (run.notes || []).filter(n => n && n.cuts && n.cuts.length && inScope.has(n.path));
+    if (!notes.length) throw new Error("none of the ticked notes are there to write");
+    this.vitalsMemo = null;
+    const d = new Date(), p2 = VGShared.pad2, id = `${today()} ${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())}`, kept = `${GUIDE_KEPT}/Guide Scan ${id}`;
+    for (const n of notes) { const to = normalizePath(`${kept}/${n.path}`); await this.mkdirs(to.slice(0, to.lastIndexOf("/"))); await this.ioData(to, await this.app.vault.read(this.fileAt(n.path))); }   // every original first
+    const done = []; let cuts = 0, left = 0;
+    for (const n of notes) { let r = null; await this.ioProcess(this.fileAt(n.path), data => { r = VGScience.guideApply(data, n.cuts); return r.text; });
+      cuts += r.done; left += r.left.length; done.push({ path: n.path, cuts: n.cuts, done: r.done, left: r.left }); }
+    const G = run.guide || {}, S = run.scope || {}, entry = { id, date: today(), guide: { seq: G.seq, after: G.after || "", word: G.word !== false, where: G.where || [] }, to: String((run.repair || {}).to || ""),
+      scope: { folder: String(S.folder || "").trim(), tag: String(S.tag || "").trim() }, notes: done.filter(n => n.done).length, cuts, left, kept };
+    if (!cuts) return entry;
+    entry.report = await this.writeReport(`Guide Scan ${id}`, VGScience.guideReport(entry, done));
+    await this.updateShared(sh => { sh.guideLog = [...(sh.guideLog || []), entry].slice(-VGRules.GUIDE_LOG_KEEP); return sh; });
+    return entry;
+  }
+  // past applied runs, newest first (the shared file's guideLog: every device's). A run whose report is gone (undone,
+  // or trashed) keeps its row without the link.
+  async guideLog() { const sh = await this.loadShared(); return ((sh && sh.guideLog) || []).slice().reverse().map(r => (r.report && !this.pathTaken(r.report) ? { ...r, report: "" } : r)); }
+  // what a view is handed to read with; guideApply is handed apart, only where writing is allowed
+  guideReaders() { return { guideScan: (guide, scope) => this.guideScan(guide, scope), guidePreview: (guide, repair, scope) => this.guidePreview(guide, repair, scope), guideLog: () => this.guideLog(), guideScoped: scope => this.guideScoped(scope) }; }
   // Give notes a way up: parent: "[[Hub]]" in the frontmatter, as one action. A note that already has a parent keeps it. Rows: { path, hub }.
   async setParents(rows) {
     this.vitalsMemo = null; let n = 0;

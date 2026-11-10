@@ -2,9 +2,14 @@
 // The fast checks: build, the rules and code checks, and the page smoke test (every view and lens draws, no dead
 // ends). On the sample vault by default; --vault [dir] runs them on a real vault's rules and graph data.
 //   node tests/run.js [--vault [dir]]        exit 1 when any fails
+//   --only lens_load,rules                   just the named tests
+//   --changed[=ref]                          just the tests that load what this branch changed since ref (default origin/main),
+//                                            uncommitted and new files included; a shared file changed runs them all (tests/select.js)
+//   --list                                   print the steps that would run, and stop
+// GitHub runs every step on every pull request, whatever was picked here.
 // live_e2e.js acts on every suggestion in a copy of the vault. Slower, by hand: click_all.js (every control, ~5 min), layout_random.js, shots.js, polish_loop.js.
 const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
-const env = require("./env"), build = require("../build");
+const env = require("./env"), build = require("../build"), select = require("./select");
 
 // the plugin as it would be installed, built with the rules under test
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vg-build-"));
@@ -24,14 +29,40 @@ const steps = [["main.js", ["--check", path.join(dir, "main.js")]], ["rules.js",
   ["test_hq_navigation.js", [path.join(__dirname, "test_hq_navigation.js"), ...env.args]],
   ["test_hq_improvements.js", [path.join(__dirname, "test_hq_improvements.js"), ...env.args]],
   ["test_hq_usability.js", [path.join(__dirname, "test_hq_usability.js"), ...env.args]],
-  ["test_other_vault.js", [path.join(__dirname, "test_other_vault.js")]], ["test_lens_load.js", [path.join(__dirname, "test_lens_load.js"), ...env.args]], ["test_sweep_vitals.js", [path.join(__dirname, "test_sweep_vitals.js"), ...env.args]],
+  ["test_other_vault.js", [path.join(__dirname, "test_other_vault.js")]], ["test_lens_load.js", [path.join(__dirname, "test_lens_load.js"), ...env.args]], ["test_guide_scan.js", [path.join(__dirname, "test_guide_scan.js"), ...env.args]], ["test_sweep_vitals.js", [path.join(__dirname, "test_sweep_vitals.js"), ...env.args]],
+  ["test_select.js", [path.join(__dirname, "test_select.js")]],
   ["smoke_page.js", [path.join(__dirname, "smoke_page.js"), ...env.args]]];
+const stop = msg => { console.error("FAIL  " + msg); process.exit(1); };
+// --only and --changed narrow the steps; picked stays null when every step runs
+let picked = null, pickedBy = "";
+const onlyAt = process.argv.indexOf("--only"), changedArg = process.argv.find(a => a === "--changed" || a.startsWith("--changed="));
+if (onlyAt > 0 && changedArg) stop("--only and --changed: use one of them");
+if (onlyAt > 0) {
+  const arg = process.argv[onlyAt + 1];
+  if (!arg || arg.startsWith("--")) stop("--only needs test names, comma-separated: --only lens_load,rules (node tests/run.js --list shows them)");
+  const r = select.pickOnly(arg.split(","), steps.map(s => s[0]));
+  if (r.unknown.length) stop(`--only: no test named ${r.unknown.join(", ")} (node tests/run.js --list shows them)`);
+  picked = new Set(r.names); pickedBy = "--only";
+}
+if (changedArg) {
+  const ref = changedArg.includes("=") ? changedArg.slice(changedArg.indexOf("=") + 1) : "origin/main";
+  const git = a => { const r = spawnSync("git", a, { cwd: build.ROOT, encoding: "utf8" });
+    if (r.error) stop("--changed needs git: " + r.error.message + ". Run npm test for every test.");
+    if (r.status !== 0) stop(`--changed: git ${a.join(" ")} failed: ${(r.stderr || "").trim().split("\n")[0]}. Is "${ref}" there? Run git fetch origin, or name another with --changed=<branch>, or run npm test for every test.`);
+    return r.stdout.split("\n").filter(Boolean); };
+  // what the branch changed since it left ref, what's changed and not committed, and new files
+  const files = [...new Set([...git(["diff", "--name-only", ref + "...HEAD"]), ...git(["diff", "--name-only", "HEAD"]), ...git(["ls-files", "--others", "--exclude-standard"])])];
+  const r = select.pickChanged(files, steps.map(s => s[0]), s => { try { return fs.readFileSync(path.join(__dirname, s), "utf8"); } catch (e) { return ""; } });
+  if (r.names.length < steps.length) { picked = new Set(r.names); pickedBy = "--changed"; }
+  console.error(`  pick  --changed since ${ref}: ${r.names.length} of ${steps.length} tests (${files.length ? r.why : "no file changed"})`);
+}
+const run = picked ? steps.filter(s => picked.has(s[0])) : steps;
 // --shard=i/n runs every n-th step starting at i (GitHub runs the shards side by side); no flag runs all of them
 const shardArg = (process.argv.find(a => a.startsWith("--shard=")) || "").slice(8);
 const [shard, shards] = shardArg ? shardArg.split("/").map(Number) : [1, 1];
 if (!(shards >= 1 && shard >= 1 && shard <= shards)) { console.error("FAIL  --shard=" + shardArg + ": use --shard=i/n with 1 <= i <= n"); process.exit(1); }
-const label = (env.VAULT ? env.VAULT : "sample vault") + (shards > 1 ? ", shard " + shard + "/" + shards : "");
-if (process.argv.includes("--list")) { console.log(steps.filter((_, i) => i % shards === shard - 1).map(x => x[0]).join("\n")); process.exit(0); }
+const label = (env.VAULT ? env.VAULT : "sample vault") + (shards > 1 ? ", shard " + shard + "/" + shards : "") + (picked ? `, ${run.length} of ${steps.length} tests picked by ${pickedBy}` : "");
+if (process.argv.includes("--list")) { console.log(run.filter((_, i) => i % shards === shard - 1).map(x => x[0]).join("\n")); process.exit(0); }
 let ran = 0;
 let failed = 0, skipped = 0;
 // the repo's manifest.json (what BRAT reads) is the one the build makes: same id, same version as package.json
@@ -40,7 +71,7 @@ if (shard === 1) { const want = build.buildPlugin(build.loadRules())["manifest.j
   const ok = got.replace(/\r\n/g, "\n") === want;
   console.log(`  ${ok ? "test" : "FAIL"}  manifest.json: ${ok ? "ok - matches the build" : "out of date: run node build.js manifest"}`);
   failed += ok ? 0 : 1; }
-for (const [name, args] of steps.filter((_, i) => i % shards === shard - 1)) {
+for (const [name, args] of run.filter((_, i) => i % shards === shard - 1)) {
   const r = spawnSync(process.execPath, args, { encoding: "utf8", timeout: 10 * 60 * 1000 });
   // only a clean exit 0 passes: a step killed (or timed out) has status null, one that didn't start has r.error
   const bad = r.status !== 0, why = r.error ? [r.error.code === "ETIMEDOUT" ? "timed out after 10 minutes" : r.error.message] : r.signal ? [`killed (${r.signal})`] : [];

@@ -25,7 +25,7 @@
   // the rail takes room only when it has something to say: with nothing picked the list has the width
   const railAside = () => railOn() && selected() ? `<aside class="vg-hq-rail" aria-label="About the selected item" aria-live="polite">${railHtml()}</aside>` : "";
   // just the rail: moving through a list doesn't rebuild the list
-  function updateRail() { const r = el.querySelector(".vg-hq-rail"); if (!r && railOn() && selected()) { render(); return; } if (r) r.innerHTML = railHtml(); el.querySelectorAll(".vg-hq-item.is-sel").forEach(x => x.classList.remove("is-sel")); const it = selected(); if (it) { const row = [...el.querySelectorAll(".vg-hq-item[data-key]")].find(x => x.dataset.key === it.key); if (row) row.classList.add("is-sel"); } }
+  function updateRail() { const r = el.querySelector(".vg-hq-rail"); if (!r && railOn() && selected()) { render(); return; } if (r) { drawn = null; r.innerHTML = railHtml(); } el.querySelectorAll(".vg-hq-item.is-sel").forEach(x => x.classList.remove("is-sel")); const it = selected(); if (it) { const row = [...el.querySelectorAll(".vg-hq-item[data-key]")].find(x => x.dataset.key === it.key); if (row) row.classList.add("is-sel"); } }
   function selectItem(key) { selKey = key; cursorKey = key; updateRail(); }
 
   // ---- the morning brief: the day in a few sentences, from what the vault already says

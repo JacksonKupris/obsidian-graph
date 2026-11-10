@@ -1,25 +1,76 @@
   // ---------------------------------------------------------------- map views: subway, terrain, city
   // Each lays the notes out once on a flat plane (no physics) and draws its own picture. Drawn notes go into P
   // with a screen spot and radius, so hover, click, search, the inspector, lenses and replay keep working.
+  // ---------------------------------------------------------------- every view, defined once
+  // VIEWS is the one list of what a person can open: a graph ("2d"), a map or scene ("subway", "dungeon"), a report beside the
+  // picture ("lens:stale"). Each is defined in one call, view(key, { kind, name, icon, hint, menu, ... }), and everything that
+  // names, lists, groups or opens a view reads it from here: the picker and its groups, the button, saved-view names, the legend,
+  // the today strip, the first-time toast, the frame rate. SCENES (the maps) and LENSES (the reports) hold the same objects by
+  // kind. A test fails on a second table of view names, icons or groups (tests/test_rules.js).
+  const VIEWS = {};
+  function view(key, def) { return VIEWS[key] = { icon: "grid", ...def }; }   // no field of its own beside the definition's: a scene has a key() already
+  // the picker's groups, in order: a view says which it's in (menu); within one, views come in the order they're defined.
+  // A view with no menu lands in "More".
+  const VIEW_MENUS = [["see", "See the vault"], ["tasks", "Tasks"], ["notes", "Notes that need you"], ["topics", "Topics and structure"], ["play", "Play"], ["own", "Your own"]];
+  const canvasView = v => !!VIEWS[v] && VIEWS[v].kind !== "lens";   // drawn on the canvas, so st.view can hold it
+  const viewName = v => (VIEWS[v] ? VIEWS[v].short || VIEWS[v].name : v);
+  // the graphs' today strip: the biggest gap between two topics
+  const gapToday = () => { const g = (DATA.gaps || [])[0];
+    return g ? { text: `Biggest gap: ${clusterName(g.a)} ↔ ${clusterName(g.b)} · ${g.comentions ? `${g.comentions} co-mentions in your dailies` : "related by shared tags"}, only ${plural(g.links, "link")}`, label: "Show both", run: () => focusClusters([g.a, g.b]) } : null; };
+  view("2d", { kind: "graph", name: "Graph", short: "2D", icon: "hub", menu: "see", hint: "Notes and links: topics, influence and gaps", today: gapToday });
+  view("3d", { kind: "graph", name: "Graph in 3D", short: "3D", icon: "layers", menu: "see", hint: "The same graph in depth; drag to turn it", today: gapToday });
+  view("neural", { kind: "graph", name: "Neural", icon: "brain", menu: "see", hint: "Topics as brain lobes, links firing between them", today: gapToday });
+  view("cosmos", { kind: "graph", name: "Cosmos", icon: "orbit", menu: "see", hint: "Maps become stars; place planets and fly between them" });
   // ---------------------------------------------------------------- scene registry
-  // A scene registers everything about itself in one call, in its own file (_scripts/vault_graph_scenes/*.js, put here by
-  // the build): scene(key, { name, icon, blurb, toast, layout(geo) -> { pos: Map(id -> [x, y]), ... }, draw(now), fps,
+  // A scene registers everything about itself in one call, in its own file (src/scenes/*.js, put here by
+  // the build): scene(key, { name, icon, hint, menu, toast, layout(geo) -> { pos: Map(id -> [x, y]), ... }, draw(now), fps,
   // iso ("iso" | "tilt": drawn with isoKit, framed to match), press(phase, x, y) -> true (takes a drag off the notes, e.g. painting),
   // pointer(phase, event, x, y) -> true, wheel(event), escape() -> true, game: true (a game owns the canvas: raw pointers, keeps
   // running under reduced motion, no time-lapse),
   // fit(n) -> bool (what "fit" frames), lit(id) -> Set|null (what selecting a note lights), legend(item) -> html,
-  // today() -> { text, label, run } | null }. The tables below (names, picker tiles, layouts, drawing, animation,
-  // legend, today strip, toast) read it, so a new scene touches no other code.
+  // today() -> { text, label, run } | null }. Everything else reads it (names, picker tiles, layouts, drawing, animation,
+  // legend, today strip, toast), so a new scene touches no other code. The five maps below are scenes like any other.
   const SCENES = {};
-  function scene(key, def) { SCENES[key] = def; }
+  function scene(key, def) { SCENES[key] = view(key, { kind: "map", ...def }); }
+  const realNotes = () => nodes.filter(n => !special(n) && !n.ghost);
+  scene("subway", { name: "Subway", icon: "subway", menu: "see", hint: "Topics as lines; black-ringed stations connect topics",
+    toast: "Subway — each topic is a line; black-ringed stations connect topics",
+    layout: geo => subwayLayout(geo), draw: now => drawSubway(now), fit: n => mapCache.subway && mapCache.subway.stations.has(n.id),
+    legend: item => item(`<i class="vg-lg-line" style="height:4px;background:${colorOf(0)}"></i>`, "line = topic") + item(`<i class="vg-lg-stn"></i>`, "note") + item(`<i class="vg-lg-stn is-x"></i>`, "connects topics"),
+    today() { if (!mapCache.subway) return null; const sum = l => l.stops.reduce((a, id) => a + (byId[id].recent || 0), 0), L = topBy(mapCache.subway.lines, sum);
+      return L ? { text: `Busiest line: ${clusterName(L.c)} · ${sum(L)} recent mentions along it`, label: "Show it", run: () => focusClusters([L.c]) } : null; } });
+  scene("weather", { name: "Weather", icon: "cloud", menu: "see", hint: "Which topics are heating up (L, storms) or going quiet (H)",
+    toast: "Weather — L is a topic busier than usual in your dailies, H a quiet one; storms are this week's bursts, fronts join topics that come up together",
+    layout: geo => weatherLayout(geo), draw: now => drawWeather(now),
+    legend: item => item("<b style='color:#b91c1c'>L</b>", "busier than usual") + item("<b style='color:#1d4ed8'>H</b>", "quieter") + item("⛈", "burst this week") + item("<i class='vg-lg-line' style='border-color:#dc2626'></i>", "front = come up together"),
+    today() { const t = mapCache.weather && topBy(mapCache.weather.tops, x => x.a);
+      return t && t.a > 0.35 ? { text: `${clusterName(t.c)} is ${t.ratio.toFixed(1)}× busier than usual in your dailies${t.storm ? " (storm this week)" : ""}`, label: mocOf[t.c] && opts.openNote ? "Open its map" : "Show topic",
+        run: () => mocOf[t.c] && opts.openNote ? opts.openNote(mocOf[t.c].id, false) : focusClusters([t.c]) } : null; } });
+  scene("clock", { name: "Heat clock", icon: "clock", menu: "see", hint: "When you work on what: weekday and month dials",
+    toast: "Heat clock — when each topic comes up in your dailies, by weekday and by month",
+    layout: geo => clockLayout(geo), draw: now => drawClock(now),
+    legend: item => item("◔", "ring = topic") + item("<i class='vg-lg-win'></i>", "brighter = more of its mentions") + item("↗", "click a ring for its weeks"),
+    today() { const C0 = mapCache.clock; if (!C0) return null; const wd = (new Date().getDay() + 6) % 7, xs = C0.cs.filter(x => x.wd.indexOf(Math.max(...x.wd)) === wd);
+      const day = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][wd];
+      return xs.length ? { text: `It's ${day}: usually ${xs.slice(-3).reverse().map(x => clusterName(x.c)).join(", ")}`, label: "Show them", run: () => focusClusters(xs.map(x => x.c)) } : { text: `It's ${day}: no topic peaks today`, label: "", run: null }; } });
+  scene("radar", { name: "Radar", icon: "radar", menu: "tasks", fps: 60, hint: "Open tasks as blips by how long they've waited; red = 90+ days",
+    toast: "Radar — notes with open tasks, nearer the centre the longer their oldest task has waited. Click a blip to tick tasks off",
+    layout: geo => radarLayout(geo), draw: now => drawRadar(now), fit: n => !special(n) && n.tasks > 0,
+    legend: item => item("<b style='color:#22c55e'>●</b>", "note with open tasks") + item("<b style='color:#f87171'>●</b>", "oldest task 90+ days") + item("↻", "click a blip to tick off"),
+    today() { const hold = realNotes().filter(n => n.tasks > 0 && (n.taskAge ?? 0) > 90), o = topBy(hold, n => n.taskAge);
+      return o ? { text: `${hold.length} notes have tasks waiting 90+ days · oldest: ${o.name} (${o.taskAge} days)`, label: "Triage", run: startTriage } : null; } });
+  scene("foodweb", { name: "Food web", icon: "leaf", menu: "notes", hint: "Which notes feed which; stale ones others rely on are endangered",
+    toast: "Food web — producers (relied on, rarely link out) at the bottom, logs and plans at the top; red rings are relied-on notes gone stale",
+    layout: geo => foodwebLayout(geo), draw: now => drawFoodweb(now),
+    legend: item => item("↑", "height is trophic level, the base at the bottom") + item("<b style='color:#f87171'>◯</b>", "endangered: relied on, stale"),
+    today() { const ks = keystones(), x = ks[0];
+      return x ? { text: `Keystone at risk: ${x.n.name} · ${x.deps} notes depend on it, unchanged for ${x.n.age} days (${ks.length} like it)`, label: "Review", run: () => { reveal(x.n.id); } } : null; } });
   /*@scenes*/
   // scenes written in notes (the plugin collects every ```vault-graph-scene block into DATA.scenes); a block with
   // errors still draws from the words it got right, and its note shows the errors
   (DATA.scenes || []).forEach(b => { const { spec } = VGRules.sceneSpec(b.raw), key = VGRules.sceneKey(b.path, b.i);
-    if (!SCENES[key]) scene(key, specScene(key, spec, b.path)); });
-  const MAPS = { subway: "Subway", weather: "Weather", foodweb: "Food web", clock: "Heat clock", radar: "Radar",
-    ...Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.name])) };
-  const mapView = () => !!MAPS[st.view];
+    if (!VIEWS[key]) scene(key, { ...specScene(key, spec, b.path), menu: "own" }); });
+  const mapView = () => !!SCENES[st.view];
   let geoCache = null, mapCache = {}, impMax = null;
   // how much the vault leans on a note, 0-1 (links in, daily mentions, influence)
   // One measure everywhere (City, Subway, Terrain, the Important-but-stale lens): links in, daily mentions,
@@ -102,13 +153,12 @@
   function applyMapLayout(animate) {
     impMax = null;
     const geo = geography(), v = st.view;
-    const M = mapCache[v] = SCENES[v] ? SCENES[v].layout(geo) : v === "subway" ? subwayLayout(geo)
-      : { weather: weatherLayout, foodweb: foodwebLayout, clock: clockLayout, radar: radarLayout }[v](geo);
-    if (animate) morphTo(n => { const p = M.pos.get(n.id); return p ? [p[0], p[1], 0] : null; }, 950);
-    else nodes.forEach(n => { const p = M.pos.get(n.id); if (p) { n.x = p[0]; n.y = p[1]; n.z = 0; } });
+    const M = mapCache[v] = SCENES[v].layout(geo);
+    // a third number is depth: only a scene in real space (space: true) gives one
+    if (animate) morphTo(n => { const p = M.pos.get(n.id); return p ? [p[0], p[1], p[2] || 0] : null; }, 950);
+    else nodes.forEach(n => { const p = M.pos.get(n.id); if (p) { n.x = p[0]; n.y = p[1]; n.z = p[2] || 0; } });
   }
-  const mapFitPred = () => SCENES[st.view] ? (SCENES[st.view].fit || (n => !special(n) && !n.ghost)) : st.view === "subway" ? (n => mapCache.subway && mapCache.subway.stations.has(n.id))
-    : st.view === "radar" ? (n => !special(n) && n.tasks > 0) : (n => !special(n) && !n.ghost);
+  const mapFitPred = () => (SCENES[st.view] && SCENES[st.view].fit) || (n => !special(n) && !n.ghost);
 
   function mapFrame() {
     const dpr = screenDpr();
@@ -144,12 +194,20 @@
   const isGame = () => !!(SCENES[st.view] && SCENES[st.view].game);
   const weather3D = () => st.view === "weather" && st.angles.weather === "tilt3d" && !opts.compact && !opts.embed && GL.ok();   // real ground when there's WebGL; a leaning picture otherwise
   const layWeather = () => { const on = weather3D(); if (on === st.three && !on) return; st.three = on; cam.spin = null; animateTo(on ? { yaw: 0, pitch: -0.95 } : { yaw: 0, pitch: 0, d: 0 }, 700); cv.style.cursor = on ? "grab" : "default"; if (on) afterMorph(() => fit(mapFitPred(), 700), 750); };
-  const leansBack = () => !isGame() && !(SCENES[st.view] && SCENES[st.view].own3d) && !isoAngle() && !neural() && !weather3D() && st.view !== "2d" && st.view !== "3d" && st.angles[st.view] === "tilt3d";
+  // A scene in real space (space: true): its layout gives each note [x, y, z], it draws through proj(), and it opens in 3D
+  // with the graph's own camera (drag turns it, the wheel zooms, fit frames it). 2D is the same shape seen from above.
+  const SPACE_HOME = { yaw: 0.6, pitch: -0.35 };
+  const isSpace = (v = st.view) => !!(SCENES[v] && SCENES[v].space);
+  const spaceOn = (v = st.view) => isSpace(v) && st.angles[v] !== "flat";
+  function enterSpace(v = st.view) { st.three = spaceOn(v); cam.spin = null; cv.style.cursor = st.three ? "grab" : "default"; return st.three ? SPACE_HOME : { yaw: 0, pitch: 0 }; }
+  const laySpace = () => { animateTo({ ...enterSpace(), d: 0 }, 600); afterMorph(() => fit(mapFitPred(), 600), 650); };
+  const leansBack = () => !isGame() && !isSpace() && !(SCENES[st.view] && SCENES[st.view].own3d) && !isoAngle() && !neural() && !weather3D() && st.view !== "2d" && st.view !== "3d" && st.angles[st.view] === "tilt3d";
   function dimOf() {
     const v = st.view, angle = isoAngle();
     if (v === "2d" || v === "3d") return v;
     if (angle) return angle === "flat" ? "2d" : "3d";
     if (neural()) return st.three ? "3d" : "2d";
+    if (isSpace()) return spaceOn() ? "3d" : "2d";
     return !isGame() && st.angles[v] === "tilt3d" ? "3d" : "2d";
   }
   function setDim(d) {
@@ -157,6 +215,7 @@
     if (v === "2d" || v === "3d") return setView(d);
     if (isoAngle()) { const own = SCENES[v].iso; st.angles[v] = d === "2d" ? "flat" : own === true ? "iso" : own; fit(null); }
     else if (neural()) { st.angles.neural = d === "2d" ? "flat" : "3d"; layNeural(); brainLayout(true); }
+    else if (isSpace()) { st.angles[v] = d === "2d" ? "flat" : "3d"; laySpace(); }
     else { st.angles[v] = d === "3d" ? "tilt3d" : "flat"; if (v === "weather") layWeather(); }
     syncDim(); persistSoon(); dirty = true; kick();
   }
@@ -339,7 +398,7 @@
       const d = Math.hypot(n.x - from.x, n.y - from.y); if (d < bd) { bd = d; b = n; } } return b; };
     return {
       name: spec.name, icon: "sparkles", iso: spec.angle, fps: 30,
-      blurb: spec.blurb || `A scene from ${VGShared.nameOf(path || "a note")}`,
+      hint: spec.blurb || `A scene from ${VGShared.nameOf(path || "a note")}`,
       toast: `${spec.name} — ${spec.entity.map(r => `${r.as} = ${ruleName(r)}`).join(", ")}`,
       layout(geo) {
         const pos = new Map(geo), cs = topicsWithNotes(true), { at, span } = placeGroups(cs.length, spec.place, CELL), groups = [];

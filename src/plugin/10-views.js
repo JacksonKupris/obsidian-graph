@@ -38,6 +38,7 @@ class VaultGraphView extends ItemView {
       setParents: rows => this.plugin.setParents(rows),
       wantedCounts: () => this.plugin.wantedCounts(),
       driftScan: () => this.plugin.driftScan(),
+      ...this.plugin.guideReaders(), guideApply: run => this.plugin.guideApply(run),
       mocReport: { load: () => this.plugin.loadMocReport(), tick: (line, on) => this.plugin.tickMocRow(line, on),
                    apply: () => this.plugin.applyMocReport() },
       saveBinary: (notePath, buf) => this.plugin.saveBinary(notePath, buf),

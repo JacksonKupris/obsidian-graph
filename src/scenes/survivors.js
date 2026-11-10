@@ -130,7 +130,7 @@
   }
   scene("survivors", {
     name: "Vault Survivors", icon: "survivors", fps: 60, game: true,
-    blurb: "Five minutes against a swarm of your notes: tags choose your upgrades, the longest notes are bosses",
+    menu: "play", hint: "Five minutes against a swarm of your notes: tags choose your upgrades, the longest notes are bosses",
     toast: "",
     layout() { const pos = new Map(), span = 800; nodes.forEach(n => { const [u, v] = scatter("sv:" + n.id); pos.set(n.id, [u * span, v * span]); }); if (SV.state !== "play" && SV.state !== "choose") SV.state = "title"; return { pos, bounds: [[0, 0], [span, 0], [span, span], [0, span]] }; },
     fit: n => !n.ghost,

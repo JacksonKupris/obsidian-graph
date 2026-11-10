@@ -89,7 +89,7 @@
   }
   scene("wikirace", {
     name: "Wikirace", icon: "wikirace", fps: 30, game: true,
-    blurb: "Today's route from note to note, by links only: broken links are traps, hubs cost points",
+    menu: "play", hint: "Today's route from note to note, by links only: broken links are traps, hubs cost points",
     toast: "",
     layout() { const pos = new Map(), span = 800; WR.near = null; nodes.forEach(n => { const [u, v] = scatter("wr:" + n.id); pos.set(n.id, [u * span, v * span]); }); if (WR.state === "over") WR.state = "title"; return { pos, bounds: [[0, 0], [span, 0], [span, span], [0, span]] }; },
     fit: n => !n.ghost,

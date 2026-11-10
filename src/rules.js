@@ -893,12 +893,15 @@ const VGRules = (() => {
   const PEOPLE_KINDS = new Set(["task", "plan", "carried", "approval", "review"]);   // your work; a suggestion or a backlog line that names someone isn't
   function hqPeople(data, list) {
     const ambiguous = new Set(((R.hq && R.hq.people_ambiguous) || []).map(s => s.toLowerCase()));
-    const esc = VGShared.escapeRegex;
+    const esc = VGShared.escapeRegex, byId = new Map((data.nodes || []).map(n => [n.id, n])), end = e => (e && e.id) || e, linked = new Map();
+    // the notes a person is linked from (the graph's person links), the ones you come back to most first
+    for (const l of data.links || []) { if (l.kind !== "person") continue; const p = end(l.source), t = byId.get(end(l.target)); if (!t) continue; if (!linked.has(p)) linked.set(p, []); linked.get(p).push(t); }
+    const notesOf = id => (linked.get(id) || []).slice().sort((a, b) => (b.recent || 0) - (a.recent || 0) || (b.mentions || 0) - (a.mentions || 0) || a.name.localeCompare(b.name)).map(t => ({ id: t.id, name: t.name }));
     return (data.nodes || []).filter(n => n.person).map(n => { const plain = !ambiguous.has(n.name.toLowerCase()) && n.name.length > 2 ? new RegExp(`\\b${esc(n.name)}\\b`) : null, link = `[[${n.name}`;
       const items = list.filter(it => { if (!PEOPLE_KINDS.has(it.kind)) return false; const t = `${it.text || ""} ${it.title || ""}`; return t.includes(link) || (plain && plain.test(t)); });
       const decisions = ((data.hq && data.hq.decisions) || []).filter(d => (d.by || "").includes(n.name)).slice(0, 3);
-      return { id: n.id, name: n.name, items, decisions, mentions: n.mentions || 0, recent: n.recent || 0 }; })
-      .sort((a, b) => b.items.length - a.items.length || b.recent - a.recent || a.name.localeCompare(b.name));
+      return { id: n.id, name: n.name, items, decisions, notes: notesOf(n.id), mentions: n.mentions || 0, recent: n.recent || 0 }; })
+      .sort((a, b) => b.items.length - a.items.length || b.recent - a.recent || b.mentions - a.mentions || b.notes.length - a.notes.length || a.name.localeCompare(b.name));
   }
   // More / Less like this: each reaction moves that kind of item up or down the list, by a small and capped amount, so one
   // kind can't bury everything. Upkeep suggestions can also be hidden outright; your own work can't.
@@ -949,7 +952,7 @@ const VGRules = (() => {
     data.nodes = data.nodes.filter(n => !n.moc); const byId = new Map(data.nodes.map(n => [n.id, n])), bc = T.bc;
     data.nodes.forEach(n => { if (n.person || n.ghost) return; n.cluster = P.cid[n.id] != null ? P.cid[n.id] : -1; n.bc = Math.round((bc[n.id] || 0) * 1e5) / 1e5; delete n.bridge; delete n.bridges; });
     data.links = data.links.filter(l => !["gap", "similar", "moc"].includes(l.kind)).concat(P.links);
-    data.gaps = P.gaps.map(g => ({ a: g.a, b: g.b, links: g.links, comentions: g.comentions, suggest: g.suggest })); data.pairs = P.pairs; data.mocs = P.mocs; data.timeline = P.timeline; data.rhythm = P.rhythm;
+    data.gaps = P.gaps.map(g => ({ a: g.a, b: g.b, links: g.links, comentions: g.comentions, suggest: g.suggest })); data.pairs = P.pairs; data.mocs = P.mocs; data.timeline = P.timeline; data.strand = P.strand; data.rhythm = P.rhythm;
     for (const m of P.mocs) { if (m.nav) continue; const own = m.members.filter(r => m.clusters.includes(P.cid[r]));
       data.nodes.push({ id: m.id, name: m.title, moc: true, cluster: m.clusters[0], bc: 0, folder: m.id.includes("/") ? m.id.slice(0, m.id.lastIndexOf("/")) : "", mentions: 0, recent: 0, inlinks: 0, outlinks: own.length, broken: 0, tasks: 0, words: 0, age: 0, refs: true, isolated: false });
       own.forEach(r => data.links.push({ source: m.id, target: r, w: 1, kind: "moc" })); }
@@ -1074,7 +1077,8 @@ const VGRules = (() => {
   // other device (disk has it, base doesn't) is kept. XP adds both devices' gains. Anything else: this device wins.
   // A copy of the game state as the file holds it: missions carry helper functions, which the file leaves out
   // (structuredClone throws on them).
-  const sharedSnapshot = v => (v == null ? null : JSON.parse(JSON.stringify(v)));
+  const GUIDE_LOG_KEEP = 50;   // applied guide repairs the shared file remembers
+  const sharedSnapshot = v =>(v == null ? null : JSON.parse(JSON.stringify(v)));
   function mergeShared(base, mine, disk) {
     if (!disk || typeof disk !== "object") return mine;
     base = base || {};
@@ -1129,6 +1133,8 @@ const VGRules = (() => {
       } else if (dd.date && (!dm.date || dd.date > dm.date)) c.daily = dd;
     }
     out.pending = mergeList(base.pending, mine.pending, disk.pending, str);
+    // applied guide repairs: both devices' runs, oldest first
+    if (mine.guideLog || disk.guideLog) out.guideLog = mergeList(base.guideLog, mine.guideLog, disk.guideLog, x => x.id).sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).slice(-GUIDE_LOG_KEEP);
     return out;
   }
 
@@ -1463,7 +1469,7 @@ const VGRules = (() => {
   // a task and the open subtasks that go with it, as rows for a status change
   const taskRowsOf = it => [{ path: it.path, line: it.line, text: it.text }, ...(it.subs || []).map(s => ({ path: it.path, line: s.line, text: s.text }))];
   return { errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, unmentioned, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
-    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+    RULES: R, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, GUIDE_LOG_KEEP, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)

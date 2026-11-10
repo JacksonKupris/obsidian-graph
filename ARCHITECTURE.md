@@ -1,6 +1,6 @@
 # How Vault Graph is built
 
-**Words.** To a person, everything they open is a **view**, grouped by what they want to know. In the code a view is a graph view or map (`GRAPH_INFO`, `MAPS`), a scene (`src/scenes/`, or a block in a note), or a lens (`LENSES`, a report beside the picture). Use "view" in anything a person reads.
+**Words.** To a person, everything they open is a **view**, grouped by what they want to know. In the code every view is one entry in `VIEWS` (`src/view/20-maps.js`), defined in one call with its `kind`: a graph (`view("2d", {...})`), a map or scene (`scene("radar", {...})`, in `20-maps.js`, a file in `src/scenes/`, or a block in a note), or a lens (an entry in `LENSES`, a report beside the picture). The definition holds everything about the view: name, icon, hint, which group of the picker it's in (`menu`, one of `VIEW_MENUS`), and for a scene its layout, drawing, legend, today strip, first-time toast and frame rate. The picker, the button, saved-view names and `openView` all read `VIEWS`; nothing else lists views by name, and a test fails on a second table (`tests/test_rules.js`). To add a view, write its definition and nothing else. Use "view" in anything a person reads.
 
 One system, not bolted-on parts: one state, shared rules, one action path, shared helpers. Tests enforce most of what follows (`tests/test_rules.js`), so a change that breaks a rule fails the build instead of drifting.
 
@@ -20,7 +20,7 @@ One system, not bolted-on parts: one state, shared rules, one action path, share
 | `scripts/lib.js`, `tests/kit.js` | The same for the scripts and the tests. `tests/test_shared.js` and `test_kit.js` fail when a copy comes back. |
 | `config/rules.json` | Default rule data (the sample vault's). A vault keeps its own copy; deploy checks it has every key this one has. |
 | `build.js` | Joins the sources into `main.js` (rules + actions + view + scenes + plugin), `styles.css`, `manifest.json`, and `rules.js` (the rulebook alone, for a vault's own checks). Also builds the standalone page. |
-| `tests/` | `run.js` (fast: build, `test_rules.js`, `smoke_page.js`), plus `click_all.js`, `layout_random.js`, `shots.js`, `polish_loop.js`. All run on `fixtures/` by default, or a real vault with `--vault`. `env.js` decides which. |
+| `tests/` | `run.js` (fast: build, `test_rules.js`, `smoke_page.js`; `--changed` and `--only` run part of it, picked by `select.js` from what each test loads; GitHub runs all of it), plus `click_all.js`, `layout_random.js`, `shots.js`, `polish_loop.js`. All run on `fixtures/` by default, or a real vault with `--vault`. `env.js` decides which. |
 | `fixtures/` | `make_sample.js` generates the sample vault and, with `--analyse`, its graph data (`sample-graph.json`). |
 | `src/engine.js` | `VGEngine`: the analysis. Topics, mentions, gaps, maps and the written reports, with nothing about Obsidian in them; the slow parts run in a worker. |
 | `scripts/deploy.js` | Build with a vault's rules, test on its data, install, run the vault's own checks, reload in Obsidian. |
@@ -50,7 +50,7 @@ One system, not bolted-on parts: one state, shared rules, one action path, share
 
 ## Scenes
 
-- **Scenes are components.** Each registers itself with `scene(key, {...})` (name, icon, layout, draw, legend, today strip, highlight, fit, `iso`, `press`). 3D goes through the shared iso kit (`isoKit(R, k, "iso" | "tilt")`: project, wall, slab, block, hit, depth sort).
+- **Scenes are components.** Each registers itself with `scene(key, {...})` (name, icon, hint, menu, toast, fps, layout, draw, legend, today strip, highlight, fit, `iso`, `press`), the five built-in maps (subway, weather, heat clock, radar, food web) included. 3D goes through the shared iso kit (`isoKit(R, k, "iso" | "tilt")`: project, wall, slab, block, hit, depth sort).
 - Scenes share helpers instead of their own copies (a test enforces it): `topicNotes`, `topicBusy`, `topicPair`, `topicsWithNotes`, `daylight`, `topicLabel`, `backdrop`, `scatter`, `byImportance` / `byInfluence`, the `walker` figure, `windowSprite`, `MOTION`, `gridDims` and `chance`. Colours that carry a meaning, timings and sizes are in the renderer's one `UI` settings object.
 - **A scene can be a game.** With `game: true`, `pointer`, `wheel` and `escape` it owns the canvas (`src/scenes/dungeon.js`: a raycaster, levels generated from topics, every note an enemy). A game reads the vault and writes nothing. The class `is-playing` gives it the whole pane while it's played.
 - **Time-lapse is one control for every view.** The toolbar's clock (or T) plays the notes in birth order, the slider goes to any point, Close returns to now. `replay` holds the point; `baseVisible` filters by it, so a view that draws through `mapShown`/`visible` follows without code of its own, and `st.timeAt` gives the date to views that redraw their own history. `tests/test_timelapse.js` checks every view draws nothing from the future.

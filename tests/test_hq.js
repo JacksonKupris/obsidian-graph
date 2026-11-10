@@ -7,7 +7,8 @@
 const { sleep, finish, openPage } = require("./kit");
 const env = require("./env");
 const rec = k => `${k}: async (...a) => { (window.__calls = window.__calls || []).push(["${k}", ...a]); return true; },`;
-const OPTS = `api: { ${["setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "hqMark", "openNote", "openDaily"].map(rec).join(" ")} },
+// clock: the hold that keeps an acted-on item off the list is over once window.__late is set
+const OPTS = `clock: () => Date.now() + (window.__late ? 60000 : 0), api: { ${["setTaskStatus", "completeTask", "logWork", "setTasksStatus", "setTaskField", "setNoteStatus", "setProjectStatus", "hqMark", "openNote", "openDaily"].map(rec).join(" ")} },
   ask: async (...a) => { (window.__asked = window.__asked || []).push(a); return true; }, input: async () => "Not what we need", openGraph: () => { (window.__calls = window.__calls || []).push(["openGraph"]); },
   __errs: (addEventListener("error", e => (window.__errs = window.__errs || []).push(e.message)), addEventListener("unhandledrejection", e => (window.__errs = window.__errs || []).push(String(e.reason))), 0),`;
 
@@ -101,7 +102,7 @@ async function page(html, o = {}) {
       await click('[data-act="reject"]', review[0]); await sleep(300);
       c = await calls();
       if (!(c[0] && c[0][0] === "setNoteStatus" && c[0][2] === "rejected" && c[0][3] === "Not what we need")) fails.push(`Reject called ${JSON.stringify(c[0])}`);
-      await ev("window.vaultHQ.update(null, null)"); await sleep(100);   // the host's redraw brings it back (the stand-in changed nothing)
+      await ev("window.__late = true; window.vaultHQ.update(null, null)"); await sleep(100);   // after the hold, the host's redraw brings it back (the stand-in changed nothing)
       await ev("window.__calls = []");
       await click('[data-act="main"]', review[0]); await sleep(300);
       c = await calls();

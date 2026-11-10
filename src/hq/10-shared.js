@@ -80,7 +80,7 @@
   async function bulkAct(how, btn) {
     const its = pickedItems(), c = ctx(); if (how === "clear") { picked.clear(); render(); return; } if (!its.length) return;
     if (btn) btn.disabled = true;
-    const gain = list => { list.forEach(it => { gone.add(it.key); picked.delete(it.key); }); relist(); render(); };
+    const gain = list => { list.forEach(it => { takeOff(it.key); picked.delete(it.key); }); relist(); render(); };
     if (how === "nextweek" || how === "later") { const t = now(), d = new Date(t); d.setDate(t.getDate() + ((8 - t.getDay()) % 7 || 7)); const mark = how === "later" ? "later" : `until:${VGRules.localDay(d)}`; await Promise.all(its.map(it => api.hqMark(it.key, mark))); gain(its); toast(`${how === "later" ? "Later" : "Next week"}: ${pickWords(its)}`, async () => { await Promise.all(its.map(it => api.hqMark(it.key, null))); its.forEach(it => gone.delete(it.key)); relist(); render(); }); return; }
     if (how === "-") { if (await VGActions.runBatch(its, "-", c, "the selection")) gain(its); else if (btn && btn.isConnected) btn.disabled = false; return; }
     const old = its.filter(it => it.kind === "carried"), todays = its.filter(it => it.kind !== "carried");

@@ -1,26 +1,7 @@
   // ---------------------------------------------------------------- today strip: what this view says right now, and one thing to do about it
   const todayHidden = new Set();
   const topBy = (xs, f) => xs.reduce((best, x) => best == null || f(x) > f(best) ? x : best, null);
-  function todayFor(v) {
-    if (SCENES[v]) return SCENES[v].today ? SCENES[v].today() : null;
-    const notes = nodes.filter(n => !special(n) && !n.ghost), gap = (DATA.gaps || [])[0];
-    const why = g => `${g.comentions ? `${g.comentions} co-mentions in your dailies` : "related by shared tags"}, only ${plural(g.links, "link")}`;
-    const bridgeAct = g => async () => { if (opts.writeNote && await confirmBox("Draft a bridge note", `Create a draft in ${FOLDERS.inbox} connecting <b>${esc(clusterName(g.a))}</b> and <b>${esc(clusterName(g.b))}</b>?`, "Create")) writeBridge(g.a, g.b); else focusClusters([g.a, g.b]); };
-    if (v === "radar") { const hold = notes.filter(n => n.tasks > 0 && (n.taskAge ?? 0) > 90), o = topBy(hold, n => n.taskAge);
-      return o ? { text: `${hold.length} notes have tasks waiting 90+ days · oldest: ${o.name} (${o.taskAge} days)`, label: "Triage", run: startTriage } : null; }
-    if (v === "foodweb") { const ks = keystones(), x = ks[0];
-      return x ? { text: `Keystone at risk: ${x.n.name} · ${x.deps} notes depend on it, unchanged for ${x.n.age} days (${ks.length} like it)`, label: "Review", run: () => { reveal(x.n.id); } } : null; }
-    if (v === "weather") { const t = mapCache.weather && topBy(mapCache.weather.tops, x => x.a);
-      return t && t.a > 0.35 ? { text: `${clusterName(t.c)} is ${t.ratio.toFixed(1)}× busier than usual in your dailies${t.storm ? " (storm this week)" : ""}`, label: mocOf[t.c] && opts.openNote ? "Open its map" : "Show topic",
-        run: () => mocOf[t.c] && opts.openNote ? opts.openNote(mocOf[t.c].id, false) : focusClusters([t.c]) } : null; }
-    if (v === "clock") { const C0 = mapCache.clock; if (!C0) return null; const wd = (new Date().getDay() + 6) % 7, xs = C0.cs.filter(x => x.wd.indexOf(Math.max(...x.wd)) === wd);
-      const day = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][wd];
-      return xs.length ? { text: `It's ${day}: usually ${xs.slice(-3).reverse().map(x => clusterName(x.c)).join(", ")}`, label: "Show them", run: () => focusClusters(xs.map(x => x.c)) } : { text: `It's ${day}: no topic peaks today`, label: "", run: null }; }
-    if (v === "subway" && mapCache.subway) { const L = topBy(mapCache.subway.lines, l => l.stops.reduce((a, id) => a + (byId[id].recent || 0), 0));
-      return L ? { text: `Busiest line: ${clusterName(L.c)} · ${L.stops.reduce((a, id) => a + (byId[id].recent || 0), 0)} recent mentions along it`, label: "Show it", run: () => focusClusters([L.c]) } : null; }
-    if (gap && ["2d", "3d", "neural"].includes(v)) return { text: `Biggest gap: ${clusterName(gap.a)} ↔ ${clusterName(gap.b)} · ${why(gap)}`, label: "Show both", run: () => focusClusters([gap.a, gap.b]) };
-    return null;
-  }
+  const todayFor = v => (VIEWS[v] && VIEWS[v].today ? VIEWS[v].today() : null);   // each view says its own (20-maps.js)
   function renderToday() {
     const bar = $(".vg-today"); if (!bar) return;
     const t = opts.compact || replay || todayHidden.has(st.view) ? null : todayFor(st.view);
@@ -33,7 +14,7 @@
 
   // ---------------------------------------------------------------- save the current view in one click
   $(".vg-savebtn").onclick = () => {
-    const name = `${MAPS[st.view] || { "2d": "2D", "3d": "3D", neural: "Neural", cosmos: "Cosmos" }[st.view] || st.view}${st.focus && byId[st.focus] ? " · " + byId[st.focus].name : ""} · ${new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+    const name = `${viewName(st.view)}${st.focus && byId[st.focus] ? " · " + byId[st.focus].name : ""} · ${new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
     savedViews = savedViews.filter(v => v.name !== name).concat([snapshotView(name)]); renderSaved(); persistSoon(); toast(`Saved “${name}”`, "ok");
   };
 
@@ -200,18 +181,12 @@
     } else clearHighlight();
     rebuild(true); persistSoon(); toast(`${p.name} — ${p.hint}`);
   }
-  // Map views share one toolbar button (nine view buttons crowded it): the menu lists them, the button shows the current one
-  const MAP_INFO = { subway: ["subway", "Topics as lines; black-ringed stations connect topics"],
-    weather: ["cloud", "Which topics are heating up (L, storms) or going quiet (H)"],
-    foodweb: ["leaf", "Which notes feed which; stale ones others rely on are endangered"],
-    clock: ["clock", "When you work on what: weekday and month dials"], radar: ["radar", "Open tasks as blips by how long they've waited; red = 90+ days"],
-    ...Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, [d.icon, d.blurb]])) };
   // ---------------------------------------------------------------- the Views picker: graphs, maps, lenses and styles in one place
   // One button, one panel (a popover under the button on wide panes, a bottom sheet on phones): tabs, big tiles, a filter
-  const GRAPH_INFO = { "2d": ["hub", "Graph", "Notes and links: topics, influence and gaps"], "3d": ["layers", "Graph in 3D", "The same graph in depth; drag to turn it"],
-    neural: ["brain", "Neural", "Topics as brain lobes, links firing between them"], cosmos: ["orbit", "Cosmos", "Maps become stars; place planets and fly between them"] };
-  // Everything you open is a view, grouped by what you want to know. A view draws on the canvas or opens a report beside it; that's how
-  // it's built, not something to choose between (in the code: a graph view or map, a scene, a lens). Display = style presets + node size/colour,
+  // Everything you open is a view, grouped by what you want to know, and every one is defined once in VIEWS (20-maps.js). A view draws
+  // on the canvas or opens a report beside it; that's how it's built, not something to choose between. openView is the one way to open one.
+  const openView = k => { const v = VIEWS[k]; if (!v) return; if (v.kind === "lens") openLens(v.lens); else setView(k); };
+  // Display = style presets + node size/colour,
   // layers, saved views; Health = the overlays
   const PICK_TABS = [["views", "Views"], ["style", "Display"], ["health", "Health"]];
   const PANEL_TABS = new Set(["style", "health"]);
@@ -235,29 +210,20 @@
   let pickTab = null;
   function pickItems() {
     const out = [];
-    Object.entries(GRAPH_INFO).forEach(([k, [ic, name, hint]]) => { if (!(opts.compact && k === "cosmos")) out.push({ tab: "views", k, ic, name, hint, on: st.view === k, run: () => setView(k) }); });
-    Object.entries(MAPS).forEach(([k, name]) => out.push({ tab: "views", k, ic: MAP_INFO[k][0], name, hint: MAP_INFO[k][1], on: st.view === k, run: () => setView(k) }));
-    if (!opts.compact) Object.entries(LENSES).forEach(([k, l]) => out.push({ tab: "views", k: `lens:${k}`, ic: "grid", name: l.name, hint: l.hint, on: lensKey === k, run: () => openLens(k) }));
+    Object.entries(VIEWS).forEach(([k, v]) => { if (opts.compact && (v.kind === "lens" || k === "cosmos")) return;
+      out.push({ tab: "views", k, ic: v.icon, name: v.name, hint: v.hint, on: v.kind === "lens" ? lensKey === v.lens : st.view === k, run: () => openView(k) }); });
     Object.entries(PRESETS).forEach(([k, p]) => out.push({ tab: "style", k, ic: "sparkles", name: p.name, hint: p.hint, on: st.preset === k, run: () => applyPreset(k) }));
     out.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));   // A–Z within every tab
     if (opts.writeNote && !opts.compact) out.push({ tab: "views", k: "newscene", ic: "plus", name: "New view", hint: "Your own view, written in a note", on: false, run: () => newScene() });
     return out;
   }
-  // The views in groups by what you want to know (one not named here lands in "More"); Recent first when there's history
-  const VIEW_GROUPS = [
-    ["See the vault", ["2d", "3d", "neural", "cosmos", "subway", "weather", "cyberpunk", "clock"]],
-    ["Tasks", ["lens:flowlens", "lens:control", "lens:survival", "radar", "lens:follow"]],
-    ["Notes that need you", ["lens:stale", "lens:twoway", "foodweb", "lens:drift", "lens:dupes", "lens:blind", "lens:write", "lens:missing", "lens:blast", "lens:spof"]],
-    ["Topics and structure", ["lens:attention", "lens:river", "lens:timeline", "lens:matrix", "lens:folders", "lens:ring", "lens:maptree", "lens:mocalign", "lens:projects", "lens:people", "lens:code", "lens:path", "lens:adjacent", "lens:netlens"]],
-    ["Play", ["triage", "wikirace", "survivors", "dungeon"]],
-  ];
+  // The views in groups by what you want to know (VIEW_MENUS; a view with no menu lands in "More"); Recent first when there's history
   function viewGroups(xs) {
     const by = new Map(xs.map(i => [i.k, i])), used = new Set(), out = [];
     const take = (name, keys) => { const g = keys.map(k => by.get(k)).filter(Boolean); g.forEach(i => used.add(i.k)); if (g.length) out.push([name, g]); };
     const recent = (st.recent || []).filter(k => k !== st.view && by.has(k)).slice(0, 3);
     if (recent.length) out.push(["Recent", recent.map(k => by.get(k))]);
-    VIEW_GROUPS.forEach(([name, keys]) => take(name, keys));
-    take("Your own", [...xs.filter(i => i.k.startsWith("note-")).map(i => i.k), "newscene"]);
+    VIEW_MENUS.forEach(([id, name]) => take(name, [...Object.keys(VIEWS).filter(k => VIEWS[k].menu === id), ...(id === "own" ? ["newscene"] : [])]));
     take("More", xs.filter(i => !used.has(i.k)).map(i => i.k));
     return out;
   }
@@ -296,9 +262,9 @@
   function syncMapsBtn(view) {   // the Views button shows where you are
     syncNextBtn();
     syncDim();
-    const g = GRAPH_INFO[view]; if (!$(".vg-pickbtn")) return;
-    $(".vg-pickname").textContent = MAPS[view] || (view === "2d" || view === "3d" ? "Views" /* the 2D/3D switch beside it says which */ : g ? g[1] : view);
-    $(".vg-pickicon").innerHTML = icon(MAPS[view] ? MAP_INFO[view][0] : g ? g[0] : "layers", 16);
+    const d = VIEWS[view]; if (!$(".vg-pickbtn")) return;
+    $(".vg-pickname").textContent = view === "2d" || view === "3d" ? "Views" /* the 2D/3D switch beside it says which */ : d ? d.name : view;
+    $(".vg-pickicon").innerHTML = icon(d ? d.icon : "layers", 16);
   }
   function closeMenu() {
     const p = $(".vg-picker"); if (!p || p.hidden) return;
@@ -326,7 +292,7 @@
   // run this once the notes have got where they're going. A plain timer can't know: the morph moves with the frames, which slow right down when the window isn't focused, and framing a half-finished move leaves the view framed wrong for good.
   const afterMorph = (fn, ms) => { const go = () => { if (destroyed) return; if (morph) { setTimeout(go, 60); return; } fn(); }; setTimeout(go, ms); };
   function setView(view) {
-    if (!GRAPH_INFO[view] && !MAPS[view]) view = "2d";   // a link or setting may name a view since retired
+    if (!canvasView(view)) view = "2d";   // a link or setting may name a view since retired
     if (view === st.view) return;
     const was = st.view;
     releaseKeys();   // a key held in the view being left would keep moving it
@@ -344,18 +310,14 @@
     if (view !== "cosmos" && st.paused) setPaused(false);
     if (view !== "cosmos") { st.placing = null; root.classList.remove("is-placing"); if (st.body) { st.body = null; $(".vg-inspector").hidden = true; root.classList.remove("has-inspector"); } }
     root.dataset.vision = view === "neural" ? st.vision : "";
-    root.classList.toggle("is-map", !!MAPS[view]); root.dataset.map = MAPS[view] ? view : "";
-    if (MAPS[view]) {
-      st.three = false; cv.style.cursor = "default"; cam.spin = null;
+    root.classList.toggle("is-map", !!SCENES[view]); root.dataset.map = SCENES[view] ? view : "";
+    if (SCENES[view]) {
+      const turn = enterSpace(view);   // flat and face-on, unless the scene is in real space
       applyMapLayout(true);
-      animateTo({ cx: 0, cy: 0, cz: 0, yaw: 0, pitch: 0 }, 600);
+      animateTo({ cx: 0, cy: 0, cz: 0, ...turn }, 600);
       fitted = false; afterMorph(() => { fitted = true; fit(mapFitPred(), 700); }, 1000);
       if (view === "weather") { layWeather(); syncDim(); }
-      introduce(view, SCENES[view] ? SCENES[view].toast : { subway: "Subway — each topic is a line; black-ringed stations connect topics",
-        weather: "Weather — L is a topic busier than usual in your dailies, H a quiet one; storms are this week's bursts, fronts join topics that come up together",
-        foodweb: "Food web — producers (relied on, rarely link out) at the bottom, logs and plans at the top; red rings are relied-on notes gone stale",
-        clock: "Heat clock — when each topic comes up in your dailies, by weekday and by month",
-        radar: "Radar — notes with open tasks, nearer the centre the longer their oldest task has waited. Click a blip to tick tasks off" }[view]);
+      introduce(view, SCENES[view].toast);
     } else if (view === "neural") {
       if (was === "2d") nodes.forEach(n => { n.z = n.z0 * 0.6; });
       brainLayout(true);
@@ -366,7 +328,7 @@
     } else {
       st.three = view === "3d"; cv.style.cursor = st.three ? "grab" : "default";
       const L = layouts[mode()], known = Object.keys(L).length > nodes.length * 0.3;
-      if (was === "neural" || MAPS[was] || (was === "cosmos" && view !== "cosmos")) {   // morph back to the remembered map
+      if (was === "neural" || SCENES[was] || (was === "cosmos" && view !== "cosmos")) {   // morph back to the remembered map
         const spot = n => L[n.id] || [...nb[n.id]].map(id => L[id]).find(Boolean) || (n.ghost && n.from.map(id => L[id]).find(Boolean)) || (n.person && links.filter(l => l.kind === "person" && l.s === n).map(l => L[l.t.id]).find(Boolean));
         morphTo(n => { const q = spot(n), j = L[n.id] ? 0 : (hash(n.id) % 41) - 20; return q ? [q[0] + j, q[1] + j * 0.7, st.three ? (q[2] ?? n.z0 * 0.6) : 0] : [n.x * 0.5, n.y * 0.5, st.three ? n.z : 0]; }, 1200);
         animateTo({ cx: 0, cy: 0, cz: 0 }, 900);
@@ -512,9 +474,10 @@
     Object.assign(layouts["2d"], (saved.layouts || {})["2d"]); Object.assign(layouts["3d"], (saved.layouts || {})["3d"]);
     layoutSeeds = saved.layoutSeeds || {}; layoutBackup = saved.layoutBackup || {};
     const v = saved.view || {};
-    const view = v.view && (GRAPH_INFO[v.view] || MAPS[v.view]) ? v.view : v.three ? "3d" : "2d";   // a saved view since retired opens the map
-    if (view !== "2d" && !MAPS[view]) { st.three = true; cv.style.cursor = "grab"; }
+    const view = v.view && canvasView(v.view) ? v.view : v.three ? "3d" : "2d";   // a saved view since retired opens the map
+    if (view !== "2d" && !SCENES[view]) { st.three = true; cv.style.cursor = "grab"; }
     if (v.angles && typeof v.angles === "object") st.angles = { ...v.angles };
+    if (isSpace(view)) Object.assign(cam, enterSpace(view));
     if (v.vision) { st.vision = v.vision; $$(".vg-visbtn").forEach(x => x.setAttribute("aria-pressed", x.dataset.vision === v.vision)); }
     if (v.sizeBy && $(`.vg-size option[value="${v.sizeBy}"]:not([disabled])`)) { st.sizeBy = v.sizeBy; $(".vg-size").value = v.sizeBy; }
     if (v.colorBy && $(`.vg-color option[value="${v.colorBy}"]:not([disabled])`)) { st.colorBy = v.colorBy; $(".vg-color").value = v.colorBy; }
@@ -537,7 +500,7 @@
     if (view === "neural") { root.classList.add("is-neural"); root.dataset.vision = st.vision; }
     if (view === "cosmos") { st.three = false; root.classList.add("is-cosmos"); }
     // the same markers setView sets: map-only controls (time bar, floors, legend) key off them
-    root.classList.toggle("is-map", !!MAPS[view]); root.dataset.map = MAPS[view] ? view : "";
+    root.classList.toggle("is-map", !!SCENES[view]); root.dataset.map = SCENES[view] ? view : "";
     setMissionsShown(view === "cosmos");
     return ok;
   }
@@ -550,7 +513,7 @@
   // Panes that don't save their own state can still open straight into a view (no 2D layout first, then a switch)
   const iv = !opts.store && opts.initialView;
   if (iv === "neural") { st.view = "neural"; st.three = true; root.classList.add("is-neural"); root.dataset.vision = st.vision; }
-  else if (iv && MAPS[iv]) { st.view = iv; st.three = false; root.classList.add("is-map"); root.dataset.map = iv; }
+  else if (iv && SCENES[iv]) { st.view = iv; Object.assign(cam, enterSpace(iv)); root.classList.add("is-map"); root.dataset.map = iv; }
   else if (iv === "3d") { st.view = "3d"; st.three = true; cv.style.cursor = "grab"; }
   if (iv) syncMapsBtn(st.view);
   const restored = opts.compact ? (neural() ? false : seeded()) : restoreSaved();
@@ -601,7 +564,7 @@
       setTimeout(() => fit(n => ids.includes(n.cluster), 300), 400);
       setTimeout(() => { if (!cam.userMoved) fit(n => ids.includes(n.cluster), 600); }, 2200);   // reframe once the layout settles
     },
-    setView(v) { if (["2d", "3d", "neural", "cosmos"].includes(v) || MAPS[v]) setView(v); },
+    setView(v) { if (canvasView(v)) setView(v); },
     // local-graph pane: show one note's neighbourhood, following the active file
     setLocal(path, depth) {
       if (!byId[path]) { st.focus = null; st.focusDist = null; st.selected = null; rebuild(false); return false; }
@@ -610,7 +573,7 @@
     },
     applyLive,
     setView, openLens,
-    hasView: v => !!(GRAPH_INFO[v] || MAPS[v]),   // a scene from a note exists once its block is in the state
+    hasView: v => canvasView(v),   // a scene from a note exists once its block is in the state
     async snapshot() { const blob = await new Promise(res => cv.toBlob(res, "image/png")); return blob.arrayBuffer(); },   // the canvas as PNG (State of the vault)
     _debug: { gl: {
         info: () => GL.info(),
@@ -622,7 +585,7 @@
       },
       neuro() { const N = neuro; if (!N) return { spikes: 0, ok: false }; const P = N.net.P; let ok = true; for (const v of N.net.V) if (!isFinite(v) || v > P.threshold + 40 || v < -200) ok = false; return { spikes: N.net.total(), hz: neuroRate(), ok, n: N.list.length, time: N.net.time(), morph: !!morph, vMax: Math.max(...N.net.V), vMean: N.net.V.reduce((x, y) => x + y, 0) / N.net.V.length, shown: neuroSpikes.length }; },
       drawNow() { if (!W) return null; const t0 = performance.now(); draw(performance.now()); dirty = false; return performance.now() - t0; },   // tests: a frame now, its ms
-      views: () => [...Object.keys(GRAPH_INFO), ...Object.keys(MAPS)], lenses: () => Object.keys(LENSES), clusters: () => DATA.clusters, links: () => links, screen: id => { const p = P.get(id); return p ? { x: p.x, y: p.y, r: p.r } : null; },
+      views: () => Object.keys(VIEWS).filter(canvasView), allViews: () => Object.entries(VIEWS).map(([key, v]) => ({ key, kind: v.kind, name: v.name, menu: v.menu })), lenses: () => Object.keys(LENSES), clusters: () => DATA.clusters, links: () => links, screen: id => { const p = P.get(id); return p ? { x: p.x, y: p.y, r: p.r } : null; },
       radarScope() { const A = mapCache.radar; if (!A) return null; const R = rot(), k = cam.k, o = scr(0, 0, R), r = A.RMAX * k, under = parseFloat(getComputedStyle(wrap).getPropertyValue("--vg-under-bar")) || 0;
         const held = nodes.find(n => !special(n) && n.tasks > 0 && P.get(n.id) && Math.hypot(P.get(n.id).x - o.x, P.get(n.id).y - o.y) < A.hold * k * 0.9);
         return { cx: o.x, cy: o.y, top: o.y - r, bottom: o.y + r, left: o.x - r, right: o.x + r, W, H, under, held: held ? held.id : null }; },
