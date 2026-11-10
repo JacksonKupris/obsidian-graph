@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 2
+          fetch-depth: 20
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -26,11 +26,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # a version commit changes only the version and starts no test run, so the code is the newest commit before the version commits
+          # (the Release commit, and a hand-made one under it); the Release commit itself must change nothing else
+          git log -1 --format=%s | grep -q '^Release ' && { test -z "$(git diff --name-only HEAD^ HEAD | grep -vE '^(package\.json|manifest\.json)$')" || { echo "::error::a Release commit changes more than the version"; exit 1; }; }
           code=HEAD
-          if git log -1 --format=%s | grep -q '^Release '; then
-            test -z "$(git diff --name-only HEAD^ HEAD | grep -vE '^(package\.json|manifest\.json)$')" || { echo "::error::a Release commit changes more than the version"; exit 1; }
-            code=HEAD^
-          fi
+          while test -z "$(git diff --name-only "$code^" "$code" | grep -vE '^(package\.json|manifest\.json)$')" && test -n "$(git diff --name-only "$code^" "$code")"; do code="$code^"; done
           sha=$(git rev-parse "$code")
           result=$(gh run list --workflow test.yml --commit "$sha" --event push --json conclusion --jq '.[0].conclusion')
           test "$result" = "success" || { echo "::error::test.yml on $sha says '$result': release once it has passed"; exit 1; }

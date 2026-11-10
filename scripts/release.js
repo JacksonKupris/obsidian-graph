@@ -33,9 +33,15 @@ async function api(p) {
   return r.ok ? r.json() : null;
 }
 // The tests that count are GitHub's, on the commit being released, so a release needs nothing from this computer and a
-// busy one (a game, a build) can't fail a timing test. HEAD is the code unless it's a version commit, which changes only the number.
+// busy one (a game, a build) can't fail a timing test. HEAD is the code unless it's a version commit (one that changes only
+// package.json and manifest.json, whoever made it and whatever it's called), which starts no test run: then it's the commit before.
+function codeCommit() {
+  let n = 0;
+  while (n < 20) { const files = git("diff", "--name-only", `HEAD~${n + 1}`, `HEAD~${n}`); if (!files || files.split(/\r?\n/).some(f => !/^(package|manifest)\.json$/.test(f))) break; n++; }
+  return git("log", "-1", "--format=%H", `HEAD~${n}`);
+}
 async function testedOnGitHub() {
-  const sha = git("log", "-1", "--format=%H", git("log", "-1", "--format=%s").startsWith("Release ") ? "HEAD^" : "HEAD"), page = `https://github.com/${slug}/actions`, end = Date.now() + 20 * 60e3, appear = Date.now() + 2 * 60e3;   // a merge a moment ago: GitHub takes a little while to start the run
+  const sha = codeCommit(), page = `https://github.com/${slug}/actions`, end = Date.now() + 20 * 60e3, appear = Date.now() + 2 * 60e3;   // a merge a moment ago: GitHub takes a little while to start the run
   let saidWait = false;
   for (let said = false; ; ) {
     const runs = await api(`actions/runs?head_sha=${sha}&event=push&per_page=20`);
