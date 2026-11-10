@@ -154,8 +154,9 @@
     impMax = null;
     const geo = geography(), v = st.view;
     const M = mapCache[v] = SCENES[v].layout(geo);
-    if (animate) morphTo(n => { const p = M.pos.get(n.id); return p ? [p[0], p[1], 0] : null; }, 950);
-    else nodes.forEach(n => { const p = M.pos.get(n.id); if (p) { n.x = p[0]; n.y = p[1]; n.z = 0; } });
+    // a third number is depth: only a scene in real space (space: true) gives one
+    if (animate) morphTo(n => { const p = M.pos.get(n.id); return p ? [p[0], p[1], p[2] || 0] : null; }, 950);
+    else nodes.forEach(n => { const p = M.pos.get(n.id); if (p) { n.x = p[0]; n.y = p[1]; n.z = p[2] || 0; } });
   }
   const mapFitPred = () => (SCENES[st.view] && SCENES[st.view].fit) || (n => !special(n) && !n.ghost);
 
@@ -193,12 +194,20 @@
   const isGame = () => !!(SCENES[st.view] && SCENES[st.view].game);
   const weather3D = () => st.view === "weather" && st.angles.weather === "tilt3d" && !opts.compact && !opts.embed && GL.ok();   // real ground when there's WebGL; a leaning picture otherwise
   const layWeather = () => { const on = weather3D(); if (on === st.three && !on) return; st.three = on; cam.spin = null; animateTo(on ? { yaw: 0, pitch: -0.95 } : { yaw: 0, pitch: 0, d: 0 }, 700); cv.style.cursor = on ? "grab" : "default"; if (on) afterMorph(() => fit(mapFitPred(), 700), 750); };
-  const leansBack = () => !isGame() && !(SCENES[st.view] && SCENES[st.view].own3d) && !isoAngle() && !neural() && !weather3D() && st.view !== "2d" && st.view !== "3d" && st.angles[st.view] === "tilt3d";
+  // A scene in real space (space: true): its layout gives each note [x, y, z], it draws through proj(), and it opens in 3D
+  // with the graph's own camera (drag turns it, the wheel zooms, fit frames it). 2D is the same shape seen from above.
+  const SPACE_HOME = { yaw: 0.6, pitch: -0.35 };
+  const isSpace = (v = st.view) => !!(SCENES[v] && SCENES[v].space);
+  const spaceOn = (v = st.view) => isSpace(v) && st.angles[v] !== "flat";
+  function enterSpace(v = st.view) { st.three = spaceOn(v); cam.spin = null; cv.style.cursor = st.three ? "grab" : "default"; return st.three ? SPACE_HOME : { yaw: 0, pitch: 0 }; }
+  const laySpace = () => { animateTo({ ...enterSpace(), d: 0 }, 600); afterMorph(() => fit(mapFitPred(), 600), 650); };
+  const leansBack = () => !isGame() && !isSpace() && !(SCENES[st.view] && SCENES[st.view].own3d) && !isoAngle() && !neural() && !weather3D() && st.view !== "2d" && st.view !== "3d" && st.angles[st.view] === "tilt3d";
   function dimOf() {
     const v = st.view, angle = isoAngle();
     if (v === "2d" || v === "3d") return v;
     if (angle) return angle === "flat" ? "2d" : "3d";
     if (neural()) return st.three ? "3d" : "2d";
+    if (isSpace()) return spaceOn() ? "3d" : "2d";
     return !isGame() && st.angles[v] === "tilt3d" ? "3d" : "2d";
   }
   function setDim(d) {
@@ -206,6 +215,7 @@
     if (v === "2d" || v === "3d") return setView(d);
     if (isoAngle()) { const own = SCENES[v].iso; st.angles[v] = d === "2d" ? "flat" : own === true ? "iso" : own; fit(null); }
     else if (neural()) { st.angles.neural = d === "2d" ? "flat" : "3d"; layNeural(); brainLayout(true); }
+    else if (isSpace()) { st.angles[v] = d === "2d" ? "flat" : "3d"; laySpace(); }
     else { st.angles[v] = d === "3d" ? "tilt3d" : "flat"; if (v === "weather") layWeather(); }
     syncDim(); persistSoon(); dirty = true; kick();
   }

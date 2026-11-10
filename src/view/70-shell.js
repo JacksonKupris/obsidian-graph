@@ -312,9 +312,9 @@
     root.dataset.vision = view === "neural" ? st.vision : "";
     root.classList.toggle("is-map", !!SCENES[view]); root.dataset.map = SCENES[view] ? view : "";
     if (SCENES[view]) {
-      st.three = false; cv.style.cursor = "default"; cam.spin = null;
+      const turn = enterSpace(view);   // flat and face-on, unless the scene is in real space
       applyMapLayout(true);
-      animateTo({ cx: 0, cy: 0, cz: 0, yaw: 0, pitch: 0 }, 600);
+      animateTo({ cx: 0, cy: 0, cz: 0, ...turn }, 600);
       fitted = false; afterMorph(() => { fitted = true; fit(mapFitPred(), 700); }, 1000);
       if (view === "weather") { layWeather(); syncDim(); }
       introduce(view, SCENES[view].toast);
@@ -477,6 +477,7 @@
     const view = v.view && canvasView(v.view) ? v.view : v.three ? "3d" : "2d";   // a saved view since retired opens the map
     if (view !== "2d" && !SCENES[view]) { st.three = true; cv.style.cursor = "grab"; }
     if (v.angles && typeof v.angles === "object") st.angles = { ...v.angles };
+    if (isSpace(view)) Object.assign(cam, enterSpace(view));
     if (v.vision) { st.vision = v.vision; $$(".vg-visbtn").forEach(x => x.setAttribute("aria-pressed", x.dataset.vision === v.vision)); }
     if (v.sizeBy && $(`.vg-size option[value="${v.sizeBy}"]:not([disabled])`)) { st.sizeBy = v.sizeBy; $(".vg-size").value = v.sizeBy; }
     if (v.colorBy && $(`.vg-color option[value="${v.colorBy}"]:not([disabled])`)) { st.colorBy = v.colorBy; $(".vg-color").value = v.colorBy; }
@@ -512,7 +513,7 @@
   // Panes that don't save their own state can still open straight into a view (no 2D layout first, then a switch)
   const iv = !opts.store && opts.initialView;
   if (iv === "neural") { st.view = "neural"; st.three = true; root.classList.add("is-neural"); root.dataset.vision = st.vision; }
-  else if (iv && SCENES[iv]) { st.view = iv; st.three = false; root.classList.add("is-map"); root.dataset.map = iv; }
+  else if (iv && SCENES[iv]) { st.view = iv; Object.assign(cam, enterSpace(iv)); root.classList.add("is-map"); root.dataset.map = iv; }
   else if (iv === "3d") { st.view = "3d"; st.three = true; cv.style.cursor = "grab"; }
   if (iv) syncMapsBtn(st.view);
   const restored = opts.compact ? (neural() ? false : seeded()) : restoreSaved();
