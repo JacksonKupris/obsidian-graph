@@ -84,7 +84,10 @@ const fs = require("fs"), path = require("path"), sleep = ms => new Promise(r =>
       if (!/needs/.test(text.slice(0, 100))) { if (k !== "stale") check(await tab.ev(`!!document.querySelector(".vg-lens-body .vg-sci-chart path")`), `${k}: no chart`);
         // every number from real results says what it means, one press away, and every chart says how to read it
         const help = await tab.ev(`(() => { const b = document.querySelector(".vg-lens-body"), tiles = [...b.querySelectorAll(".ds-cards:not(.is-small) > .ds-card")]; return { tiles: tiles.length, bare: tiles.filter(t => !((t.dataset.cardHint || "").trim().length > 15)).map(t => t.textContent), charts: b.querySelectorAll(".vg-sci-chart").length, reads: [...b.querySelectorAll(".ds-more > summary")].filter(s => s.textContent === "How to read this").length }; })()`);
-        check(help.tiles > 0 && !help.bare.length, `${k}: numbers with no helper text: ${help.bare.join(" | ")}`); check(help.reads >= help.charts, `${k}: ${help.charts} charts but ${help.reads} explanations`); }
+        check(help.tiles > 0 && !help.bare.length, `${k}: numbers with no helper text: ${help.bare.join(" | ")}`); check(help.reads >= help.charts, `${k}: ${help.charts} charts but ${help.reads} explanations`);
+        // a tile with a list behind it opens the list: a panel of rows, not a sentence (the drill-down rule)
+        const keyed = await tab.ev(`[...document.querySelectorAll('.vg-lens-body .ds-cards:not(.is-small) > .ds-card[data-card]')].filter(t => t.dataset.card && t.querySelector('b').textContent.trim() !== '0').map(t => t.dataset.card)`);
+        for (const key of keyed) { const got = await tab.ev(`(() => { const t = document.querySelector('.vg-lens-body .ds-card[data-card="${key}"]'); t.click(); const p = document.querySelector('.vg-lens-body .ds-detail'); const rows = p ? p.querySelectorAll('.vg-sugg, .ds-row, .vg-item, .ds-rows').length : 0; t.click(); return rows; })()`); check(got > 0, `${k}: the '${key}' tile opens no rows`); } }
     }
     // the slider re-runs Blast radius, and Trace moves the list
     await tab.ev(`${D}.openLens("blast")`); await sleep(200);
