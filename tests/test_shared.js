@@ -6,6 +6,15 @@ const SRC = path.join(build.ROOT, "src");
 const S = new Function(`${fs.readFileSync(path.join(SRC, "shared.js"), "utf8")}; return VGShared;`)();
 
 // ---- what they do
+assert.deepStrictEqual(S.scopeOf({ folder: "/Work/Kiosk/", tag: "#Project/Kiosk" }), { folder: "Work/Kiosk", tag: "project/kiosk" });
+assert.deepStrictEqual(S.scopeOf(null), { folder: "", tag: "" });
+assert.strictEqual(S.scopeHas(null, "a.md", []), true, "no scope: every note"); assert.strictEqual(S.scopeHas({}, "a.md"), true);
+assert.strictEqual(S.scopeHas({ folder: "Work" }, "Work/a.md", []), true); assert.strictEqual(S.scopeHas({ folder: "Work" }, "Workshop/a.md", []), false, "a folder isn't a prefix of a name");
+assert.strictEqual(S.scopeHas({ tag: "project/kiosk" }, "a.md", ["#Project/Kiosk"]), true); assert.strictEqual(S.scopeHas({ tag: "project" }, "a.md", ["project/kiosk"]), true, "a tag holds the tags under it");
+assert.strictEqual(S.scopeHas({ tag: "project/kiosk" }, "a.md", ["project/kiosks"]), false); assert.strictEqual(S.scopeHas({ tag: "project" }, "a.md"), false, "no tags, not in a tag");
+assert.strictEqual(S.scopeHas({ folder: "Work", tag: "x" }, "Work/a.md", ["y"]), false, "a folder and a tag: both");
+// the Guide scan and the Cas9 scene ask the same rule which notes a scan covers
+for (const f of ["plugin/45-tasks-and-maps.js", "scenes/cas9.js"]) assert.ok(fs.readFileSync(path.join(SRC, f), "utf8").includes("VGShared.scopeHas("), `${f} has its own idea of what a scan covers`);
 assert.strictEqual(S.escapeHtml(`<a b="c" d='e'>&`), "&lt;a b=&quot;c&quot; d=&#39;e&#39;&gt;&amp;");
 assert.strictEqual(S.escapeHtml(null), ""); assert.strictEqual(S.escapeHtml(undefined), ""); assert.strictEqual(S.escapeHtml(0), "0");
 for (const t of ["a.b*c", "C++ (notes)", "$&", "x|y", "[z]", "a/b", "back\\slash", "{1}", "^q?"]) {

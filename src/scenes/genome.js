@@ -32,12 +32,10 @@
     if (!G) return;
     const s = G.strand, f = G.fold, n = f.n;
     if (n < GN.MIN_DAYS) {   // nothing to fold yet: say what it needs, and offer the view that works without it
-      const x = W / 2, y = H / 2, label = "Open the graph", bf = `600 13px ${font}`;
+      const x = W / 2, y = H / 2;
       haloText("Genome fold needs 4 days of journals that name notes.", x, y - 34, GN.TEXT, GN.INK, `600 14px ${font}`, "center");
       haloText(`${plural(n, "day")} so far.`, x, y - 12, "#94a3b8", GN.INK, `13px ${font}`, "center");
-      ctx.font = bf; const w = ctx.measureText(label).width + 28;
-      ctx.fillStyle = "#1e293b"; ctx.strokeStyle = "#475569"; ctx.lineWidth = 1; ctx.beginPath(); ctx.roundRect(x - w / 2, y + 10, w, 30, 6); ctx.fill(); ctx.stroke();
-      haloText(label, x, y + 25, GN.TEXT, "#1e293b", bf, "center", 1); spot(x - w / 2, y + 10, w, 30, () => setView("2d"), label);
+      sceneButton("Open the graph", x, y + 25, () => setView("2d"));
       setSceneStat(`${plural(n, "day")} of journals`); return;
     }
     const pts = G.beads.map(b => proj(b[0], b[1], b[2], R)), seen = pts.filter(Boolean);

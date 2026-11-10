@@ -64,6 +64,7 @@ Setting up a computer, branches and pull requests, `npm run sync`: [CONTRIBUTING
 ```sh
 npm run page -- --data <graph.json> [--rules <file>]   # the standalone graph page, in .out/
 npm run sample -- --analyse   # regenerate fixtures/ with the plugin's own analysis
+node scripts/cas9_model.js    # rebuild the Cas9 scene's model (src/view/14-cas9-model.js) from PDB 5F9R and 1BNA; --print: the numbers only
 ```
 
 Slower checks, by hand: `node tests/click_all.js [--mobile]` (every control, about 5 minutes), `node tests/layout_random.js`, `node tests/shots.js [--mobile]`, `node tests/polish_loop.js [--full]`. Each takes `--vault` too. They need Chrome.
