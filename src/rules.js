@@ -952,7 +952,7 @@ const VGRules = (() => {
     data.nodes = data.nodes.filter(n => !n.moc); const byId = new Map(data.nodes.map(n => [n.id, n])), bc = T.bc;
     data.nodes.forEach(n => { if (n.person || n.ghost) return; n.cluster = P.cid[n.id] != null ? P.cid[n.id] : -1; n.bc = Math.round((bc[n.id] || 0) * 1e5) / 1e5; delete n.bridge; delete n.bridges; });
     data.links = data.links.filter(l => !["gap", "similar", "moc"].includes(l.kind)).concat(P.links);
-    data.gaps = P.gaps.map(g => ({ a: g.a, b: g.b, links: g.links, comentions: g.comentions, suggest: g.suggest })); data.pairs = P.pairs; data.mocs = P.mocs; data.timeline = P.timeline; data.rhythm = P.rhythm;
+    data.gaps = P.gaps.map(g => ({ a: g.a, b: g.b, links: g.links, comentions: g.comentions, suggest: g.suggest })); data.pairs = P.pairs; data.mocs = P.mocs; data.timeline = P.timeline; data.strand = P.strand; data.rhythm = P.rhythm;
     for (const m of P.mocs) { if (m.nav) continue; const own = m.members.filter(r => m.clusters.includes(P.cid[r]));
       data.nodes.push({ id: m.id, name: m.title, moc: true, cluster: m.clusters[0], bc: 0, folder: m.id.includes("/") ? m.id.slice(0, m.id.lastIndexOf("/")) : "", mentions: 0, recent: 0, inlinks: 0, outlinks: own.length, broken: 0, tasks: 0, words: 0, age: 0, refs: true, isolated: false });
       own.forEach(r => data.links.push({ source: m.id, target: r, w: 1, kind: "moc" })); }

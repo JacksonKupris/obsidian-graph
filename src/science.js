@@ -440,6 +440,130 @@ const VGScienceMake = () => {
         if (r.hits.length || r.near.length) out.notes.push({ path, hits: r.hits.slice(0, keep).map(h => guideExcerpt(h)), near: r.near.slice(0, keep).map(h => guideExcerpt(h)), hitsCount: r.hits.length, nearCount: r.near.length }); },
       done() { out.notes.sort((a, b) => b.hitsCount - a.hitsCount || b.nearCount - a.nearCount || (a.path < b.path ? -1 : 1)); return out; } };
   }
-  return { GUIDE_WHERE, GUIDE_DEFAULT, guideMismatches, guideLines, guideScan, guideExcerpt, guideSurvey, areaBalance, serviceLevel, daysToLimit, xmr, hill, kCore, chao1, locationQuotient, twoWayPairs, incoherenceWithout, debtRanks, vitals, vitalsSample, vitalsDelta, NET_RHOS, NET_SEEDS, netStudySteps, netStudyNow, netStudy, netStats, graphKey, flow, reachCounts, reliance, trophic, surfaceWind, WIND_INFLOW, directedGraph, largestAbsEigen, reservoir, ridge, r2, memoryCapacity, narma, narmaError, clustering, meanPath, rewired, randomGraph, smallWorld, rng, graphOf, moments, spectralRadius, outbreak, outbreakStats, epidemic, sweep, kaplanMeier, survivalAt, medianOf, conditional, restrictedMean, logRank, erfc, taskLives, components, cutPoints, cutDamage, percolationCurve, randomOrder, attackOrder, robustnessR, robustness, concentration, busFactor, LIF, lifRate, lifNetwork, BRAIN, lobeOf, gyri, cortexAt, CEREBELLUM, STEM, LOBE_SHARE, assignLobes, lobeSpots };
+  // ---- the genome's fold (Hi-C). Journals in date order are the strand and a day is one bin of it. Two days are in contact
+  // once for each note both name (Lieberman-Aiden et al. 2009). The map is balanced, so a day that names a lot isn't close to
+  // everything (Imakaev et al. 2012); contacts become distances, with the gaps filled by the shortest path through the days
+  // that do touch (ShRec3D, Lesne et al. 2014); classical scaling turns the distances into a shape (Torgerson 1952). Domains
+  // come from the insulation score (Crane et al. 2015) and loops from a contact that stands above its surroundings (Rao et al. 2014).
+  // rows[i]: the notes day i names. A note named on more than `common` of the days says nothing about which days are alike
+  // and is left out, as repeats are. days: note -> the days that name it (every note, dropped or not).
+  function contactMap(rows, common = 0.5) {
+    const n = rows.length, days = new Map(), C = Array.from({ length: n }, () => new Float64Array(n)), dropped = [];
+    rows.forEach((r, i) => { for (const id of new Set(r)) { let a = days.get(id); if (!a) days.set(id, a = []); a.push(i); } });
+    for (const [id, a] of days) { if (n > 3 && a.length > common * n) { dropped.push(id); continue; }
+      for (let x = 0; x < a.length; x++) for (let y = x + 1; y < a.length; y++) { C[a[x]][a[y]]++; C[a[y]][a[x]]++; } }
+    return { C, days, dropped };
+  }
+  // iterative correction: scale each day by a bias b so every day with any contact has the same total (B[i][j] = C[i][j] b[i] b[j])
+  function balance(C, steps = 50, tol = 1e-9) {
+    const n = C.length, b = new Float64Array(n).fill(1), live = C.map(r => r.some(v => v > 0));
+    for (let s = 0; s < steps; s++) {
+      const sums = C.map((r, i) => { let t = 0; for (let j = 0; j < n; j++) t += r[j] * b[j]; return t * b[i]; });
+      let mean = 0, m = 0, worst = 0; for (let i = 0; i < n; i++) if (live[i]) { mean += sums[i]; m++; } mean = m ? mean / m : 1;
+      for (let i = 0; i < n; i++) if (live[i] && sums[i] > 0) { const r = sums[i] / mean; worst = Math.max(worst, Math.abs(r - 1)); b[i] /= Math.sqrt(r); }
+      if (worst < tol) break;
+    }
+    return { B: C.map((r, i) => Float64Array.from(r, (v, j) => v * b[i] * b[j])), bias: b };
+  }
+  // the mean contact at each separation: what the strand alone gives two days s apart
+  function expectedBySeparation(C) { const n = C.length, e = new Float64Array(n); for (let s = 1; s < n; s++) { let t = 0; for (let i = 0; i + s < n; i++) t += C[i][i + s]; e[s] = t / (n - s); } return e; }
+  // contacts -> distances: 1 / contact^alpha where two days touch. Next-door days are tied by the strand itself, no further
+  // apart than the middle contact distance (tied at the weakest, a day that names nothing shared is flung out and the rest of
+  // the shape shrinks to a dot). Every other pair is the shortest path through those (Floyd-Warshall).
+  function contactDistances(C, alpha = 1) {
+    const n = C.length, D = Array.from({ length: n }, () => new Float64Array(n).fill(Infinity)), all = [];
+    for (let i = 0; i < n; i++) { D[i][i] = 0; for (let j = 0; j < n; j++) if (i !== j && C[i][j] > 0) { const d = 1 / Math.pow(C[i][j], alpha); D[i][j] = d; if (j > i) all.push(d); } }
+    const far = all.length ? all.sort((a, b) => a - b)[all.length >> 1] : 1;
+    for (let i = 0; i + 1 < n; i++) if (D[i][i + 1] > far) D[i][i + 1] = D[i + 1][i] = far;
+    for (let k = 0; k < n; k++) { const Dk = D[k]; for (let i = 0; i < n; i++) { const dik = D[i][k]; if (dik === Infinity) continue; const Di = D[i]; for (let j = 0; j < n; j++) { const v = dik + Dk[j]; if (v < Di[j]) Di[j] = v; } } }
+    return D;
+  }
+  // every eigenvalue and vector of a small symmetric matrix, by Jacobi's rotations; largest first. vectors[a][i]: row i of vector a
+  function symEigen(A0, sweeps = 60) {
+    const n = A0.length, A = A0.map(r => Float64Array.from(r)), V = A.map((_, i) => { const r = new Float64Array(n); r[i] = 1; return r; });
+    let size = 0; for (const r of A) for (const v of r) size += v * v;
+    for (let s = 0; s < sweeps; s++) {
+      let off = 0; for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) off += A[i][j] * A[i][j];
+      if (off <= 1e-26 * size) break;
+      for (let p = 0; p < n - 1; p++) for (let q = p + 1; q < n; q++) {
+        const apq = A[p][q]; if (apq === 0) continue;
+        const th = (A[q][q] - A[p][p]) / (2 * apq), t = (th < 0 ? -1 : 1) / (Math.abs(th) + Math.sqrt(th * th + 1)), c = 1 / Math.sqrt(t * t + 1), sn = t * c;
+        for (let k = 0; k < n; k++) { const x = A[k][p], y = A[k][q]; A[k][p] = c * x - sn * y; A[k][q] = sn * x + c * y; }
+        for (let k = 0; k < n; k++) { const x = A[p][k], y = A[q][k]; A[p][k] = c * x - sn * y; A[q][k] = sn * x + c * y; }
+        for (let k = 0; k < n; k++) { const x = V[k][p], y = V[k][q]; V[k][p] = c * x - sn * y; V[k][q] = sn * x + c * y; }
+      }
+    }
+    const order = A.map((_, i) => i).sort((a, b) => A[b][b] - A[a][a]);
+    return { values: order.map(i => A[i][i]), vectors: order.map(i => Float64Array.from(V, r => r[i])) };
+  }
+  // the k largest eigenvalues of a large symmetric matrix and their vectors: a few more vectors than asked for are turned by the
+  // matrix and kept square to each other until they settle (subspace iteration), then Jacobi sorts out the small matrix between them
+  function topEigen(B, k = 3, extra = 5, steps = 150, seed = 3) {
+    const n = B.length, p = Math.min(n, k + extra), rand = rng(seed), dot = (a, b) => { let t = 0; for (let i = 0; i < n; i++) t += a[i] * b[i]; return t; };
+    const mul = v => { const w = new Float64Array(n); for (let i = 0; i < n; i++) w[i] = dot(B[i], v); return w; };
+    const square = Q => { for (let a = 0; a < p; a++) { const v = Q[a]; for (let pass = 0; pass < 2; pass++) for (let b = 0; b < a; b++) { const d = dot(v, Q[b]), u = Q[b]; for (let i = 0; i < n; i++) v[i] -= d * u[i]; }
+      const len = Math.sqrt(dot(v, v)); for (let i = 0; i < n; i++) v[i] = len > 1e-12 ? v[i] / len : 0; } return Q; };
+    let Q = square(Array.from({ length: p }, () => Float64Array.from({ length: n }, () => rand() - 0.5)));
+    for (let s = 0; s < steps; s++) Q = square(Q.map(mul));
+    const BQ = Q.map(mul), e = symEigen(Q.map(a => BQ.map(b => dot(a, b))));
+    return { values: e.values.slice(0, k), vectors: e.vectors.slice(0, k).map(c => { const v = new Float64Array(n); for (let a = 0; a < p; a++) for (let i = 0; i < n; i++) v[i] += c[a] * Q[a][i]; return v; }) };
+  }
+  // classical scaling: points whose straight-line distances are as near D as `dims` dimensions allow. X[i] = [x, y, z]
+  function classicalMDS(D, dims = 3) {
+    const n = D.length, row = new Float64Array(n); let all = 0;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const v = D[i][j] * D[i][j]; row[i] += v / n; all += v / (n * n); }
+    const e = topEigen(D.map((r, i) => Float64Array.from(r, (d, j) => -0.5 * (d * d - row[i] - row[j] + all))), dims);
+    return { X: D.map((_, i) => e.values.map((l, a) => e.vectors[a][i] * Math.sqrt(Math.max(0, l)))), values: e.values };
+  }
+  // Kruskal's stress: how far the shape's distances are from the ones asked for (0 = exact, above 0.2 = poor)
+  function stress(X, D) {
+    let num = 0, den = 0;
+    for (let i = 0; i < X.length; i++) for (let j = i + 1; j < X.length; j++) { let d = 0; for (let a = 0; a < X[i].length; a++) d += (X[i][a] - X[j][a]) ** 2; d = Math.sqrt(d); num += (d - D[i][j]) ** 2; den += D[i][j] ** 2; }
+    return den ? Math.sqrt(num / den) : 0;
+  }
+  // insulation: for the join before each day, the mean contact that crosses it within w days, as log2 against the strand's
+  // mean. A border is a join few contacts cross: the lowest point for w days each way, `depth` under the high ground on both sides.
+  function insulation(C, w = 5, depth = 0.3) {
+    const n = C.length, raw = new Float64Array(n); let mean = 0;
+    for (let i = 1; i < n; i++) { let t = 0, m = 0; for (let a = Math.max(0, i - w); a < i; a++) for (let b = i; b < Math.min(n, i + w); b++) { t += C[a][b]; m++; } raw[i] = t / m; mean += raw[i] / (n - 1); }
+    const floor = mean * 0.01 || 1e-9, score = Array.from(raw, (v, i) => (i ? Math.log2((v + floor) / (mean + floor)) : 0)), borders = [];
+    for (let i = 1; i < n; i++) {
+      let left = -Infinity, right = -Infinity, lowest = true;
+      for (let a = Math.max(1, i - w); a < i; a++) { left = Math.max(left, score[a]); if (score[a] <= score[i]) lowest = false; }
+      for (let b = i + 1; b < Math.min(n, i + w + 1); b++) { right = Math.max(right, score[b]); if (score[b] < score[i]) lowest = false; }
+      if (lowest && left - score[i] >= depth && right - score[i] >= depth) borders.push(i);
+    }
+    const cuts = [0, ...borders, n];
+    return { score, borders, domains: cuts.slice(0, -1).map((a, x) => [a, cuts[x + 1] - 1]).filter(([a, b]) => b >= a) };
+  }
+  // loops: two days at least minSep apart that meet more than the days around them do. The contact is at least `min`, nothing
+  // next to it is higher, and it is `fold` times the mean of the ring round it (within `ring` days, without the pixel's own neighbours).
+  function contactLoops(C, o = {}) {
+    const { minSep = 7, ring = 3, fold = 3, min = 2, keep = 40 } = o, n = C.length, out = [];
+    for (let i = 0; i < n; i++) for (let j = i + minSep; j < n; j++) {
+      const v = C[i][j]; if (v < min) continue;
+      let peak = true, t = 0, m = 0;
+      for (let a = Math.max(0, i - ring); a <= Math.min(n - 1, i + ring) && peak; a++) for (let b = Math.max(0, j - ring); b <= Math.min(n - 1, j + ring); b++) {
+        if (b <= a || (a === i && b === j)) continue; const u = C[a][b], next = Math.abs(a - i) <= 1 && Math.abs(b - j) <= 1;
+        if (next) { if (u > v || (u === v && (a < i || (a === i && b < j)))) { peak = false; break; } } else { t += u; m++; } }
+      if (!peak) continue;
+      const around = m ? t / m : 0; if (v >= fold * around) out.push({ a: i, b: j, count: v, around });
+    }
+    return out.sort((x, y) => y.count - y.around - (x.count - x.around) || x.a - y.a || x.b - y.b).slice(0, keep);
+  }
+  // the whole method on a strand: rows[i] = the notes day i names. X[i] is day i's place, scaled so the strand's furthest day is 1
+  // from its centre; stress says how true the shape is to the distances. Distance falls with the square root of contact unless
+  // o.alpha says otherwise: journals share a note or two at a time, and at 1 / contact the few busy pairs set the whole shape.
+  function genomeFold(rows, o = {}) {
+    const n = rows.length, { C, days, dropped } = contactMap(rows, o.common);
+    if (n < 4) return { n, X: rows.map((_, i) => [i, 0, 0]), stress: 0, C, days, dropped, borders: [], domains: n ? [[0, n - 1]] : [], loops: [], score: rows.map(() => 0), contacts: 0 };
+    const B = balance(C).B, D = contactDistances(B, o.alpha ?? 0.5), m = classicalMDS(D, 3), ins = insulation(B, o.window, o.depth);
+    let far = 0, contacts = 0; const mid = [0, 0, 0];
+    for (const p of m.X) for (let a = 0; a < 3; a++) mid[a] += (p[a] || 0) / n;
+    const X = m.X.map(p => [0, 1, 2].map(a => (p[a] || 0) - mid[a])); for (const p of X) far = Math.max(far, Math.hypot(...p));
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (C[i][j] > 0) contacts++;
+    return { n, X: X.map(p => p.map(v => v / (far || 1))), stress: stress(m.X, D), C, days, dropped, borders: ins.borders, domains: ins.domains, score: ins.score, loops: contactLoops(C, o.loops), contacts };
+  }
+  return { contactMap, balance, expectedBySeparation, contactDistances, symEigen, topEigen, classicalMDS, stress, insulation, contactLoops, genomeFold, GUIDE_WHERE, GUIDE_DEFAULT, guideMismatches, guideLines, guideScan, guideExcerpt, guideSurvey, areaBalance, serviceLevel, daysToLimit, xmr, hill, kCore, chao1, locationQuotient, twoWayPairs, incoherenceWithout, debtRanks, vitals, vitalsSample, vitalsDelta, NET_RHOS, NET_SEEDS, netStudySteps, netStudyNow, netStudy, netStats, graphKey, flow, reachCounts, reliance, trophic, surfaceWind, WIND_INFLOW, directedGraph, largestAbsEigen, reservoir, ridge, r2, memoryCapacity, narma, narmaError, clustering, meanPath, rewired, randomGraph, smallWorld, rng, graphOf, moments, spectralRadius, outbreak, outbreakStats, epidemic, sweep, kaplanMeier, survivalAt, medianOf, conditional, restrictedMean, logRank, erfc, taskLives, components, cutPoints, cutDamage, percolationCurve, randomOrder, attackOrder, robustnessR, robustness, concentration, busFactor, LIF, lifRate, lifNetwork, BRAIN, lobeOf, gyri, cortexAt, CEREBELLUM, STEM, LOBE_SHARE, assignLobes, lobeSpots };
 };
 const VGScience = VGScienceMake();

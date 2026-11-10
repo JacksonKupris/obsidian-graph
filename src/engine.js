@@ -542,7 +542,7 @@ const VGEngineMake = () => {
   function mentionPass({ dailies, knowledge, people, terms, recentSince }) {
     const K = new Set(knowledge), P = new Set(people), alts = Object.keys(terms).sort((a, b) => cpLen(b) - cpLen(a)).map(regexEscape);
     const matcher = alts.length ? new RegExp(`(?<![\\p{L}\\p{N}\\p{M}_-])(?:${alts.join("|")})(?![\\p{L}\\p{N}\\p{M}_-])`, "giu") : null;
-    const earlier = {}, previous = {}, mentions = {}, recent = {}, said = {}, saidDays = {}, mentionDays = {}, personMentions = {}, personPairs = {}, comention = {}, pairDays = {}; let used = 0;
+    const earlier = {}, previous = {}, mentions = {}, recent = {}, said = {}, saidDays = {}, mentionDays = {}, personMentions = {}, personPairs = {}, comention = {}, pairDays = {}, dayNotes = {}; let used = 0;   // dayNotes: day -> { path: that day's journal (its standup when there's no journal), notes named that day }
     const add = (o, k) => { o[k] = (o[k] || 0) + 1; }, list = (o, k, v) => { (o[k] = o[k] || []).push(v); };
     for (const d of [...dailies].sort((a, b) => pyCmp(a.day, b.day) || pyCmp(a.path, b.path))) {
       const kind = d.path.toLowerCase().includes("standup") ? "standup" : "journal", lines = contentLines(d.text), seen = earlier[kind] = earlier[kind] || [];
@@ -558,6 +558,7 @@ const VGEngineMake = () => {
       used++;
       for (const n of named) if (!(K.has(n) && resolved.has(n))) { add(said, n); list(saidDays, n, d.path); }
       for (const n of here) { add(mentions, n); list(mentionDays, n, d.day); if (d.day >= recentSince) add(recent, n); }
+      { const day = dayNotes[d.day] = dayNotes[d.day] || { path: d.path, notes: [] }; if (kind === "journal") day.path = d.path; for (const n of here) if (!day.notes.includes(n)) day.notes.push(n); }
       for (const p of who) { personMentions[p] = (personMentions[p] || 0) + here.length; for (const n of here) add(personPairs, `${p}\n${n}`); }
       const hereSet = new Set(here), freshSet = new Set(fresh), blockPairs = new Set();
       for (const lines of blocksOf(d.text)) { const inBlk = new Set([...blockLinks(lines, d.linkOf)].filter(r => hereSet.has(r)));
@@ -565,7 +566,7 @@ const VGEngineMake = () => {
         const s = sorted(inBlk); for (let i = 0; i < s.length; i++) for (let j = i + 1; j < s.length; j++) blockPairs.add(`${s[i]}\n${s[j]}`); }
       for (const k of blockPairs) { comention[k] = (comention[k] || 0) + 1; list(pairDays, k, [d.day, d.path]); }
     }
-    return { mentions, recent, said, saidDays, mentionDays, personMentions, personPairs, comention, pairDays, used };
+    return { mentions, recent, said, saidDays, mentionDays, dayNotes, personMentions, personPairs, comention, pairDays, used };
   }
   // real task ages: the first journal or standup a task appears in (journals carry tasks forward), else the note's birth
   const taskKey = t => cpTake(VGShared.plainLinks(t.toLowerCase()).replace(/\d{4}-\d{2}-\d{2}|https?:\/\/\S+|[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).join(" "), 60);
@@ -783,6 +784,14 @@ what when where which while who how why each other same see set use used using w
     const total = r => notes[r].reduce((a, b) => a + b, 0), top = Object.keys(notes).map((r, i) => [r, i]).sort((a, b) => total(b[0]) - total(a[0]) || a[1] - b[1]).slice(0, 40).map(x => x[0]);
     return { weeks, clusters, notes: Object.fromEntries(top.map(r => [r, notes[r]])) };
   }
+  // the dailies as one strand, a day at a time: the last STRAND_DAYS days that named a note, each with its journal and the
+  // notes it named (rows[i] holds places in ids, so a note's path is written once)
+  const STRAND_DAYS = 366;
+  function strand(dayNotes, paths) {
+    const P = new Set(paths), days = Object.keys(dayNotes || {}).filter(d => dayNotes[d].notes.some(r => P.has(r))).sort(pyCmp).slice(-STRAND_DAYS), ids = [], at = new Map();
+    const rows = days.map(d => sorted(dayNotes[d].notes.filter(r => P.has(r))).map(r => { if (!at.has(r)) { at.set(r, ids.length); ids.push(r); } return at.get(r); }));
+    return { days, paths: days.map(d => dayNotes[d].path), ids, rows };
+  }
   function rhythm(mentionDays, cid) {
     const out = {};
     for (const [r, days] of Object.entries(mentionDays)) { const c = cid[r]; if (c == null) continue; const t = out[c] = out[c] || { wd: new Array(7).fill(0), mo: new Array(12).fill(0) };
@@ -866,7 +875,7 @@ what when where which while who how why each other same see set use used using w
       bridges: Object.keys(T.bc).sort((a, b) => pyRound(T.bc[b], 6) - pyRound(T.bc[a], 6) || pyCmp(a, b)).slice(0, 15).map(r => [r, pyRound(T.bc[r], 4), cid[r] ?? null]),
       said: Object.keys(N.said).filter(r => N.said[r] >= 3).sort((a, b) => N.said[b] - N.said[a] || pyCmp(a, b)).slice(0, 20).map(r => [r, N.said[r]]), personTopics: byName(personRows, TOP_COMENTIONS, skip),
       neglected: knowledge.filter(r => !Object.keys(graph[r] || {}).length && (M[r] || 0) >= 3).sort((a, b) => M[b] - M[a] || pyCmp(a, b)).slice(0, 15).map(r => [r, M[r]]) };
-    return { report, cid, gaps: top, pairs, links: out, near, timeline: timeline(N.mentionDays, cid, knowledge, today), rhythm: rhythm(N.mentionDays, cid), ...mp };
+    return { report, cid, gaps: top, pairs, links: out, near, timeline: timeline(N.mentionDays, cid, knowledge, today), strand: strand(N.dayNotes, knowledge), rhythm: rhythm(N.mentionDays, cid), ...mp };
   }
   // the whole analysis in one step, for a desktop that owns topics and for a vault with no analysis file
   function analyseJob(input) {
