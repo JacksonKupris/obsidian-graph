@@ -173,7 +173,7 @@
     try {
       handle = mountVaultGraph(host.createDiv(), structuredClone(data), { mobile: Platform.isMobile, alwaysOn: true, layoutSeed: () => this.layoutSeed(),
         // what reads the real vault, so a view that needs it is really tested; nothing that writes
-        taskHistory: () => this.taskHistory(), writtenLinks: () => this.writtenLinks(), linkHow: rows => this.linkHow(rows), wantedCounts: () => this.wantedCounts(), driftScan: () => this.driftScan() });
+        taskHistory: () => this.taskHistory(), writtenLinks: () => this.writtenLinks(), linkHow: rows => this.linkHow(rows), wantedCounts: () => this.wantedCounts(), driftScan: () => this.driftScan(), guideScan: guide => this.guideScan(guide) });
       await sleep(1500);
       const D = handle._debug, q = s => host.querySelector(s);
       for (const w of D.views()) {

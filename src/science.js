@@ -3,6 +3,7 @@
 //   Survival: Kaplan & Meier 1958, Greenwood 1926, Mantel 1966. Spreading: Kermack & McKendrick 1927, on a network as bond
 //   percolation (Newman 2002). Robustness: Tarjan 1972, Molloy & Reed 1995, Newman & Ziff 2000, Schneider et al. 2011.
 //   Neurons: Lapicque's leaky integrate-and-fire, with Brunel's balanced 80/20 network (2000).
+//   Guide search: Cas9's targeting (Jinek et al. 2012) and its off-targets by mismatch count (Hsu et al. 2013).
 const VGScienceMake = () => {
   // ---- random numbers that repeat: the same vault gives the same answer
   function rng(seed = 1) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -361,6 +362,84 @@ const VGScienceMake = () => {
   function daysToLimit(history, day, key, now, limit) { const end = VGShared.utcNoon(day), past = Object.keys(history || {}).filter(d => end - VGShared.utcNoon(d) >= 7 * VGShared.DAY_MS && history[d][key] != null).sort().pop(); if (past == null) return null; const days = (end - VGShared.utcNoon(past)) / VGShared.DAY_MS, rate = (now - history[past][key]) / days; return rate > 0 ? Math.max(0, (limit - now) / rate) : null; }
   // the change in one sample's number against the latest sample a week or more old, or null when there isn't one yet
   function vitalsDelta(history, day, key, now) { const edge = VGShared.utcNoon(day) - 7 * VGShared.DAY_MS, past = Object.keys(history || {}).filter(d => VGShared.utcNoon(d) <= edge && history[d][key] != null).sort().pop(); return past == null || now == null ? null : now - history[past][key]; }
-  return { areaBalance, serviceLevel, daysToLimit, xmr, hill, kCore, chao1, locationQuotient, twoWayPairs, incoherenceWithout, debtRanks, vitals, vitalsSample, vitalsDelta, NET_RHOS, NET_SEEDS, netStudySteps, netStudyNow, netStudy, netStats, graphKey, flow, reachCounts, reliance, trophic, surfaceWind, WIND_INFLOW, directedGraph, largestAbsEigen, reservoir, ridge, r2, memoryCapacity, narma, narmaError, clustering, meanPath, rewired, randomGraph, smallWorld, rng, graphOf, moments, spectralRadius, outbreak, outbreakStats, epidemic, sweep, kaplanMeier, survivalAt, medianOf, conditional, restrictedMean, logRank, erfc, taskLives, components, cutPoints, cutDamage, percolationCurve, randomOrder, attackOrder, robustnessR, robustness, concentration, busFactor, LIF, lifRate, lifNetwork, BRAIN, lobeOf, gyri, cortexAt, CEREBELLUM, STEM, LOBE_SHARE, assignLobes, lobeSpots };
+  // ---- CRISPR-Cas9 as a search of a note's text. A guide finds its exact sequence. A site counts only where the required
+  // neighbour (the PAM: guide.before / guide.after) sits right beside it. Sequences a few letters off are the off-targets:
+  // reported apart (near), never as matches. A note is read line by line into what each line is (frontmatter, code, task,
+  // body), never with one pattern over the whole file, and a guide skips code unless it asks for it.
+  const GUIDE_WHERE = ["frontmatter", "task", "body", "code"], GUIDE_DEFAULT = ["frontmatter", "task", "body"];
+  const WORD_CHAR = /[\p{L}\p{N}_]/u;
+  // mismatches a guide of this length may tolerate: at most one letter in five (a 20-letter guide: 4), so a short guide has none
+  const guideMismatches = (length, asked) => Math.max(0, Math.min(Math.floor(+asked || 0), Math.floor(length / 5)));
+  // the columns of a line inside `inline code`: [start, end) for each span
+  function codeSpans(t) {
+    const out = []; let i = 0;
+    while ((i = t.indexOf("`", i)) >= 0) {
+      let n = 1; while (t[i + n] === "`") n++;
+      let j = i + n, end = -1;
+      while ((j = t.indexOf("`", j)) >= 0) { let m = 1; while (t[j + m] === "`") m++; if (m === n) { end = j; break; } j += m; }
+      if (end < 0) { i += n; continue; }
+      out.push([i, end + n]); i = end + n;
+    }
+    return out;
+  }
+  // each line of a note with what it is. Frontmatter is the block between a first-line --- and the next ---; without the
+  // closing line there is none. A fence closes on the same mark, at least as long, alone on its line.
+  function guideLines(text) {
+    const lines = String(text == null ? "" : text).split(/\r?\n/), fmEnd = /^---\s*$/.test(lines[0]) ? lines.findIndex((t, i) => i > 0 && /^---\s*$/.test(t)) : -1;
+    let fence = null;
+    return lines.map((t, i) => {
+      if (i <= fmEnd) return { line: i + 1, text: t, where: "frontmatter" };
+      const m = /^\s*(`{3,}|~{3,})(.*)$/.exec(t);
+      if (fence) { if (m && m[1][0] === fence[0] && m[1].length >= fence.length && !m[2].trim()) fence = null; return { line: i + 1, text: t, where: "code" }; }
+      if (m) { fence = m[1]; return { line: i + 1, text: t, where: "code" }; }
+      return { line: i + 1, text: t, where: /^\s*(?:[-*+]|\d+[.)])\s+\[.\]\s/.test(t) ? "task" : "body" };
+    });
+  }
+  // guide: { seq, mismatches, where: [GUIDE_WHERE...], word (default true: a guide that starts or ends in a letter or digit
+  // doesn't match inside a longer word), caseSensitive, before, after }. Returns { hits, near, skipped }: hits are exact,
+  // near differ in 1..mismatches letters, each { line, col, found, mismatches, where, text }; skipped counts exact sites
+  // left out by where they are (where) or by the neighbour rule (context). Sites on a line never overlap: exact first.
+  function guideScan(text, guide) {
+    const fold = s => (guide.caseSensitive ? s : s.toLowerCase()), seq = fold(String(guide.seq || "")), L = seq.length;
+    const out = { hits: [], near: [], skipped: { where: 0, context: 0 } }; if (!L) return out;
+    const k = guideMismatches(L, guide.mismatches), allow = new Set(guide.where && guide.where.length ? guide.where : GUIDE_DEFAULT);
+    const edges = guide.word !== false, needL = edges && WORD_CHAR.test(seq[0]), needR = edges && WORD_CHAR.test(seq[L - 1]);
+    const before = fold(guide.before || ""), after = fold(guide.after || "");
+    for (const ln of guideLines(text)) {
+      let t = fold(ln.text); if (t.length !== ln.text.length) t = ln.text;   // a letter whose lower case is longer: compare as written, so columns hold
+      if (t.length < L) continue;
+      const spans = ln.where === "code" ? [] : codeSpans(ln.text), found = [];
+      for (let i = 0; i + L <= t.length; i++) {
+        if (needL && ((i > 0 && WORD_CHAR.test(t[i - 1])) || !WORD_CHAR.test(t[i]))) continue;
+        if (needR && ((i + L < t.length && WORD_CHAR.test(t[i + L])) || !WORD_CHAR.test(t[i + L - 1]))) continue;
+        let d = 0; for (let j = 0; j < L && d <= k; j++) if (t.charCodeAt(i + j) !== seq.charCodeAt(j)) d++;
+        if (d <= k) found.push({ col: i, d });
+      }
+      const taken = [];
+      for (const f of found.sort((a, b) => a.d - b.d || a.col - b.col)) {
+        if (taken.some(c => f.col < c + L && c < f.col + L)) continue; taken.push(f.col);
+        const where = spans.some(([a, b]) => f.col >= a && f.col < b) ? "code" : ln.where;
+        if (!allow.has(where)) { if (!f.d) out.skipped.where++; continue; }
+        if ((before && !t.slice(0, f.col).endsWith(before)) || (after && !t.startsWith(after, f.col + L))) { if (!f.d) out.skipped.context++; continue; }
+        (f.d ? out.near : out.hits).push({ line: ln.line, col: f.col, found: ln.text.slice(f.col, f.col + L), mismatches: f.d, where, text: ln.text });
+      }
+    }
+    const order = (a, b) => a.line - b.line || a.col - b.col; out.hits.sort(order); out.near.sort(order);
+    return out;
+  }
+  // a site with the text around it instead of its whole line: { line, col, found, mismatches, where, pre, post }
+  function guideExcerpt(h, pad = 44) {
+    const a = Math.max(0, h.col - pad), b = Math.min(h.text.length, h.col + h.found.length + pad);
+    return { line: h.line, col: h.col, found: h.found, mismatches: h.mismatches, where: h.where, pre: (a > 0 ? "…" : "") + h.text.slice(a, h.col).replace(/^\s+/, ""), post: h.text.slice(h.col + h.found.length, b).replace(/\s+$/, "") + (b < h.text.length ? "…" : "") };
+  }
+  // one guide over many notes: add(path, text) for each, then done(). notes lists those with a site (the first `keep`
+  // of each kind as excerpts, with the full counts); hits, near and skipped are totals; allowed is the mismatches used.
+  function guideSurvey(guide, keep = 20) {
+    const out = { notes: [], scanned: 0, hits: 0, near: 0, skipped: { where: 0, context: 0 }, allowed: guideMismatches(String(guide.seq || "").length, guide.mismatches) };
+    return { add(path, text) { const r = guideScan(text, guide); out.scanned++; out.hits += r.hits.length; out.near += r.near.length; out.skipped.where += r.skipped.where; out.skipped.context += r.skipped.context;
+        if (r.hits.length || r.near.length) out.notes.push({ path, hits: r.hits.slice(0, keep).map(h => guideExcerpt(h)), near: r.near.slice(0, keep).map(h => guideExcerpt(h)), hitsCount: r.hits.length, nearCount: r.near.length }); },
+      done() { out.notes.sort((a, b) => b.hitsCount - a.hitsCount || b.nearCount - a.nearCount || (a.path < b.path ? -1 : 1)); return out; } };
+  }
+  return { GUIDE_WHERE, GUIDE_DEFAULT, guideMismatches, guideLines, guideScan, guideExcerpt, guideSurvey, areaBalance, serviceLevel, daysToLimit, xmr, hill, kCore, chao1, locationQuotient, twoWayPairs, incoherenceWithout, debtRanks, vitals, vitalsSample, vitalsDelta, NET_RHOS, NET_SEEDS, netStudySteps, netStudyNow, netStudy, netStats, graphKey, flow, reachCounts, reliance, trophic, surfaceWind, WIND_INFLOW, directedGraph, largestAbsEigen, reservoir, ridge, r2, memoryCapacity, narma, narmaError, clustering, meanPath, rewired, randomGraph, smallWorld, rng, graphOf, moments, spectralRadius, outbreak, outbreakStats, epidemic, sweep, kaplanMeier, survivalAt, medianOf, conditional, restrictedMean, logRank, erfc, taskLives, components, cutPoints, cutDamage, percolationCurve, randomOrder, attackOrder, robustnessR, robustness, concentration, busFactor, LIF, lifRate, lifNetwork, BRAIN, lobeOf, gyri, cortexAt, CEREBELLUM, STEM, LOBE_SHARE, assignLobes, lobeSpots };
 };
 const VGScience = VGScienceMake();
