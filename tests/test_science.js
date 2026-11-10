@@ -262,5 +262,6 @@ const again = S.outbreakStats(K5, 1, 0.4, 100, 5), twice = S.outbreakStats(K5, 1
   const mean = (a, b, c, d) => { let t = 0, m = 0; for (let i = a; i <= b; i++) for (let j = c; j <= d; j++) if (i !== j) { t += Math.hypot(f.X[i][0] - f.X[j][0], f.X[i][1] - f.X[j][1], f.X[i][2] - f.X[j][2]); m++; } return t / m; };
   assert(mean(0, 19, 0, 19) < mean(0, 19, 20, 39) * 0.5, "days of one topic are nearer each other than to the other topic's");
   assert.deepStrictEqual(S.genomeFold([["a"], ["a"]]).X, [[0, 0, 0], [1, 0, 0]], "too few days to fold: laid in a line");
+  assert.deepStrictEqual([0.02, 0.05, 0.1, 0.29].map(S.stressGrade), ["excellent", "good", "fair", "poor"], "Kruskal's grades for a fit");
 }
-console.log("ok - science: Kaplan-Meier and log-rank on the 6-MP trial, SIR and its threshold, cut points, percolation, the neuron's closed form, anatomy, guide search");
+console.log("ok - science: Kaplan-Meier and log-rank on the 6-MP trial, SIR and its threshold, cut points, percolation, the neuron's closed form, anatomy, guide search, the genome fold");

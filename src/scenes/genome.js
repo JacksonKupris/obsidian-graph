@@ -19,7 +19,7 @@
       ds.forEach(i => { for (let x = 0; x < 3; x++) c[x] += beads[i][x] / ds.length; });
       pos.set(n.id, [c[0] + off * Math.cos(a) * Math.cos(b), c[1] + off * Math.sin(a) * Math.cos(b), c[2] + off * Math.sin(b)]); daysOf.set(n.id, ds);
     });
-    return { pos, beads, domain, daysOf, fold: f, strand: s };
+    return { pos, beads, bounds: beads, domain, daysOf, fold: f, strand: s };   // bounds: fit frames the whole strand, not only the notes
   }
   // the notes two days both name
   const gnShared = (G, a, b) => { const B = new Set(G.strand.rows[b]); return [...new Set(G.strand.rows[a])].filter(j => B.has(j)).map(j => G.strand.ids[j]).filter(id => byId[id]); };
@@ -104,5 +104,5 @@
     legend: item => item(`<i class="vg-lg-line" style="border-color:${colorOf(0)};opacity:1"></i>`, "strand: a bead a day, a colour a domain") + item(`<i class="vg-lg-line" style="border-color:rgb(${GN.LOOP});opacity:1"></i>`, "loop: far-apart days naming the same notes") + item("●", "note, at the middle of its days") + item("◯", "newest day"),
     today() { const G = mapCache.genome, l = G && G.fold.loops[0]; if (!l) return null; const s = G.strand;
       return { text: `Strongest loop: ${gnDay(s.days[l.a])} and ${gnDay(s.days[l.b])} name the same ${plural(l.count, "note")}, ${gnApart(s.days[l.a], s.days[l.b])} days apart`, label: "Show them", run: () => gnShowLoop(G, l) }; },
-    api: { fold: () => mapCache.genome, at: i => { const b = mapCache.genome.beads[i]; return proj(b[0], b[1], b[2], rot()); }, yaw: () => cam.yaw,openDay: i => gnOpenDay(mapCache.genome, i), showLoop: i => gnShowLoop(mapCache.genome, mapCache.genome.fold.loops[i]) },   // for tests/test_genome.js
+    api: { fold: () => mapCache.genome, at: i => { const b = mapCache.genome.beads[i]; return proj(b[0], b[1], b[2], rot()); }, yaw: () => cam.yaw, still: () => { cam.spin = null; }, openDay: i => gnOpenDay(mapCache.genome, i), showLoop: i => gnShowLoop(mapCache.genome, mapCache.genome.fold.loops[i]) },   // for tests/test_genome.js
   });
