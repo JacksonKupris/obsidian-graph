@@ -48,6 +48,8 @@ Release prerequisites, manual steps and recovery: [RELEASING.md](RELEASING.md).
 
 ```sh
 npm test                      # build + rules/code checks + every view and lens on the sample vault
+npm test -- --changed         # only the tests that load what this branch changed (every test when a shared file changed)
+npm test -- --only lens_load  # only the named tests, comma-separated (npm test -- --list shows the names)
 npm run test:vault            # the same on a real vault (local.json's "vault", or --vault <dir>)
 npm run build                 # dist/: main.js, styles.css, manifest.json, rules.js (sample rules)
 npm run deploy                # test on the vault, install its check file there (--plugin: this build too, until the next release)

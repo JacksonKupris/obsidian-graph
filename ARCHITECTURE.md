@@ -20,7 +20,7 @@ One system, not bolted-on parts: one state, shared rules, one action path, share
 | `scripts/lib.js`, `tests/kit.js` | The same for the scripts and the tests. `tests/test_shared.js` and `test_kit.js` fail when a copy comes back. |
 | `config/rules.json` | Default rule data (the sample vault's). A vault keeps its own copy; deploy checks it has every key this one has. |
 | `build.js` | Joins the sources into `main.js` (rules + actions + view + scenes + plugin), `styles.css`, `manifest.json`, and `rules.js` (the rulebook alone, for a vault's own checks). Also builds the standalone page. |
-| `tests/` | `run.js` (fast: build, `test_rules.js`, `smoke_page.js`), plus `click_all.js`, `layout_random.js`, `shots.js`, `polish_loop.js`. All run on `fixtures/` by default, or a real vault with `--vault`. `env.js` decides which. |
+| `tests/` | `run.js` (fast: build, `test_rules.js`, `smoke_page.js`; `--changed` and `--only` run part of it, picked by `select.js` from what each test loads; GitHub runs all of it), plus `click_all.js`, `layout_random.js`, `shots.js`, `polish_loop.js`. All run on `fixtures/` by default, or a real vault with `--vault`. `env.js` decides which. |
 | `fixtures/` | `make_sample.js` generates the sample vault and, with `--analyse`, its graph data (`sample-graph.json`). |
 | `src/engine.js` | `VGEngine`: the analysis. Topics, mentions, gaps, maps and the written reports, with nothing about Obsidian in them; the slow parts run in a worker. |
 | `scripts/deploy.js` | Build with a vault's rules, test on its data, install, run the vault's own checks, reload in Obsidian. |

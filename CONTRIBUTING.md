@@ -47,7 +47,8 @@ npm run sync                        # sit down: get what other computers pushed
 git switch main
 git switch -c fix/dungeon-labels    # a new branch for this change (from an up-to-date main)
 # ...edit...
-npm test
+npm test -- --changed               # while working: only the tests that load what you changed
+npm test                            # before committing: every test
 git add -A
 git commit -m "Dungeon labels stay on screen"
 npm run sync                        # pushes the branch; prints the link that opens its pull request
