@@ -69,7 +69,7 @@ npm run release:
                                                                           other computers: BRAT downloads them
 ```
 
-- **The tests** run on GitHub on every pull request and every push to `main` (`test.yml`). That's the run a release needs. The version commit changes only the number, so it starts no run, and `release.yml` refuses one that changes anything else.
+- **The tests** run on GitHub on every pull request and every push to `main` (`test.yml`). That's the run a release needs. A version commit (one that changes only the number in `package.json` and `manifest.json`, the release script's or one made by hand) starts no run, so a release checks the newest commit before the version commits; `release.yml` refuses a `Release` commit that changes anything else.
 - **The version** lives in `package.json`. `manifest.json` (what Obsidian reads) copies it; `node build.js manifest`
   writes it. The tests fail if they differ, and GitHub refuses a tag that doesn't match.
 - **A version is used once.** If 0.6.15 is broken, release 0.6.16. Never move or re-push a tag.

@@ -19,8 +19,8 @@ async function run(options = {}) {
       if (args[0] === "remote") return { status: 0, stdout: "https://github.com/owner/repo.git" };
       if (args[0] === "push" && options.pushFails) return { status: 1, stderr: "rejected" };
       if (args[0] === "tag" && args[2] === "0.6.14" && options.tagged) return { status: 0, stdout: "0.6.14" };
-      if (args[0] === "log" && args.includes("--format=%s")) return { status: 0, stdout: options.subject || "Merge pull request #1" };
-      if (args[0] === "log" && args.includes("--format=%H")) return { status: 0, stdout: args.includes("HEAD^") ? "parent000" : "head00000" };
+      if (args[0] === "diff") return { status: 0, stdout: Number(args[3].slice(5)) < (options.versionCommits || 0) ? "package.json\nmanifest.json" : "src/hq.js\npackage.json" };   // HEAD~n: the n newest commits change only the version
+      if (args[0] === "log" && args.includes("--format=%H")) return { status: 0, stdout: "sha" + args[args.length - 1].slice(5) };
       if (args[0] === "log" && options.tagged) return { status: 0, stdout: options.commits || "" };
     }
     if (args.some(arg => String(arg).replace(/\\/g, "/").endsWith("tests/run.js"))) ranTests.push(args);
@@ -68,8 +68,9 @@ for (const options of [{ branch: "import" }, { dirty: true }, { behind: true }])
 }
 // only what GitHub has tested goes out, and nothing runs on this computer
 assert.strictEqual(good.ranTests.length, 0, "a release runs no tests here");
-assert(good.asked[0].includes("head_sha=head00000"), "it asks about the commit being released");
-assert((await run({ subject: "Release 0.6.14", args: ["--force"] })).asked[0].includes("head_sha=parent000"), "a version commit's code is its parent");
+assert(good.asked[0].includes("head_sha=sha0&"), "it asks about the commit being released");
+assert((await run({ versionCommits: 1, args: ["--force"] })).asked[0].includes("head_sha=sha1&"), "a version commit's code is its parent");
+assert((await run({ versionCommits: 2, args: ["--force"] })).asked[0].includes("head_sha=sha2&"), "a hand-made version commit followed by a Release commit: the code is before both, whatever they're called");
 for (const [name, runs, says] of [["failed", [t("completed", "failure")], /tests failure/], ["missing", [[]], /no test run/], ["for another workflow", [[{ path: ".github/workflows/release.yml", status: "completed", conclusion: "success" }]], /no test run/]]) {
   const r = await run({ runs });
   assert.strictEqual(r.exit, 1, `${name} tests should stop a release`); assert(r.messages.some(m => says.test(m)), `${name}: it should say why`);
@@ -84,7 +85,8 @@ assert.strictEqual((await run({ pushFails: true })).exit, 1);
 const yml = f => fs.readFileSync(path.join(__dirname, "../.github/workflows", f), "utf8"), rel = yml("release.yml"), tst = yml("test.yml");
 assert(!/uses: \.\/\.github\/workflows\/test\.yml/.test(rel), "publishing doesn't run the tests again");
 assert(/gh run list --workflow test\.yml/.test(rel) && /\^Release /.test(rel), "publishing checks the tests passed on the code");
-assert(/git diff --name-only HEAD\^ HEAD/.test(rel), "a version commit is checked to change only the version");
+assert(/git diff --name-only HEAD\^ HEAD/.test(rel), "a Release commit is checked to change only the version");
+assert(/while test -z .*code="\$code\^"/.test(rel) && /fetch-depth: 20/.test(rel), "publishing looks past every version-only commit for the tested code");
 assert(/paths-ignore: \[package\.json, manifest\.json\]/.test(tst), "a version commit starts no test run");
 console.log("ok - release requires current clean main and GitHub's tests passed, runs none here, preserves history and atomically pushes main/tag");
 })().catch(e => { console.log("FAIL - release: " + (e && e.message)); process.exit(1); });
