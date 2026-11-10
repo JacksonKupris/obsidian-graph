@@ -17,7 +17,7 @@
   const litLevel = n => { const a = activity(n); return staleFor(n, Q.stale_days) ? 0 : a > 0.3 ? 2 : 1; };
   scene("cyberpunk", {
     name: "Cyberpunk", icon: "cyberpunk", fps: 30, phoneFps: 30, restFps: 30, own3d: true,   // a frame only adds what moves, so a phone can afford it, and fast rain judders below 30
-    blurb: "A rain-soaked neon city: topics are districts, notes are towers, stale ones go dark",
+    menu: "see", hint: "A rain-soaked neon city: topics are districts, notes are towers, stale ones go dark",
     toast: "Cyberpunk — a district per topic. Height is how relied-on a note is, lit windows how active, dark towers are stale, pink beacons are open tasks, the spire is the topic's map, stalls are notes with no topic",
     layout(geo) {
       const pos = new Map(geo), cs = topicsWithNotes(), { cols, rows } = gridDims(Math.max(1, cs.length), 0.8), blds = [], districts = [];

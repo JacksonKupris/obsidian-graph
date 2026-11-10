@@ -155,7 +155,7 @@
   }
   scene("triage", {
     name: "Triage Run", icon: "triage", fps: 60, game: true,
-    blurb: "Your open tasks as cards against the clock: swipe Done, Later, Delegate or Cancel",
+    menu: "play", hint: "Your open tasks as cards against the clock: swipe Done, Later, Delegate or Cancel",
     toast: "",   // its title screen says it, and a toast here sits on the buttons
     layout() { const pos = new Map(), span = 800; nodes.forEach(n => { const [u, v] = scatter("tr:" + n.id); pos.set(n.id, [u * span, v * span]); }); if (TG.state !== "play") TG.state = "title"; return { pos, bounds: [[0, 0], [span, 0], [span, span], [0, span]] }; },
     fit: n => !n.ghost,

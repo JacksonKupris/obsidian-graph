@@ -3,7 +3,7 @@
   const liveEdits = [];   // notes edited while the graph is open (from live sync): {id, t}
   const tickOf = (o, now) => { const dt = Math.min(100, now - (o.last || now)); o.last = now; return reducedMotion() ? 0 : dt; };
   const PHONE_REST_MS = 20000, PHONE_FPS = 20;
-  const ANIM_MAPS = { ...Object.fromEntries(Object.entries(SCENES).map(([k, d]) => [k, d.fps || 30])), radar: 60, weather: 30, foodweb: 30, subway: 30, clock: 30 };   // divisors of 60 Hz: an even cadence, no judder
+  // a scene's frame rate is its own (fps, default 30): divisors of 60 Hz, an even cadence, no judder
   // An embed scrolled out of view (or a hidden pane) costs nothing: the loop stops and restarts when it's back
   const io = typeof IntersectionObserver === "function" ? new IntersectionObserver(es => {
     onScreen = es[es.length - 1].isIntersecting; if (onScreen) { dirty = true; kick(); }
@@ -49,7 +49,7 @@
     // jumped. Like neural: a steady budget while visible, full rate while moving, 3 fps when Obsidian isn't focused.
     // A phone gets less, and less again once it's left alone: it's held in the hand and runs on a battery. A game keeps its rate;
     // a scene with cheap frames says what it can afford (phoneFps, restFps).
-    const animFps = mapView() && (!reducedMotion() || (SCENES[st.view] && SCENES[st.view].game)) ? ANIM_MAPS[st.view] || 0 : 0;
+    const animFps = mapView() && (!reducedMotion() || (SCENES[st.view] && SCENES[st.view].game)) ? SCENES[st.view].fps || 30 : 0;
     if (animFps) {
       const busy = morph || tween || drag, phone = MOBILE && !(SCENES[st.view] && SCENES[st.view].game), fps = busy ? 0 : !document.hasFocus() ? 3 : opts.compact ? Math.min(15, animFps) : phone ? Math.min(now - lastInteract > PHONE_REST_MS ? SCENES[st.view] && SCENES[st.view].restFps || 10 : SCENES[st.view] && SCENES[st.view].phoneFps || 20, animFps) : animFps;
       const shown = lensFps(fps); if (!shown || now - lastMapAnim >= 1000 / shown - 2) { lastMapAnim = now; dirty = true; }
@@ -556,12 +556,7 @@
   function renderLegend() {
     if (mapView()) {
       const item = (sw, t) => `<span class="vg-lg-item">${sw}${t}</span>`;
-      $(".vg-legend").innerHTML = SCENES[st.view] ? (SCENES[st.view].legend ? SCENES[st.view].legend(item) : "") : st.view === "subway" ? item(`<i class="vg-lg-line" style="height:4px;background:${colorOf(0)}"></i>`, "line = topic") + item(`<i class="vg-lg-stn"></i>`, "note") + item(`<i class="vg-lg-stn is-x"></i>`, "connects topics")
-        : st.view === "weather" ? item("<b style='color:#b91c1c'>L</b>", "busier than usual") + item("<b style='color:#1d4ed8'>H</b>", "quieter") + item("⛈", "burst this week") + item("<i class='vg-lg-line' style='border-color:#dc2626'></i>", "front = come up together")
-        : st.view === "foodweb" ? item("↑", "height is trophic level, the base at the bottom") + item("<b style='color:#f87171'>◯</b>", "endangered: relied on, stale")
-        : st.view === "clock" ? item("◔", "ring = topic") + item("<i class='vg-lg-win'></i>", "brighter = more of its mentions") + item("↗", "click a ring for its weeks")
-        : st.view === "radar" ? item("<b style='color:#22c55e'>●</b>", "note with open tasks") + item("<b style='color:#f87171'>●</b>", "oldest task 90+ days") + item("↻", "click a blip to tick off")
-        : item(`<i class="vg-lg-bld"></i>`, "height = relied on") + item(`<i class="vg-lg-win"></i>`, "lit = recent activity") + item(`<i class="vg-lg-bld is-stale"></i>`, "grey = stale") + item(`<i class="vg-lg-lot"></i>`, "empty lot = not written") + item("<b style='color:#ef4444'>•</b>", "beacon = open tasks") + item("🏛", "town hall = the topic's map");
+      $(".vg-legend").innerHTML = SCENES[st.view].legend ? SCENES[st.view].legend(item) : "";
       return;
     }
     const sizeWord = { bc: "routes through it", recent: "daily mentions" }[st.sizeBy];
