@@ -14,12 +14,13 @@
     "install-release": "node scripts/install_release.js",
     "sync": "node scripts/sync.js",
     "queue": "node scripts/queue.js",
+    "look": "node scripts/look.js",
     "ship": "node scripts/ship.js"
   },
   "engines": {
     "node": ">=22"
   },
   "devDependencies": {
-    "vault-graph-views": "github:JacksonKupris/vault-graph-views#v0.6.0"
+    "vault-graph-views": "github:JacksonKupris/vault-graph-views#v0.6.1"
   }
 }
