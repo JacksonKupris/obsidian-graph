@@ -18,5 +18,8 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "vault-graph-views": "github:JacksonKupris/vault-graph-views#v0.2.0"
   }
 }
