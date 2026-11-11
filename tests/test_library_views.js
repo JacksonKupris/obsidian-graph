@@ -78,6 +78,40 @@ const env = require("./env");
       ok((await tab.ev(`${cones}.handle().api.selected()`)) === cnote.id && /in its past/.test(await tab.ev(`${cones}.handle().stat()`)), "and Light cones counts its past and future");
     }
 
+    // Load paths: the vault as a truss; a real click on a note selects it in the plugin and shows its bars
+    ok(await tab.ev(`!!${D}.scenes().loadpaths && ${D}.views().includes("loadpaths") && !${D}.scenes().loadpaths.hidden`), "Load paths is a view in the menu");
+    await tab.ev(`${D}.setView("loadpaths")`); await sleep(1900); await calm();
+    const truss = `${D}.scenes().loadpaths.api`;
+    const joints = await tab.ev(`${truss}.handle().api.notes().length`);
+    ok(joints >= 10, `the library makes joints of the plugin's linked notes (${joints})`);
+    const lstat = await tab.ev(`${truss}.handle().stat()`);
+    ok((await tab.ev(`${q(".vg-status")}.innerText`)).includes(lstat), `its stat line is the plugin's status: ${lstat}`);
+    const lnote = await tab.ev(`(() => { const h = ${truss}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note") return { id: k.id, x, y }; } return null; })()`);
+    ok(!!lnote, "a note of Load paths is on screen to click");
+    if (lnote) {
+      for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: lnote.x, y: lnote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
+      await sleep(300); await calm();
+      ok((await tab.ev(`window.vaultGraph.viewport().selected`)) === lnote.id, "a click on a note selects it in the plugin");
+      ok((await tab.ev(`${truss}.handle().api.selected()`)) === lnote.id && /bars? carrying/.test(await tab.ev(`${truss}.handle().stat()`)), "and Load paths gives its bars");
+    }
+
+    // Normal modes: the vault as a ringing sheet; a real click on a note selects it in the plugin, and the arrows step the mode
+    ok(await tab.ev(`!!${D}.scenes().modes && ${D}.views().includes("modes") && !${D}.scenes().modes.hidden`), "Normal modes is a view in the menu");
+    await tab.ev(`${D}.setView("modes")`); await sleep(1900); await calm();
+    const drum = `${D}.scenes().modes.api`;
+    const hold = await tab.ev(`(${drum}.handle().api.hold(0.25), ${drum}.handle().api.modes().length)`);
+    ok(hold >= 9, `the library finds modes in the plugin's linked notes (${hold})`);
+    const mstat = await tab.ev(`${drum}.handle().stat()`);
+    ok((await tab.ev(`${q(".vg-status")}.innerText`)).includes(mstat), `its stat line is the plugin's status: ${mstat}`);
+    const mnote = await tab.ev(`(() => { const h = ${drum}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note") return { id: k.id, x, y }; } return null; })()`);
+    ok(!!mnote, "a note of Normal modes is on screen to click");
+    if (mnote) {
+      for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: mnote.x, y: mnote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
+      await sleep(300); await calm();
+      ok((await tab.ev(`window.vaultGraph.viewport().selected`)) === mnote.id, "a click on a note selects it in the plugin");
+      ok((await tab.ev(`${drum}.handle().api.selected()`)) === mnote.id && /in mode 1$/.test(await tab.ev(`${drum}.handle().stat()`)), "and Normal modes gives its swing");
+    }
+
     // another view: the library's canvas goes away and the plugin's own is back
     await tab.ev(`${D}.setView("2d")`); await sleep(900); await calm();
     const back = await tab.ev(`({ hidden: ${q(".vg-lib")}.hidden, plugin: ${q(".vg-cv")}.style.visibility })`);
