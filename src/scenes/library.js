@@ -74,6 +74,16 @@
     today: libToday, api: libApi(),
   });
 
+  // Slime mould: the written links as tubes a mould thickens or thins; also only in the library.
+  scene("slime", {
+    name: "Slime mould", icon: "mould", menu: "see", space: true, lib: true, hint: "Which written links carry the vault, and which fade away",
+    toast: "Slime mould — tubes between notes grow thick where flow between the hubs is high and thin where it is not. Press Play to watch it grow from tubes of equal width; what stays thick is the backbone of the written links.",
+    layout: () => ({ pos: new Map(), bounds: [] }),
+    draw: () => libDraw("slime", "slime", () => ({})),
+    legend: item => item(`<i class="vg-lg-line" style="border-color:#f59e0b;opacity:1"></i>`, "carries flow") + item(`<i class="vg-lg-line" style="opacity:.5"></i>`, "fades"),
+    today: libToday, api: libApi(),
+  });
+
   // Normal modes: the vault as a drum skin that rings; also only in the library.
   scene("modes", {
     name: "Normal modes", icon: "waves", menu: "see", space: true, lib: true, hint: "How the vault would ring: its natural cuts into halves",
