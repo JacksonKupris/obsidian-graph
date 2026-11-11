@@ -63,3 +63,23 @@
     legend: item => item(`<i class="vg-lg-line" style="border-color:#60a5fa;opacity:1"></i>`, "its past: notes it rested on") + item(`<i class="vg-lg-line" style="border-color:#f59e0b;opacity:1"></i>`, "its future: notes it could have touched"),
     today: libToday, api: libApi(),
   });
+
+  // Load paths: the vault as a truss; also only in the library.
+  scene("loadpaths", {
+    name: "Load paths", icon: "truss", menu: "see", space: true, lib: true, hint: "Which links carry the vault, and which note sags first",
+    toast: "Load paths — notes are joints, links are bars, open tasks are weight and the most important notes are the ground. Thick bars carry the most: blue is pulled, red is pushed. Pick a bar or a note.",
+    layout: () => ({ pos: new Map(), bounds: [] }),
+    draw: () => libDraw("loadpaths", "loadpaths", () => ({})),
+    legend: item => item(`<i class="vg-lg-line" style="border-color:#60a5fa;opacity:1"></i>`, "pulled (tension)") + item(`<i class="vg-lg-line" style="border-color:#f87171;opacity:1"></i>`, "pushed (compression)"),
+    today: libToday, api: libApi(),
+  });
+
+  // Normal modes: the vault as a drum skin that rings; also only in the library.
+  scene("modes", {
+    name: "Normal modes", icon: "waves", menu: "see", space: true, lib: true, hint: "How the vault would ring: its natural cuts into halves",
+    toast: "Normal modes — notes are masses on a sheet and links are springs, so the sheet rings in the shapes the links allow. Amber swings up, blue swings down, the dark line between is still. Mode 1 is the cleanest cut of the vault into two halves; step to faster modes with the arrows.",
+    layout: () => ({ pos: new Map(), bounds: [] }),
+    draw: () => libDraw("modes", "modes", () => ({})),
+    legend: item => item(`<i class="vg-lg-line" style="border-color:#f59e0b;opacity:1"></i>`, "swings up") + item(`<i class="vg-lg-line" style="border-color:#38bdf8;opacity:1"></i>`, "swings down"),
+    today: libToday, api: libApi(),
+  });
