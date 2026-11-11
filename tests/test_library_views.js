@@ -60,6 +60,24 @@ const env = require("./env");
     ok(/fleet/.test(await tab.ev(`${lib}.handle().stat()`)), `its stat line names the guide: ${await tab.ev(`${lib}.handle().stat()`)}`);
     ok((await tab.ev(`${lib}.scanForViews(null)`)) === null, "before a scan the scan input is null");
 
+    // Light cones: a menu view that exists only in the library; a real click on a note selects it and lights its cones
+    ok(await tab.ev(`!!${D}.scenes().cones && ${D}.views().includes("cones") && !${D}.scenes().cones.hidden`), "Light cones is a view in the menu");
+    await tab.ev(`${D}.setView("cones")`); await sleep(1900); await calm();
+    const cones = `${D}.scenes().cones.api`;
+    const dated = await tab.ev(`${cones}.handle().api.notes().length`);
+    ok(dated >= 10, `the library places the plugin's dated notes (${dated})`);
+    // the plugin's selection from the Genome fold above is still picked, so the line is the picked form
+    const cstat = await tab.ev(`${cones}.handle().stat()`);
+    ok(/dated notes · \d+ links?|in its past/.test(cstat) && (await tab.ev(`${q(".vg-status")}.innerText`)).includes(cstat), `its stat line is the plugin's status: ${cstat}`);
+    const cnote = await tab.ev(`(() => { const h = ${cones}.handle(); for (let y = 100; y < innerHeight - 60; y += 8) for (let x = 60; x < innerWidth - 60; x += 8) { const k = h.keyAt(x, y); if (k && k.kind === "note") return { id: k.id, x, y }; } return null; })()`);
+    ok(!!cnote, "a note of Light cones is on screen to click");
+    if (cnote) {
+      for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: cnote.x, y: cnote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
+      await sleep(300); await calm();
+      ok((await tab.ev(`window.vaultGraph.viewport().selected`)) === cnote.id, "a click on a note selects it in the plugin");
+      ok((await tab.ev(`${cones}.handle().api.selected()`)) === cnote.id && /in its past/.test(await tab.ev(`${cones}.handle().stat()`)), "and Light cones counts its past and future");
+    }
+
     // another view: the library's canvas goes away and the plugin's own is back
     await tab.ev(`${D}.setView("2d")`); await sleep(900); await calm();
     const back = await tab.ev(`({ hidden: ${q(".vg-lib")}.hidden, plugin: ${q(".vg-cv")}.style.visibility })`);
