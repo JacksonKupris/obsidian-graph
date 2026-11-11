@@ -29,6 +29,24 @@
   const libToday = () => (LIBV.handle && LIBV.key === st.view ? LIBV.handle.today() : null);
   const libApi = () => ({ handle: () => LIBV.handle, host: () => LIBV.host, hidden: () => !LIBV.host || LIBV.host.hidden, drop: libDrop });
 
+  // A Guide scan's result as the library's scan input: the guide, where it looked, each note it read with its hit count, and
+  // which notes were in scope (the plugin's own scope rule), or null before a scan.
+  function scanForViews(R) {
+    if (!R) return null;
+    const inScope = n => !special(n) && !n.ghost && VGShared.scopeHas(R.scope, n.id, n.tags);
+    return { guide: R.guide.seq, where: guideScoped(R.scope) ? guideScopeText(R.scope) : "", notes: R.notes.map(n => ({ path: n.path, hits: n.hits.length })), ids: nodes.filter(inScope).map(n => n.id) };
+  }
+
+  scene("cas9-lib", {
+    name: "Cas9 (library)", icon: "cas9", hidden: true, lib: true, hint: SCENES.cas9.hint,
+    layout: () => ({ pos: new Map(), bounds: [] }),
+    draw: () => {
+      libDraw("cas9-lib", "cas9", () => { LIBV.scanned = guideNow.result; return { scan: scanForViews(guideNow.result) }; });
+      if (guideNow.result !== LIBV.scanned) { LIBV.scanned = guideNow.result; LIBV.handle.update({ scan: scanForViews(guideNow.result) }); }
+    },
+    today: libToday, api: { ...libApi(), scanForViews },
+  });
+
   scene("genome-lib", {
     name: "Genome fold (library)", icon: "genome", hidden: true, lib: true, hint: SCENES.genome.hint,
     layout: () => ({ pos: new Map(), bounds: [], fold: VGScience.foldForViews(VGScience.genomeFold((DATA.strand || { rows: [] }).rows)) }),   // the fold is worked out here, once
