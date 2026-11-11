@@ -65,6 +65,13 @@
     legend: item => item("↑", "height is trophic level, the base at the bottom") + item("<b style='color:#f87171'>◯</b>", "endangered: relied on, stale"),
     today() { const ks = keystones(), x = ks[0];
       return x ? { text: `Keystone at risk: ${x.n.name} · ${x.deps} notes depend on it, unchanged for ${x.n.age} days (${ks.length} like it)`, label: "Review", run: () => { reveal(x.n.id); } } : null; } });
+  // A view from the graphs library draws on its own canvas laid over this one (src/scenes/library.js is its host side). The
+  // state and the way out are here, in the renderer's scope, so drawView can put it away when any other view is drawn.
+  const LIBV = { host: null, key: null, handle: null, selected: undefined, size: "" };
+  function libHide() {
+    if (!LIBV.host || LIBV.host.hidden) return;
+    LIBV.host.hidden = true; cv.style.visibility = ""; LIBV.key = null;   // the library's canvas stays mounted: the next visit starts where this one stopped
+  }
   /*@scenes*/
   // scenes written in notes (the plugin collects every ```vault-graph-scene block into DATA.scenes); a block with
   // errors still draws from the words it got right, and its note shows the errors

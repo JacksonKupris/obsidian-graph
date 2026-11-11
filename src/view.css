@@ -1021,3 +1021,7 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-lens-body .ds-section > .ds-more, .vg-lens-body .ds-rows + .ds-more { margin-top: 4px; }
 
 .vg-root .ds-heading { padding: 6px 8px 4px; margin: 0; }
+
+/* a view from the graphs library lies over the canvas, under the toolbar, legend and status */
+.vg-lib { position: absolute; inset: 0; z-index: 1; }
+.vg-lib[hidden] { display: none; }

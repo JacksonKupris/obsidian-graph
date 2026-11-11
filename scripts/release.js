@@ -83,8 +83,9 @@ async function bumpAndTag() {
   if (!version) fail(`unknown version step "${step}" (patch, minor, major or x.y.z)`);
   if (git("tag", "--list", version)) fail(`${version} is already tagged; pass a higher one: npm run release -- x.y.z`);
   const restore = () => run("git", ["checkout", "--", "package.json", "manifest.json"]);
-  pkg.version = version;
-  fs.writeFileSync(PKG, JSON.stringify(pkg, null, 2) + "\n");
+  // read again here: the sync above may have pulled a package.json that changed (a dependency added by a merged pull request)
+  const fresh = JSON.parse(fs.readFileSync(PKG, "utf8")); fresh.version = version;
+  fs.writeFileSync(PKG, JSON.stringify(fresh, null, 2) + "\n");
   const m = run(process.execPath, ["build.js", "manifest"]);
   if (m.status) { restore(); fail(`node build.js manifest\n${(m.stderr || m.stdout).trim()}`); }
 

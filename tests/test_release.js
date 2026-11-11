@@ -28,7 +28,7 @@ async function run(options = {}) {
   };
   const context = {
     __dirname: path.join(__dirname, "../scripts"),
-    require: name => name === "fs" ? { readFileSync: () => '{"version":"0.6.14"}', writeFileSync: (...args) => writes.push(args), openSync: () => 9 } :
+    require: name => name === "fs" ? { readFileSync: () => options.pulled && calls.some(c => c[0] === "sync") ? '{"version":"0.6.14","devDependencies":{"lib":"1"}}' : '{"version":"0.6.14"}', writeFileSync: (...args) => writes.push(args), openSync: () => 9 } :
       name === "child_process" ? { spawnSync, spawn: (command, args) => { spawned.push([command, ...args]); return { once: (event, fn) => { if (event === "exit" && options.childExit !== undefined) fn(options.childExit); }, unref() { calls.push(["unref"]); } }; } } : name === "./sync" ? { sync: () => (calls.push(["sync"]), { ok: !options.behind, lines: [] }) } :
       name === "./lib" ? libWith(context) : require(name),
     process: { execPath: process.execPath, versions: process.versions, env: {}, argv: ["node", "release.js", "--no-wait", ...(options.args || [])], exit: code => { if (exit === null) exit = code; throw stop; } },
@@ -52,6 +52,9 @@ const t = (status, conclusion) => [{ path: ".github/workflows/test.yml", status,
   assert(!bg.calls.some(c => c[0] === "git" && c[1] === "push"), "the parent itself tags and pushes nothing");
   const refused = await run({ args: ["--background"], childExit: 1 });
   assert.strictEqual(refused.exit, 1, "a quick refusal keeps its exit code"); assert(!refused.calls.some(c => c[0] === "unref"), "nothing left running after a refusal"); }
+// a package.json that the sync pulled in is the one written back, with its dependencies
+{ const pulled = await run({ pulled: true }); assert.strictEqual(pulled.exit, 0);
+  assert.deepStrictEqual(JSON.parse(pulled.writes[0][1]).devDependencies, { lib: "1" }, "a release keeps what the sync pulled into package.json"); }
 const good = await run();
 assert.strictEqual(good.exit, 0);
 assert.strictEqual(JSON.parse(good.writes[0][1]).version, "0.6.15");
