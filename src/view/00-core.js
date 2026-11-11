@@ -100,6 +100,7 @@ function mountVaultGraph(root, DATA, opts) {
     leaf: '<path d="M5 19c0-8 5-14 15-14 0 10-6 15-14 15"/><path d="M5 19 13 11"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     truss: '<path d="M3 19h18M3 19l9-13 9 13M7.5 12.5h9M12 6v13"/>',
+    mould: '<path d="M12 21v-7M12 14c-3 0-5-2-5-5M12 14c3 0 5-2 5-5M7 9c0-2 1-4 3-5M17 9c0-2-1-4-3-5M12 14V6"/><circle cx="12" cy="5" r="1.6"/><circle cx="7" cy="9" r="1.4"/><circle cx="17" cy="9" r="1.4"/><circle cx="12" cy="21" r="1.6"/>',
     waves: '<path d="M2 12c2-5 4-5 6 0s4 5 6 0 4-5 6 0 1.5 3 2 3"/><path d="M2 18h20" opacity=".5"/>',
     radar: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12 18 6"/>',
     sprout: '<path d="M12 21v-9"/><path d="M12 12C12 8 9 6 5 6c0 4 3 6 7 6Z"/><path d="M12 10c0-3 2.5-5 6-5 0 3.5-2.5 5-6 5Z"/><path d="M7 21h10"/>',

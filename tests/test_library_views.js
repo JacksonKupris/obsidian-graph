@@ -112,6 +112,23 @@ const env = require("./env");
       ok((await tab.ev(`${drum}.handle().api.selected()`)) === mnote.id && /in mode 1$/.test(await tab.ev(`${drum}.handle().stat()`)), "and Normal modes gives its swing");
     }
 
+    // Slime mould: the written links as tubes that grow; a real click on a note selects it in the plugin
+    ok(await tab.ev(`!!${D}.scenes().slime && ${D}.views().includes("slime") && !${D}.scenes().slime.hidden`), "Slime mould is a view in the menu");
+    await tab.ev(`${D}.setView("slime")`); await sleep(1900); await calm();
+    const mould = `${D}.scenes().slime.api`;
+    const tubes = await tab.ev(`(${mould}.handle().api.setStep(${mould}.handle().api.steps()), ${mould}.handle().api.links())`);
+    ok(tubes >= 9, `the library finds tubes in the plugin's linked notes (${tubes})`);
+    const sstat = await tab.ev(`${mould}.handle().stat()`);
+    ok((await tab.ev(`${q(".vg-status")}.innerText`)).includes(sstat), `its stat line is the plugin's status: ${sstat}`);
+    const snote = await tab.ev(`(() => { const h = ${mould}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note") return { id: k.id, x, y }; } return null; })()`);
+    ok(!!snote, "a note of Slime mould is on screen to click");
+    if (snote) {
+      for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: snote.x, y: snote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
+      await sleep(300); await calm();
+      ok((await tab.ev(`window.vaultGraph.viewport().selected`)) === snote.id, "a click on a note selects it in the plugin");
+      ok((await tab.ev(`${mould}.handle().api.selected()`)) === snote.id && / links? carry on$/.test(await tab.ev(`${mould}.handle().stat()`)), "and Slime mould gives its links");
+    }
+
     // another view: the library's canvas goes away and the plugin's own is back
     await tab.ev(`${D}.setView("2d")`); await sleep(900); await calm();
     const back = await tab.ev(`({ hidden: ${q(".vg-lib")}.hidden, plugin: ${q(".vg-cv")}.style.visibility })`);
