@@ -20,6 +20,6 @@
     "node": ">=22"
   },
   "devDependencies": {
-    "vault-graph-views": "github:JacksonKupris/vault-graph-views#v0.5.0"
+    "vault-graph-views": "github:JacksonKupris/vault-graph-views#v0.6.0"
   }
 }
