@@ -33,12 +33,18 @@ const viewParts = () => fs.readdirSync(path.join(SRC, "view")).filter(f => f.end
   .map(f => [`view/${f}`, fs.readFileSync(path.join(SRC, "view", f), "utf8")]);
 const pluginSource = () => fs.readdirSync(path.join(SRC, "plugin")).filter(f => f.endsWith(".js")).sort().map(f => fs.readFileSync(path.join(SRC, "plugin", f), "utf8")).join("");   // one file's worth of plugin, joined
 const viewSource = () => viewParts().map(([, t]) => t).join("");   // the renderer as one file, scenes not spliced in
+// The graphs library (vault-graph-views, pinned in package.json), built into the renderer: one bundle that defines VaultGraphViews.
+const LIB_FILE = path.join(ROOT, "node_modules", "vault-graph-views", "dist", "vault-graph-views.js");
+function libraryJs() {
+  if (!fs.existsSync(LIB_FILE)) throw new Error("the graphs library isn't installed (node_modules/vault-graph-views). Next: npm install (needs the internet once; see CONTRIBUTING.md)");
+  return fs.readFileSync(LIB_FILE, "utf8");
+}
 function viewJs() {
   const scenes = fs.readdirSync(path.join(SRC, "scenes")).filter(f => f.endsWith(".js")).sort()
     .map(f => `\n  // ---- scene: ${f}\n  (() => {\n` + fs.readFileSync(path.join(SRC, "scenes", f), "utf8") + "\n  })();\n").join("");
   const view = viewSource();
   if (view.split("/*@scenes*/").length !== 2) throw new Error("src/view/ needs one /*@scenes*/ marker");
-  return view.replace("/*@scenes*/", () => scenes);
+  return libraryJs() + "\n" + view.replace("/*@scenes*/", () => scenes);
 }
 
 // The plugin's id is the folder its content log lives in (files.content_log in the rules): "jk-vault-graph", not

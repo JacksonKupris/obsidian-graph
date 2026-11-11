@@ -42,6 +42,7 @@
   }
   function drawView(now) {
     GL.show(glOn());
+    if (!(SCENES[st.view] && SCENES[st.view].lib)) libHide();   // a library view's canvas lies over this one: put it away when another view is drawn
     if (neural()) return drawNeural(now);
     if (isCosmos()) return drawCosmos(now);
     if (SCENES[st.view]) return SCENES[st.view].draw(now);

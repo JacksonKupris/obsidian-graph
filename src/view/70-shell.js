@@ -210,7 +210,7 @@
   let pickTab = null;
   function pickItems() {
     const out = [];
-    Object.entries(VIEWS).forEach(([k, v]) => { if (opts.compact && (v.kind === "lens" || k === "cosmos")) return;
+    Object.entries(VIEWS).forEach(([k, v]) => { if (v.hidden || (opts.compact && (v.kind === "lens" || k === "cosmos"))) return;   // hidden: reachable by key, listed in no picker
       out.push({ tab: "views", k, ic: v.icon, name: v.name, hint: v.hint, on: v.kind === "lens" ? lensKey === v.lens : st.view === k, run: () => openView(k) }); });
     Object.entries(PRESETS).forEach(([k, p]) => out.push({ tab: "style", k, ic: "sparkles", name: p.name, hint: p.hint, on: st.preset === k, run: () => applyPreset(k) }));
     out.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));   // A–Z within every tab
