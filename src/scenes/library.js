@@ -53,3 +53,13 @@
     draw: () => libDraw("genome-lib", "genome", () => ({ fold: mapCache["genome-lib"].fold })),
     today: libToday, api: libApi(),
   });
+
+  // Light cones: a view that lives only in the library, so it is in the menu under its own name.
+  scene("cones", {
+    name: "Light cones", icon: "clock", menu: "see", space: true, lib: true, hint: "What a note rested on and what it touched, with time upward",
+    toast: "Light cones — time runs upward and every note sits at the day it was written. Pick a note: blue below it is what it rested on, amber above it is what it could have touched.",
+    layout: () => ({ pos: new Map(), bounds: [] }),
+    draw: () => libDraw("cones", "cones", () => ({})),
+    legend: item => item(`<i class="vg-lg-line" style="border-color:#60a5fa;opacity:1"></i>`, "its past: notes it rested on") + item(`<i class="vg-lg-line" style="border-color:#f59e0b;opacity:1"></i>`, "its future: notes it could have touched"),
+    today: libToday, api: libApi(),
+  });
