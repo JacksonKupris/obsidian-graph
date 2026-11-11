@@ -28,6 +28,11 @@ const env = require("./env");
     const stat = await tab.ev(`${api}.handle().stat()`);
     ok(/days · .* domains · .* loops/.test(stat) && (await tab.ev(`${q(".vg-status")}.innerText`)).includes(stat), `the library's stat line is the plugin's status: ${stat}`);
 
+    // the library's frame lies under the toolbar, and its stat line (the status pill's) is not drawn twice
+    const lay = await tab.ev(`(() => { const f = ${q(".vg-lib .vgv-frame")}, t = ${q(".vg-toolbar")}, s = ${q(".vg-lib .vgv-stat")}; return { frame: f && f.getBoundingClientRect().top, bar: t && t.getBoundingClientRect().bottom, stat: s && getComputedStyle(s).display }; })()`);
+    ok(lay.frame !== null && lay.bar !== null && lay.frame >= lay.bar - 1, `the library's frame starts under the toolbar (${JSON.stringify(lay)})`);
+    ok(lay.stat === "none", "and its own stat line is not drawn behind the toolbar");
+
     // a real click on a note of the fold selects it in the plugin
     const note = await tab.ev(`(() => { const h = ${api}.handle(); for (let y = 100; y < innerHeight - 60; y += 8) for (let x = 60; x < innerWidth - 60; x += 8) { const k = h.keyAt(x, y); if (k && k.kind === "note") return { id: k.id, x, y }; } return null; })()`);
     ok(!!note, "a note of the fold is on screen to click");

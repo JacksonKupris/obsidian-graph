@@ -438,6 +438,11 @@
   .vg-focusbar, .vg-pathbar { left: 10px; right: 10px; transform: none; max-width: none; }
   .vg-fb-depth .vg-range { width: 56px; }
 }
+/* a phone's width: the Next pill keeps its dot and count and drops its word, so seven buttons fit one row without lying over each other */
+@container vg (max-width: 400px) {
+  .vg-nextbtn small { display: none; }
+  .vg-toolbar > .vg-menuwrap { flex: none; }
+}
 @container vg (max-width: 460px) {
   .vg-presetbtn, .vg-zoomin, .vg-zoomout { display: none !important; }
   .vg-toolbar { gap: 4px; }
@@ -1024,4 +1029,7 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 
 /* a view from the graphs library lies over the canvas, under the toolbar, legend and status */
 .vg-lib { position: absolute; inset: 0; z-index: 1; }
+/* the library's frame (labels, buttons) starts under the toolbar; its stat line is the status pill's, so the frame's copy is hidden */
+.vg-lib .vgv-frame { top: var(--vg-under-bar) !important; }
+.vg-lib .vgv-stat { display: none !important; }
 .vg-lib[hidden] { display: none; }
