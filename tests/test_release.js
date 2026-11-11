@@ -86,6 +86,7 @@ const lateFail = await run({ runs: [t("in_progress"), t("completed", "failure")]
 assert.strictEqual((await run({ pushFails: true })).exit, 1);
 // GitHub's side holds the same line, for a tag pushed by hand
 const yml = f => fs.readFileSync(path.join(__dirname, "../.github/workflows", f), "utf8"), rel = yml("release.yml"), tst = yml("test.yml");
+assert(rel.indexOf("run: npm install") > -1 && rel.indexOf("run: npm install") < rel.indexOf("run: node build.js manifest"), "publishing installs the graphs library before it builds (a build without it failed release 0.6.77)");
 assert(!/uses: \.\/\.github\/workflows\/test\.yml/.test(rel), "publishing doesn't run the tests again");
 assert(/gh run list --workflow test\.yml/.test(rel) && /\^Release /.test(rel), "publishing checks the tests passed on the code");
 assert(/git diff --name-only HEAD\^ HEAD/.test(rel), "a Release commit is checked to change only the version");
