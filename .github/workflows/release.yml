@@ -18,6 +18,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+      - name: Install the graphs library
+        run: npm install
       - name: Tag matches the version
         run: test "$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
       - name: manifest.json matches the version
