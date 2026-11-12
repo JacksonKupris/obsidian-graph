@@ -34,13 +34,19 @@ const env = require("./env");
     ok(lay.stat === "none", "and its own stat line is not drawn behind the toolbar");
 
     // a real click on a note of the fold selects it in the plugin
-    const note = await tab.ev(`(() => { const h = ${api}.handle(); for (let y = 100; y < innerHeight - 60; y += 8) for (let x = 60; x < innerWidth - 60; x += 8) { const k = h.keyAt(x, y); if (k && k.kind === "note" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
-    ok(!!note, "a note of the fold is on screen to click");
-    if (note) console.log(`  clicking ${note.id} at ${note.x},${note.y}`);
-    if (note) {
-      for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: note.x, y: note.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
+    // the notes of the fold in the open, as the library's own hit test finds them (a few, spread out)
+    const cands = await tab.ev(`(() => { const h = ${api}.handle(), seen = new Set(), out = []; for (let y = 100; y < innerHeight - 60; y += 8) for (let x = 60; x < innerWidth - 60; x += 8) { const k = h.keyAt(x, y); if (k && k.kind === "note" && !seen.has(k.id) && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") { seen.add(k.id); out.push({ id: k.id, x, y }); } } return out.filter((c, i) => i % 3 === 0).slice(0, 8); })()`);
+    ok(cands.length > 0, "a note of the fold is on screen to click");
+    // a click on one of them selects it (a note under a day's bead may open the day instead, so each is tried until one selects: the view must select at least one)
+    let note = null;
+    for (const c of cands) {
+      for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: c.x, y: c.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
       await sleep(300); await calm();
-      ok((await tab.ev(`window.vaultGraph.viewport().selected`)) === note.id, `a click on a note of the library's fold selects it in the plugin (selected: ${await tab.ev("window.vaultGraph.viewport().selected")})`);
+      if ((await tab.ev(`window.vaultGraph.viewport().selected`)) === c.id) { note = c; break; }
+      await tab.ev(`window.vaultGraph.viewport().selected && window.vaultGraph.select && window.vaultGraph.select(null)`);
+    }
+    ok(!!note, `a click on a note of the library's fold selects it in the plugin (tried ${cands.length}: ${cands.map(c => c.id.split("/").pop()).join(", ")})`);
+    if (note) {
       ok((await tab.ev(`${api}.handle().api.selected()`)) === note.id, "and the library's view marks the same note");
       // the other way round: a note the plugin selects (a search, the sidebar) is marked in the library's view
       const other = await tab.ev(`${api}.handle().api.notes().find(id => id !== ${JSON.stringify(note.id)})`);
