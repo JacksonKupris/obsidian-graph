@@ -2,7 +2,7 @@
 // npm run ship: the rule for what to do next with a pull request, from what GitHub reports.
 //   node tests/test_ship.js        exit 0 = pass
 const { checks, finish } = require("./kit");
-const { plan, allPlan, allEnd } = require("../scripts/ship");
+const { plan, allPlan, allEnd, releaseOutcome } = require("../scripts/ship");
 const { fails, ok: check } = checks();
 const ok = c => ({ name: c, conclusion: "SUCCESS" }), bad = c => ({ name: c, conclusion: "FAILURE" }), run = c => ({ name: c, status: "IN_PROGRESS", conclusion: "" });
 const pr = (o = {}) => ({ state: "OPEN", mergeable: "MERGEABLE", statusCheckRollup: [ok("test (1)"), ok("test (2)")], ...o });
@@ -28,4 +28,11 @@ check(none.ok && none.line.startsWith("NOTHING TO RELEASE"), "nothing open and n
 check(!allEnd(["NOT SHIPPED #9: x"], [], 0, null).ok, "nothing could be merged: not a success");
 const broke = allEnd([], [3], 1, { ok: false, why: "tests failed" });
 check(!broke.ok && broke.line.startsWith("MERGED #3 but NOT RELEASED: tests failed"), "a failed release says what merged and that it is not out");
+// what GitHub's release after the merge means (nothing is released from this computer)
+const done = (conclusion) => ({ status: "completed", conclusion, url: "u" });
+check(releaseOutcome(null, "1.0.0", "1.0.0").ok === false, "no run for main's newest commit is a stop");
+check(releaseOutcome({ status: "in_progress" }, "1.0.0", "1.0.0").action === "wait", "a running run is waited for");
+check(releaseOutcome(done("failure"), "1.0.0", "1.0.0").ok === false, "a failed run is a stop that names the run");
+check(releaseOutcome(done("success"), "1.0.0", "1.0.1", "url").done === "Released 1.0.1: url", "a new tag after the run is the release");
+check(/^No release/.test(releaseOutcome(done("success"), "1.0.0", "1.0.0").done), "no new tag after a green run says nothing shipped");
 finish(fails, "ship: merge, wait, stop and release decisions; --all picks, skips and ends with one line");

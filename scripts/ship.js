@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Ship a pull request: wait for its checks, merge it when they pass, release, and end with one line that says what happened.
+// Ship a pull request: wait for its checks, merge it when they pass, wait for the release GitHub makes after a merge
+// (ci_release.js), and end with one line that says what happened. Nothing is released from this computer.
 //   node scripts/ship.js <pr number>        npm run ship -- 36
 //   node scripts/ship.js --all              npm run ship -- --all    sync, merge every open pull request whose checks pass, release once
 // It runs in the foreground so a person sees it, and an agent starts it in the background so it is told when it ends. A failed
@@ -7,7 +8,7 @@
 // Needs the GitHub CLI (`gh auth login`). By hand: wait for the checks, merge on GitHub, then `npm run release` on main (RELEASING.md).
 const { spawnSync } = require("child_process");
 const path = require("path");
-const { ROOT, gitIn } = require("./lib"), { checkState, gitState, openPrs } = require("./queue");
+const { ROOT, gitIn, githubSlug } = require("./lib"), { checkState, gitState, openPrs } = require("./queue");
 
 // pull request view -> { action: "wait" | "merge" | "release" | "stop", why }   (the one rule for what ship does next)
 function plan(view) {
@@ -49,21 +50,39 @@ async function merge(pr, { poll = 30000 } = {}) {
   return { ok: true };
 }
 
-// release what main holds -> { ok, done: "Released x.y.z: ..." | undefined, why }
-function releaseMain() {
-  const git = spawnSync("git", ["switch", "main"], { cwd: ROOT, encoding: "utf8" });
-  if (git.status !== 0) return { ok: false, why: `could not switch to main (${(git.stderr || "").trim()})` };
-  const r = spawnSync(process.execPath, [path.join(__dirname, "release.js")], { cwd: ROOT, encoding: "utf8" });
-  const out = (r.stdout || "") + (r.stderr || ""); say(out.trim());
-  const done = out.split("\n").find(l => /^Released /.test(l));
-  return r.status === 0 && done ? { ok: true, done } : { ok: false, why: out.trim().split("\n").pop() };
+// What GitHub's run on main's newest commit says about the release it makes itself after a merge (test.yml's release job, ci_release.js).
+// run: { status, conclusion, url } | null; tags: the newest version tag before the merge and now
+// -> { action: "wait" } | { ok: true, done } | { ok: false, why }   (the one rule for what a finished run means)
+function releaseOutcome(run, tagBefore, tagNow, releaseUrl) {
+  if (!run) return { ok: false, why: "GitHub has not started testing main's newest commit (see its Actions page)" };
+  if (run.status !== "completed") return { action: "wait" };
+  if (run.conclusion !== "success") return { ok: false, why: `GitHub's run on main ${run.conclusion}: ${run.url}. Re-run its failed jobs; a tag with no release is published then` };
+  return tagNow && tagNow !== tagBefore ? { ok: true, done: `Released ${tagNow}: ${releaseUrl}` } : { ok: true, done: "No release: only docs, tests or scripts changed, so nothing new ships" };
+}
+const latestTag = () => { gitIn(ROOT)("fetch", "--tags", "--quiet", "origin"); return gitIn(ROOT)("tag", "--list", "--sort=-v:refname").out.split(/\r?\n/).find(t => /^\d+\.\d+\.\d+$/.test(t)) || ""; };
+// After a merge GitHub tests main and releases it by itself; this waits for that run and says what came out
+// -> { ok, done: "Released x.y.z: ..." | "No release: ...", why }   (nothing is released from this computer)
+async function releaseMain(tagBefore, { poll = 30000, wait = 25 * 60e3 } = {}) {
+  const git = gitIn(ROOT); git("fetch", "--quiet", "origin", "main");
+  const sha = git("rev-parse", "origin/main").out, end = Date.now() + wait, appear = Date.now() + 3 * 60e3;
+  for (;;) {
+    const r = gh("run", "list", "--workflow", "test.yml", "--branch", "main", "--commit", sha, "--json", "status,conclusion,url", "--limit", "1");
+    let run = null; try { run = JSON.parse(r.stdout)[0] || null; } catch { /* GitHub did not answer: treated as no run */ }
+    let out;
+    if (!run) out = Date.now() < appear ? { action: "wait" } : releaseOutcome(null);
+    else if (run.status !== "completed") out = { action: "wait" };
+    else { const now = latestTag(); out = releaseOutcome(run, tagBefore, now, `https://github.com/${githubSlug(git("remote", "get-url", "origin").out)}/releases/tag/${now}`); }
+    if (out.action !== "wait") return out;
+    if (Date.now() > end) return { ok: false, why: `GitHub was still testing ${sha.slice(0, 7)} after 25 minutes: ${run ? run.url : "see its Actions page"}` };
+    await sleep(poll);
+  }
 }
 
 async function ship(pr, opts) {
-  const m = await merge(pr, opts);
+  const before = latestTag(), m = await merge(pr, opts);
   if (!m.ok) return m;
-  const r = releaseMain();
-  return r.ok ? { ok: true, line: `SHIPPED #${pr}: ${r.done}` } : { ok: false, line: `MERGED #${pr} but NOT RELEASED: ${r.why}. Run npm run release on main.` };
+  const r = await releaseMain(before);
+  return r.ok ? { ok: true, line: `SHIPPED #${pr}: ${r.done}` } : { ok: false, line: `MERGED #${pr} but NOT RELEASED: ${r.why}.` };
 }
 
 // open pull requests -> { take: [number, oldest first], skipped: [line] }   (the one rule for what --all picks up)
@@ -77,7 +96,7 @@ function allEnd(lines, merged, waiting, release) {
   const bad = lines.filter(l => /^NOT SHIPPED/.test(l)).length;
   if (!merged.length && !waiting) return { ok: !bad, line: bad ? "NOTHING RELEASED: no pull request could be merged and main has nothing new." : "NOTHING TO RELEASE: no open pull requests and main is released." };
   const what = merged.length ? merged.map(n => "#" + n).join(", ") : "what was already merged";
-  if (!release || !release.ok) return { ok: false, line: `MERGED ${what} but NOT RELEASED: ${(release || {}).why || "the release did not run"}. Run npm run release on main.` };
+  if (!release || !release.ok) return { ok: false, line: `MERGED ${what} but NOT RELEASED: ${(release || {}).why || "the release did not run"}.` };
   return { ok: !bad, line: `SHIPPED ${what}: ${release.done}` + (bad ? ` (${bad} not shipped, see above)` : "") };
 }
 
@@ -87,7 +106,7 @@ async function shipAll(opts) {
   if (s.status !== 0) return { ok: false, line: "NOTHING SHIPPED: the sync failed (see above). Settle it, then run this again." };
   const open = openPrs(ROOT);
   if (!open.prs) return { ok: false, line: `NOTHING SHIPPED: ${open.why}.` };
-  const { take, skipped } = allPlan(open.prs), lines = [...skipped], merged = [];
+  const { take, skipped } = allPlan(open.prs), lines = [...skipped], merged = [], before = latestTag();
   skipped.forEach(say);
   for (const pr of take) {
     const m = await merge(pr, opts);
@@ -95,12 +114,20 @@ async function shipAll(opts) {
   }
   gitIn(ROOT)("fetch", "--tags", "--quiet", "origin");
   const waiting = gitState(ROOT).merged.length;
-  return allEnd(lines, merged, waiting, merged.length || waiting ? releaseMain() : null);
+  return allEnd(lines, merged, waiting, merged.length || waiting ? await releaseMain(before) : null);
+}
+
+// --auto: hand the pull request to GitHub, which merges it when the tests check passes and then releases it (test.yml); no computer waits
+function autoMerge(pr) {
+  const m = gh("pr", "merge", String(pr), "--auto", "--merge");
+  return m.status === 0 ? { ok: true, line: `QUEUED #${pr}: GitHub merges it when its tests pass, then releases it if something that ships changed.` }
+    : { ok: false, line: `NOT QUEUED #${pr}: ${(m.stderr || "").trim().split("\n").pop()}. Turn on "Allow auto-merge" in the repository settings, or: npm run ship -- ${pr}` };
 }
 
 if (require.main === module) {
+  if (process.argv[3] === "--auto" && Number(process.argv[2])) { const r = autoMerge(Number(process.argv[2])); console.log(r.line); process.exit(r.ok ? 0 : 1); }
   const all = process.argv[2] === "--all", pr = Number(process.argv[2]);
   if (!all && !pr) { console.error("Usage: npm run ship -- <pull request number>   or   npm run ship -- --all"); process.exit(2); }
   (all ? shipAll() : ship(pr)).then(r => { console.log(r.line); process.exit(r.ok ? 0 : 1); });
 }
-module.exports = { plan, ship, allPlan, allEnd };
+module.exports = { plan, ship, allPlan, allEnd, releaseOutcome };

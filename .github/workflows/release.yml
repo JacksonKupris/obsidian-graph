@@ -1,4 +1,5 @@
-# A version tag (0.5.0) makes a GitHub release with the files Obsidian and BRAT install, once test.yml has passed on the code.
+# A version tag (0.5.0) pushed by hand (npm run release) makes a GitHub release with the files Obsidian and BRAT install, once test.yml has passed on the code.
+# A merge to main releases through test.yml instead (scripts/ci_release.js), which makes the tag itself and so doesn't start this.
 # The tests aren't run again: the only thing a version commit changes is the number, and these steps check that.
 # The tag must match package.json's version, which manifest.json carries (node build.js manifest). RELEASING.md.
 name: Release
@@ -36,9 +37,7 @@ jobs:
           sha=$(git rev-parse "$code")
           result=$(gh run list --workflow test.yml --commit "$sha" --event push --json conclusion --jq '.[0].conclusion')
           test "$result" = "success" || { echo "::error::test.yml on $sha says '$result': release once it has passed"; exit 1; }
-      - name: Build
-        run: node build.js --out dist
-      - name: Release
+      - name: Build and release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/main.js dist/manifest.json dist/styles.css --title "$GITHUB_REF_NAME" --generate-notes
+        run: node scripts/ci_release.js --publish "$GITHUB_REF_NAME"

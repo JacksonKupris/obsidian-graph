@@ -7,7 +7,7 @@
 //   node scripts/release.js --resume [--vault <dir>]     wait for the current version's release (after a re-run, or offline)
 // Run on main with everything committed. Works from any clone with push access; the same steps by hand: RELEASING.md.
 const fs = require("fs"), path = require("path"), { spawnSync, spawn } = require("child_process");
-const { ROOT, fail, gitOrFail, githubSlug } = require("./lib"), PKG = path.join(ROOT, "package.json");
+const { ROOT, fail, gitOrFail, githubSlug, nextVersion } = require("./lib"), PKG = path.join(ROOT, "package.json");
 const run = (cmd, args) => spawnSync(cmd, args, { cwd: ROOT, encoding: "utf8" });
 const git = gitOrFail(ROOT);
 const args = process.argv.slice(2), flag = f => args.includes(f);
@@ -78,8 +78,7 @@ async function bumpAndTag() {
 
   // 3. the new version, in package.json and manifest.json
   const step = args.find((a, i) => !a.startsWith("--") && args[i - 1] !== "--vault") || "patch";
-  const [ma, mi, pa] = pkg.version.split(".").map(Number);
-  version = /^\d+\.\d+\.\d+$/.test(step) ? step : { major: `${ma + 1}.0.0`, minor: `${ma}.${mi + 1}.0`, patch: `${ma}.${mi}.${pa + 1}` }[step];
+  version = nextVersion(pkg.version, step);
   if (!version) fail(`unknown version step "${step}" (patch, minor, major or x.y.z)`);
   if (git("tag", "--list", version)) fail(`${version} is already tagged; pass a higher one: npm run release -- x.y.z`);
   const restore = () => run("git", ["checkout", "--", "package.json", "manifest.json"]);
