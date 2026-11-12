@@ -6,6 +6,8 @@ Clicks real notes in every view in a real (headed) Chrome window and checks that
 - Sample vault: `npm run audit:nodes`
 - Your own vault: `npm run audit:nodes:vault` (uses `local.json` "vault", or pass `--vault <dir>` to `node tests/audit_nodes.js`)
 
+Headed windows open on the main display; `VG_WINDOW_POS=-1900,150` (the x,y of another screen) puts one elsewhere. Do not click in the window during a run: the audit sends the clicks, and yours change what it measures.
+
 Prerequisites: Node 20+, Chrome or Chromium installed, a desktop session (a window opens). `VG_HEADED=0` runs it without a window (CI, servers).
 
 ## What it writes (in `.out/`)

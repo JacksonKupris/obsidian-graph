@@ -273,7 +273,23 @@
   }
 
   // ---------------------------------------------------------------- inspector
-  function select(id) {
+  // The one Next control: after a note's actions are taken or declined, the view moves on to the note the vault gains most
+  // from (the head of the Today list), skipping notes this pass has already shown. It sits in every inspector (note, ghost,
+  // person, map), so every view that selects a note through select() has it.
+  function nextNoteId(from) {
+    const seen = st.nextSeen || (st.nextSeen = new Set()); if (from) seen.add(from);
+    for (const it of todayItems()) for (const nid of it.ids || []) if (byId[nid] && !seen.has(nid) && nid !== from) return nid;
+    return null;
+  }
+  function addNextControl(id) {
+    const box = $(".vg-inspector"); if (!id || box.hidden || box.querySelector(".vg-next")) return;
+    const head = box.querySelector(".vg-ins-head") || box, b = document.createElement("button");
+    b.className = "vg-btn vg-btn-sm vg-next"; b.textContent = "Next note"; b.title = "The note the vault gains most from next";
+    b.onclick = () => { const nid = nextNoteId(id); if (nid) select(nid); else { b.disabled = true; b.textContent = "No more notes"; } };
+    head.insertBefore(b, head.querySelector(".vg-ins-close"));
+  }
+  function select(id) { if (!id) st.nextSeen = null; const r = selectNow(id); addNextControl(id); return r; }
+  function selectNow(id) {
     if (id && id !== st.selected) startWave(id);
     st.selected = id; dirty = true; kick();
     if (!id && !st.highlight && st.autoPaused) setPaused(false);

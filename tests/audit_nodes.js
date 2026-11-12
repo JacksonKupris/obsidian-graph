@@ -34,13 +34,14 @@ const HOW = {
 
 // the probe: runs in the page (the plugin's own screen(id) is relative to its canvas); given a view it returns clickable notes and, after a click, what the page shows
 const IN = {
-  candidates: (view, per) => `(() => { const D = window.vaultGraph._debug, sc = D.scenes && D.scenes()[${JSON.stringify(view)}], out = [], seen = new Set();
+  candidates: (view, per) => `(() => { const D = window.vaultGraph._debug, sc = D.scenes && D.scenes()[${JSON.stringify(view)}], out = [], seen = new Set(), why = {};
     const lib = sc && sc.api && sc.api.handle && sc.api.handle();
     const top = (x, y) => { const e = document.elementFromPoint(x, y); return !!e && e.tagName === "CANVAS"; };
     if (lib && lib.keyAt) { for (let y = 100; y < innerHeight - 60; y += 8) for (let x = 60; x < innerWidth - 60; x += 8) { const k = lib.keyAt(x, y); if (k && k.kind === "note" && !seen.has(k.id) && top(x, y)) { seen.add(k.id); out.push({ id: k.id, x, y }); } } }
-    else for (const n of D.nodes) { if (n.ghost || n.person || n.moc) continue; const p0 = D.screen(n.id), cr = document.querySelector("canvas.vg-cv").getBoundingClientRect(), p = p0 && { x: p0.x + cr.left, y: p0.y + cr.top }; if (p0 && p0.a >= 0.15 && p.x > 40 && p.x < innerWidth - 40 && p.y > 100 && p.y < innerHeight - 60 && top(p.x, p.y)) out.push({ id: n.id, x: p.x, y: p.y }); }
-    const step = Math.max(1, Math.floor(out.length / ${per})); return { total: out.length, picks: out.filter((c, i) => i % step === 0).slice(0, ${per}) }; })()`,
-  shown: `(() => { const box = document.querySelector(".vg-inspector"), shown = !!box && !box.hidden, labels = shown ? [...box.querySelectorAll("button, [data-act]")].map(b => (b.textContent || b.getAttribute("aria-label") || b.dataset.act || "").trim().replace(/\\s+/g, " ").replace(/[#0-9.,]+/g, "").trim().slice(0, 30)).filter(Boolean) : [];
+    else { const cr = document.querySelector("canvas.vg-cv").getBoundingClientRect(); why.canvas = [cr.left, cr.top, cr.width, cr.height].map(Math.round).join("x"); for (const n of D.nodes) { if (n.ghost || n.person || n.moc) { why.kind = (why.kind || 0) + 1; continue; } const p0 = D.screen(n.id); if (!p0) { why.nop = (why.nop || 0) + 1; continue; } if (p0.a < 0.15) { why.faded = (why.faded || 0) + 1; continue; } const p = { x: p0.x + cr.left, y: p0.y + cr.top };
+      if (!(p.x > 40 && p.x < innerWidth - 40 && p.y > 100 && p.y < innerHeight - 60)) { why.off = (why.off || 0) + 1; continue; } if (!top(p.x, p.y)) { why.covered = (why.covered || 0) + 1; continue; } out.push({ id: n.id, x: p.x, y: p.y }); } }
+    const step = Math.max(1, Math.floor(out.length / ${per})); return { why, total: out.length, picks: out.filter((c, i) => i % step === 0).slice(0, ${per}) }; })()`,
+  shown: `(() => { const box = document.querySelector(".vg-inspector"), shown = !!box && !box.hidden, labels = shown ? [...box.querySelectorAll(".vg-ins-head button, .vg-ins-actions button, [data-act]")].map(b => (b.textContent || b.getAttribute("aria-label") || b.dataset.act || "").trim().replace(/\\s+/g, " ").replace(/[#0-9.,]+/g, "").trim().slice(0, 30)).filter(Boolean) : [];
     return { selected: window.vaultGraph.viewport().selected, shown, labels: [...new Set(labels)], scroll: shown ? box.scrollTop : 0, view: window.vaultGraph.viewport().view || null, errs: (window.__errs || []).length }; })()`,
 };
 
@@ -76,7 +77,7 @@ const IN = {
           const same = again.total === cand.total && again.picks.every((q, j) => cand.picks[j] && cand.picks[j].id === q.id && Math.hypot(cand.picks[j].x - q.x, cand.picks[j].y - q.y) < 1.5);
           cand = again; if (same) break;
         }
-        row.total = cand.total;
+        row.total = cand.total; if (process.env.AUDIT_DEBUG) console.log(`    ${view} candidates`, JSON.stringify(cand.why));
         for (const c of cand.picks) {
           row.tried++;
           const before = await tab.ev(IN.shown), errs0 = before.errs;
