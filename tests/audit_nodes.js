@@ -28,6 +28,7 @@ const HOW = {
   next: "After the actions there is no way to move on to the next note that would gain most. Add the shared Next control to the inspector (one queue, ordered by what the vault graph can do for each note), not a per-view one.",
   back: "Escape does not return to the exact previous screen (view, selection, scroll). Push the click onto the shared view stack so Back and Escape share one path.",
   overlap: "Notes drawn on top of each other: a click on one selects its neighbour. Spread them (a minimum gap in the layout) or let the click pick the nearest centre and offer the others in a list, so every note can be reached.",
+  carry: "A note selected in another view is not selected here when the view opens. Keep one selection in the shell (`select`), and have every view draw it, so switching views keeps the person's place.",
   silent: "The click raised a page error. Fix the handler; a view must never throw on a click.",
 };
 
@@ -37,15 +38,15 @@ const IN = {
     const lib = sc && sc.api && sc.api.handle && sc.api.handle();
     const top = (x, y) => { const e = document.elementFromPoint(x, y); return !!e && e.tagName === "CANVAS"; };
     if (lib && lib.keyAt) { for (let y = 100; y < innerHeight - 60; y += 8) for (let x = 60; x < innerWidth - 60; x += 8) { const k = lib.keyAt(x, y); if (k && k.kind === "note" && !seen.has(k.id) && top(x, y)) { seen.add(k.id); out.push({ id: k.id, x, y }); } } }
-    else for (const n of D.nodes) { if (n.ghost || n.person || n.moc) continue; const p0 = D.screen(n.id), cr = document.querySelector("canvas.vg-cv").getBoundingClientRect(), p = p0 && { x: p0.x + cr.left, y: p0.y + cr.top }; if (p && p.x > 40 && p.x < innerWidth - 40 && p.y > 100 && p.y < innerHeight - 60 && top(p.x, p.y)) out.push({ id: n.id, x: p.x, y: p.y }); }
+    else for (const n of D.nodes) { if (n.ghost || n.person || n.moc) continue; const p0 = D.screen(n.id), cr = document.querySelector("canvas.vg-cv").getBoundingClientRect(), p = p0 && { x: p0.x + cr.left, y: p0.y + cr.top }; if (p0 && p0.a >= 0.15 && p.x > 40 && p.x < innerWidth - 40 && p.y > 100 && p.y < innerHeight - 60 && top(p.x, p.y)) out.push({ id: n.id, x: p.x, y: p.y }); }
     const step = Math.max(1, Math.floor(out.length / ${per})); return { total: out.length, picks: out.filter((c, i) => i % step === 0).slice(0, ${per}) }; })()`,
-  shown: `(() => { const box = document.querySelector(".vg-inspector"), shown = !!box && !box.hidden, labels = shown ? [...box.querySelectorAll("button, [data-act]")].map(b => (b.textContent || b.getAttribute("aria-label") || b.dataset.act || "").trim().replace(/\\s+/g, " ").slice(0, 30)).filter(Boolean) : [];
+  shown: `(() => { const box = document.querySelector(".vg-inspector"), shown = !!box && !box.hidden, labels = shown ? [...box.querySelectorAll("button, [data-act]")].map(b => (b.textContent || b.getAttribute("aria-label") || b.dataset.act || "").trim().replace(/\\s+/g, " ").replace(/[#0-9.,]+/g, "").trim().slice(0, 30)).filter(Boolean) : [];
     return { selected: window.vaultGraph.viewport().selected, shown, labels: [...new Set(labels)], scroll: shown ? box.scrollTop : 0, view: window.vaultGraph.viewport().view || null, errs: (window.__errs || []).length }; })()`,
 };
 
 (async () => {
   const data = env.data();
-  let tab = null; const rows = [], found = new Map();
+  let tab = null, carried = null; const rows = [], found = new Map();
   const note = (kind, view) => { if (!found.has(kind)) found.set(kind, new Set()); found.get(kind).add(view); };
   try {
     tab = await openPage({ html: env.pageWith(MOBILE ? "mobile: true," : "", data), mobile: MOBILE });
@@ -57,22 +58,31 @@ const IN = {
 
     // the baseline: what the detail of a note offers in the plain graph view
     await tab.ev(`${D}.setView("2d")`); await sleep(500); await calm();
-    const base = await tab.ev(IN.candidates("2d", 1));
+    await sleep(1500); await calm(); const base = await tab.ev(IN.candidates("2d", 1));
     let baseline = [];
     if (base.picks.length) { await click(base.picks[0].x, base.picks[0].y); baseline = (await tab.ev(IN.shown)).labels; await esc(); }
     if (!baseline.length) console.log("WARNING: the 2d view gave no baseline set of actions, so the 'actions' check is skipped");
 
     const views = (await tab.ev(`${D}.views()`)).filter(v => !ONLY || v === ONLY);
     for (const view of views) {
-      const row = { view, overlap: 0, total: 0, tried: 0, select: 0, actions: 0, next: 0, back: 0, silent: 0, missing: [], err: "" };
+      const row = { view, overlap: 0, total: 0, tried: 0, select: 0, actions: 0, next: 0, back: 0, silent: 0, carry: null, missing: [], err: "" };
       try {
         await tab.ev(`${D}.setView(${JSON.stringify(view)})`); await sleep(view.endsWith("-lib") ? 1900 : 700); await calm();
-        const cand = await tab.ev(IN.candidates(view, PER)); row.total = cand.total;
+        // a selection made in the last view is still the selection here, with its detail open (one selection for every view)
+        if (carried) { const now = await tab.ev(IN.shown); row.carry = now.selected === carried && now.shown; await esc(); carried = null; }
+        await sleep(600); await calm(); let cand = await tab.ev(IN.candidates(view, PER));   // notes fade in as a view settles: sample again until the count stops growing
+        for (let i = 0; i < 12; i++) {   // settled = the same notes at the same places twice running (a cooling layout moves them)
+          await sleep(400); await calm(); const again = await tab.ev(IN.candidates(view, PER));
+          const same = again.total === cand.total && again.picks.every((q, j) => cand.picks[j] && cand.picks[j].id === q.id && Math.hypot(cand.picks[j].x - q.x, cand.picks[j].y - q.y) < 1.5);
+          cand = again; if (same) break;
+        }
+        row.total = cand.total;
         for (const c of cand.picks) {
           row.tried++;
           const before = await tab.ev(IN.shown), errs0 = before.errs;
           await click(c.x, c.y);
           const after = await tab.ev(IN.shown);
+          if (process.env.AUDIT_DEBUG) console.log(`    ${view} click ${c.id} at ${Math.round(c.x)},${Math.round(c.y)} -> selected ${after.selected}, inspector ${after.shown}, view ${after.view}`);
           if (after.selected === c.id) row.select++;
           else if (after.selected) { row.overlap++; row.select++; }   // another note was drawn on top at that spot: counted as selecting, and reported as overlap
           if (after.errs === errs0) row.silent++;
@@ -82,6 +92,7 @@ const IN = {
           const gone = await tab.ev(IN.shown);
           if (gone.selected == null && gone.view === before.view) row.back++;
         }
+        if (cand.picks.length) { await click(cand.picks[0].x, cand.picks[0].y); const sel = await tab.ev(IN.shown); carried = sel.selected; }   // left selected on purpose: the next view must still show it
       } catch (e) { row.err = String(e.message || e).slice(0, 120); }
       // a view with nothing to click, or any check that failed on some node, is a finding
       if (row.err) note("silent", view);
@@ -92,6 +103,7 @@ const IN = {
         if (baseline.length && row.actions < row.tried) note("actions", view);
         if (row.next < row.tried) note("next", view);
         if (row.back < row.tried) note("back", view);
+        if (row.carry === false) note("carry", view);
         if (row.silent < row.tried) note("silent", view);
       }
       rows.push(row); console.log(`  ${view}: ${row.total} clickable, ${row.tried} tried, select ${row.select}, actions ${row.actions}, next ${row.next}, back ${row.back}${row.err ? " ERROR " + row.err : ""}`);
