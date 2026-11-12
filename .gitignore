@@ -5,3 +5,4 @@ local.json
 fixtures/sample-vault/
 __pycache__/
 *.pyc
+fixtures/sample-graph.json

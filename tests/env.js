@@ -41,9 +41,10 @@ function dir() {
   const generated = path.join(d, ".generated-day"), now = new Date();
   const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const stale = () => !fs.existsSync(generated) || fs.readFileSync(generated, "utf8").trim() !== day
+    || !fs.existsSync(path.join(SAMPLE, "sample-graph.json"))
     || fs.statSync(d).mtimeMs < fs.statSync(path.join(SAMPLE, "sample-graph.json")).mtimeMs
     || data().nodes.some(n => !n.ghost && !n.person && !fs.existsSync(path.join(d, n.id)));
-  if (!fs.existsSync(d) || stale()) require("child_process").execFileSync(process.execPath, [path.join(SAMPLE, "make_sample.js")], { stdio: "ignore" });
+  if (!fs.existsSync(d) || stale()) require("child_process").execFileSync(process.execPath, [path.join(SAMPLE, "make_sample.js"), "--analyse"], { stdio: "ignore" });   // the graph data is made with the vault, on the same day: a committed copy aged, and which weekday it was made on changed which pairs the analysis found
   return d;
 }
 
