@@ -157,6 +157,7 @@
     name: "Triage Run", icon: "triage", fps: 60, game: true,
     menu: "play", hint: "Your open tasks as cards against the clock: swipe Done, Later, Delegate or Cancel",
     toast: "",   // its title screen says it, and a toast here sits on the buttons
+    legend: item => item("<b>→</b>", "Done") + item("<b>←</b>", "Later") + item("<b>↑</b>", "Delegate") + item("<b>↓</b>", "Cancel"),
     layout() { const pos = new Map(), span = 800; nodes.forEach(n => { const [u, v] = scatter("tr:" + n.id); pos.set(n.id, [u * span, v * span]); }); if (TG.state !== "play") TG.state = "title"; return { pos, bounds: [[0, 0], [span, 0], [span, span], [0, span]] }; },
     fit: n => !n.ghost,
     keys: { test: k => (TG.state === "play" ? k in triageKeys : k === "enter" || k === " ") },

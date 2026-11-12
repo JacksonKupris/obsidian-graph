@@ -91,6 +91,7 @@
     name: "Wikirace", icon: "wikirace", fps: 30, game: true,
     menu: "play", hint: "Today's route from note to note, by links only: broken links are traps, hubs cost points",
     toast: "",
+    legend: item => item("<b>1-9</b>", "follow a link") + item("<b>Backspace</b>", "step back") + item("<b style='color:#e0796f'>red</b>", "a broken link: a trap, −75"),
     layout() { const pos = new Map(), span = 800; WR.near = null; nodes.forEach(n => { const [u, v] = scatter("wr:" + n.id); pos.set(n.id, [u * span, v * span]); }); if (WR.state === "over") WR.state = "title"; return { pos, bounds: [[0, 0], [span, 0], [span, span], [0, span]] }; },
     fit: n => !n.ghost,
     keys: { test: k => (WR.state === "play" ? k === "backspace" || k === "pageup" || k === "pagedown" || /^[1-9]$/.test(k) : k === "enter" || k === " ") },
