@@ -36,12 +36,12 @@ const HOW = {
 // what the page shows right now, as one object (runs in the page)
 const probeOf = sel => `(() => { const root = document.querySelector(${JSON.stringify(sel)}) || document.body, R = root.getBoundingClientRect();
   const seen = e => { const r = e.getBoundingClientRect(), c = getComputedStyle(e); return r.width > 0 && r.height > 0 && c.visibility !== "hidden" && c.display !== "none" && +c.opacity > 0.05 && !e.closest("[hidden]"); };
-  const name = e => (e.getAttribute("aria-label") || e.textContent || e.title || e.getAttribute("data-act") || "").trim().replace(/\\s+/g, " ");
+  const name = e => (e.getAttribute("aria-label") || e.textContent || (e.labels && e.labels[0] ? e.labels[0].textContent : "") || e.title || e.getAttribute("data-act") || "").trim().replace(/\\s+/g, " ");
   // a control scrolled out of sight inside a scrolling panel (or clipped by it) is not off the pane
   const clipped = e => { const r = e.getBoundingClientRect(); for (let p = e.parentElement; p && p !== root; p = p.parentElement) { const c = getComputedStyle(p); if (/(auto|scroll|hidden|clip)/.test(c.overflow + c.overflowX + c.overflowY)) { const q = p.getBoundingClientRect(); if (r.bottom > q.bottom + 1 || r.top < q.top - 1 || r.right > q.right + 1 || r.left < q.left - 1) return true; } } return false; };
   const ctl = [...root.querySelectorAll("button, [role=button], [role=menuitem], input, select")].filter(e => seen(e) && !clipped(e) && !e.disabled && !e.closest(".vg-gl, .vg-tour, .vg-tour-card") && !(e.type === "range"));
   const noName = ctl.filter(e => !name(e) && !(e.type === "range")).map(e => e.className.toString().slice(0, 40));
-  const small = ctl.filter(e => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height) < ${MIN_TAP} && !e.closest(".vg-seg, .vg-dock") ; }).map(e => name(e).slice(0, 24) || e.className.toString().slice(0, 30));
+  const small = ctl.filter(e => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height) < ${MIN_TAP} && !e.closest(".vg-seg, .vg-dock") && !(e.matches("input[type=checkbox], input[type=radio]") && e.labels && e.labels.length);   /* a box inside its label: the label is what is pressed */ }).map(e => (name(e).slice(0, 24) || e.className.toString().slice(0, 30)) + " " + Math.round(e.getBoundingClientRect().width) + "x" + Math.round(e.getBoundingClientRect().height) + " ." + String(e.className.baseVal ?? e.className).split(" ")[0]);
   const out = ctl.filter(e => { const r = e.getBoundingClientRect(); return r.right > R.right + 2 || r.left < R.left - 2 || r.bottom > R.bottom + 2; }).map(e => name(e).slice(0, 24));
   const over = []; const boxes = ctl.map(e => ({ e, r: e.getBoundingClientRect() }));
   for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) { const a = boxes[i], b = boxes[j]; if (a.e.contains(b.e) || b.e.contains(a.e)) continue;
