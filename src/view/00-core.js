@@ -336,6 +336,7 @@ function mountVaultGraph(root, DATA, opts) {
             ${switchRow("vg-l-wanted", "Notes to write", `${ghosts.length} notes you link to that don't exist yet (hollow)`)}
             ${switchRow("vg-l-people", "People", "Who is connected to which topics (diamonds)")}
             ${switchRow("vg-l-tasks", "Open tasks", "Badge with the number of unchecked tasks")}
+            ${switchRow("vg-l-attention", "Needs attention", "A ring on notes with a problem to fix, in every view (a missing reference or a short note alone does not count)", true)}
             <div class="vg-flabel">Display</div>
             ${switchRow("vg-gaps", "Gap suggestions", "Dashed edges between related, unlinked notes", true)}
             ${switchRow("vg-leaves", "Collapse leaf notes", "Fold short notes into the note they hang from, as a +N badge")}
@@ -390,7 +391,7 @@ function mountVaultGraph(root, DATA, opts) {
     gaps: true, leaves: false, isolated: false, three: false, angles: {}, view: "2d", vision: "std", sizeBy: "bc", colorBy: "cluster",
     hidden: new Set(), hiddenClusters: new Set(), overlays: new Set(), focus: null, focusDepth: 1, focusDist: null,
     selected: null, hover: null, highlight: null, highlightLabel: null, preset: "explore", tab: "insights", path: null,
-    cohesion: true, layers: { wanted: false, people: false, tasks: false, mocs: true }, multi: null, lasso: false, quietFocus: false,
+    cohesion: true, layers: { wanted: false, people: false, tasks: false, mocs: true, attention: true }, multi: null, lasso: false, quietFocus: false,
   };
   const cam = { k: 1, tx: 0, ty: 0, yaw: 0.6, pitch: -0.35, cx: 0, cy: 0, cz: 0, d: 0, spin: null };   // d: how far the camera has flown in, in world units
   let W = 0, H = 0, alpha = 1, dirty = true, tween = null, raf = 0, destroyed = false, fitted = false;
@@ -429,6 +430,7 @@ function mountVaultGraph(root, DATA, opts) {
     Object.values(lobeStats).forEach(g => { g.act /= g.notes; });
   }
   function rebuild(reheat) {
+    attnCache = null;
     active = nodes.filter(visible);
     const ids = new Set(active.map(n => n.id));
     visLinks = links.filter(l => ids.has(l.s.id) && ids.has(l.t.id) && kindVisible(l.kind));
@@ -648,6 +650,7 @@ function mountVaultGraph(root, DATA, opts) {
 
   // ---------------------------------------------------------------- camera
   const P = new Map();   // id -> {x, y, s, depth, r, a}
+  let attnCache = null;   // id -> how many problems (VGActions.attention); worked out when first drawn, dropped when the notes or data change
   const rot = () => [Math.cos(cam.yaw), Math.sin(cam.yaw), Math.cos(cam.pitch), Math.sin(cam.pitch)];
   function proj(x, y, z, R) {   // world -> screen (or null when behind the camera)
     x -= cam.cx; y -= cam.cy; let s = 1, depth = 0;

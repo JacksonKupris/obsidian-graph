@@ -38,7 +38,26 @@
   function draw(now) {
     const r = drawView(now);
     if (mapView() && W) polishLayer(now);
+    if (W && st.layers.attention) drawAttention();
     return r;
+  }
+  // Notes with a problem beyond a missing reference or a short note (VGActions.attention) get a ring in the warning colour, over every view that
+  // records where it put each note (P), so what to click next stands out whichever view is open. Two or more problems: a second ring.
+  function attentionOf() {
+    if (!attnCache) { attnCache = new Map(); const c = actionCtx(); for (const n of nodes) { const k = VGActions.attention(n, c).length; if (k) attnCache.set(n.id, k); } }
+    return attnCache;
+  }
+  function drawAttention() {
+    const hits = attentionOf(); if (!hits.size) return;
+    const col = css("--vg-warn") || "#f59e0b";
+    ctx.save(); ctx.globalCompositeOperation = "source-over"; ctx.strokeStyle = col;
+    for (const [id, k] of hits) {
+      const p = P.get(id); if (!p || !(p.a > 0.5) || !byId[id]) continue;
+      const r = Math.max(4, Math.min(24, p.r || 6)) + 4; ctx.globalAlpha = 0.95; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 2 * Math.PI); ctx.stroke();
+      if (k > 1) { ctx.globalAlpha = 0.55; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, r + 4, 0, 2 * Math.PI); ctx.stroke(); }
+    }
+    ctx.restore();
   }
   function drawView(now) {
     GL.show(glOn());

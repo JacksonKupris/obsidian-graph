@@ -804,6 +804,7 @@
 .vg-s-open { margin-top: 8px; }
 
 /* map views: subway, terrain, city */
+.vg-lg-attn { display: inline-block; width: 10px; height: 10px; border-radius: var(--ds-r-pill); border: 2px solid var(--vg-warn); box-shadow: 0 0 0 2px color-mix(in srgb, var(--vg-warn) 45%, transparent); }
 .vg-lg-stn { display: inline-block; width: 9px; height: 9px; border-radius: var(--ds-r-pill); background: #fff; border: 2px solid #2563eb; }
 .vg-lg-stn.is-x { border-color: #111; width: 11px; height: 11px; }
 .vg-lg-fog { display: inline-block; width: 14px; height: 8px; border-radius: var(--ds-r-2xs); background: linear-gradient(90deg, #9e744e, #d6d6d6); }
