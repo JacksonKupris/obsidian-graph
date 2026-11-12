@@ -118,7 +118,11 @@ async function shipAll(opts) {
 }
 
 // --auto: hand the pull request to GitHub, which merges it when the tests check passes and then releases it (test.yml); no computer waits
+// GitHub merges an auto-merge pull request the moment nothing is *required* of it, so with no required check this would merge before the tests ran
 function autoMerge(pr) {
+  const rules = gh("api", "repos/{owner}/{repo}/rules/branches/main");
+  let required = false; try { required = JSON.parse(rules.stdout).some(r => r.type === "required_status_checks"); } catch { /* no answer: not required */ }
+  if (!required) return { ok: false, line: `NOT QUEUED #${pr}: main requires no check, so GitHub would merge it before the tests run. Use: npm run ship -- ${pr}` };
   const m = gh("pr", "merge", String(pr), "--auto", "--merge");
   return m.status === 0 ? { ok: true, line: `QUEUED #${pr}: GitHub merges it when its tests pass, then releases it if something that ships changed.` }
     : { ok: false, line: `NOT QUEUED #${pr}: ${(m.stderr || "").trim().split("\n").pop()}. Turn on "Allow auto-merge" in the repository settings, or: npm run ship -- ${pr}` };
