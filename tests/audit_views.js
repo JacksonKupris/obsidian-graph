@@ -35,7 +35,9 @@ const HOW = {
 
 // what the page shows right now, as one object (runs in the page)
 const probeOf = sel => `(() => { const root = document.querySelector(${JSON.stringify(sel)}) || document.body, R = root.getBoundingClientRect();
-  const seen = e => { const r = e.getBoundingClientRect(), c = getComputedStyle(e); return r.width > 0 && r.height > 0 && c.visibility !== "hidden" && c.display !== "none" && +c.opacity > 0.05 && !e.closest("[hidden]"); };
+  /* a control inside a closed <details> is laid out but not drawn: it has a size and a place and cannot be seen or pressed */
+  const closedMore = e => { for (let d = e.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) if (!d.open && !(e.closest("summary") && e.closest("summary").parentElement === d)) return true; return false; };
+  const seen = e => { const r = e.getBoundingClientRect(), c = getComputedStyle(e); return r.width > 0 && r.height > 0 && c.visibility !== "hidden" && c.display !== "none" && +c.opacity > 0.05 && !e.closest("[hidden]") && !closedMore(e); };
   const name = e => (e.getAttribute("aria-label") || e.textContent || (e.labels && e.labels[0] ? e.labels[0].textContent : "") || e.title || e.getAttribute("data-act") || "").trim().replace(/\\s+/g, " ");
   // a control scrolled out of sight inside a scrolling panel (or clipped by it) is not off the pane
   const clipped = e => { const r = e.getBoundingClientRect(); for (let p = e.parentElement; p && p !== root; p = p.parentElement) { const c = getComputedStyle(p); if (/(auto|scroll|hidden|clip)/.test(c.overflow + c.overflowX + c.overflowY)) { const q = p.getBoundingClientRect(); if (r.bottom > q.bottom + 1 || r.top < q.top - 1 || r.right > q.right + 1 || r.left < q.left - 1) return true; } } return false; };
