@@ -17,12 +17,15 @@
       if (!LIBV.handle) {
         LIBV.host.innerHTML = "";
         LIBV.handle = VaultGraphViews.mountViews(LIBV.host, { view: libView, data: DATA, inputs: inputs(), onOpen: libOpen, onAction: a => (LIB_ACTIONS[a] || (() => {}))(), theme: libTheme() });
-        LIBV.selected = undefined; LIBV.size = "";
+        LIBV.selected = undefined; LIBV.size = ""; LIBV.marked = undefined;
       }
       LIBV.key = key; LIBV.host.hidden = false;
     }
     cv.style.visibility = "hidden";   // the plugin's canvas has nothing to show under the library's
     const size = W + "x" + H; if (size !== LIBV.size) { LIBV.size = size; LIBV.handle.resize(); }
+    // the same rings as the plugin's own views (drawAttention), drawn by the library over its notes; attentionOf() is a new Map whenever the notes change
+    const want = st.layers.attention ? attentionOf() : null;
+    if (want !== LIBV.marked) { LIBV.marked = want; LIBV.handle.mark(want, "needs attention"); }
     if (st.selected !== LIBV.selected) { LIBV.selected = st.selected; LIBV.handle.update({ selected: st.selected || null }); }
     setSceneStat(LIBV.handle.stat());
   }
@@ -38,7 +41,7 @@
   }
 
   scene("cas9-lib", {
-    name: "Cas9 (library)", icon: "cas9", hidden: true, lib: true, hint: SCENES.cas9.hint,
+    name: "Cas9 (library)", icon: "cas9", hidden: true, lib: true, hint: SCENES.cas9.hint, legend: SCENES.cas9.legend,
     layout: () => ({ pos: new Map(), bounds: [] }),
     draw: () => {
       libDraw("cas9-lib", "cas9", () => { LIBV.scanned = guideNow.result; return { scan: scanForViews(guideNow.result) }; });
@@ -48,7 +51,7 @@
   });
 
   scene("genome-lib", {
-    name: "Genome fold (library)", icon: "genome", hidden: true, lib: true, hint: SCENES.genome.hint,
+    name: "Genome fold (library)", icon: "genome", hidden: true, lib: true, hint: SCENES.genome.hint, legend: SCENES.genome.legend,
     layout: () => ({ pos: new Map(), bounds: [], fold: VGScience.foldForViews(VGScience.genomeFold((DATA.strand || { rows: [] }).rows)) }),   // the fold is worked out here, once
     draw: () => libDraw("genome-lib", "genome", () => ({ fold: mapCache["genome-lib"].fold })),
     today: libToday, api: libApi(),

@@ -408,7 +408,9 @@
 .is-mobile .vg-switch { padding: 8px 2px; }
 .is-mobile .vg-tip { display: none; }
 /* every control a thumb can hit, at least --vg-tap on a phone (polish_loop.js reads the same token to check) */
-.vg-root { --vg-tap: 32px; }
+.vg-root { --vg-tap: 32px; --vg-hit-min: 24px; }
+/* the floor on a desktop: the row buttons and chips the lenses draw (audit:views reads the same 24px) */
+.vg-root :is(.vg-mx-name, .vg-tl-label, .vg-rv-chip, .vg-visbtn, button.vg-fd-name, .vg-rp-pick, .vg-fd-bar) { min-height: var(--vg-hit-min); }
 .vg-root.is-mobile :is(.vg-btn, .vg-btn-sm, .vg-mx-cell, .vg-mx-name, .vg-tl-label, .vg-rv-chip, .vg-sandel, .vg-autobtn, .vg-dockbtn, .vg-visbtn, .vg-chip, .vg-linkish, .vg-fd-bar) { min-height: var(--vg-tap); }
 .vg-root.is-mobile .vg-ibtn { min-width: var(--vg-tap); min-height: var(--vg-tap); }
 .vg-root.is-mobile .vg-linkbtn { display: inline-flex; align-items: center; min-height: var(--vg-tap); }   /* a link-style button in a sentence */
@@ -802,6 +804,7 @@
 .vg-s-open { margin-top: 8px; }
 
 /* map views: subway, terrain, city */
+.vg-lg-attn { display: inline-block; width: 10px; height: 10px; border-radius: var(--ds-r-pill); border: 2px solid var(--vg-warn); box-shadow: 0 0 0 2px color-mix(in srgb, var(--vg-warn) 45%, transparent); }
 .vg-lg-stn { display: inline-block; width: 9px; height: 9px; border-radius: var(--ds-r-pill); background: #fff; border: 2px solid #2563eb; }
 .vg-lg-stn.is-x { border-color: #111; width: 11px; height: 11px; }
 .vg-lg-fog { display: inline-block; width: 14px; height: 8px; border-radius: var(--ds-r-2xs); background: linear-gradient(90deg, #9e744e, #d6d6d6); }

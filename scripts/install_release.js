@@ -7,7 +7,8 @@
 // Used by release.js once the release is published.
 const fs = require("fs"), path = require("path"), { spawnSync } = require("child_process");
 const { ROOT, gitIn, githubSlug, localConfig, python } = require("./lib");
-const FILES = ["main.js", "manifest.json", "styles.css"];
+// the release rules shared with the plugin's own updater (src/release.js): which files a release holds, and what a good one is
+const VGRelease = new Function(require("../build").releaseSource() + "\nreturn VGRelease;")(), FILES = VGRelease.FILES;
 
 const slugOf = () => githubSlug(gitIn(ROOT)("remote", "get-url", "origin").out);
 // this computer's vault: --vault <dir> when given, else local.json's "vault" (the file is per computer, not in git)
@@ -69,12 +70,11 @@ async function install(version, vaultDir) {
   let rel;
   try { rel = await (await get(`https://api.github.com/repos/${slug}/releases/${version ? "tags/" + version : "latest"}`)).json(); }
   catch (e) { if (e.status === 404) return { ok: false, lines: [`FAIL - no release ${version || "yet"}; the published ones: https://github.com/${slug}/releases`] }; throw e; }
-  const assets = Object.fromEntries((rel.assets || []).map(a => [a.name, a.browser_download_url]));
-  const missing = FILES.filter(f => !assets[f]);
+  const assets = VGRelease.assetUrls(rel), missing = VGRelease.missing(rel);
   if (missing.length) return { ok: false, lines: [`FAIL - release ${rel.tag_name} has no ${missing.join(", ")}`] };
   const got = {}; for (const f of FILES) got[f] = await (await get(assets[f])).text();
-  const man = JSON.parse(got["manifest.json"]);
-  if (man.version !== rel.tag_name) return { ok: false, lines: [`FAIL - release ${rel.tag_name} carries manifest ${man.version}`] };
+  const bad = VGRelease.problem(rel, got), man = bad ? null : JSON.parse(got["manifest.json"]);   // the rule the plugin's own updater uses
+  if (bad) return { ok: false, lines: [`FAIL - ${bad}`] };
   const dir = path.join(vault, ".obsidian", "plugins", man.id);
   // every file is downloaded before any is written, and each lands whole (written beside, then renamed over), so a
   // failure leaves the old version in place rather than half of each. The plugin's settings (data.json) aren't touched.
@@ -87,7 +87,7 @@ async function install(version, vaultDir) {
   return { ok: true, version: man.version, lines };
 }
 
-module.exports = { install, vaultOf };
+module.exports = { install, vaultOf, obsidianEval };
 
 if (require.main === module) {
   const a = process.argv.slice(2), at = a.indexOf("--vault"), dir = at >= 0 ? a[at + 1] : undefined;

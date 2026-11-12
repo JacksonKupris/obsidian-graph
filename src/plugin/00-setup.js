@@ -1,7 +1,7 @@
 // plugin/*.js - Obsidian plugin shell for the Vault Graph, in parts the build joins in name order, the plugin class across several.
 // Bundled with the rules, engine and view into main.js by `npm run build` (build.js); releases ship it (RELEASING.md).
 // Edit here, never a generated main.js.
-const { Plugin, ItemView, MarkdownView, Notice, PluginSettingTab, Setting, Platform, TFile, normalizePath, MarkdownRenderChild, parseYaml, moment, editorInfoField } = require("obsidian");
+const { Plugin, ItemView, MarkdownView, Notice, PluginSettingTab, Setting, Platform, TFile, normalizePath, MarkdownRenderChild, parseYaml, moment, editorInfoField, requestUrl } = require("obsidian");
 
 // One way to look up a note, read its frontmatter and read a JSON file. fileIn gives a note or null, whatever else is at the path.
 const fileIn = (vault, p) => { const f = vault.getAbstractFileByPath(normalizePath(p)); return f instanceof TFile ? f : null; };

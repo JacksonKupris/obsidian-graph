@@ -132,6 +132,7 @@
     name: "Vault Survivors", icon: "survivors", fps: 60, game: true,
     menu: "play", hint: "Five minutes against a swarm of your notes: tags choose your upgrades, the longest notes are bosses",
     toast: "",
+    legend: item => item("<b>WASD</b>", "move (or the arrow keys)") + item("<b>1 2 3</b>", "pick an upgrade") + item("<b style='color:#c9c1b8'>●</b>", "a note chasing you") + item("<b style='color:#e0796f'>●</b>", "a boss: one of the longest notes") + item("<b style='color:#f1b88a'>●</b>", "what a note drops: collect it"),
     layout() { const pos = new Map(), span = 800; nodes.forEach(n => { const [u, v] = scatter("sv:" + n.id); pos.set(n.id, [u * span, v * span]); }); if (SV.state !== "play" && SV.state !== "choose") SV.state = "title"; return { pos, bounds: [[0, 0], [span, 0], [span, span], [0, span]] }; },
     fit: n => !n.ghost,
     keys: { test: k => (SV.state === "play" ? /^(arrow(left|right|up|down)|[wasd])$/.test(k) : SV.state === "choose" ? /^[123]$/.test(k) : k === "enter" || k === " ") },

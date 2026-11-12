@@ -1,0 +1,42 @@
+#!/usr/bin/env node
+// Notes with a problem beyond a missing reference or a short note carry an ring in the warning colour in every view that places notes.
+// Asked for by Jackson: "make those nodes stand out across views so I can see what to click next". The rule is
+// VGActions.attention (one place); the ring is drawn once, after any view, from the positions the view recorded.
+const assert = require("assert");
+const { sleep, openPage } = require("./kit");
+const env = require("./env");
+(async () => {
+  const tab = await openPage({ html: env.pageWith("", env.data()) });
+  try {
+    assert.ok(await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000), "the graph must mount");
+    await tab.ev(`document.querySelectorAll(".vg-tour, .vg-tour-card").forEach(x => x.remove())`);
+    // the rule: the minor problems alone do not flag a note, the others do
+    const rule = await tab.ev(`(() => { const A = typeof VGActions === "undefined" ? null : VGActions; if (!A) return null; const c = { data: { mocs: [], quality: { stub_words: 50, stale_days: 9999 }, said_unlinked: [] }, api: {} };
+      const base = { id: "x", name: "x", inlinks: 1, outlinks: 1, refs: true, broken: 0, words: 500, age: 1, cluster: 0 };
+      return { minor: A.attention({ ...base, refs: false, words: 3 }, c).length, orphan: A.attention({ ...base, inlinks: 0 }, c).length, broken: A.attention({ ...base, broken: 2 }, c).length, inspector: A.problems({ ...base, refs: false, words: 3 }, c).length }; })()`);
+    assert.ok(rule, "VGActions must be on the page");
+    assert.deepStrictEqual(rule, { minor: 0, orphan: 1, broken: 1, inspector: 2 }, "only the non-minor problems flag a note: " + JSON.stringify(rule));
+    let seen = 0;
+    for (const view of ["2d", "3d", "neural", "subway", "weather", "radar"]) {
+      await tab.ev(`window.vaultGraph._debug.openView(${JSON.stringify(view)})`); await sleep(1500);
+      const r = await tab.ev(`window.vaultGraph._debug.attention().filter(x => x.at)`);
+      assert.ok(r.length > 0, view + ": some notes must be flagged and placed (saw " + r.length + ")");
+      seen += r.length;
+      const lg = await tab.ev(`document.querySelector(".vg-legend").textContent`);
+      assert.ok(/needs attention/.test(lg), view + ": the legend must explain the ring: " + lg);
+      // the ring is really painted: the pixel on its rim is the warning colour
+      const hit = await tab.ev(`(() => { const W = ((h) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)))(getComputedStyle(document.querySelector(".vg-root")).getPropertyValue("--vg-warn").trim()), cv = document.querySelector(".vg-cv"), g = cv.getContext("2d"), s = cv.width / cv.clientWidth, b = cv.getBoundingClientRect();
+        let n = 0, amber = 0; for (const x of window.vaultGraph._debug.attention().filter(x => x.at).slice(0, 12)) { const rr = Math.max(4, Math.min(24, x.at.r)) + 4, d = g.getImageData(Math.round((x.at.x + rr) * s) - 1, Math.round(x.at.y * s), 3, 1).data;
+          n++; for (let i = 0; i < 9; i += 4) if (Math.abs(d[i] - W[0]) < 30 && Math.abs(d[i + 1] - W[1]) < 30 && Math.abs(d[i + 2] - W[2]) < 30 && d[i + 3] > 80) { amber++; break; } } return { n, amber }; })()`);
+      assert.ok(hit.amber > 0, view + ": the ring must be painted in the warning colour " + JSON.stringify(hit));
+    }
+    // the switch turns it off
+    await tab.ev(`window.vaultGraph._debug.openView("2d")`); await sleep(600);
+    await tab.ev(`(() => { const cb = document.querySelector(".vg-l-attention"); cb.checked = false; cb.dispatchEvent(new Event("change", { bubbles: true })); })()`); await sleep(700);
+    const off = await tab.ev(`(() => { const W = ((h) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)))(getComputedStyle(document.querySelector(".vg-root")).getPropertyValue("--vg-warn").trim()), cv = document.querySelector(".vg-cv"), g = cv.getContext("2d"), s = cv.width / cv.clientWidth; let amber = 0; for (const x of window.vaultGraph._debug.attention().filter(x => x.at).slice(0, 12)) { const rr = Math.max(4, Math.min(24, x.at.r)) + 4, d = g.getImageData(Math.round((x.at.x + rr) * s) - 1, Math.round(x.at.y * s), 3, 1).data; for (let i = 0; i < 9; i += 4) if (Math.abs(d[i] - W[0]) < 30 && Math.abs(d[i + 1] - W[1]) < 30 && Math.abs(d[i + 2] - W[2]) < 30 && d[i + 3] > 80) { amber++; break; } } return amber; })()`);
+    assert.strictEqual(off, 0, "with the switch off no ring is painted");
+    assert.ok(!/needs attention/.test(await tab.ev(`document.querySelector(".vg-legend").textContent`)), "with the switch off the legend drops the entry");
+    console.log(`ok - notes with a problem beyond a reference or a short note are ringed in 6 views (${seen} placed), and the switch hides them`);
+  } finally { try { await tab.close(); } catch (e) { /* page already gone */ } }
+  process.exit(0);
+})().catch(e => { console.error(e); process.exit(1); });

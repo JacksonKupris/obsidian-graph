@@ -25,6 +25,9 @@ class VaultGraphSettings extends PluginSettingTab {
     });
     new Setting(el).setName("Plugin").setHeading();
     new Setting(el).setName("Open Vault HQ at startup").setDesc("Your home screen, when Obsidian opens").addToggle(t => t.setValue(this.plugin.settings.hqAtStart !== false).onChange(async v => { this.plugin.settings.hqAtStart = v; await this.plugin.saveSettings(); }));
+    new Setting(el).setName("Update automatically").setDesc(`Version ${this.plugin.manifest.version}. Installs the latest release when one is out, on start and every few hours`)
+      .addToggle(t => t.setValue(this.plugin.settings.autoUpdate !== false).onChange(async v => { this.plugin.settings.autoUpdate = v; await this.plugin.saveSettings(); }))
+      .addButton(b => b.setButtonText("Check now").onClick(() => this.plugin.updater.check({ manual: true })));
     const text = (name, desc, key, placeholder) => new Setting(el).setName(name).setDesc(desc)
       .addText(t => t.setPlaceholder(placeholder).setValue(this.plugin.settings[key])
         .onChange(async v => { this.plugin.settings[key] = v.trim() || DEFAULTS[key]; await this.plugin.saveSettings(); }));

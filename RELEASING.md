@@ -119,6 +119,7 @@ https://github.com/JacksonKupris/obsidian-graph/releases. Install it with `npm r
 |---|---|
 | This computer, after `npm run release` | Done for you when `local.json` (or `--vault`) names the vault. |
 | This computer, any time | `npm run install-release` (latest), `npm run install-release -- 0.6.15` (that one, also to go back), `npm run install-release -- --vault <folder>` for another vault. |
+| Any device, by itself | Once installed, the plugin updates itself: on start and every few hours it asks GitHub for the latest release, downloads the three files, checks the manifest matches the tag and the plugin id, writes them, and reloads. Works on Android too. Settings > Vault Graph > **Update automatically** turns it off (it then only says a release is out); **Check now** or the command **Update Vault Graph** installs by hand. Rules: `src/release.js`, shared with `npm run install-release`. |
 | Any computer, in Obsidian | Install BRAT from Community plugins, then BRAT: **Add a beta plugin** > `JacksonKupris/obsidian-graph`. To update: Ctrl/Cmd+P, type `BRAT`, run its **check for updates** command. |
 | By hand | Download `main.js`, `manifest.json` and `styles.css` from a [release](https://github.com/JacksonKupris/obsidian-graph/releases) into `<vault>/.obsidian/plugins/jk-vault-graph/`. |
 

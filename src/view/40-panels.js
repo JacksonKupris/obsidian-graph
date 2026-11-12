@@ -32,7 +32,7 @@
   const wordFor = (n, one, many) => plural(n, one, many).replace(/^\S+ /, "");   // the word alone, for when the number sits apart from it
   function renderChanges() {
     const c = DATA.changes || {};
-    if (!c.since) return card("Since last run", "", `<div class="vg-empty">First snapshot saved today.</div>`);
+    if (!c.since) return card("Since last run", "", emptyNext("No earlier snapshot to compare with.", "lens:timeline"));
     const line = (n, one, many) => n ? `<li>${plural(n, one, many).replace(/^\d+/, "<b>$&</b>")}</li>` : "";
     const pairName = p => p.split("|").map(id => byId[id] ? byId[id].name : VGShared.nameOf(id)).join(" ↔ ");
     const body = `<ul class="vg-changes">
@@ -186,7 +186,7 @@
       `<p class="vg-muted vg-foot">Data from ${esc(DATA.date)} · ${DATA.dailies_used || "?"} daily notes since ${esc(DATA.since || "the start")}</p>`;
     const panel = $('[data-panel="insights"]');
     panel.innerHTML = html;
-    wire(panel);
+    wire(panel); wireNext(panel);
     panel.querySelectorAll(".vg-gap").forEach(e => e.onclick = () => focusClusters([+e.dataset.a, +e.dataset.b]));
     const STAT_GO = {
       all: () => fit(),
@@ -273,7 +273,23 @@
   }
 
   // ---------------------------------------------------------------- inspector
-  function select(id) {
+  // The one Next control: after a note's actions are taken or declined, the view moves on to the note the vault gains most
+  // from (the head of the Today list), skipping notes this pass has already shown. It sits in every inspector (note, ghost,
+  // person, map), so every view that selects a note through select() has it.
+  function nextNoteId(from) {
+    const seen = st.nextSeen || (st.nextSeen = new Set()); if (from) seen.add(from);
+    for (const it of todayItems()) for (const nid of it.ids || []) if (byId[nid] && !seen.has(nid) && nid !== from) return nid;
+    return null;
+  }
+  function addNextControl(id) {
+    const box = $(".vg-inspector"); if (!id || box.hidden || box.querySelector(".vg-next")) return;
+    const head = box.querySelector(".vg-ins-head") || box, b = document.createElement("button");
+    b.className = "vg-btn vg-btn-sm vg-next"; b.textContent = "Next note"; b.title = "The note the vault gains most from next";
+    b.onclick = () => { const nid = nextNoteId(id); if (nid) select(nid); else { b.disabled = true; b.textContent = "No more notes"; } };
+    head.insertBefore(b, head.querySelector(".vg-ins-close"));
+  }
+  function select(id) { if (!id) st.nextSeen = null; const r = selectNow(id); addNextControl(id); return r; }
+  function selectNow(id) {
     if (id && id !== st.selected) startWave(id);
     st.selected = id; dirty = true; kick();
     if (!id && !st.highlight && st.autoPaused) setPaused(false);
@@ -562,6 +578,7 @@
   const LAYOUT_KEYS = new Set(["x", "y", "z", "vx", "vy", "vz", "fx", "fy", "bx", "by", "bz", "z0"]);
   function applyLive(D) {
     if (destroyed || !D || !D.nodes) return false;
+    attnCache = null;
     const fresh = new Map(D.nodes.map(n => [n.id, n]));
     if (fresh.size !== DATA.nodes.length || DATA.nodes.some(n => !fresh.has(n.id))) return false;
     // what a patch can't express -- a wanted note written (its placeholder goes), a new map -- remounts from the new state

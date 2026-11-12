@@ -31,6 +31,7 @@ module.exports = class VaultGraphPlugin extends Plugin {
   async onload() {
     this.settings = Object.assign({}, DEFAULTS, await this.loadData());
     await this.loadRules();   // before anything reads a folder name or threshold
+    this.updater = new VaultGraphUpdater(this); this.updater.start();   // src/plugin/85-update.js
     // For notes and other plugins (the Hearth "Second Brain Brief"): read app.plugins.plugins["jk-vault-graph"].graphData()
     // and .rules, the same live state and rules the graph uses, never the data file or a rule of their own
     this.rules = VGRules;
