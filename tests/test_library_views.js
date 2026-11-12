@@ -34,12 +34,19 @@ const env = require("./env");
     ok(lay.stat === "none", "and its own stat line is not drawn behind the toolbar");
 
     // a real click on a note of the fold selects it in the plugin
-    const note = await tab.ev(`(() => { const h = ${api}.handle(); for (let y = 100; y < innerHeight - 60; y += 8) for (let x = 60; x < innerWidth - 60; x += 8) { const k = h.keyAt(x, y); if (k && k.kind === "note") return { id: k.id, x, y }; } return null; })()`);
-    ok(!!note, "a note of the fold is on screen to click");
-    if (note) {
-      for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: note.x, y: note.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
+    // the notes of the fold in the open, as the library's own hit test finds them (a few, spread out)
+    const cands = await tab.ev(`(() => { const h = ${api}.handle(), seen = new Set(), out = []; for (let y = 100; y < innerHeight - 60; y += 8) for (let x = 60; x < innerWidth - 60; x += 8) { const k = h.keyAt(x, y); if (k && k.kind === "note" && !seen.has(k.id) && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") { seen.add(k.id); out.push({ id: k.id, x, y }); } } return out.filter((c, i) => i % 3 === 0).slice(0, 8); })()`);
+    ok(cands.length > 0, "a note of the fold is on screen to click");
+    // a click on one of them selects it (a note under a day's bead may open the day instead, so each is tried until one selects: the view must select at least one)
+    let note = null;
+    for (const c of cands) {
+      for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: c.x, y: c.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
       await sleep(300); await calm();
-      ok((await tab.ev(`window.vaultGraph.viewport().selected`)) === note.id, "a click on a note of the library's fold selects it in the plugin");
+      if ((await tab.ev(`window.vaultGraph.viewport().selected`)) === c.id) { note = c; break; }
+      await tab.ev(`window.vaultGraph.viewport().selected && window.vaultGraph.select && window.vaultGraph.select(null)`);
+    }
+    ok(!!note, `a click on a note of the library's fold selects it in the plugin (tried ${cands.length}: ${cands.map(c => c.id.split("/").pop()).join(", ")})`);
+    if (note) {
       ok((await tab.ev(`${api}.handle().api.selected()`)) === note.id, "and the library's view marks the same note");
       // the other way round: a note the plugin selects (a search, the sidebar) is marked in the library's view
       const other = await tab.ev(`${api}.handle().api.notes().find(id => id !== ${JSON.stringify(note.id)})`);
@@ -74,7 +81,7 @@ const env = require("./env");
     // the plugin's selection from the Genome fold above is still picked, so the line is the picked form
     const cstat = await tab.ev(`${cones}.handle().stat()`);
     ok(/dated notes · \d+ links?|in its past/.test(cstat) && (await tab.ev(`${q(".vg-status")}.innerText`)).includes(cstat), `its stat line is the plugin's status: ${cstat}`);
-    const cnote = await tab.ev(`(() => { const h = ${cones}.handle(); for (let y = 100; y < innerHeight - 60; y += 8) for (let x = 60; x < innerWidth - 60; x += 8) { const k = h.keyAt(x, y); if (k && k.kind === "note") return { id: k.id, x, y }; } return null; })()`);
+    const cnote = await tab.ev(`(() => { const h = ${cones}.handle(); for (let y = 100; y < innerHeight - 60; y += 8) for (let x = 60; x < innerWidth - 60; x += 8) { const k = h.keyAt(x, y); if (k && k.kind === "note" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
     ok(!!cnote, "a note of Light cones is on screen to click");
     if (cnote) {
       for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: cnote.x, y: cnote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
@@ -91,7 +98,7 @@ const env = require("./env");
     ok(joints >= 10, `the library makes joints of the plugin's linked notes (${joints})`);
     const lstat = await tab.ev(`${truss}.handle().stat()`);
     ok((await tab.ev(`${q(".vg-status")}.innerText`)).includes(lstat), `its stat line is the plugin's status: ${lstat}`);
-    const lnote = await tab.ev(`(() => { const h = ${truss}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note") return { id: k.id, x, y }; } return null; })()`);
+    const lnote = await tab.ev(`(() => { const h = ${truss}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
     ok(!!lnote, "a note of Load paths is on screen to click");
     if (lnote) {
       for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: lnote.x, y: lnote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
@@ -108,7 +115,7 @@ const env = require("./env");
     ok(hold >= 9, `the library finds modes in the plugin's linked notes (${hold})`);
     const mstat = await tab.ev(`${drum}.handle().stat()`);
     ok((await tab.ev(`${q(".vg-status")}.innerText`)).includes(mstat), `its stat line is the plugin's status: ${mstat}`);
-    const mnote = await tab.ev(`(() => { const h = ${drum}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note") return { id: k.id, x, y }; } return null; })()`);
+    const mnote = await tab.ev(`(() => { const h = ${drum}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
     ok(!!mnote, "a note of Normal modes is on screen to click");
     if (mnote) {
       for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: mnote.x, y: mnote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
@@ -125,7 +132,7 @@ const env = require("./env");
     ok(tubes >= 9, `the library finds tubes in the plugin's linked notes (${tubes})`);
     const sstat = await tab.ev(`${mould}.handle().stat()`);
     ok((await tab.ev(`${q(".vg-status")}.innerText`)).includes(sstat), `its stat line is the plugin's status: ${sstat}`);
-    const snote = await tab.ev(`(() => { const h = ${mould}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note") return { id: k.id, x, y }; } return null; })()`);
+    const snote = await tab.ev(`(() => { const h = ${mould}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
     ok(!!snote, "a note of Slime mould is on screen to click");
     if (snote) {
       for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: snote.x, y: snote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
