@@ -75,6 +75,15 @@
     today: libToday, api: libApi(),
   });
 
+  // The library's Heat clock beside the plugin's own, hidden until it has been looked at in Obsidian and on a phone;
+  // then "clock" takes this draw and the old copy goes. The counts come from DATA.rhythm.
+  scene("clock-lib", {
+    name: "Heat clock (library)", icon: "clock", hidden: true, lib: true, hint: SCENES.clock.hint, legend: SCENES.clock.legend,
+    layout: () => ({ pos: new Map(), bounds: [] }),
+    draw: () => libDraw("clock-lib", "clock", () => ({})),
+    today: libToday, api: libApi(),
+  });
+
   // Light cones: a view that lives only in the library, so it is in the menu under its own name.
   scene("cones", {
     name: "Light cones", icon: "clock", menu: "see", space: true, lib: true, hint: "What a note rested on and what it touched, with time upward",

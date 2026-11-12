@@ -177,6 +177,21 @@ const env = require("./env");
       ok((await tab.ev(`${rad}.handle().api.selected()`)) === rnote.id, "and Radar marks the same blip");
     }
 
+    // Heat clock: hidden beside the plugin's own; a real click on a cell picks its topic in the library's view
+    ok(await tab.ev(`!!${D}.scenes()["clock-lib"] && !!${D}.scenes().clock`), "the plugin has its own Heat clock and a scene for the library's");
+    await tab.ev(`${D}.setView("clock-lib")`); await sleep(1900); await calm();
+    const clk = `${D}.scenes()["clock-lib"].api`;
+    ok((await tab.ev(`${clk}.handle().api.rings()`)) >= 1, "the library builds rings from the plugin's rhythm");
+    const hstat = await tab.ev(`${clk}.handle().stat()`);
+    ok(/^[0-9]+ topics? · busiest /.test(hstat) && (await tab.ev(`${q(".vg-status")}.innerText`)).includes(hstat), `its stat line is the plugin's status: ${hstat}`);
+    const hring = await tab.ev(`(() => { const h = ${clk}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "ring" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
+    ok(!!hring, "a cell of the Heat clock is on screen to click");
+    if (hring) {
+      for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: hring.x, y: hring.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
+      await sleep(300); await calm();
+      ok((await tab.ev(`${clk}.handle().api.focus()`)) === hring.id, "a click on a cell picks its topic");
+    }
+
     // another view: the library's canvas goes away and the plugin's own is back
     await tab.ev(`${D}.setView("2d")`); await sleep(900); await calm();
     const back = await tab.ev(`({ hidden: ${q(".vg-lib")}.hidden, plugin: ${q(".vg-cv")}.style.visibility })`);
