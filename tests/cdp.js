@@ -51,7 +51,7 @@ async function open(o) {
   }
   // CI runners (Ubuntu) block the user namespaces Chrome's sandbox needs
   const ci = process.env.CI ? ["--no-sandbox"] : [];
-  const launch = () => spawn(CHROME, ["--headless=new", "--disable-gpu", "--enable-unsafe-swiftshader", ...ci, "--window-size=1400,900", `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, "about:blank"], { stdio: "ignore" });
+  const launch = () => spawn(CHROME, [...(process.env.VG_HEADED ? [] : ["--headless=new"]), "--disable-gpu", "--enable-unsafe-swiftshader", ...ci, "--window-size=1400,900", `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, "about:blank"], { stdio: "ignore" });
   const findPage = async () => { try { return (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find(t => t.type === "page"); } catch (e) { return null; } };
   // a cold Chrome on a CI runner sometimes never opens its port (failed the 0.6.11 release), so one that exited or
   // hasn't answered in 20 s is started again, three tries in all
