@@ -27,3 +27,33 @@ jobs:
         run: |
           set -o pipefail
           npm test -- --shard=${{ matrix.shard }}/4 2>&1 | tee test.log || { grep -E "FAIL|Error" test.log | head -20 | sed 's/^/::error::/'; exit 1; }
+  # One name for "the tests passed", which is what a pull request must have before it merges (a branch rule names this check,
+  # so the shard count can change without touching the rule).
+  tests:
+    if: always()
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.test.result }}" = "success"
+  # A merge to main is the release. It needs the shards above, so it runs only on code that passed, and it releases when
+  # something that ships changed (scripts/ci_release.js decides; RELEASING.md). One at a time: a second merge waits.
+  release:
+    if: github.event_name == 'push'
+    needs: tests
+    runs-on: ubuntu-latest
+    concurrency: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install the graphs library
+        run: npm install
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci_release.js
