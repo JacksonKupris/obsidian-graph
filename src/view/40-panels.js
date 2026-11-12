@@ -32,7 +32,7 @@
   const wordFor = (n, one, many) => plural(n, one, many).replace(/^\S+ /, "");   // the word alone, for when the number sits apart from it
   function renderChanges() {
     const c = DATA.changes || {};
-    if (!c.since) return card("Since last run", "", `<div class="vg-empty">First snapshot saved today.</div>`);
+    if (!c.since) return card("Since last run", "", emptyNext("No earlier snapshot to compare with.", "lens:timeline"));
     const line = (n, one, many) => n ? `<li>${plural(n, one, many).replace(/^\d+/, "<b>$&</b>")}</li>` : "";
     const pairName = p => p.split("|").map(id => byId[id] ? byId[id].name : VGShared.nameOf(id)).join(" ↔ ");
     const body = `<ul class="vg-changes">
@@ -186,7 +186,7 @@
       `<p class="vg-muted vg-foot">Data from ${esc(DATA.date)} · ${DATA.dailies_used || "?"} daily notes since ${esc(DATA.since || "the start")}</p>`;
     const panel = $('[data-panel="insights"]');
     panel.innerHTML = html;
-    wire(panel);
+    wire(panel); wireNext(panel);
     panel.querySelectorAll(".vg-gap").forEach(e => e.onclick = () => focusClusters([+e.dataset.a, +e.dataset.b]));
     const STAT_GO = {
       all: () => fit(),

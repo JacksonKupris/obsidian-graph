@@ -113,16 +113,17 @@ const PROBE = probeOf(".vg-root");
         try {
           await tab.ev(`(document.querySelector('.vg-tab[data-tab="${name}"]') || {click(){}}).click()`); await sleep(400);
           const s = await tab.ev(probeOf(".vg-side")); pr.probe = s;
-          const first = await tab.ev(`(() => { const p = document.querySelector('.vg-panel[data-panel="${name}"]'); const b = p && [...p.querySelectorAll("button, [role=button], .vg-row")].find(e => e.getBoundingClientRect().height > 0 && !e.closest("[hidden]")); if (!b) return null; const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, n: p.querySelectorAll("button, [role=button], .vg-row").length }; })()`);
-          pr.rows = first ? first.n : 0;
-          if (first) { const before = await tab.ev(`JSON.stringify([window.vaultGraph.viewport().selected, !!document.querySelector(".vg-inspector:not([hidden])"), document.querySelector(".vg-lens:not([hidden])") ? 1 : 0, document.querySelector(".vg-side").innerHTML.length])`);
+          const first = await tab.ev(`(() => { const p = document.querySelector('.vg-panel[data-panel="${name}"]'); const b = p && [...p.querySelectorAll("button, [role=button], .vg-row")].find(e => e.getBoundingClientRect().height > 0 && !e.closest("[hidden]") && !e.matches('[data-stat="all"]')); /* "fit the whole graph" only moves the camera, which the DOM does not show */ if (!b) return null; const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, what: b.outerHTML.slice(0, 110), n: p.querySelectorAll("button, [role=button], .vg-row").length }; })()`);
+          pr.rows = first ? first.n : 0; pr.what = first && first.what;
+          if (first) {
+            const before = await tab.ev(`JSON.stringify([window.vaultGraph.viewport().selected, window.vaultGraph.viewport().cam, !!document.querySelector(".vg-inspector:not([hidden])"), document.querySelector(".vg-lens:not([hidden])") ? 1 : 0, document.querySelector(".vg-side").innerHTML.length, (document.querySelector(".vg-tab[aria-selected=true]") || {}).textContent])`);
             for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) await tab.send("Input.dispatchMouseEvent", { type, x: first.x, y: first.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 });
-            await sleep(500); const after = await tab.ev(`JSON.stringify([window.vaultGraph.viewport().selected, !!document.querySelector(".vg-inspector:not([hidden])"), document.querySelector(".vg-lens:not([hidden])") ? 1 : 0, document.querySelector(".vg-side").innerHTML.length])`);
+            await sleep(500); const after = await tab.ev(`JSON.stringify([window.vaultGraph.viewport().selected, window.vaultGraph.viewport().cam, !!document.querySelector(".vg-inspector:not([hidden])"), document.querySelector(".vg-lens:not([hidden])") ? 1 : 0, document.querySelector(".vg-side").innerHTML.length, (document.querySelector(".vg-tab[aria-selected=true]") || {}).textContent])`);
             pr.acts = before !== after; await esc(); await esc(); }
         } catch (e) { pr.err = String(e.message || e).slice(0, 80); }
         const sp = pr.probe; if (sp) { if (sp.noName.length || sp.small.length) note("panels", pr.name, "named: " + [...sp.noName.map(n => "no name " + n), ...sp.small.map(n => "small " + n)].slice(0, 4).join(", ")); if (sp.out.length || sp.over.length) note("panels", pr.name, "fits: " + [...sp.out, ...sp.over].slice(0, 4).join(", ")); if (!sp.empties.every(e => e.next)) note("panels", pr.name, "dead end: " + sp.empties.filter(e => !e.next).map(e => e.text).join(", ")); if (sp.text.length) note("panels", pr.name, "wording: " + sp.text.join(", ")); }
-        if (pr.rows === 0) note("panels", pr.name, "nothing to click"); else if (pr.acts === false) note("panels", pr.name, "its first row does nothing");
-        menuRows.push({ name: pr.name, opens: pr.rows > 0, items: pr.rows, closes: pr.acts !== false, panel: true }); console.log(`  ${pr.name}: ${pr.rows} controls, first one ${pr.acts === null ? "–" : pr.acts ? "acts" : "does nothing"}`);
+        if (pr.rows === 0) note("panels", pr.name, "nothing to click"); else if (pr.acts === false) note("panels", pr.name, "its first row does nothing: " + pr.what);
+        menuRows.push({ name: pr.name, opens: pr.rows > 0, items: pr.rows, closes: pr.acts !== false, panel: true }); console.log(`  ${pr.name}: ${pr.rows} controls, first one ${pr.acts === null ? "–" + (pr.err ? " (" + pr.err + ")" : "") : pr.acts ? "acts" : "does nothing"}`);
       }
     }
   } finally { if (tab) await tab.close(); }
