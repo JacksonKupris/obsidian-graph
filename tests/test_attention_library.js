@@ -20,6 +20,10 @@ const legend = `[...document.querySelectorAll(".vg-lib .vgv-mark")].length`;
       const n = await tab.ev(rings);
       assert.ok(n > 0, view + ": flagged notes must be ringed by the library (saw " + n + " of " + flagged + " flagged)");
       assert.strictEqual(await tab.ev(legend), 1, view + ": one legend item explains the ring");
+      // each ring sits on its note in the real layout (the overlay sits below the toolbar): the library's own pick at its centre names a flagged note
+      const off = await tab.ev(`(() => { const flagged = new Set(window.vaultGraph._debug.attention().map(x => x.id)), h = window.vaultGraph._debug.scenes()[${JSON.stringify(view)}].api.handle(); let off = 0, n = 0;
+        for (const e of document.querySelectorAll(".vg-lib .vgv-labels > div")) { if (e.style.display === "none" || !e.style.width) continue; const r = e.getBoundingClientRect(), k = h.keyAt(r.left + r.width / 2, r.top + r.height / 2); n++; if (!(k && flagged.has(k.id))) off++; } return { n, off }; })()`);
+      assert.ok(off.off <= Math.ceil(off.n * 0.1), view + ": rings must sit on their notes (" + off.off + " of " + off.n + " are off)");
       seen.push(view + " " + n);
     }
     await tab.ev(`(() => { const cb = document.querySelector(".vg-l-attention"); cb.checked = false; cb.dispatchEvent(new Event("change", { bubbles: true })); })()`); await sleep(900);
