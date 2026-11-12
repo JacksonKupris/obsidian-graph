@@ -156,6 +156,11 @@
   ignoreEdit(path) {
     return [VGRules.folders.scripts + "/", VGRules.folders.reports + "/", ".obsidian/", ".trash/"].some(p => path.startsWith(p));
   }
+  // The notes that count toward the analysis; the run records it (data.built.files) so a later pause can tell that notes came or went.
+  noteCount() { return this.app.vault.getMarkdownFiles().filter(f => !this.ignoreEdit(f.path)).length; }
+  async notesChangedSinceData() {
+    try { const d = await this.readJson(normalizePath(this.settings.dataPath)); return !!(d && d.built && typeof d.built.files === "number" && d.built.files !== this.noteCount()); } catch (e) { return false; }
+  }
   async editsSinceData() {
     let since = 0;
     try { since = (await this.app.vault.adapter.stat(normalizePath(this.settings.dataPath))).mtime; } catch (e) { return 0; }
@@ -173,7 +178,9 @@
     this.autoTimer = setTimeout(async () => {
       if (this.refreshing) { this.scheduleAutoRefresh(); return; }
       if (!(await this.editsSinceData())) return;
-      let wait = 0; try { wait = (await this.app.vault.adapter.stat(normalizePath(this.settings.dataPath))).mtime + ANALYSE_EVERY_MS - Date.now(); } catch (e) { /* no data file yet: run now */ }
+      // new or removed notes (a generated hub, a move) change the graph's shape: they wait only the short interval, not the Sync-storage one
+      const every = (await this.notesChangedSinceData()) ? ANALYSE_NEW_NOTES_MS : ANALYSE_EVERY_MS;
+      let wait = 0; try { wait = (await this.app.vault.adapter.stat(normalizePath(this.settings.dataPath))).mtime + every - Date.now(); } catch (e) { /* no data file yet: run now */ }
       if (wait > 0) this.scheduleAutoRefresh(Math.ceil(wait / 1000)); else this.refresh(true);
     }, (delaySeconds ?? ANALYSE_AFTER_IDLE) * 1000);
   }

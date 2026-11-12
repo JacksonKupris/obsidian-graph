@@ -35,6 +35,8 @@ const ANALYSE_AFTER_IDLE = 30;
 // and no more often than this. Each run rewrites about 1 MB that Sync keeps a version of, and Sync's limit counts those versions:
 // a run after every pause in editing filled 1 GB. The time comes from the synced file, so every PC shares it.
 const ANALYSE_EVERY_MS = 3 * 3600 * 1000;
+// unless notes were added or removed since the last run: then this soon
+const ANALYSE_NEW_NOTES_MS = 10 * 60 * 1000;
 
 // Obsidian mobile's floating navigation bar sits over the bottom of the view: tell the renderer how much
 // to lift its bottom controls (dock, toasts, sheets) so nothing hides behind it.
