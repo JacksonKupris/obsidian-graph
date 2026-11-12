@@ -97,7 +97,7 @@
     const cur = VGEngine.snapshotOf(data), list = ((await A.list(snaps)).files || []).map(f => VGShared.baseOf(f)).filter(f => f.endsWith(".json")).map(f => f.slice(0, -5)).sort(), earlier = list.filter(d => d < data.date).pop();
     await A.write(`${snaps}/${data.date}.json`, JSON.stringify(cur));
     data.snapshots = [...new Set([...list, data.date])].sort(); data.changes = VGEngine.changesFrom(cur, earlier ? await readJson(`${snaps}/${earlier}.json`) : null, data.links);
-    data.built = { host, newest: Math.round(newest * 1000) / 1000 };
+    data.built = { host, newest: Math.round(newest * 1000) / 1000, files: this.noteCount() };
     if (old && old.built && old.built.host && old.built.host !== host && (old.built.newest || 0) > data.built.newest) return old.built.host;
     const text = JSON.stringify(data); let before = null; try { before = await A.read(file); } catch (e) { /* first run */ }
     if (before !== text) await A.write(file, text);
