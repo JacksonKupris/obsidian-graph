@@ -67,7 +67,7 @@
       return x ? { text: `Keystone at risk: ${x.n.name} · ${x.deps} notes depend on it, unchanged for ${x.n.age} days (${ks.length} like it)`, label: "Review", run: () => { reveal(x.n.id); } } : null; } });
   // A view from the graphs library draws on its own canvas laid over this one (src/scenes/library.js is its host side). The
   // state and the way out are here, in the renderer's scope, so drawView can put it away when any other view is drawn.
-  const LIBV = { host: null, key: null, handle: null, selected: undefined, size: "" };
+  const LIBV = { host: null, key: null, handle: null, selected: undefined, size: "", marked: undefined };
   function libHide() {
     if (!LIBV.host || LIBV.host.hidden) return;
     LIBV.host.hidden = true; cv.style.visibility = ""; LIBV.key = null;   // the library's canvas stays mounted: the next visit starts where this one stopped
