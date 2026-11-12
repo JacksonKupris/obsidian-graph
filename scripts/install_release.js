@@ -87,7 +87,7 @@ async function install(version, vaultDir) {
   return { ok: true, version: man.version, lines };
 }
 
-module.exports = { install, vaultOf };
+module.exports = { install, vaultOf, obsidianEval };
 
 if (require.main === module) {
   const a = process.argv.slice(2), at = a.indexOf("--vault"), dir = at >= 0 ? a[at + 1] : undefined;
