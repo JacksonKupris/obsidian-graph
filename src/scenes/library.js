@@ -38,7 +38,7 @@
   }
 
   scene("cas9-lib", {
-    name: "Cas9 (library)", icon: "cas9", hidden: true, lib: true, hint: SCENES.cas9.hint,
+    name: "Cas9 (library)", icon: "cas9", hidden: true, lib: true, hint: SCENES.cas9.hint, legend: SCENES.cas9.legend,
     layout: () => ({ pos: new Map(), bounds: [] }),
     draw: () => {
       libDraw("cas9-lib", "cas9", () => { LIBV.scanned = guideNow.result; return { scan: scanForViews(guideNow.result) }; });
@@ -48,7 +48,7 @@
   });
 
   scene("genome-lib", {
-    name: "Genome fold (library)", icon: "genome", hidden: true, lib: true, hint: SCENES.genome.hint,
+    name: "Genome fold (library)", icon: "genome", hidden: true, lib: true, hint: SCENES.genome.hint, legend: SCENES.genome.legend,
     layout: () => ({ pos: new Map(), bounds: [], fold: VGScience.foldForViews(VGScience.genomeFold((DATA.strand || { rows: [] }).rows)) }),   // the fold is worked out here, once
     draw: () => libDraw("genome-lib", "genome", () => ({ fold: mapCache["genome-lib"].fold })),
     today: libToday, api: libApi(),
