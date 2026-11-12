@@ -578,6 +578,7 @@
   const LAYOUT_KEYS = new Set(["x", "y", "z", "vx", "vy", "vz", "fx", "fy", "bx", "by", "bz", "z0"]);
   function applyLive(D) {
     if (destroyed || !D || !D.nodes) return false;
+    attnCache = null;
     const fresh = new Map(D.nodes.map(n => [n.id, n]));
     if (fresh.size !== DATA.nodes.length || DATA.nodes.some(n => !fresh.has(n.id))) return false;
     // what a patch can't express -- a wanted note written (its placeholder goes), a new map -- remounts from the new state

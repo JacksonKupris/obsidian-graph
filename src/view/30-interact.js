@@ -556,7 +556,7 @@
   function renderLegend() {
     if (mapView()) {
       const item = (sw, t) => `<span class="vg-lg-item">${sw}${t}</span>`;
-      $(".vg-legend").innerHTML = SCENES[st.view].legend ? SCENES[st.view].legend(item) : "";
+      $(".vg-legend").innerHTML = (SCENES[st.view].legend ? SCENES[st.view].legend(item) : "") + (SCENES[st.view].lib ? "" : attentionLegend());
       return;
     }
     const sizeWord = { bc: "routes through it", recent: "daily mentions" }[st.sizeBy];
@@ -569,8 +569,10 @@
       (st.gaps ? `<span class="vg-lg-item"><i class="vg-lg-line is-gap"></i>co-mentioned</span><span class="vg-lg-item"><i class="vg-lg-line is-sim"></i>similar</span>` : "") +
       (st.layers.mocs && mocs.length ? `<span class="vg-lg-item"><i class="vg-lg-hex"></i>map</span>` : "") +
       (st.layers.people ? `<span class="vg-lg-item"><i class="vg-lg-diamond"></i>person</span>` : "") +
-      (st.layers.wanted ? `<span class="vg-lg-item"><i class="vg-lg-ghost"></i>not written</span>` : "");
+      (st.layers.wanted ? `<span class="vg-lg-item"><i class="vg-lg-ghost"></i>not written</span>` : "") + attentionLegend();
   }
+  // the ring drawAttention puts on notes with a problem to fix, explained the same way in every view
+  const attentionLegend = () => st.layers.attention && attentionOf().size ? `<span class="vg-lg-item" title="Notes with a problem to fix: no links in or out, a broken link, not on its topic's map, stale, or named but never linked"><i class="vg-lg-attn"></i>needs attention</span>` : "";
   // A scene's own counts (alchemy's reactions, radar's tasks) go in the status pill like every other view's,
   // instead of text painted on the canvas where the banner or legend can cover it
   let sceneStat = { view: null, text: "" };

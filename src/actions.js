@@ -88,6 +88,8 @@ const VGActions = (() => {
   ];
   const BY_KEY = Object.fromEntries(ACTIONS.map(a => [a.key, a]));
 
+  // minor: true marks a problem that is only a gap to fill (no references, a short note). The note is not flagged across the
+  // views for it alone: attention() leaves those out, the inspector still lists them.
   // What a note needs, each paired with the action that fixes it, so a surface shows the problem and its fix together
   // (the inspector's "Needs attention"). test(n, c): the problem is there, whatever this surface can do about it;
   // text(n, c): the problem as a fact; fix: an ACTIONS key, offered when that action can run here.
@@ -99,15 +101,18 @@ const VGActions = (() => {
       text: (n, c) => { const hit = ((c.data || {}).said_unlinked || []).find(([id]) => id === n.id); return `Named in ${plural(hit[1], "daily note")}, never linked`; } },
     { key: "orphan", fix: "link", test: n => n.inlinks === 0, text: () => "Nothing links here" },
     { key: "deadend", fix: "link", test: n => n.outlinks === 0, text: () => "Links to no other note" },
-    { key: "refs", fix: "reference", test: n => n.refs === false, text: () => "No references" },
+    { key: "refs", minor: true, fix: "reference", test: n => n.refs === false, text: () => "No references" },
     { key: "broken", fix: "open", test: n => n.broken > 0, text: n => plural(n.broken, "broken link") },
-    { key: "stub", fix: "open", test: (n, c) => n.words != null && n.words < (((c.data || {}).quality || {}).stub_words || 0), text: n => `${plural(n.words, "word")} so far` },
+    { key: "stub", minor: true, fix: "open", test: (n, c) => n.words != null && n.words < (((c.data || {}).quality || {}).stub_words || 0), text: n => `${plural(n.words, "word")} so far` },
   ];
   // [{ key, text, fix: action | null }] for a note, in PROBLEMS order (maps, people and unwritten notes have none)
   function problems(n, c) {
     if (!n || n.ghost || n.person || n.moc) return [];
-    return PROBLEMS.filter(p => p.test(n, c)).map(p => ({ key: p.key, text: p.text(n, c), fix: BY_KEY[p.fix].when(n, c) ? BY_KEY[p.fix] : null }));
+    return PROBLEMS.filter(p => p.test(n, c)).map(p => ({ key: p.key, minor: !!p.minor, text: p.text(n, c), fix: BY_KEY[p.fix].when(n, c) ? BY_KEY[p.fix] : null }));
   }
+
+  // The problems that make a note stand out in every view: all but the minor ones.
+  const attention = (n, c) => problems(n, c).filter(p => !p.minor);
 
   // The actions this note offers on this surface: the shared ones, then the surface's own (c.extra), in group order.
   // o.skip: groups to leave out (the inspector shows the "fix" ones beside their problems instead)
@@ -283,5 +288,5 @@ const VGActions = (() => {
     return box;
   }
 
-  return { ACTIONS, PROBLEMS, forNote, problems, run, render, archiveFolder, isArchived, nameOf, TODAY, todayWhen, todayLabel, runToday, TODAY_MORE, todayMore, runMore, runBatch, runMove, runRow };
+  return { ACTIONS, PROBLEMS, forNote, problems, attention, run, render, archiveFolder, isArchived, nameOf, TODAY, todayWhen, todayLabel, runToday, TODAY_MORE, todayMore, runMore, runBatch, runMove, runRow };
 })();
