@@ -5,7 +5,7 @@
 const assert = require("assert");
 const { sleep, openPage } = require("./kit");
 const env = require("./env");
-const rings = `[...document.querySelectorAll(".vg-lib .vgv-labels > div")].filter(e => e.style.display !== "none" && e.style.width).length`;
+const rings = `[...document.querySelectorAll(".vg-lib .vgv-rings > div")].filter(e => e.style.display !== "none" && e.style.width).length`;
 const legend = `[...document.querySelectorAll(".vg-lib .vgv-mark")].length`;
 (async () => {
   const tab = await openPage({ html: env.pageWith("", env.data()) });
@@ -22,7 +22,7 @@ const legend = `[...document.querySelectorAll(".vg-lib .vgv-mark")].length`;
       assert.strictEqual(await tab.ev(legend), 1, view + ": one legend item explains the ring");
       // each ring sits on its note in the real layout (the overlay sits below the toolbar): the library's own pick at its centre names a flagged note
       const off = await tab.ev(`(() => { const flagged = new Set(window.vaultGraph._debug.attention().map(x => x.id)), h = window.vaultGraph._debug.scenes()[${JSON.stringify(view)}].api.handle(); let off = 0, n = 0;
-        for (const e of document.querySelectorAll(".vg-lib .vgv-labels > div")) { if (e.style.display === "none" || !e.style.width) continue; const r = e.getBoundingClientRect(), k = h.keyAt(r.left + r.width / 2, r.top + r.height / 2); n++; if (!(k && flagged.has(k.id))) off++; } return { n, off }; })()`);
+        for (const e of document.querySelectorAll(".vg-lib .vgv-rings > div")) { if (e.style.display === "none" || !e.style.width) continue; const r = e.getBoundingClientRect(), k = h.keyAt(r.left + r.width / 2, r.top + r.height / 2); n++; if (!(k && flagged.has(k.id))) off++; } return { n, off }; })()`);
       assert.ok(off.off <= Math.ceil(off.n * 0.1), view + ": rings must sit on their notes (" + off.off + " of " + off.n + " are off)");
       seen.push(view + " " + n);
     }
