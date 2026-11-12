@@ -57,6 +57,15 @@
     today: libToday, api: libApi(),
   });
 
+  // The library's Cyberpunk beside the plugin's own 2D one, hidden until it has been looked at in Obsidian and on a phone;
+  // then "cyberpunk" takes this draw and the old file goes.
+  scene("cyberpunk-lib", {
+    name: "Cyberpunk (library)", icon: "cyberpunk", hidden: true, lib: true, hint: SCENES.cyberpunk.hint, legend: SCENES.cyberpunk.legend,
+    layout: () => ({ pos: new Map(), bounds: [] }),
+    draw: () => libDraw("cyberpunk-lib", "cyberpunk", () => ({})),
+    today: libToday, api: libApi(),
+  });
+
   // Light cones: a view that lives only in the library, so it is in the menu under its own name.
   scene("cones", {
     name: "Light cones", icon: "clock", menu: "see", space: true, lib: true, hint: "What a note rested on and what it touched, with time upward",
