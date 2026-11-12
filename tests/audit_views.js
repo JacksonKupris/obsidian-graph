@@ -72,6 +72,7 @@ const PROBE = probeOf(".vg-root");
       const row = { view: v.key, name: v.name, hidden: v.hidden, explains: false, named: false, fits: false, next: true, back: null, plain: false, silent: false, detail: {} };
       try {
         await tab.ev(`window.__errs = []`); await tab.ev(`${D}.openView(${JSON.stringify(v.key)})`); await sleep(v.key.endsWith("-lib") ? 1900 : 900); await calm();
+        for (let i = 0; i < 40 && await tab.ev(`!![...document.querySelectorAll(".vg-lens-body .vg-empty")].find(e => /^Loading…/.test(e.textContent))`); i++) await sleep(250);   // a lens that loads asynchronously is measured once it has loaded
         const s = await tab.ev(PROBE);
         row.explains = !!(v.hint && v.hint.length > 8) && !!(s.legend || s.sub || s.lensOpen);
         if (!v.hint) row.detail.explains = "no hint in the registry"; else if (!(s.legend || s.sub || s.lensOpen)) row.detail.explains = "no legend or sub-title on screen";
