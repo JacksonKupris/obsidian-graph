@@ -17,7 +17,9 @@ if (VAULT && !fs.existsSync(VAULT)) { console.log(`FAIL - no vault at ${VAULT} (
 const RULES_FILE = VAULT ? path.resolve(VAULT, localConfig().rules || "_scripts/vault_graph_rules.json") : path.join(ROOT, "config", "rules.json");
 const rules = build.loadRules(RULES_FILE);
 
-const data = () => JSON.parse(fs.readFileSync(VAULT ? path.join(VAULT, rules.files.data) : path.join(SAMPLE, "sample-graph.json"), "utf8"));
+const readData = () => JSON.parse(fs.readFileSync(VAULT ? path.join(VAULT, rules.files.data) : path.join(SAMPLE, "sample-graph.json"), "utf8"));
+// the sample's graph data is made with the sample vault (dir() below), so anything asking for it first makes sure it is there
+const data = () => { if (!VAULT) module.exports.dir(); return readData(); };
 const page = () => build.buildPage(data(), rules);
 // the page with extra mount options (`mobile: true,`, a recall stub...) put where it mounts the graph. A page that
 // no longer mounts it that way throws, so a test can't quietly run without its options.
@@ -43,7 +45,7 @@ function dir() {
   const stale = () => !fs.existsSync(generated) || fs.readFileSync(generated, "utf8").trim() !== day
     || !fs.existsSync(path.join(SAMPLE, "sample-graph.json"))
     || fs.statSync(d).mtimeMs < fs.statSync(path.join(SAMPLE, "sample-graph.json")).mtimeMs
-    || data().nodes.some(n => !n.ghost && !n.person && !fs.existsSync(path.join(d, n.id)));
+    || readData().nodes.some(n => !n.ghost && !n.person && !fs.existsSync(path.join(d, n.id)));
   if (!fs.existsSync(d) || stale()) require("child_process").execFileSync(process.execPath, [path.join(SAMPLE, "make_sample.js"), "--analyse"], { stdio: "ignore" });   // the graph data is made with the vault, on the same day: a committed copy aged, and which weekday it was made on changed which pairs the analysis found
   return d;
 }
