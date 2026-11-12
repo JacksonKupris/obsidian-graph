@@ -9,6 +9,8 @@
     "test": "node tests/run.js",
     "test:vault": "node tests/run.js --vault",
     "deploy": "node scripts/deploy.js",
+    "audit:nodes": "node tests/audit_nodes.js --per 3 --gate",
+    "audit:nodes:vault": "node tests/audit_nodes.js --vault --per 3 --gate --out .out/node-audit-real.md",
     "release": "node scripts/release.js",
     "sample": "node fixtures/make_sample.js",
     "install-release": "node scripts/install_release.js",

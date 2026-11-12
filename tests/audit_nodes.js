@@ -120,5 +120,20 @@ const IN = {
   const missing = rows.filter(r => r.missing.length).map(r => `${r.view}: ${r.missing.slice(0, 6).join(", ")}`);
   if (missing.length) lines.push("", "Actions the plain view's detail has that these lack:", ...missing.map(m => `- ${m}`));
   fs.mkdirSync(path.dirname(OUT), { recursive: true }); fs.writeFileSync(OUT, lines.join("\n") + "\n");
+  // the machine-readable twin and the diff against the last run: nothing newly failing means one line to read, so a
+  // scheduled run costs nothing; a regression is written to <out>.diff.md for whoever (or whatever) picks it up
+  const KEYS = ["select", "actions", "next", "back", "silent"], JSON_OUT = OUT.replace(/\.md$/, ".json"), DIFF = OUT.replace(/\.md$/, ".diff.md");
+  const prev = fs.existsSync(JSON_OUT) ? JSON.parse(fs.readFileSync(JSON_OUT, "utf8")) : null;
+  const now = Object.fromEntries(rows.map(r => [r.view, { total: r.total, err: r.err || null, ...Object.fromEntries(KEYS.map(k => [k, r.tried ? r[k] / r.tried : null])) }]));
+  const worse = [], better = [];
+  if (prev) for (const [v, n] of Object.entries(now)) for (const k of KEYS) {
+    const o = prev.views[v] && prev.views[v][k]; if (o == null || n[k] == null || Math.abs(n[k] - o) < 1e-9) continue;
+    (n[k] < o ? worse : better).push(`${v} ${k}: ${Math.round(o * 100)}% -> ${Math.round(n[k] * 100)}%`);
+  }
+  fs.writeFileSync(JSON_OUT, JSON.stringify({ date: new Date().toISOString(), vault: env.VAULT, views: now }, null, 1));
+  if (worse.length) fs.writeFileSync(DIFF, `# Node audit: newly failing\n\n${worse.map(w => "- " + w).join("\n")}\n\nFixed since the last run:\n${better.map(w => "- " + w).join("\n") || "- none"}\n\nFull report: ${OUT}\n`);
+  else if (fs.existsSync(DIFF)) fs.unlinkSync(DIFF);
+  console.log(prev ? `Since the last run: ${worse.length} worse, ${better.length} better` : "First run: nothing to compare with");
+  if (process.argv.includes("--gate") && worse.length) { console.log(`FAIL - ${worse.length} checks got worse; see ${DIFF}`); process.exitCode = 1; }
   console.log(`\nWrote ${OUT}: ${found.size} kinds of finding across ${rows.length} views`);
 })().catch(e => { console.error(e); process.exit(1); });
