@@ -17,12 +17,15 @@
       if (!LIBV.handle) {
         LIBV.host.innerHTML = "";
         LIBV.handle = VaultGraphViews.mountViews(LIBV.host, { view: libView, data: DATA, inputs: inputs(), onOpen: libOpen, onAction: a => (LIB_ACTIONS[a] || (() => {}))(), theme: libTheme() });
-        LIBV.selected = undefined; LIBV.size = "";
+        LIBV.selected = undefined; LIBV.size = ""; LIBV.marked = undefined;
       }
       LIBV.key = key; LIBV.host.hidden = false;
     }
     cv.style.visibility = "hidden";   // the plugin's canvas has nothing to show under the library's
     const size = W + "x" + H; if (size !== LIBV.size) { LIBV.size = size; LIBV.handle.resize(); }
+    // the same rings as the plugin's own views (drawAttention), drawn by the library over its notes; attentionOf() is a new Map whenever the notes change
+    const want = st.layers.attention ? attentionOf() : null;
+    if (want !== LIBV.marked) { LIBV.marked = want; LIBV.handle.mark(want, "needs attention"); }
     if (st.selected !== LIBV.selected) { LIBV.selected = st.selected; LIBV.handle.update({ selected: st.selected || null }); }
     setSceneStat(LIBV.handle.stat());
   }
