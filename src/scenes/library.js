@@ -7,7 +7,7 @@
   const libTheme = () => ({ bg: css("--vg-bg") || undefined, fg: css("--vg-fg") || undefined, muted: css("--vg-muted") || undefined, accent: css("--vg-accent") || undefined, palette: PALETTE });
   // a note the library names: the shared detail when it is in the graph, the note itself otherwise (a journal day)
   const libOpen = id => { if (byId[id]) select(id); else if (opts.openNote) opts.openNote(id, false); };
-  const LIB_ACTIONS = { graph: () => setView("2d"), "guide-scan": () => openLens("guide") };
+  const LIB_ACTIONS = { graph: () => setView("2d"), "guide-scan": () => openLens("guide"), triage: () => startTriage() };
   // Mount the library's view for `key` (once, and again when the data it was built from changed), show it, keep it level
   // with the pane and with the selection, and put its stat line in the status. inputs() is what the view takes beyond the data.
   function libDraw(key, libView, inputs) {
@@ -63,6 +63,15 @@
     name: "Cyberpunk (library)", icon: "cyberpunk", hidden: true, lib: true, hint: SCENES.cyberpunk.hint, legend: SCENES.cyberpunk.legend,
     layout: () => ({ pos: new Map(), bounds: [] }),
     draw: () => libDraw("cyberpunk-lib", "cyberpunk", () => ({})),
+    today: libToday, api: libApi(),
+  });
+
+  // The library's Radar (its first flat view) beside the plugin's own, hidden until it has been looked at in Obsidian and on a phone;
+  // then "radar" takes this draw and the old copy goes. The notes carry taskAge already (rules.js).
+  scene("radar-lib", {
+    name: "Radar (library)", icon: "radar", hidden: true, lib: true, hint: SCENES.radar.hint, legend: SCENES.radar.legend,
+    layout: () => ({ pos: new Map(), bounds: [] }),
+    draw: () => libDraw("radar-lib", "radar", () => ({})),
     today: libToday, api: libApi(),
   });
 
