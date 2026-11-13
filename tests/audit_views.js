@@ -67,6 +67,9 @@ const PROBE = probeOf(".vg-root");
     await tab.ev(`window.__errs = []; addEventListener("error", e => __errs.push(String(e.message)))`);
     const D = "window.vaultGraph._debug", calm = async () => { await tab.ev(`document.querySelectorAll('.vg-tour, .vg-tour-card').forEach(x => x.remove()); ${D}.drawNow && ${D}.drawNow()`); await sleep(80); };
     const esc = async () => { await tab.ev(`(() => { const t = document.querySelector(".vg-lens:not([hidden]) .vg-lens-close") || document.querySelector(".vg-root button"); if (t) t.focus(); })()`); for (const type of ["keyDown", "keyUp"]) await tab.send("Input.dispatchKeyEvent", { type, key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 }); await sleep(250); await calm(); };
+    // the first-run tour starts 1.8 s after the graph opens and takes the first Escape (it sits over everything), so a view that happened to be open then looked as if Escape did not close it: end the tour first
+    for (let i = 0; i < 20 && !await tab.ev(`!!document.querySelector(".vg-tour")`); i++) await sleep(250);
+    await esc();
     const views = (await tab.ev(`${D}.allViews()`)).filter(v => !ONLY || v.key === ONLY);
 
     for (const v of views) {
@@ -82,7 +85,7 @@ const PROBE = probeOf(".vg-root");
         row.next = s.empties.every(e => e.next); if (!row.next) row.detail.next = s.empties.filter(e => !e.next).map(e => `"${e.text}"`).join("; ");
         row.plain = !s.text.length; if (!row.plain) row.detail.plain = s.text.join("; ");
         row.silent = s.errs === 0; if (!row.silent) row.detail.silent = "page error";
-        if (s.lensOpen) { await esc(); const after = await tab.ev(PROBE); row.back = !after.lensOpen; if (!row.back) row.detail.back = "the report stayed open"; }
+        if (s.lensOpen) { await esc(); const after = await tab.ev(PROBE); row.back = !after.lensOpen; if (!row.back) row.detail.back = "the report stayed open" + await tab.ev(`(() => { const a = document.activeElement, v = q => { const e = document.querySelector(q); return e && !e.hidden ? q : ""; }; return "; focus on " + (a ? a.tagName + "." + String(a.className).slice(0, 30) : "nothing") + ", layers open: " + [v(".vg-palette"), v(".vg-picker"), v(".vg-toolsmenu"), v(".vg-tour"), v("[class*=tour]"), v(".vg-lens")].filter(Boolean).join(" ") })()`); }
       } catch (e) { row.err = String(e.message || e).slice(0, 100); row.silent = false; row.detail.silent = row.err; }
       for (const k of ["explains", "named", "fits", "next", "plain", "silent"]) if (row[k] === false) { const items = String(row.detail[k] || "").split("; ").filter(Boolean); if (items.length) items.forEach(x => note(k, v.key, x)); else note(k, v.key); }
       if (row.back === false) note("back", v.key, row.detail.back);
