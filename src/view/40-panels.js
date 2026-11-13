@@ -606,6 +606,8 @@
     (D.mocs || []).forEach(m => { const mine = mocs.find(x => x.id === m.id); if (mine) { mine.members = m.members; mine.missing = m.missing; } });
     countLeaves();
     DATA.live = D.live; healthCache.clear();
+    if (D.journalHistory) { DATA.journalHistory = D.journalHistory; survivalLives = null; }   // a page built outside Obsidian carries its journals: the lenses read the new ones
+    if (D.hq) DATA.hq = D.hq;
     rebuild(false);
     if (st.selected && byId[st.selected]) select(st.selected);   // its link list and suggestions are current again
     else if (st.body && isCosmos()) selectBody(st.body);

@@ -23,3 +23,7 @@ It writes `.out/phone/`. Then serve that folder over https and open the address 
 
 ## Offline
 The page and icons are kept on the phone. With no network it opens the last copy.
+
+## Live updates (the server)
+    node scripts/phone_server.js --vault <vault folder> [--port 8765] [--log <file>]
+It serves the app and watches the vault. After a change (a note saved, the graph file rewritten) it reads the vault again and tells every open app, which takes the new data in place; it reloads only when notes were added or removed. A note caught half-written keeps the last good data. The app's errors and opens are written to `--log`. Use it instead of the build command and `phone_preview.py`; expose it with `tailscale serve --bg --https=443 http://127.0.0.1:8765`. Without the server (plain files) the app shows the data it was built with.
