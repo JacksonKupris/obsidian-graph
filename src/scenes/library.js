@@ -27,7 +27,7 @@
       if (LIBV.handle && LIBV.handle.view !== libView) libDrop();
       if (!LIBV.handle) {
         LIBV.host.innerHTML = "";
-        LIBV.handle = VaultGraphViews.mountViews(LIBV.host, { view: libView, data: DATA, inputs: inputs(), onOpen: libOpen, onAction: (a, d) => (LIB_ACTIONS[a] || (() => {}))(d), theme: libTheme() });
+        LIBV.handle = VaultGraphViews.mountViews(LIBV.host, { view: libView, data: VGRules.libraryData(DATA), inputs: inputs(), onOpen: libOpen, onAction: (a, d) => (LIB_ACTIONS[a] || (() => {}))(d), theme: libTheme() });
         LIBV.selected = undefined; LIBV.size = ""; LIBV.marked = undefined;
       }
       LIBV.key = key; LIBV.host.hidden = false;

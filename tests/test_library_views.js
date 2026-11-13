@@ -142,6 +142,10 @@ const env = require("./env");
     ok(await tab.ev(`!!${D}.scenes().slime && ${D}.views().includes("slime") && !${D}.scenes().slime.hidden`), "Slime mould is a view in the menu");
     await tab.ev(`${D}.setView("slime")`); await sleep(1900); await calm();
     const mould = `${D}.scenes().slime.api`;
+    // the library is given every hub note, also one that owns no topic and so is not a node of the main graph
+    if (!env.VAULT) { const BUGS = "02-Projects/Rental App/Rental App Bugs Hub.md", fed = await tab.ev(`${mould}.handle().api.hubs()`);
+      ok(fed.includes(BUGS), `Slime mould is fed at the hub the main graph leaves out (${fed.map(h => h.split("/").pop())})`);
+      ok(!data.nodes.some(n => n.id === BUGS), "that hub is not a node of the main graph"); }
     const tubes = await tab.ev(`(${mould}.handle().api.setStep(${mould}.handle().api.steps()), ${mould}.handle().api.links())`);
     ok(tubes >= 9, `the library finds tubes in the plugin's linked notes (${tubes})`);
     const sstat = await tab.ev(`${mould}.handle().stat()`);
@@ -157,6 +161,8 @@ const env = require("./env");
 
     // Slime mould Simulate: Decline is remembered and writes nothing; Add link goes through the shared link action (confirmation, then one write)
     const press = text => tab.ev(`(() => { const b = [...document.querySelectorAll(".vg-lib button")].find(x => x.textContent.trim() === ${JSON.stringify(text)} && x.offsetParent); if (b) b.click(); return !!b; })()`);
+    // fed at hub notes, the sample's simulation finds no link worth suggesting, so the buttons are pressed on the same vault without its extra hubs
+    if (!env.VAULT) { await tab.ev(`window.vaultGraph.applyLive(structuredClone(${JSON.stringify({ ...data, hubs: [] })}))`); await tab.ev(`${D}.drawNow()`); await sleep(1900); await calm(); }
     ok(await press("Simulate"), "Slime mould has a Simulate button"); await sleep(2500);
     const firstRow = () => tab.ev(`(() => { const b = [...document.querySelectorAll(".vg-lib button")].find(x => x.textContent.trim() === "Add link" && x.offsetParent); const r = b && [...document.querySelectorAll(".vg-lib .vgv-insights > div")].find(x => x.contains(b)); return r ? r.firstChild.textContent : null; })()`);
     const beforeDecline = await firstRow();

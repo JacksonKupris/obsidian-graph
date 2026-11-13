@@ -592,6 +592,7 @@
     (D.mocs || []).forEach(m => { const mine = mocs.find(x => x.id === m.id); if (mine) { mine.members = m.members; mine.missing = m.missing; } });
     countLeaves();
     DATA.live = D.live; healthCache.clear();
+    if (D.hubs) DATA.hubs = D.hubs;   // hub notes the main graph does not draw (VGRules.libraryData): one deleted since is gone from the library's views too
     if (D.journalHistory) { DATA.journalHistory = D.journalHistory; survivalLives = null; }   // a page built outside Obsidian carries its journals: the lenses read the new ones
     if (D.hq) DATA.hq = D.hq;
     rebuild(false);

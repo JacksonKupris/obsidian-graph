@@ -139,7 +139,7 @@ function liveMerge(app, data, since) {
   // so a map never shows here and then vanishes at the next refresh. Its topic is the cluster most of its links point
   // into, and only a topic with no map yet: one map per topic.
   // a map deleted or renamed since the analysis is no map any more (renamed, it's found again below at its new path)
-  data.mocs = (data.mocs || []).filter(m => exists(m.id));
+  data.mocs = (data.mocs || []).filter(m => exists(m.id)); if (data.hubs) data.hubs = data.hubs.filter(h => exists(h.id));
   const known = new Set(data.mocs.map(m => m.id)), mapped = new Set(data.mocs.flatMap(m => m.clusters));
   const sizeOf = new Map((data.clusters || []).map(k => [k.id, k.size]));
   for (const file of vault.getMarkdownFiles()) {
@@ -151,8 +151,7 @@ function liveMerge(app, data, since) {
     mapped.add(c); const title = file.basename.replace(/ (hub|moc)$/i, ""), mem = new Set(targets);
     const missing = [...byId.values()].filter(n => n.cluster === c && !n.person && !n.moc && !mem.has(n.id)).map(n => n.id);
     data.mocs = [...(data.mocs || []), { id: file.path, title, nav: false, clusters: [c], members: targets, missing: { [c]: missing }, live: true }];
-    byId.set(file.path, { id: file.path, name: title, moc: true, cluster: c, bc: 0, folder: file.parent ? file.parent.path : "", mentions: 0, recent: 0,
-      inlinks: 0, outlinks: targets.length, broken: 0, tasks: 0, words: 0, age: 0, refs: true, isolated: false, live: true });
+    byId.set(file.path, { ...VGRules.mocNode(file.path, title, c, targets.length), live: true });
     targets.forEach(t => data.links.push({ source: file.path, target: t, w: 1, kind: "moc" }));
   }
   // the rest of what buttons change, so their warnings clear without waiting for the analysis:

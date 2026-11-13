@@ -78,6 +78,9 @@ for (const [topic, t] of Object.entries(TOPICS)) {
 note("02-Projects/Rental App/Fleet Dashboard.md", { created: ago(30), tags: ["project/rental-app"] },
   `# Fleet Dashboard\n\nPulls stock from [[Inventory Counts]] and alerts from [[Monitoring Alerts]] into one screen for [[Booking Flow]].\n\n${filler("dashboard", 4)}\n`);
 
+// a second hub of a topic that already has its map: it owns no topic, so the main graph leaves it out and the library's views get it
+note("02-Projects/Rental App/Rental App Bugs Hub.md", { created: ago(20), tags: ["meta/moc"] }, "# Rental App Bugs Hub\n\n- [[Login Timeout Bug]]\n- [[Offline Mode]]\n- [[Map Screen]]\n");
+
 // ---- people
 PEOPLE.forEach((p, i) => note(`${F.people}/${p}.md`, { tags: ["meta/people"], type: "person" },
   `# ${p}\n\n${["Mobile developer.", "Warehouse lead.", "Support lead.", "Runs the servers."][i]}\n\nWorks on [[${Object.keys(TOPICS)[i]} - Context]].\n`));

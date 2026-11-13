@@ -12,6 +12,25 @@ const PY = process.platform === "win32" ? "python" : "python3";   // Linux has n
 const R = env.rules;
 const VGRules = new Function(`${require("../build").rulesSource(R)}; return VGRules;`)();
 const { fails, check } = checks();
+// Every hub note reaches the library's views: the main graph draws one map per topic, and a hub that owns no topic is in
+// data.hubs, which libraryData turns into a map node with a link to each member. The sample vault has such a hub.
+{
+  const yes = (c, m) => check(m, !!c, true);
+  const D = env.data(), BUGS = "02-Projects/Rental App/Rental App Bugs Hub.md", ids = new Set(D.nodes.map(n => n.id));
+  if (!env.VAULT) {
+    const hub = (D.hubs || []).find(h => h.id === BUGS);
+    yes(!!hub && hub.members.length === 3 && hub.members.every(r => ids.has(r)), `the sample's second Rental App hub is kept with its three notes: ${JSON.stringify(hub)}`);
+    yes(!ids.has(BUGS) && !D.mocs.some(m => m.id === BUGS), "the main graph does not draw it: it owns no topic");
+  }
+  yes(Array.isArray(D.hubs) && D.hubs.every(h => !ids.has(h.id) && h.members.length >= 2), "data.hubs holds hub notes that are not nodes of the main graph, each with two or more notes of it");
+  const L = VGRules.libraryData(D), by = new Map(L.nodes.map(n => [n.id, n])), size = [D.nodes.length, D.links.length];
+  yes(D.hubs.length > 0 && D.hubs.every(h => by.get(h.id) && by.get(h.id).moc && h.members.every(r => L.links.some(l => l.kind === "moc" && l.source === h.id && l.target === r))), `the library's data has every hub as a map node linked to its notes (${D.hubs.length} more hubs)`);
+  yes(L.nodes.length === D.nodes.length + D.hubs.length && D.nodes.length === size[0] && D.links.length === size[1], "the main graph's own nodes and links are left as they were");
+  if (!env.VAULT) yes(by.get(BUGS).cluster === by.get("02-Projects/Rental App/Login Timeout Bug.md").cluster && by.get(BUGS).outlinks === 3, "a hub takes the topic most of its notes are in");
+  yes(VGRules.libraryData({ ...D, hubs: [] }).nodes === D.nodes, "with no other hubs the data is handed over as it is");
+  yes(VGRules.libraryData({ ...D, hubs: [{ id: "x/One Hub.md", title: "One", members: [D.nodes[0].id, "gone.md"] }] }).nodes.length === D.nodes.length, "a hub with one note left in the graph is not added");
+  yes(VGRules.libraryData({ ...D, hubs: [{ id: D.nodes[0].id, title: "Twice", members: D.nodes.slice(1, 4).map(n => n.id) }] }).nodes.length === D.nodes.length, "a hub that is already a node is not added twice");
+}
 // One next step: the Do next card shows the note the step points at, never a different one (Home said "start the standup" beside a card about something else)
 {
   const job = { key: "job|1", group: "needs", kind: "job" }, td = { key: "t1", group: "today", kind: "task" }, nd = { key: "n1", group: "needs", kind: "review" }, fo = { key: "f1", group: "today", kind: "task" }, list = [td, nd, job];
