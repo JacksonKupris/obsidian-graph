@@ -8,15 +8,16 @@
   const libOpen = id => { if (byId[id]) select(id); else if (opts.openNote) opts.openNote(id, false); };
   // Simulated links (Slime mould): Add goes through the one Link action every surface uses (confirmation, write into the staler
   // note's Related section, log, undo); Decline is only remembered, so nothing is written.
-  // Declines are kept on this device (localStorage, like the first-visit tour) and handed back as inputs.declined, so a declined link stays gone.
+  // Declines are dismissed pairs: in the plugin they go through opts.dismissPair, so they are written to the vault, follow the notes
+  // when they move and reach every device; a page with no plugin keeps them on this device (localStorage). Handed back as inputs.declined.
   const DECLINED_KEY = "vg-declined-links", declinedLinks = new Set();
   try { for (const k of JSON.parse(localStorage.getItem(DECLINED_KEY) || "[]")) declinedLinks.add(k); } catch (e) { /* none kept */ }
-  const declinedList = () => [...declinedLinks].map(k => { const [from, to] = k.split(" > "); return { from, to }; });
-  const declineLink = (from, to) => { declinedLinks.add(from + " > " + to); try { localStorage.setItem(DECLINED_KEY, JSON.stringify([...declinedLinks])); } catch (e) { /* nothing to keep it in */ } };
+  const declinedList = () => [...(opts.dismissedPairs ? opts.dismissedPairs().map(p => ({ from: p.a, to: p.b })) : []), ...[...declinedLinks].map(k => { const [from, to] = k.split(" > "); return { from, to }; })];
+  const declineLink = (from, to) => { if (opts.dismissPair) return opts.dismissPair(from, to, "slime"); declinedLinks.add(from + " > " + to); try { localStorage.setItem(DECLINED_KEY, JSON.stringify([...declinedLinks])); } catch (e) { /* nothing to keep it in */ } };
   const LIB_ACTIONS = {
     graph: () => setView("2d"), "guide-scan": () => openLens("guide"), triage: () => startTriage(),
     "add-link": d => { if (d && d.from && d.to) VGActions.runToday({ kind: "link", from: d.from, to: d.to, names: [VGShared.nameOf(d.from), VGShared.nameOf(d.to)], title: "Link " + VGShared.nameOf(d.from) + " to " + VGShared.nameOf(d.to), why: "suggested by the slime mould simulation" }, actionCtx(), null); },
-    "decline-link": d => { if (d && d.from && d.to) { declineLink(d.from, d.to); if (LIBV.handle) LIBV.handle.update({ declined: declinedList() }); } },
+    "decline-link": async d => { if (d && d.from && d.to) { await declineLink(d.from, d.to); if (LIBV.handle) LIBV.handle.update({ declined: declinedList() }); } },
   };
   // Mount the library's view for `key` (once, and again when the data it was built from changed), show it, keep it level
   // with the pane and with the selection, and put its stat line in the status. inputs() is what the view takes beyond the data.
