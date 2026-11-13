@@ -369,7 +369,7 @@
     if (G.log == null && opts.guideLog) { G.log = []; Promise.resolve(opts.guideLog()).then(l => { G.log = l || []; if (G.log.length && lensKey === "guide" && !G.busy) { read(); redraw(); } }).catch(e => failed("Reading past repairs", e)); }
     body.querySelector(".vg-guide").onsubmit = e => { e.preventDefault(); read(); G.applied = null; guideRun(redraw); };
     body.querySelectorAll("[data-guide-preset]").forEach(d => d.onclick = () => { const p = guidePresets()[+d.dataset.guidePreset]; if (!p) return; read();
-      Object.assign(G, { seq: p.seq, after: p.after || "", to: p.to || "", mismatches: p.mismatches || 0, word: p.word !== false, where: p.where && p.where.length ? [...p.where] : [...VGScience.GUIDE_DEFAULT], applied: null }); guideRun(redraw); });
+      Object.assign(G, VGScience.guideOfPreset(p), { to: p.to || "", applied: null }); guideRun(redraw); });
     body.querySelectorAll("[data-guide-show]").forEach(d => d.onclick = e => { e.stopPropagation(); if (!G.result) return;
       const ids = new Set(G.result.notes.filter(n => n[d.dataset.guideShow].length && byId[n.path]).map(n => n.path));
       if (!ids.size) { toast("None of these notes are in the graph", "warn"); return; }

@@ -294,6 +294,18 @@ class VaultGraphSuggestView extends ItemView {
       if (n.refs === false) items.push({ icon: "bookmark", title: "No references", sub: "Point it at the map or reference note that holds its links", btn: "Add reference", run: () => run("reference") });
       if (n.isolated) items.push({ icon: "unlink", title: "Not linked to any topic note", sub: "Link it to the note it belongs with", btn: "Link to…", run: () => run("link") });
     } else if (subject) items.push({ icon: "info", title: "Not in the graph yet", sub: "Link it to a topic note so the next analysis places it", btn: "Link to…", run: () => run("link") });
+    // a rules-file guide with a replacement that this note breaks: previewed here, written by the same guideApply as the lens
+    if (file && file.extension === "md") {
+      const text = await this.app.vault.cachedRead(file);
+      for (const p of (VGRules.RULES.guides || []).filter(g => g && g.seq && g.to != null)) {
+        const guide = VGScience.guideOfPreset(p), repair = { to: p.to }, cuts = VGScience.guideCuts(text, guide, repair); if (!cuts.length) continue;
+        const scope = { path: file.path }, label = p.to ? `Replace with “${p.to}”` : "Take out";
+        items.push({ icon: "wand-2", title: `“${p.seq}” ${cuts.length === 1 ? "appears once" : `appears on ${cuts.length} lines`}`, sub: `${p.why || p.name || ""}${p.why ? " · " : ""}${cuts[0].before.trim().slice(0, 70)} → ${cuts[0].after == null ? "(line removed)" : cuts[0].after.trim().slice(0, 70)}`, btn: label,
+          run: () => VGActions.run({ label: () => "The repair", title: () => file.basename,
+            run: async () => { const r = await this.plugin.guideApply({ guide, repair, scope, notes: [{ path: file.path, cuts }] }); this.render(); return r.cuts ? `Wrote ${r.cuts} ${r.cuts === 1 ? "line" : "lines"} in ${file.basename}` : "Wrote nothing: every line had changed"; },
+            undo: async () => { this.render(); } }, null, ctx) });
+      }
+    }
     const sec = (t) => el.createDiv({ cls: "vg-s-sec", text: t });
     if (items.length) {
       sec("Suggested next step");

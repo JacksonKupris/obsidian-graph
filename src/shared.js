@@ -46,9 +46,9 @@ const VGSharedMake = () => {
     stats.via = "here"; return here();
   }
   // Is a note inside a scope { folder } or { tag }: in the folder, or carrying the tag or one under it. No scope: every note.
-  const scopeOf = s => ({ folder: String((s && s.folder) || "").trim().replace(/^\/+|\/+$/g, ""), tag: String((s && s.tag) || "").trim().replace(/^#/, "").toLowerCase() });
-  const scopeHas = (scope, path, tags) => { const { folder, tag } = scopeOf(scope);
-    return (!folder || path.startsWith(folder + "/")) && (!tag || (tags || []).map(t => String(t).replace(/^#/, "").toLowerCase()).some(t => t === tag || t.startsWith(tag + "/"))); };
+  const scopeOf = s => ({ folder: String((s && s.folder) || "").trim().replace(/^\/+|\/+$/g, ""), tag: String((s && s.tag) || "").trim().replace(/^#/, "").toLowerCase(), path: String((s && s.path) || "").trim() });
+  const scopeHas = (scope, path, tags) => { const { folder, tag, path: only } = scopeOf(scope);   // path: exactly one note
+    return (!only || path === only) && (!folder || path.startsWith(folder + "/")) && (!tag || (tags || []).map(t => String(t).replace(/^#/, "").toLowerCase()).some(t => t === tag || t.startsWith(tag + "/"))); };
   return { scopeOf, scopeHas, escapeHtml, escapeRegex, baseOf, nameOf, plural, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, shortDate, canUseWorker, inWorker, offThread };
 };
 const VGShared = VGSharedMake();

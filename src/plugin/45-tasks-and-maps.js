@@ -174,7 +174,7 @@
   }
   // A repair may be written only inside a folder or a tag, so a wrong guide stays small. The rules file's
   // guide_whole_vault: true lifts that.
-  guideScoped(scope) { const S = scope || {}; return !!(String(S.folder || "").trim() || String(S.tag || "").trim() || VGRules.RULES.guide_whole_vault); }
+  guideScoped(scope) { const S = scope || {}; return !!(String(S.path || "").trim() || String(S.folder || "").trim() || String(S.tag || "").trim() || VGRules.RULES.guide_whole_vault); }
   // What a repair would write: every cut (VGScience.guideCuts) in each note of the scope. Nothing is written.
   async guidePreview(guide, repair, scope) {
     const out = { notes: [], scanned: 0, cuts: 0 };
@@ -196,7 +196,7 @@
     for (const n of notes) { let r = null; await this.ioProcess(this.fileAt(n.path), data => { r = VGScience.guideApply(data, n.cuts); return r.text; });
       cuts += r.done; left += r.left.length; done.push({ path: n.path, cuts: n.cuts, done: r.done, left: r.left }); }
     const G = run.guide || {}, S = run.scope || {}, entry = { id, date: today(), guide: { seq: G.seq, after: G.after || "", word: G.word !== false, where: G.where || [] }, to: String((run.repair || {}).to || ""),
-      scope: { folder: String(S.folder || "").trim(), tag: String(S.tag || "").trim() }, notes: done.filter(n => n.done).length, cuts, left, kept };
+      scope: { folder: String(S.folder || "").trim(), tag: String(S.tag || "").trim(), path: String(S.path || "").trim() }, notes: done.filter(n => n.done).length, cuts, left, kept };
     if (!cuts) return entry;
     entry.report = await this.writeReport(`Guide Scan ${id}`, VGScience.guideReport(entry, done));
     await this.updateShared(sh => { sh.guideLog = [...(sh.guideLog || []), entry].slice(-VGRules.GUIDE_LOG_KEEP); return sh; });
