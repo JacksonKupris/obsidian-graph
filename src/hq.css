@@ -423,7 +423,7 @@
 @container (max-width: 760px) {
   .vg-hq .vg-hq-capture { flex-wrap: wrap; } .vg-hq .vg-hq-captureinput { flex: 1 0 100%; }
   .vg-hq .vg-hq-dock { gap: 2px; max-width: calc(100% - 12px); } .vg-hq .vg-hq-dockbtn { width: 42px; } .vg-hq .vg-hq-sep { margin: 0 2px; }
-  .vg-hq .vg-hq-nextchip { order: 4; flex: 1 1 100%; max-width: none; min-height: 36px; }
+  .vg-hq .vg-hq-nextchip { order: 4; flex: 1 1 100%; max-width: none; min-height: 44px; }
   .vg-hq .vg-hq-chip small { display: none; }   /* the count is on the dock; the height is for the work */
 }
 
@@ -471,3 +471,10 @@
 .vg-hq .vg-hq-tiles .ds-card span { font-size: var(--ds-fs-sm); font-weight: 600; color: var(--hq-text); }
 .vg-hq .vg-hq-tiles .ds-card small { color: var(--hq-muted); }
 .vg-hq .vg-hq-tiles .ds-card:hover { border-color: var(--hq-accent); }
+
+/* a phone: every control is 44 px tall, one rule for every screen (the audit reads this at 390 px) */
+@container (max-width: 760px) {
+  .vg-hq button, .vg-hq [role="button"], .vg-hq [role="tab"], .vg-hq select, .vg-hq input:not([type="checkbox"]):not([type="radio"]) { min-height: 44px; }
+  .vg-hq .vg-hq-btn, .vg-hq .vg-hq-nextchip, .vg-hq .vg-hq-dockbtn { min-width: 44px; }
+}
+@container (max-width: 760px) { .vg-hq .vg-hq-person h3 .vg-hq-linkbtn { min-height: 44px; } }
