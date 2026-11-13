@@ -110,6 +110,18 @@ assert(open(null, day), "the task is listed"); assert(!open("until:2026-11-09", 
     }
     // a narrow pane: the chip has its own line and nothing runs off
     for (const [w, m] of [[390, true], [800, false]]) { await mount(); await size(w, m); await screen("today"); check(await tab.ev(`document.querySelector(".vg-hq").scrollWidth <= document.querySelector(".vg-hq").clientWidth`), `HQ at ${w} runs off the side`); check(await tab.ev(`(() => { const d = document.querySelector(".vg-hq-dock").getBoundingClientRect(); return d.left >= 0 && d.right <= innerWidth; })()`), `the dock at ${w} doesn't fit`); if (w === 390) await shot("next-phone"); }
+    // Undo and Redo in the header read the shared history: off with nothing done, on after a decision, and they move it
+    await size(1500); await screen("home");
+    const hb = () => tab.ev(`(() => { const u = document.querySelector("[data-hundo]"), r = document.querySelector("[data-hredo]"); return u && r ? { undo: !u.disabled, redo: !r.disabled, title: u.title } : null; })()`);
+    await tab.ev(`VGActions.history.reset()`); await sleep(80);
+    check(JSON.stringify(await hb()) === JSON.stringify({ undo: false, redo: false, title: "Nothing to undo" }), "the header has Undo and Redo, both off with nothing done: " + JSON.stringify(await hb()));
+    await tab.ev(`window.__h = []; VGActions.history.record({ msg: "Archived Plan", undo: async () => { window.__h.push("u"); return true; }, redo: async () => { window.__h.push("r"); return true; } })`); await sleep(80);
+    check(JSON.stringify(await hb()) === JSON.stringify({ undo: true, redo: false, title: "Undo: Archived Plan" }), "a decision turns Undo on and names it: " + JSON.stringify(await hb()));
+    await click("[data-hundo]"); await sleep(120);
+    check((await tab.ev(`window.__h.join("")`)) === "u" && (await hb()).redo && !(await hb()).undo, "Undo from the header reverses it and turns Redo on");
+    await size(390, true); const hbSize = await tab.ev(`Math.round(document.querySelector("[data-hredo]").getBoundingClientRect().height)`); check(hbSize >= 44, `Redo is ${hbSize}px tall on a phone`);
+    await size(1500); await click("[data-hredo]"); await sleep(120);
+    check((await tab.ev(`window.__h.join("")`)) === "ur", "Redo from the header does it again");
     const errs = await tab.ev("window.__errs"); check(!errs.length, "page errors: " + errs.join("; "));
   } catch (e) { fails.push(e.message); } finally { await tab.close(); }
   if (fails.length) { console.log("FAIL - next step:\n  " + fails.join("\n  ")); process.exit(1); }

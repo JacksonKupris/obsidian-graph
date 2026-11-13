@@ -478,3 +478,4 @@
   .vg-hq .vg-hq-btn, .vg-hq .vg-hq-nextchip, .vg-hq .vg-hq-dockbtn { min-width: 44px; }
 }
 @container (max-width: 760px) { .vg-hq .vg-hq-person h3 .vg-hq-linkbtn { min-height: 44px; } }
+.vg-hq .vg-historybtns { display: inline-flex; gap: 2px; } .vg-hq .vg-historybtn { min-width: 32px; } .vg-hq .vg-historybtn:disabled { opacity: 0.4; }
