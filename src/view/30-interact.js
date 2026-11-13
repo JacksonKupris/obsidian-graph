@@ -578,7 +578,11 @@
       (st.layers.wanted ? `<span class="vg-lg-item"><i class="vg-lg-ghost"></i>not written</span>` : "") + attentionLegend();
   }
   // the ring drawAttention puts on notes with a problem to fix, explained the same way in every view
-  const attentionLegend = () => st.layers.attention && attentionOf().size ? `<span class="vg-lg-item" title="Notes with a problem to fix: no links in or out, a broken link, not on its topic's map, stale, or named but never linked"><i class="vg-lg-attn"></i>needs attention</span>` : "";
+  const attentionLegend = () => {
+    if (!st.layers.attention || !attentionOf().size) return "";
+    const seen = new Set(); for (const ks of attnWhy.values()) ks.forEach(k => seen.add(k));
+    return [...seen].map(k => { const lk = VGActions.reasonLook(k); return `<span class="vg-lg-item" title="A ring in this colour: ${lk.label}"><i class="vg-lg-attn" style="--ring:${lk.color}"></i>${lk.label}</span>`; }).join("");
+  };
   // A scene's own counts (alchemy's reactions, radar's tasks) go in the status pill like every other view's,
   // instead of text painted on the canvas where the banner or legend can cover it
   let sceneStat = { view: null, text: "" };
