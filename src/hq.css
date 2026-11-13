@@ -423,7 +423,7 @@
 @container (max-width: 760px) {
   .vg-hq .vg-hq-capture { flex-wrap: wrap; } .vg-hq .vg-hq-captureinput { flex: 1 0 100%; }
   .vg-hq .vg-hq-dock { gap: 2px; max-width: calc(100% - 12px); } .vg-hq .vg-hq-dockbtn { width: 42px; } .vg-hq .vg-hq-sep { margin: 0 2px; }
-  .vg-hq .vg-hq-nextchip { order: 4; flex: 1 1 100%; max-width: none; }
+  .vg-hq .vg-hq-nextchip { order: 4; flex: 1 1 100%; max-width: none; min-height: 36px; }
   .vg-hq .vg-hq-chip small { display: none; }   /* the count is on the dock; the height is for the work */
 }
 
