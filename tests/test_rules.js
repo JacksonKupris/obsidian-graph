@@ -434,6 +434,17 @@ for (const f of ["view.js", "plugin.js", "hq"]) {
         const named = new Set(code.match(keyRe) || []);
         if (named.size >= 3) fails.push(`${f}:${i + 1} lists views by name (${[...named].join(", ")}): read VIEWS, or put it on each view's definition`); }));
     }
+    // every view tile has its own icon: a lens with none falls back to the generic grid, and two in one menu group look the same
+    {
+      const all = build.viewParts().map(([, t]) => t).join("\n"), have = new Set([...all.matchAll(/^\s{4}([a-z0-9]+): '</gm)].map(m => m[1])), seen = {};
+      if (have.size < 40) fails.push("the icon set wasn't read (" + have.size + ")");
+      for (const m of all.matchAll(/^\s{4}([a-z0-9]+): \{ menu: "(\w+)", name: "([^"]+)",( icon: "([a-z0-9]+)",)?/gm)) {
+        const key = m[1], menu = m[2], name = m[3], ic = m[5];
+        if (!ic) { fails.push(`view ${key} (${name}) has no icon`); continue; }
+        if (!have.has(ic)) fails.push(`view ${key}: icon "${ic}" isn't in the icon set`);
+        const was = seen[menu + "/" + ic]; if (was) fails.push(`views ${was} and ${key} share the "${ic}" icon in ${menu}`); seen[menu + "/" + ic] = key;
+      }
+    }
     // scene blocks: every word a block may use has its part in the renderer (a word without one would draw nothing),
     // and sceneSpec reports unknown words instead of guessing
     const P_ = VGRules.SCENE_PARTS, sprites = view.slice(view.indexOf("const SPRITES = {"), view.indexOf("const drawSprite = ")), motions = view.slice(view.indexOf("const MOTION = {"), view.indexOf("const gridDims"));

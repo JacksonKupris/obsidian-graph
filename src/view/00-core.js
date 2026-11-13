@@ -108,6 +108,14 @@ function mountVaultGraph(root, DATA, opts) {
     reviewed: '<path d="M20 6 9 17l-5-5"/>',
     flag: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>',
     tasks: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="m9 12 2 2 4-4"/>',
+    pulse: '<path d="M2 12h4l3-7 4 14 3-7h6"/>',
+    curve: '<path d="M3 4v16h18"/><path d="M6 6c4 0 5 4 7 8s4 4 7 4"/>',
+    hourglass: '<path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/>',
+    swap: '<path d="M4 8h14l-3-3M20 16H6l3 3"/>',
+    gap: '<path d="M4 4h4M12 4h4M20 4v4M20 12v4M20 20h-4M12 20H8M4 20v-4M4 12V8"/>',
+    timeline: '<path d="M3 12h18"/><circle cx="6" cy="12" r="2"/><circle cx="13" cy="12" r="2"/><path d="M13 10V5M6 14v5"/>',
+    ring: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+    people: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 3-6 6-6s6 2 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M16 14c3 0 5 2 5 5"/>',
     folder: '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8M10 12h4"/>',
   };
   const icon = (name, size) => `<svg class="vg-ic" width="${size || 16}" height="${size || 16}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name]}</svg>`;
