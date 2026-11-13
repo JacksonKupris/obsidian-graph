@@ -218,6 +218,14 @@ const env = require("./env");
       ok((await tab.ev(`${clk}.handle().api.focus()`)) === hring.id, "a click on a cell picks its topic");
     }
 
+    // Food web (3D): hidden beside the plugin's own; the levels come from the plugin's converter (webForViews), one place
+    ok(await tab.ev(`!!${D}.scenes()["foodweb-lib"] && !!${D}.scenes().foodweb`), "the plugin has its own Food web and a scene for the library's");
+    await tab.ev(`${D}.setView("foodweb-lib")`); await sleep(1900); await calm();
+    const fw = `${D}.scenes()["foodweb-lib"].api`;
+    ok((await tab.ev(`${fw}.handle().api.notes()`)) >= 3, "the library builds spheres from the plugin's notes");
+    const fstat = await tab.ev(`${fw}.handle().stat()`);
+    ok(/^mean level [0-9.]+ · top [0-9.]+ · incoherence [0-9.]+ · [0-9]+ endangered notes?$/.test(fstat) && (await tab.ev(`${q(".vg-status")}.innerText`)).includes(fstat), `its stat line is the plugin's status: ${fstat}`);
+
     // another view: the library's canvas goes away and the plugin's own is back
     await tab.ev(`${D}.setView("2d")`); await sleep(900); await calm();
     const back = await tab.ev(`({ hidden: ${q(".vg-lib")}.hidden, plugin: ${q(".vg-cv")}.style.visibility })`);
