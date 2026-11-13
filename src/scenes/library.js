@@ -63,6 +63,16 @@
     today: libToday, api: libApi(),
   });
 
+  // The library's 3D Food web beside the plugin's own 2D one: levels come from the written links' direction (VGScience.trophic), handed over
+  // as one converter (webForViews). With no host index (the test page) no link has a direction, so every note sits at level 1.
+  scene("foodweb-lib", {
+    name: "Food web (3D)", icon: "leaf", hidden: true, lib: true, hint: "Which notes feed which, in layers: what everything rests on at the base",
+    layout: () => ({ pos: new Map(), bounds: [], web: VGScience.webForViews(directedNotes() || VGScience.directedGraph(sciNotes().map(n => n.id), [])) }),
+    draw: () => libDraw("foodweb-lib", "foodweb", () => ({ web: mapCache["foodweb-lib"].web })),
+    legend: item => item(`<i class="vg-dot" style="background:#f87171"></i>`, "stale, and others rest on it") + item(`<i class="vg-lg-line" style="border-color:#fde047;opacity:1"></i>`, "rests on the picked note") + item(`<i class="vg-lg-line" style="border-color:#22d3ee;opacity:1"></i>`, "the picked note rests on"),
+    today: libToday, api: libApi(),
+  });
+
   // The library's Cyberpunk beside the plugin's own 2D one, hidden until it has been looked at in Obsidian and on a phone;
   // then "cyberpunk" takes this draw and the old file goes.
   scene("cyberpunk-lib", {
