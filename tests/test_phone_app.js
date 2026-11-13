@@ -34,3 +34,20 @@ const got = hqFromFolder(env.dir(), rules);
 assert(got.journalHistory.length >= 5 && got.hq.journals.length > 0, "the test vault's journals are read");
 assert(fs.readFileSync(path.join(__dirname, "..", "src", "view", "62-science.js"), "utf8").includes("DATA.journalHistory"), "the lenses read the carried journals");
 console.log("ok - phone app: journals and HQ notes travel with the page");
+// waking the app (unlock, back from another app) catches it up: run the page's live script against stand-ins and watch what it does
+(async () => {
+  const vm = require("vm"), script = files["index.html"].match(/<script>\(\(\) => \{ let have[\s\S]*?<\/script>/)[0].replace(/^<script>|<\/script>$/g, "");
+  let stamp = 1, applied = [], reloads = 0, applyResult = true; const listeners = {};
+  const sandbox = { window: { EventSource: function () {}, vaultGraph: { applyLive: d => { applied.push(d); return applyResult; } } }, document: { visibilityState: "visible" },
+    addEventListener: (k, f) => { listeners[k] = f; }, location: { reload: () => reloads++ }, fetch: async () => ({ json: async () => ({ stamp, data: { s: stamp } }) }), EventSource: function () { this.set = f => f; } };
+  sandbox.window.EventSource = sandbox.EventSource; vm.runInNewContext(script, sandbox);
+  const tick = () => new Promise(r => setTimeout(r, 20));
+  await tick(); listeners.visibilitychange(); await tick();
+  assert.strictEqual(applied.length, 0, "waking to the same data changes nothing");
+  stamp = 2; listeners.visibilitychange(); await tick();
+  assert.deepStrictEqual(applied, [{ s: 2 }], "waking to newer data patches the page");
+  listeners.pageshow(); await tick(); assert.strictEqual(applied.length, 1, "the same stamp is not applied twice");
+  stamp = 3; applyResult = false; listeners.pageshow(); await tick();
+  assert.strictEqual(reloads, 1, "when the page cannot patch itself (notes added or removed) it reloads");
+  console.log("ok - phone app: waking catches up to the newest data, patching in place or reloading");
+})().catch(e => { console.error(e); process.exit(1); });
