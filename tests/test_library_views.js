@@ -158,8 +158,16 @@ const env = require("./env");
     // Slime mould Simulate: Decline is remembered and writes nothing; Add link goes through the shared link action (confirmation, then one write)
     const press = text => tab.ev(`(() => { const b = [...document.querySelectorAll(".vg-lib button")].find(x => x.textContent.trim() === ${JSON.stringify(text)} && x.offsetParent); if (b) b.click(); return !!b; })()`);
     ok(await press("Simulate"), "Slime mould has a Simulate button"); await sleep(2500);
+    const firstRow = () => tab.ev(`(() => { const b = [...document.querySelectorAll(".vg-lib button")].find(x => x.textContent.trim() === "Add link" && x.offsetParent); const r = b && [...document.querySelectorAll(".vg-lib .vgv-insights > div")].find(x => x.contains(b)); return r ? r.firstChild.textContent : null; })()`);
+    const beforeDecline = await firstRow();
     ok(await press("Decline"), "Simulate suggests links with a Decline button"); await sleep(200);
     ok((await tab.ev(`${mould}.declined().length`)) === 1 && !(await tab.ev(`(window.__links || []).length`)), "Decline is remembered and writes nothing");
+    ok((await tab.ev(`JSON.parse(localStorage.getItem("vg-declined-links") || "[]").length`)) === 1, "the decline is kept on this device");
+    // the view is mounted again (another view and back): the declined link is not offered again
+    await tab.ev(`${D}.setView("2d")`); await sleep(600); await tab.ev(`${D}.setView("slime")`); await sleep(1900); await calm();
+    ok(await press("Simulate"), "Simulate is there again after a remount"); await sleep(2500);
+    const afterRemount = await firstRow();
+    ok(!!beforeDecline && afterRemount !== beforeDecline, `the declined link is not offered again: ${JSON.stringify(afterRemount)}`);
     ok(await press("Add link"), "and an Add link button"); await sleep(300);
     ok(await tab.ev(`!!document.querySelector(".vg-confirm") && /Link these notes/.test(document.querySelector(".vg-confirm").textContent)`), "Add link asks to confirm first");
     ok(!(await tab.ev(`(window.__links || []).length`)), "nothing is written before the confirmation");
