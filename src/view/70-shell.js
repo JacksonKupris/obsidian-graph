@@ -211,7 +211,7 @@
   function pickItems() {
     const out = [];
     Object.entries(VIEWS).forEach(([k, v]) => { if (v.hidden || (opts.compact && (v.kind === "lens" || k === "cosmos"))) return;   // hidden: reachable by key, listed in no picker
-      out.push({ tab: "views", k, ic: v.icon, name: v.name, hint: v.hint, on: v.kind === "lens" ? lensKey === v.lens : st.view === k, run: () => openView(k) }); });
+      out.push({ tab: "views", k, ic: v.icon, name: v.name, hint: v.hint, field: v.field, on: v.kind === "lens" ? lensKey === v.lens : st.view === k, run: () => openView(k) }); });
     Object.entries(PRESETS).forEach(([k, p]) => out.push({ tab: "style", k, ic: "sparkles", name: p.name, hint: p.hint, on: st.preset === k, run: () => applyPreset(k) }));
     out.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));   // A–Z within every tab
     if (opts.writeNote && !opts.compact) out.push({ tab: "views", k: "newscene", ic: "plus", name: "New view", hint: "Your own view, written in a note", on: false, run: () => newScene() });
@@ -233,8 +233,8 @@
     if (!tabs.some(([t]) => t === pickTab)) pickTab = tabs[0][0];
     $(".vg-picker-tabs").innerHTML = tabs.map(([t, name]) => { const n = items.filter(i => i.tab === t).length;
       return `<button role="tab" class="vg-picker-tab" data-tab="${t}" aria-selected="${!q && t === pickTab}">${name}${n && !PANEL_TABS.has(t) ? `<span class="vg-count">${n}</span>` : ""}</button>`; }).join("");
-    const tile = i => `<button class="vg-tile" data-tab="${i.tab}" data-k="${esc(i.k)}" aria-pressed="${i.on}"><span class="vg-tile-ic">${icon(i.ic, 18)}</span><span class="vg-tile-txt"><b>${esc(i.name)}</b><span>${esc(i.hint)}</span></span></button>`;
-    const hit = i => (i.name + " " + i.hint).toLowerCase().includes(q);
+    const tile = i => `<button class="vg-tile" data-tab="${i.tab}" data-k="${esc(i.k)}" aria-pressed="${i.on}"><span class="vg-tile-ic">${icon(i.ic, 18)}</span><span class="vg-tile-txt"><b>${esc(i.name)}</b>${i.field ? `<em class="vg-tile-field">${esc(i.field)}</em>` : ""}<span>${esc(i.hint)}</span></span></button>`;
+    const hit = i => (i.name + " " + i.hint + " " + (i.field || "")).toLowerCase().includes(q);
     $$(".vg-ppanel").forEach(x => x.hidden = !!q || x.dataset.ppanel !== pickTab);
     $(".vg-picker-tiles").innerHTML = q
       ? tabs.map(([t, name]) => { const xs = items.filter(i => i.tab === t && hit(i)); return xs.length ? `${VGParts.heading(name)}<div class="vg-tiles">${xs.map(tile).join("")}</div>` : ""; }).join("") || emptyNext(`No view matches “${esc(q)}”.`, "search:" + q)
@@ -592,7 +592,7 @@
       ringBadges: () => ringBadges.map(b => ({ ids: b.ids, x: b.x, y: b.y, r: b.r })),
       attention: () => [...attentionOf()].map(([id, k]) => ({ id, k, why: reasonsOf(id), at: P.get(id) ? { x: P.get(id).x, y: P.get(id).y, r: P.get(id).r || 6 } : null })),
       lensDefs: () => LENSES,   // the test swaps a lens's load() to make it fail
-      views: () => Object.keys(VIEWS).filter(canvasView), allViews: () => Object.entries(VIEWS).map(([key, v]) => ({ key, kind: v.kind, name: v.name, menu: v.menu, hint: v.hint, scale: VGRules.viewScale(key), hidden: !!v.hidden })), openView, lenses: () => Object.keys(LENSES), clusters: () => DATA.clusters, links: () => links, screen: id => { const p = P.get(id); return p ? { x: p.x, y: p.y, r: p.r, a: p.a } : null; },
+      views: () => Object.keys(VIEWS).filter(canvasView), allViews: () => Object.entries(VIEWS).map(([key, v]) => ({ key, kind: v.kind, name: v.name, menu: v.menu, hint: v.hint, field: v.field || "", scale: VGRules.viewScale(key), hidden: !!v.hidden })), openView, lenses: () => Object.keys(LENSES), clusters: () => DATA.clusters, links: () => links, screen: id => { const p = P.get(id); return p ? { x: p.x, y: p.y, r: p.r, a: p.a } : null; },
       radarScope() { const A = mapCache.radar; if (!A) return null; const R = rot(), k = cam.k, o = scr(0, 0, R), r = A.RMAX * k, under = parseFloat(getComputedStyle(wrap).getPropertyValue("--vg-under-bar")) || 0;
         const held = nodes.find(n => !special(n) && n.tasks > 0 && P.get(n.id) && Math.hypot(P.get(n.id).x - o.x, P.get(n.id).y - o.y) < A.hold * k * 0.9);
         return { cx: o.x, cy: o.y, top: o.y - r, bottom: o.y + r, left: o.x - r, right: o.x + r, W, H, under, held: held ? held.id : null }; },

@@ -17,6 +17,11 @@ const env = require("./env");
     const keys = new Set(views.map(([k]) => k.replace(/-lib$/, "")));
     const dead = await tab.ev(`Object.keys(VGRules.VIEW_SCALES)`).then(a => a.filter(k => !keys.has(k)));
     assert.deepStrictEqual(dead, [], `scales for views that don't exist: ${dead.join(", ")}`);
+    // the science label is a tag on the tile (`field`), not the first words of the hint (decided 2026-11-12)
+    const all = await tab.ev(`window.vaultGraph._debug.allViews().map(v => [v.key, v.field, v.hint])`);
+    const lead = all.filter(([, , h]) => /^(Lean manufacturing|Manufacturing|Clinical trials|Finance|Ecology|Gene editing|Epidemiology|Reliability engineering|Reservoir computing)\b[^:]*: /.test(h || "")).map(([k]) => k);
+    assert.deepStrictEqual(lead, [], `hints that start with a field label (use field): ${lead.join(", ")}`);
+    const tagged = all.filter(([, f]) => f).length; assert.ok(tagged >= 10, `the science views carry a field tag: ${tagged}`);
     console.log(`ok - view manifest: all ${views.length} views declare a scale on the ladder, and the table has no dead entries`);
   } catch (e) { console.log("FAIL - view scale:\n  " + (e.message || e)); process.exitCode = 1; } finally { await tab.close(); }
 })();

@@ -43,21 +43,21 @@
   // The reports beside the picture. Each is a view like any other (VIEWS, in 20-maps.js): menu says which group of the picker
   // it's in, and the order here is the order within that group.
   const LENSES = {
-    flowlens: { menu: "tasks", name: "Flow", icon: "waves", hint: "Lean manufacturing and queueing theory: how much work is open, whether it's growing, and how long it takes", render: () => "", load: loadFlow },
-    control: { menu: "tasks", name: "Control chart", icon: "pulse", hint: "Manufacturing: is this week really different, or the normal up and down of your work?", render: () => "", load: loadControl },
-    survival: { menu: "tasks", name: "Task survival", icon: "curve", hint: "Clinical trials: how long tasks stay open, counting the ones still open, and what makes them finish", render: () => "", load: loadSurvival },
+    flowlens: { menu: "tasks", name: "Flow", icon: "waves", field: "Lean manufacturing, queueing", hint: "How much work is open, whether it's growing, and how long it takes", render: () => "", load: loadFlow },
+    control: { menu: "tasks", name: "Control chart", icon: "pulse", field: "Manufacturing", hint: "Is this week really different, or the normal up and down of your work?", render: () => "", load: loadControl },
+    survival: { menu: "tasks", name: "Task survival", icon: "curve", field: "Clinical trials", hint: "How long tasks stay open, counting the ones still open, and what makes them finish", render: () => "", load: loadSurvival },
     follow: { menu: "tasks", name: "Standup follow-through", icon: "flag", hint: "What you planned for tomorrow vs. what the next standups say got done", render: lensFollow },
-    stale: { menu: "notes", name: "Stale notes", icon: "hourglass", hint: "Finance: which old notes would cost most if they've gone out of date, and what to do with each", render: lensStale },
-    twoway: { menu: "notes", name: "Hierarchy", icon: "swap", hint: "Ecology: what blurs which way your notes lean, and the notes with no way up", render: () => "", load: loadTwoWay },
+    stale: { menu: "notes", name: "Stale notes", icon: "hourglass", field: "Finance", hint: "Which old notes would cost most if they've gone out of date, and what to do with each", render: lensStale },
+    twoway: { menu: "notes", name: "Hierarchy", icon: "swap", field: "Ecology", hint: "What blurs which way your notes lean, and the notes with no way up", render: () => "", load: loadTwoWay },
     drift: { menu: "notes", name: "Version drift", icon: "ripple", hint: "Notes and doc links that name a version other than the one you run", render: () => "", load: loadDrift },
-    guide: { menu: "notes", name: "Guide scan", icon: "search", hint: "Gene editing: one tag, word or line everywhere it occurs, with look-alikes kept apart", render: lensGuide },
+    guide: { menu: "notes", name: "Guide scan", icon: "search", field: "Gene editing", hint: "One tag, word or line everywhere it occurs, with look-alikes kept apart", render: lensGuide },
     dupes: { menu: "notes", name: "Duplicates", icon: "copy", hint: "Likely duplicate notes side by side, with the links each one has", render: lensDupes },
     blind: { menu: "notes", name: "Blind spots", icon: "eye", hint: "What you name but never link, topics gone quiet, islands and dead ends", render: lensBlind },
     write: { menu: "notes", name: "Write these next", icon: "file", hint: "Links to notes that don't exist yet, and short notes many others rely on", render: lensWrite },
     missing: { menu: "notes", name: "Missing from dailies", icon: "gap", hint: "Notes no standup or journal mentions, most-linked first", render: lensMissing },
-    blast: { menu: "notes", name: "Blast radius", icon: "target", hint: "Epidemiology: if a note is wrong, how far does the mistake travel, and where's the tipping point?", render: lensBlast },
-    spof: { menu: "notes", name: "Single points of failure", icon: "anchor", hint: "Reliability engineering: the notes that hold the vault together, and how it breaks when they go", render: lensSpof },
-    attention: { menu: "topics", name: "Attention", icon: "star", hint: "Ecology: how many topics your week really went to, and whether you're focused or spread", render: lensAttention },
+    blast: { menu: "notes", name: "Blast radius", icon: "target", field: "Epidemiology", hint: "If a note is wrong, how far does the mistake travel, and where's the tipping point?", render: lensBlast },
+    spof: { menu: "notes", name: "Single points of failure", icon: "anchor", field: "Reliability engineering", hint: "The notes that hold the vault together, and how it breaks when they go", render: lensSpof },
+    attention: { menu: "topics", name: "Attention", icon: "star", field: "Ecology", hint: "How many topics your week really went to, and whether you're focused or spread", render: lensAttention },
     river: { menu: "topics", name: "Topic river", icon: "waves", hint: "Your dailies' topics as a stream over time, and each month's top topics", render: lensRiver },
     timeline: { menu: "topics", name: "Timeline", icon: "timeline", hint: `What your dailies talked about, week by week (${(DATA.timeline || { weeks: [] }).weeks.length} weeks)`, render: lensTimeline },
     matrix: { menu: "topics", name: "Topic matrix", icon: "grid", hint: "Every pair of topics: links vs. co-mentions — red cells are gaps", render: lensMatrix },
@@ -70,7 +70,7 @@
     ...((DATA.code && (DATA.code.repos || []).length) ? { code: { menu: "topics", name: "Code ↔ docs", hint: "Code that changes often with no note, and notes that have fallen behind their code", render: lensCode } } : {}),   // only where work repos exist
     path: { menu: "topics", name: "Reading path", icon: "bridge", hint: "An ordered reading list for getting up to speed on a topic", render: lensPath },
     adjacent: { menu: "topics", name: "Adjacent possible", icon: "lasso", hint: "Notes one step past what you're working on, and strange pairs to combine", render: lensAdjacent },
-    netlens: { menu: "topics", name: "As a neural net", icon: "hub", hint: "Reservoir computing: wire a recurrent network the way your notes link, and measure what it can do against random wiring", render: () => "", load: loadNetLens },
+    netlens: { menu: "topics", name: "As a neural net", icon: "hub", field: "Reservoir computing", hint: "Wire a recurrent network the way your notes link, and measure what it can do against random wiring", render: () => "", load: loadNetLens },
   };
   Object.keys(LENSES).forEach(k => { LENSES[k] = view("lens:" + k, { kind: "lens", lens: k, ...LENSES[k] }); });
   let lensKey = null;
