@@ -141,6 +141,57 @@ const env = require("./env");
       ok((await tab.ev(`${mould}.handle().api.selected()`)) === snote.id && / links? carry on$/.test(await tab.ev(`${mould}.handle().stat()`)), "and Slime mould gives its links");
     }
 
+    // Cyberpunk: the library's 3D city, hidden beside the plugin's own until it has been looked at; a real click on a tower selects its note
+    ok(await tab.ev(`!!${D}.scenes()["cyberpunk-lib"] && !!${D}.scenes().cyberpunk`), "the plugin has its own Cyberpunk and a scene for the library's");
+    await tab.ev(`${D}.setView("cyberpunk-lib")`); await sleep(1900); await calm();
+    const city = `${D}.scenes()["cyberpunk-lib"].api`;
+    await tab.ev(`${city}.handle().api.hold()`);
+    const towers = await tab.ev(`${city}.handle().api.towers()`);
+    ok(towers >= 10, `the library builds towers from the plugin's notes (${towers})`);
+    const cstat2 = await tab.ev(`${city}.handle().stat()`);
+    // the plugin's selection from the views above is still picked, so the line is the whole city's or the picked tower's
+    ok(/( towers? · \d+ dark · \d+ districts?$| in · (dark|busy|dim)| · map of \d+ notes?$)/.test(cstat2) && (await tab.ev(`${q(".vg-status")}.innerText`)).includes(cstat2), `its stat line is the plugin's status: ${cstat2}`);
+    const tnote = await tab.ev(`(() => { const h = ${city}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
+    ok(!!tnote, "a tower of Cyberpunk is on screen to click");
+    if (tnote) {
+      for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: tnote.x, y: tnote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
+      await sleep(300); await calm();
+      ok((await tab.ev(`window.vaultGraph.viewport().selected`)) === tnote.id, "a click on a tower selects its note in the plugin");
+      ok((await tab.ev(`${city}.handle().api.selected()`)) === tnote.id, "and the city marks the same tower");
+    }
+
+    // Radar: the library's first flat view, hidden beside the plugin's own; a real click on a blip selects its note
+    ok(await tab.ev(`!!${D}.scenes()["radar-lib"] && !!${D}.scenes().radar`), "the plugin has its own Radar and a scene for the library's");
+    await tab.ev(`${D}.setView("radar-lib")`); await sleep(1900); await calm();
+    const rad = `${D}.scenes()["radar-lib"].api`;
+    await tab.ev(`${rad}.handle().api.hold()`);
+    ok((await tab.ev(`${rad}.handle().api.blips()`)) >= 1, "the library builds blips from the plugin's notes with open tasks");
+    const rstat = await tab.ev(`${rad}.handle().stat()`);
+    ok(/^[0-9]+ open tasks? · [0-9]+ notes?$| · [0-9]+ open tasks? · waiting [0-9]+ days$/.test(rstat) && (await tab.ev(`${q(".vg-status")}.innerText`)).includes(rstat), `its stat line is the plugin's status: ${rstat}`);
+    const rnote = await tab.ev(`(() => { const h = ${rad}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
+    ok(!!rnote, "a blip of Radar is on screen to click");
+    if (rnote) {
+      for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: rnote.x, y: rnote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
+      await sleep(300); await calm();
+      ok((await tab.ev(`window.vaultGraph.viewport().selected`)) === rnote.id, "a click on a blip selects its note in the plugin");
+      ok((await tab.ev(`${rad}.handle().api.selected()`)) === rnote.id, "and Radar marks the same blip");
+    }
+
+    // Heat clock: hidden beside the plugin's own; a real click on a cell picks its topic in the library's view
+    ok(await tab.ev(`!!${D}.scenes()["clock-lib"] && !!${D}.scenes().clock`), "the plugin has its own Heat clock and a scene for the library's");
+    await tab.ev(`${D}.setView("clock-lib")`); await sleep(1900); await calm();
+    const clk = `${D}.scenes()["clock-lib"].api`;
+    ok((await tab.ev(`${clk}.handle().api.rings()`)) >= 1, "the library builds rings from the plugin's rhythm");
+    const hstat = await tab.ev(`${clk}.handle().stat()`);
+    ok(/^[0-9]+ topics? · busiest /.test(hstat) && (await tab.ev(`${q(".vg-status")}.innerText`)).includes(hstat), `its stat line is the plugin's status: ${hstat}`);
+    const hring = await tab.ev(`(() => { const h = ${clk}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "ring" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
+    ok(!!hring, "a cell of the Heat clock is on screen to click");
+    if (hring) {
+      for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: hring.x, y: hring.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
+      await sleep(300); await calm();
+      ok((await tab.ev(`${clk}.handle().api.focus()`)) === hring.id, "a click on a cell picks its topic");
+    }
+
     // another view: the library's canvas goes away and the plugin's own is back
     await tab.ev(`${D}.setView("2d")`); await sleep(900); await calm();
     const back = await tab.ev(`({ hidden: ${q(".vg-lib")}.hidden, plugin: ${q(".vg-cv")}.style.visibility })`);

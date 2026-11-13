@@ -1,6 +1,7 @@
 // cdp.js - the one way the browser tests drive a page, in real time over the Chrome DevTools Protocol: headless Chrome
 // on this PC (.out/ profile and a debug port), or Obsidian on a phone plugged in or paired over adb (its WebView's
 // debug socket, forwarded to the port). Used by smoke_page.js and click_all.js.
+// To watch a run: VG_HEADED=1 shows the window; VG_FULLSCREEN=1 (with VG_HEADED) makes it full screen.
 //   const page = await open({ html, port, mobile, phone, fresh, onConsole, onClose })   null when there's no Chrome. Tests use openPage in kit.js.
 //     port       the debug port; a free one if not given
 //     html       the page to load (written temporarily under .out/); not with phone
@@ -51,7 +52,7 @@ async function open(o) {
   }
   // CI runners (Ubuntu) block the user namespaces Chrome's sandbox needs
   const ci = process.env.CI ? ["--no-sandbox"] : [];
-  const launch = () => spawn(CHROME, [...(process.env.VG_HEADED ? [] : ["--headless=new"]), "--disable-gpu", "--enable-unsafe-swiftshader", ...ci, "--window-size=1400,900", ...(process.env.VG_WINDOW_POS ? [`--window-position=${process.env.VG_WINDOW_POS}`] : []), `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, "about:blank"], { stdio: "ignore" });
+  const launch = () => spawn(CHROME, [...(process.env.VG_HEADED ? [] : ["--headless=new"]), "--disable-gpu", "--enable-unsafe-swiftshader", ...ci, process.env.VG_FULLSCREEN ? "--start-fullscreen" : "--window-size=1400,900",...(process.env.VG_WINDOW_POS ? [`--window-position=${process.env.VG_WINDOW_POS}`] : []), `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, "about:blank"], { stdio: "ignore" });
   const findPage = async () => { try { return (await (await fetch(`http://127.0.0.1:${port}/json`)).json()).find(t => t.type === "page"); } catch (e) { return null; } };
   // a cold Chrome on a CI runner sometimes never opens its port (failed the 0.6.11 release), so one that exited or
   // hasn't answered in 20 s is started again, three tries in all
