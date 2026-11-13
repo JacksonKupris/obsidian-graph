@@ -11,7 +11,7 @@ const env = require("./env");
   const D = "window.vaultGraph._debug", q = s => `document.querySelector(${JSON.stringify(s)})`;
   let tab = null;
   try {
-    tab = await openPage({ html: env.pageWith(`guideScan: async g => { const s = VGScience.guideSurvey(g); for (const [p, t] of window.__guideNotes || []) s.add(p, t); return s.done(); },`, data) });
+    tab = await openPage({ html: env.pageWith(`linkNotes: async (...a) => { (window.__links = window.__links || []).push(a); return true; }, guideScan: async g => { const s = VGScience.guideSurvey(g); for (const [p, t] of window.__guideNotes || []) s.add(p, t); return s.done(); },`, data) });
     if (!await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000)) throw new Error("the graph didn't mount");
     await tab.ev(`window.__errs = []; addEventListener("error", e => __errs.push(String(e.message)))`);
     const calm = async () => { await tab.ev(`document.querySelectorAll('.vg-tour, .vg-tour-card').forEach(x => x.remove()); ${D}.drawNow()`); await sleep(60); };
@@ -154,6 +154,18 @@ const env = require("./env");
       ok((await tab.ev(`window.vaultGraph.viewport().selected`)) === snote.id, "a click on a note selects it in the plugin");
       ok((await tab.ev(`${mould}.handle().api.selected()`)) === snote.id && / links? carry on$/.test(await tab.ev(`${mould}.handle().stat()`)), "and Slime mould gives its links");
     }
+
+    // Slime mould Simulate: Decline is remembered and writes nothing; Add link goes through the shared link action (confirmation, then one write)
+    const press = text => tab.ev(`(() => { const b = [...document.querySelectorAll(".vg-lib button")].find(x => x.textContent.trim() === ${JSON.stringify(text)} && x.offsetParent); if (b) b.click(); return !!b; })()`);
+    ok(await press("Simulate"), "Slime mould has a Simulate button"); await sleep(2500);
+    ok(await press("Decline"), "Simulate suggests links with a Decline button"); await sleep(200);
+    ok((await tab.ev(`${mould}.declined().length`)) === 1 && !(await tab.ev(`(window.__links || []).length`)), "Decline is remembered and writes nothing");
+    ok(await press("Add link"), "and an Add link button"); await sleep(300);
+    ok(await tab.ev(`!!document.querySelector(".vg-confirm") && /Link these notes/.test(document.querySelector(".vg-confirm").textContent)`), "Add link asks to confirm first");
+    ok(!(await tab.ev(`(window.__links || []).length`)), "nothing is written before the confirmation");
+    await tab.ev(`document.querySelector('.vg-confirm [data-c="ok"]').click()`); await sleep(300);
+    const wrote = await tab.ev(`window.__links || []`);
+    ok(wrote.length === 1 && /slime mould/.test(wrote[0][2]), `confirming writes the link once: ${JSON.stringify(wrote)}`);
 
     // Cyberpunk: the library's 3D city, hidden beside the plugin's own until it has been looked at; a real click on a tower selects its note
     ok(await tab.ev(`!!${D}.scenes()["cyberpunk-lib"] && !!${D}.scenes().cyberpunk`), "the plugin has its own Cyberpunk and a scene for the library's");

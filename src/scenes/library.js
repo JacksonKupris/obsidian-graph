@@ -6,7 +6,14 @@
   const libTheme = () => ({ bg: css("--vg-bg") || undefined, fg: css("--vg-fg") || undefined, muted: css("--vg-muted") || undefined, accent: css("--vg-accent") || undefined, palette: PALETTE });
   // a note the library names: the shared detail when it is in the graph, the note itself otherwise (a journal day)
   const libOpen = id => { if (byId[id]) select(id); else if (opts.openNote) opts.openNote(id, false); };
-  const LIB_ACTIONS = { graph: () => setView("2d"), "guide-scan": () => openLens("guide"), triage: () => startTriage() };
+  // Simulated links (Slime mould): Add goes through the one Link action every surface uses (confirmation, write into the staler
+  // note's Related section, log, undo); Decline is only remembered, so nothing is written.
+  const declinedLinks = new Set();
+  const LIB_ACTIONS = {
+    graph: () => setView("2d"), "guide-scan": () => openLens("guide"), triage: () => startTriage(),
+    "add-link": d => { if (d && d.from && d.to) VGActions.runToday({ kind: "link", from: d.from, to: d.to, names: [VGShared.nameOf(d.from), VGShared.nameOf(d.to)], title: "Link " + VGShared.nameOf(d.from) + " to " + VGShared.nameOf(d.to), why: "suggested by the slime mould simulation" }, actionCtx(), null); },
+    "decline-link": d => { if (d && d.from && d.to) declinedLinks.add(d.from + ">" + d.to); },
+  };
   // Mount the library's view for `key` (once, and again when the data it was built from changed), show it, keep it level
   // with the pane and with the selection, and put its stat line in the status. inputs() is what the view takes beyond the data.
   function libDraw(key, libView, inputs) {
@@ -15,7 +22,7 @@
       if (LIBV.handle && LIBV.handle.view !== libView) libDrop();
       if (!LIBV.handle) {
         LIBV.host.innerHTML = "";
-        LIBV.handle = VaultGraphViews.mountViews(LIBV.host, { view: libView, data: DATA, inputs: inputs(), onOpen: libOpen, onAction: a => (LIB_ACTIONS[a] || (() => {}))(), theme: libTheme() });
+        LIBV.handle = VaultGraphViews.mountViews(LIBV.host, { view: libView, data: DATA, inputs: inputs(), onOpen: libOpen, onAction: (a, d) => (LIB_ACTIONS[a] || (() => {}))(d), theme: libTheme() });
         LIBV.selected = undefined; LIBV.size = ""; LIBV.marked = undefined;
       }
       LIBV.key = key; LIBV.host.hidden = false;
@@ -110,7 +117,7 @@
     layout: () => ({ pos: new Map(), bounds: [] }),
     draw: () => libDraw("slime", "slime", () => ({})),
     legend: item => item(`<i class="vg-lg-line" style="border-color:#f59e0b;opacity:1"></i>`, "carries flow") + item(`<i class="vg-lg-line" style="opacity:.5"></i>`, "fades"),
-    today: libToday, api: libApi(),
+    today: libToday, api: { ...libApi(), declined: () => [...declinedLinks] },
   });
 
   // Normal modes: the vault as a drum skin that rings; also only in the library.
