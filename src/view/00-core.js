@@ -101,6 +101,7 @@ function mountVaultGraph(root, DATA, opts) {
     flask: '<path d="M9 3h6M10 3v6l-5.5 9.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3"/><path d="M7 15h10"/>',
     leaf: '<path d="M5 19c0-8 5-14 15-14 0 10-6 15-14 15"/><path d="M5 19 13 11"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    city: '<path d="M3 21V10h5v11M8 21V4h7v17M15 21v-8h6v8M2 21h20M10.5 8h2M10.5 12h2M10.5 16h2"/>',
     truss: '<path d="M3 19h18M3 19l9-13 9 13M7.5 12.5h9M12 6v13"/>',
     mould: '<path d="M12 21v-7M12 14c-3 0-5-2-5-5M12 14c3 0 5-2 5-5M7 9c0-2 1-4 3-5M17 9c0-2-1-4-3-5M12 14V6"/><circle cx="12" cy="5" r="1.6"/><circle cx="7" cy="9" r="1.4"/><circle cx="17" cy="9" r="1.4"/><circle cx="12" cy="21" r="1.6"/>',
     waves: '<path d="M2 12c2-5 4-5 6 0s4 5 6 0 4-5 6 0 1.5 3 2 3"/><path d="M2 18h20" opacity=".5"/>',
