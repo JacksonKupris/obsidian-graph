@@ -592,7 +592,7 @@
       ringBadges: () => ringBadges.map(b => ({ ids: b.ids, x: b.x, y: b.y, r: b.r })),
       attention: () => [...attentionOf()].map(([id, k]) => ({ id, k, why: reasonsOf(id), at: P.get(id) ? { x: P.get(id).x, y: P.get(id).y, r: P.get(id).r || 6 } : null })),
       lensDefs: () => LENSES,   // the test swaps a lens's load() to make it fail
-      views: () => Object.keys(VIEWS).filter(canvasView), allViews: () => Object.entries(VIEWS).map(([key, v]) => ({ key, kind: v.kind, name: v.name, menu: v.menu, hint: v.hint, hidden: !!v.hidden })), openView, lenses: () => Object.keys(LENSES), clusters: () => DATA.clusters, links: () => links, screen: id => { const p = P.get(id); return p ? { x: p.x, y: p.y, r: p.r, a: p.a } : null; },
+      views: () => Object.keys(VIEWS).filter(canvasView), allViews: () => Object.entries(VIEWS).map(([key, v]) => ({ key, kind: v.kind, name: v.name, menu: v.menu, hint: v.hint, scale: VGRules.viewScale(key), hidden: !!v.hidden })), openView, lenses: () => Object.keys(LENSES), clusters: () => DATA.clusters, links: () => links, screen: id => { const p = P.get(id); return p ? { x: p.x, y: p.y, r: p.r, a: p.a } : null; },
       radarScope() { const A = mapCache.radar; if (!A) return null; const R = rot(), k = cam.k, o = scr(0, 0, R), r = A.RMAX * k, under = parseFloat(getComputedStyle(wrap).getPropertyValue("--vg-under-bar")) || 0;
         const held = nodes.find(n => !special(n) && n.tasks > 0 && P.get(n.id) && Math.hypot(P.get(n.id).x - o.x, P.get(n.id).y - o.y) < A.hold * k * 0.9);
         return { cx: o.x, cy: o.y, top: o.y - r, bottom: o.y + r, left: o.x - r, right: o.x + r, W, H, under, held: held ? held.id : null }; },
