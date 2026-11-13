@@ -197,6 +197,25 @@ const env = require("./env");
       ok((await tab.ev(`${city}.handle().api.selected()`)) === tnote.id, "and the city marks the same tower");
     }
 
+    // City: the library's daylight city, a view in the menu with no copy in the plugin; a real click on a building selects its note
+    ok(await tab.ev(`!!${D}.scenes().city && ${D}.views().includes("city") && !${D}.scenes().city.hidden`), "City is a view in the menu");
+    await tab.ev(`window.vaultGraph.select && window.vaultGraph.select(null); ${D}.setView("city")`); await sleep(1900); await calm();
+    const town = `${D}.scenes().city.api`;
+    await tab.ev(`${town}.handle().api.hold()`);
+    const [blds, halls] = await tab.ev(`[${town}.handle().api.towers(), ${town}.handle().api.halls()]`);
+    ok(blds >= 10 && halls >= 1, `the library builds buildings and town halls from the plugin's notes (${blds}, ${halls} halls)`);
+    const tstat = await tab.ev(`${town}.handle().stat()`);
+    // a note picked in the views above is still picked, so the line is the whole city's or the picked building's
+    ok(/(buildings? · \d+ new this week · tallest: | in · (dark|busy|dim)| · map of \d+ notes?$)/.test(tstat) && (await tab.ev(`${q(".vg-status")}.innerText`)).includes(tstat), `its stat line is the plugin's status: ${tstat}`);
+    const bnote = await tab.ev(`(() => { const h = ${town}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
+    ok(!!bnote, "a building of the City is on screen to click");
+    if (bnote) {
+      for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: bnote.x, y: bnote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
+      await sleep(300); await calm();
+      ok((await tab.ev(`window.vaultGraph.viewport().selected`)) === bnote.id, "a click on a building selects its note in the plugin");
+      ok((await tab.ev(`${town}.handle().api.selected()`)) === bnote.id, "and the City marks the same building");
+    }
+
     // Radar: the library's first flat view, hidden beside the plugin's own; a real click on a blip selects its note
     ok(await tab.ev(`!!${D}.scenes()["radar-lib"] && !!${D}.scenes().radar`), "the plugin has its own Radar and a scene for the library's");
     await tab.ev(`${D}.setView("radar-lib")`); await sleep(1900); await calm();

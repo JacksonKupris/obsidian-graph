@@ -1392,7 +1392,7 @@ const VGRules = (() => {
   // The view manifest, first phase: how big a thing each view is about, so a view knows its zoom-in and zoom-out neighbours.
   // One table for every view (a library copy, "x-lib", takes its source's scale). tests/test_view_scale.js fails for a view with no entry.
   const SCALES = ["character", "line", "note", "folder", "system", "vault", "time"];
-  const VIEW_SCALES = { "2d": "vault", "3d": "vault", neural: "system", cosmos: "vault", subway: "system", weather: "time", clock: "time", radar: "line", foodweb: "note", cas9: "note", cyberpunk: "vault", dungeon: "folder", genome: "vault",
+  const VIEW_SCALES = { "2d": "vault", "3d": "vault", neural: "system", cosmos: "vault", subway: "system", weather: "time", clock: "time", radar: "line", foodweb: "note", cas9: "note", cyberpunk: "vault", city: "vault", dungeon: "folder", genome: "vault",
     cones: "note", loadpaths: "note", slime: "vault", modes: "vault", survivors: "time", triage: "note", wikirace: "note",
     "lens:flowlens": "time", "lens:control": "note", "lens:survival": "line", "lens:follow": "note", "lens:stale": "note", "lens:twoway": "note", "lens:drift": "time", "lens:guide": "vault", "lens:dupes": "note", "lens:blind": "note", "lens:write": "note", "lens:missing": "note",
     "lens:blast": "note", "lens:spof": "note", "lens:attention": "note", "lens:river": "time", "lens:timeline": "time", "lens:matrix": "vault", "lens:folders": "folder", "lens:ring": "system", "lens:maptree": "system", "lens:projects": "system", "lens:people": "vault",

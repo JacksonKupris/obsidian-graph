@@ -78,6 +78,16 @@
     today: libToday, api: libApi(),
   });
 
+  // City: the library's daylight city (the same scene as its Cyberpunk, another look). It has no copy in the plugin, so it is a view in the menu.
+  scene("city", {
+    name: "City", icon: "city", menu: "see", space: true, lib: true, hint: "Notes as buildings: tall = relied on, lit = recent, grey = stale",
+    toast: "City — topics are districts and notes are buildings. Tall is relied on, lit windows are recent, grey is stale, a crane is a note written this week and the low hall with a flag is the topic's map.",
+    layout: () => ({ pos: new Map(), bounds: [] }),
+    draw: () => libDraw("city", "city", () => ({})),
+    legend: item => item(`<i class="vg-dot" style="background:#ffd977"></i>`, "lit = recent") + item(`<i class="vg-dot" style="background:#8a8d96"></i>`, "grey = stale") + item(`<i class="vg-dot" style="background:#ef4444"></i>`, "open task"),
+    today: libToday, api: libApi(),
+  });
+
   // The library's Cyberpunk beside the plugin's own 2D one, hidden until it has been looked at in Obsidian and on a phone;
   // then "cyberpunk" takes this draw and the old file goes.
   scene("cyberpunk-lib", {
