@@ -20,7 +20,7 @@
       ? [search.selectionStart, search.selectionEnd] : null;
     const focusedFilter = document.activeElement && document.activeElement.dataset.projectFilter;
     const onRow = document.activeElement && document.activeElement.matches && document.activeElement.matches(".vg-hq-item[data-key]") ? document.activeElement.dataset.key : null;
-    const html = `<header class="vg-hq-top">${canGoBack() ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-backbtn" data-back aria-label="Back" title="Back (Esc)">${icon("left", 14)} Back</button>` : ""}<span class="vg-hq-crumb"><b>Vault HQ</b> / ${esc(label)}</span>${nextChip()}
+    const html = `<header class="vg-hq-top">${canGoBack() ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-backbtn" data-back aria-label="Back" title="Back (Esc)">${icon("left", 14)} Back</button>` : ""}<span class="vg-hq-crumb"><b>Vault HQ</b> / ${esc(label)}</span>${VGParts.historyButtons(VGActions.history.state(), icon)}${nextChip()}
       <div class="vg-hq-global-tools"><label class="vg-hq-global-searchlabel"><input class="vg-hq-global-search vg-hq-project-search" type="search" value="${esc(globalQuery)}"
         placeholder="Search projects, tasks, and notes  ( / )" aria-label="Search all HQ and vault notes"></label>
         ${globalQuery ? '<button class="vg-hq-btn vg-hq-btn-sm vg-hq-global-clear" data-clear-global aria-label="Clear HQ search">Clear</button>' : ""}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-keysbtn" data-keys aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</button></div>
@@ -69,6 +69,8 @@
     else if (d.peeklink) peekOpen(d.peeklink, [...peek.back, peek.path]);
     else if (d.peekback !== undefined) { const back = peek.back.slice(), to = back.pop(); peekOpen(to, back); }
     else if (d.peekclose !== undefined) { peek = null; render(); }
+    else if (d.hundo !== undefined) VGActions.history.undoLast();
+    else if (d.hredo !== undefined) VGActions.history.redoLast();
     else if (d.keys !== undefined) keySheet();
     else if (d.walk) walk(d.walk, d.key);
     else if (d.pickall !== undefined) { const f = needFilter; ofGroup("needs").filter(i => (f === "all" || i.kind === f) && pickable(i)).forEach(i => picked.add(i.key)); render(); }
@@ -224,6 +226,7 @@
     if (keys() !== was || day() !== shownDay) { shownDay = day(); render(); }
   }
   clockTimer = opts.now ? null : setInterval(tick, 30000);
+  const unhistory = VGActions.history.subscribe(() => render());   // an Undo or Redo from any surface redraws the header
   return {
     tick,
     update(data, state) { DATA = data || DATA; if (state) STATE = state; settleGone(); relist(); searchNotes(globalQuery, 80); fromHost = true; try { render(); } finally { fromHost = false; } loadVitals(); },
@@ -231,6 +234,6 @@
     pickNote: (placeholder, filter) => ctx().pick(placeholder, filter),   // the picker "Link to…" uses
     showRows: path => ctx().showRows(path),   // a report's rows (the sidebar's Review rows opens HQ there)
     items: () => LIST.slice(),
-    destroy() { sessionLog(); session = null; sessionTell(); clearInterval(sessionTick); clearInterval(clockTimer); clearTimeout(tourTimer); clearTimeout(toastTimer); clearTimeout(searchTimer); clearTimeout(typeTimer); searchToken++; el.remove(); },
+    destroy() { unhistory(); sessionLog(); session = null; sessionTell(); clearInterval(sessionTick); clearInterval(clockTimer); clearTimeout(tourTimer); clearTimeout(toastTimer); clearTimeout(searchTimer); clearTimeout(typeTimer); searchToken++; el.remove(); },
   };
 }
