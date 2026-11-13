@@ -12,6 +12,24 @@ const PY = process.platform === "win32" ? "python" : "python3";   // Linux has n
 const R = env.rules;
 const VGRules = new Function(`${require("../build").rulesSource(R)}; return VGRules;`)();
 const { fails, check } = checks();
+// Every hub note is a node of the graph, linked to every note it lists: a map that owns a topic (data.mocs), and a hub
+// that owns none (a kind hub, a second map of a topic). The sample vault has such a hub. Navigation maps stay out.
+{
+  const yes = (c, m) => check(m, !!c, true);
+  const D = env.data(), BUGS = "02-Projects/Rental App/Rental App Bugs Hub.md", by = new Map(D.nodes.map(n => [n.id, n]));
+  const to = id => D.links.filter(l => l.kind === "moc" && l.source === id).map(l => l.target), hubs = D.nodes.filter(n => n.moc), own = new Set(D.mocs.map(m => m.id));
+  if (!env.VAULT) {
+    const h = by.get(BUGS);
+    yes(h && h.moc && h.outlinks === 3 && to(BUGS).length === 3, `the sample's second Rental App hub is a hub node linked to its three notes: ${JSON.stringify(h && [h.outlinks, to(BUGS)])}`);
+    yes(h && h.cluster === by.get("02-Projects/Rental App/Login Timeout Bug.md").cluster, "it takes the topic most of its notes are in");
+    yes(!own.has(BUGS), "it owns no topic: the topic's own map is still the one in data.mocs");
+  }
+  yes(hubs.some(n => !own.has(n.id)), `hubs that own no topic are nodes too (${hubs.filter(n => !own.has(n.id)).length} of ${hubs.length} hub nodes)`);
+  yes(hubs.every(n => to(n.id).length === n.outlinks && to(n.id).every(r => by.has(r) && !by.get(r).moc)), "every hub node is linked to notes of the graph, as many as it says");
+  yes(D.mocs.filter(m => !m.nav).every(m => by.has(m.id) && m.members.filter(r => by.has(r)).every(r => to(m.id).includes(r))), "a topic's map is linked to every note it lists, in its topic or not");
+  yes(D.mocs.filter(m => m.nav).every(m => !by.has(m.id)), "navigation maps are not nodes");
+  yes(!VGRules.todayList(D, {}).some(it => (it.ids || []).some(id => by.get(id) && by.get(id).moc && !own.has(id))), "no suggestion treats a hub as a plain note");
+}
 // One next step: the Do next card shows the note the step points at, never a different one (Home said "start the standup" beside a card about something else)
 {
   const job = { key: "job|1", group: "needs", kind: "job" }, td = { key: "t1", group: "today", kind: "task" }, nd = { key: "n1", group: "needs", kind: "review" }, fo = { key: "f1", group: "today", kind: "task" }, list = [td, nd, job];

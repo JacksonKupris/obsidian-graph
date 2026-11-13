@@ -949,6 +949,9 @@ const VGRules = (() => {
         S.rel.forEach(([a, b, , why]) => data.links.push({ source: a, target: b, w: 1, kind: "similar", why })); } }
     return data;
   }
+  // a map as a node of the graph: the analysis and the live refresh both make it here
+  function mocNode(id, name, cluster, out) { return { id, name, moc: true, cluster, bc: 0, folder: id.includes("/") ? id.slice(0, id.lastIndexOf("/")) : "", mentions: 0, recent: 0, inlinks: 0, outlinks: out, broken: 0, tasks: 0, words: 0, age: 0, refs: true, isolated: false }; }
+  const HUB_MEMBERS_MIN = 2;   // a hub listing fewer notes of the graph joins nothing
   // topics and everything keyed by them, in one step: a gap or a map pointing at another run's topic number is wrong
   function applyEngineTopics(data, T, P) {
     data.clusters = T.topics.map(t => ({ id: t.id, name: t.name, keywords: t.keywords, stack: t.stack, label: P.labels[t.id] || null, size: t.size, folder: t.folder, core: t.core.slice(0, 3).map(stemCase) }));
@@ -956,9 +959,16 @@ const VGRules = (() => {
     data.nodes.forEach(n => { if (n.person || n.ghost) return; n.cluster = P.cid[n.id] != null ? P.cid[n.id] : -1; n.bc = Math.round((bc[n.id] || 0) * 1e5) / 1e5; delete n.bridge; delete n.bridges; });
     data.links = data.links.filter(l => !["gap", "similar", "moc"].includes(l.kind)).concat(P.links);
     data.gaps = P.gaps.map(g => ({ a: g.a, b: g.b, links: g.links, comentions: g.comentions, suggest: g.suggest })); data.pairs = P.pairs; data.mocs = P.mocs; data.timeline = P.timeline; data.strand = P.strand; data.rhythm = P.rhythm;
-    for (const m of P.mocs) { if (m.nav) continue; const own = m.members.filter(r => m.clusters.includes(P.cid[r]));
-      data.nodes.push({ id: m.id, name: m.title, moc: true, cluster: m.clusters[0], bc: 0, folder: m.id.includes("/") ? m.id.slice(0, m.id.lastIndexOf("/")) : "", mentions: 0, recent: 0, inlinks: 0, outlinks: own.length, broken: 0, tasks: 0, words: 0, age: 0, refs: true, isolated: false });
-      own.forEach(r => data.links.push({ source: m.id, target: r, w: 1, kind: "moc" })); }
+    // Every hub note is a node, linked to every note of the graph it lists (Jackson, 2026-11-13). A map that owns a topic
+    // (data.mocs) takes that topic's colour; any other hub (a kind hub, a second map of a topic) takes the topic most of
+    // its notes are in. Navigation maps (they list a bit of everything) stay out: their links would cover the graph.
+    const hubNode = (id, title, cluster, members) => { const mem = members.filter(r => byId.has(r)); if (mem.length < HUB_MEMBERS_MIN && cluster == null) return;
+      let c = cluster; if (c == null) { const votes = new Map(); mem.forEach(r => { const k = byId.get(r).cluster; if (k >= 0) votes.set(k, (votes.get(k) || 0) + 1); });
+        const top = [...votes].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0]; c = top ? top[0] : -1; }
+      data.nodes.push(mocNode(id, title, c, mem.length)); mem.forEach(r => data.links.push({ source: id, target: r, w: 1, kind: "moc" })); };
+    const shown = new Set(P.mocs.map(m => m.id));
+    for (const m of P.mocs) if (!m.nav) hubNode(m.id, m.title, m.clusters[0], m.members);
+    for (const m of (P.detail || {}).mocs || []) if (!m.nav && !shown.has(m.path)) hubNode(m.path, m.title, null, [...m.members].sort());
     for (const [r, targets] of Object.entries(P.bridges)) { const n = byId.get(r); if (n) { n.bridge = true; n.bridges = targets; } }
     return data;
   }
@@ -970,7 +980,7 @@ const VGRules = (() => {
   const kindWords = kind => KIND_WORDS[kind] || `${kind} items`;
   function todayList(data, o = {}) {
     const nodes = data.nodes || [], byId = new Map(nodes.map(n => [n.id, n])), mocs = (data.mocs || []).filter(m => !m.nav);
-    const mapIds = new Set((data.mocs || []).map(m => m.id)), plain = n => !!n && !n.person && !n.ghost && !mapIds.has(n.id);
+    const mapIds = new Set((data.mocs || []).map(m => m.id)), plain = n => !!n && !n.person && !n.ghost && !n.moc && !mapIds.has(n.id);
     const name = id => (byId.get(id) || {}).name || stemCase(id);
     const ranked = nodes.filter(n => plain(n) && !n.isolated).sort((a, b) => (b.bc || 0) - (a.bc || 0)).map(n => n.id);
     const rank = new Map(ranked.map((id, i) => [id, i + 1]));
@@ -1503,7 +1513,7 @@ const VGRules = (() => {
     }
     return out.map(g => ({ ids: g.ids, x: g.sx / g.ids.length, y: g.sy / g.ids.length }));
   }
-  return { hqBriefLines, ringClusters, errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, unmentioned, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { hqBriefLines, ringClusters, errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, mocNode, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, unmentioned, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, NEXT_NOTE, nextView, nextItem, SCALES, VIEW_SCALES, viewScale, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, GUIDE_LOG_KEEP, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

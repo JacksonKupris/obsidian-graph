@@ -200,7 +200,7 @@
       if (n && opts.onHoverNote && !special(n)) opts.onHoverNote(n.id, e);
     }
     if (n) {
-      const sub = n.moc ? `Map of content · ${n.outlinks} notes in ${esc(clusterName(n.cluster))}` : n.ghost ? `Not written yet · linked from ${plural(n.from.length, "note")}` : n.person ? `Person · ${plural(n.outlinks, "linked note")}`
+      const sub = n.moc ? `Map of content · ${n.outlinks} notes${mocs.some(m => m.id === n.id) ? ` in ${esc(clusterName(n.cluster))}` : ""}` : n.ghost ? `Not written yet · linked from ${plural(n.from.length, "note")}` : n.person ? `Person · ${plural(n.outlinks, "linked note")}`
         : `${plural(nb[n.id].size, "link")} · ${esc(clusterName(n.cluster))}${n.recent ? ` · ${n.recent} recent` : ""}${n.tasks ? ` · ${plural(n.tasks, "open task")}` : ""}`;
       tip.innerHTML = `<div class="vg-tip-title"><span class="vg-dot" style="background:${fillOf(n)}"></span>${esc(n.name)}</div>` +
         `<div class="vg-muted">${esc(n.folder || "/")}</div><div class="vg-tip-meta">${sub}</div>`;
