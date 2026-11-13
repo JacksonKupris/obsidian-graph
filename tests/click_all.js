@@ -22,7 +22,7 @@ const MOBILE = process.argv.includes("--mobile"), PHONE = process.argv.includes(
 const probe = String.raw`<script>
 (run => (async () => {
 const live = () => window.__VG_RUN__ === run;
-const sleep = ms => new Promise(r => setTimeout(r, ms)), out = {   /* in the page there is no require: the kit's sleep is Node-side */  clicks: 0, contexts: 0, errors: [], covered: [], notices: [], noEffect: [], wired: {}, wiredAct: {}, unwired: [], slow: [] };
+/*KIT_SLEEP*/ const out = {  clicks: 0, contexts: 0, errors: [], covered: [], notices: [], noEffect: [], wired: {}, wiredAct: {}, unwired: [], slow: [] };
 // a frame should fit 30 fps on a slow machine; headless Chrome draws without a GPU, so the budget is loose
 const FRAME_BUDGET = 60;
 let errs = [];
@@ -195,7 +195,7 @@ for (const [act, fn] of Object.entries(EXPECT)) {
 }
 if (live()) window.__clickall = out;
 })().catch(e => { if (window.__VG_RUN__ === run) window.__clickall = { fatal: String(e && e.stack || e) }; }))(window.__VG_RUN__ = Math.random());   // a probe that breaks says so
-</script>`;
+</script>`.replace("/*KIT_SLEEP*/", "const sleep = " + require("./kit").sleep.toString() + ";");   // the page has no require: the kit's own sleep is written into it
 // the page keeps DATA in a const; expose it for the remount
 const html = require("./env").pageWith(MOBILE ? "mobile: true," : "")
   .replace("const DATA = ", "const DATA = window.__VG_DATA__ = ")
