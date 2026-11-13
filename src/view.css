@@ -635,7 +635,9 @@
 .vg-nextbtn small { color: var(--vg-accent-text); font-size: var(--ds-fs-xs); font-weight: var(--ds-w-bold); } .vg-nextbtn b { font-weight: var(--ds-w-medium); overflow: hidden; text-overflow: ellipsis; }
 .vg-nextdot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--vg-accent); }
 @container vg (max-width: 900px) { .vg-root .vg-nextbtn b { display: none; } }
-.is-playing .vg-nextbtn { display: none; }
+.is-playing .vg-nextbtn, .is-playing .vg-toolhist { display: none; }
+.vg-toolhist .vg-historybtns { display: inline-flex; gap: 0; } .vg-toolhist .vg-historybtn:disabled { opacity: 0.4; }
+@container vg (max-width: 759px) { .vg-toolhist { display: none; } } .is-mobile .vg-toolhist { display: none; }
 .vg-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }   /* for screen readers: Obsidian shows any aria-label as a hover tooltip */
 .vg-rv .vg-ins-actions { margin: 8px 0 2px; }
 .vg-savedrow { display: flex; align-items: flex-start; gap: 2px; }
@@ -791,6 +793,7 @@
 .vg-s-bic { display: inline-flex; flex: none; }
 .vg-s-bic svg { width: 14px; height: 14px; }
 .vg-s-noteacts { margin-top: 6px; }
+.vg-suggest .vg-s-history { margin: 4px 0; } .vg-suggest .vg-s-history .vg-historybtns { display: inline-flex; gap: 4px; } .vg-suggest .vg-s-history .vg-historybtn { min-width: 40px; height: 32px; } .vg-suggest .vg-s-history .vg-historybtn:disabled { opacity: 0.4; }
 .vg-s-acts .vg-s-ghost { background: transparent; box-shadow: none; border: 1px solid var(--background-modifier-border); }
 .vg-s-tasks { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
 .vg-s-task { display: flex; gap: 6px; align-items: flex-start; font-size: var(--font-ui-small); }

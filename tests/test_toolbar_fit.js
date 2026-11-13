@@ -24,7 +24,31 @@ const { fails, ok } = checks(), D = "window.vaultGraph._debug";
       ok(!r.clash.length, `${view}: no two toolbar buttons overlap at ${r.W} px (${r.clash.join(", ")})`);
       ok(!r.past.length, `${view}: none runs off the pane (${r.past.join(", ")})`);
     }
+    // Undo and Redo: on a phone they are in the Tools menu (the toolbar has no room), and they move the shared history
+    await tab.ev(`${D}.setView("2d")`); await sleep(500);
+    await tab.ev(`VGActions.history.reset(); window.__h = []; VGActions.history.record({ msg: "Archived Plan", undo: async () => { window.__h.push("u"); return true; }, redo: async () => { window.__h.push("r"); return true; } })`);
+    ok(await tab.ev(`getComputedStyle(document.querySelector(".vg-toolhist")).display === "none"`), "phone: the toolbar pair is hidden");
+    await tab.ev(`document.querySelector(".vg-toolsbtn").click()`); await sleep(200);
+    ok(await tab.ev(`(() => { const u = document.querySelector(".vg-toolsmenu [data-hundo]"), r = document.querySelector(".vg-toolsmenu [data-hredo]"); return !!u && !!r && !u.disabled && r.disabled; })()`), "phone: the Tools menu has Undo on and Redo off after a change");
+    await tab.ev(`document.querySelector(".vg-toolsmenu [data-hundo]").click()`); await sleep(200);
+    ok((await tab.ev(`window.__h.join("")`)) === "u", "phone: Undo in the Tools menu reverses it");
   } catch (e) { fails.push(`toolbar: ${e.message}`); }
   await tab.close();
+  // a wide pane: the pair is in the toolbar, reads the history, and moves it
+  const wide = await openPage({ html: env.pageWith(""), mobile: false });
+  try {
+    if (!await wide.waitFor(`window.vaultGraph && ${D} ? 1 : 0`, 30000)) throw new Error("the desktop page didn't mount");
+    await wide.send("Emulation.setDeviceMetricsOverride", { width: 1300, height: 800, deviceScaleFactor: 1, mobile: false }); await sleep(600);
+    const st = () => wide.ev(`(() => { const u = document.querySelector(".vg-toolhist [data-hundo]"), r = document.querySelector(".vg-toolhist [data-hredo]"); return u && r ? [!u.disabled, !r.disabled, u.getBoundingClientRect().width > 0] : null; })()`);
+    await wide.ev(`VGActions.history.reset()`); await sleep(100);
+    ok(JSON.stringify(await st()) === "[false,false,true]", "wide: the toolbar has Undo and Redo, both off with nothing done: " + JSON.stringify(await st()));
+    await wide.ev(`window.__h = []; VGActions.history.record({ msg: "Archived Plan", undo: async () => { window.__h.push("u"); return true; }, redo: async () => { window.__h.push("r"); return true; } })`); await sleep(100);
+    ok(JSON.stringify(await st()) === "[true,false,true]", "wide: a change turns Undo on");
+    await wide.ev(`document.querySelector(".vg-toolhist [data-hundo]").click()`); await sleep(200);
+    ok((await wide.ev(`window.__h.join("")`)) === "u" && JSON.stringify(await st()) === "[false,true,true]", "wide: Undo reverses it and turns Redo on");
+    await wide.ev(`document.querySelector(".vg-toolhist [data-hredo]").click()`); await sleep(200);
+    ok((await wide.ev(`window.__h.join("")`)) === "ur", "wide: Redo does it again");
+  } catch (e) { fails.push(`history: ${e.message}`); }
+  await wide.close();
   finish(fails, "the toolbar fits a phone");
 })();

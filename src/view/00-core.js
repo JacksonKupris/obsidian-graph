@@ -63,6 +63,7 @@ function mountVaultGraph(root, DATA, opts) {
   // local date, not UTC: in Central time the UTC date rolls over at 7 PM, which dated notes and quests a day early
   const { today, localDay, safeName } = VGRules;   // the shared date and file-name rules
   const ICON = {
+    undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/>', redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/>',
     menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
@@ -295,6 +296,7 @@ function mountVaultGraph(root, DATA, opts) {
         </div>
         <div class="vg-seg vg-dimseg" role="group" aria-label="2D or 3D"><button class="vg-segbtn" data-dim="2d" aria-pressed="true" title="2D (3)">2D</button><button class="vg-segbtn" data-dim="3d" aria-pressed="false" title="3D (3)">3D</button></div>
         <button class="vg-nextbtn" hidden title="Go to it in Vault HQ"><i class="vg-nextdot" aria-hidden="true"></i><small>Next</small><b></b></button>
+        <span class="vg-toolhist"></span>
         <div class="vg-menuwrap"><button class="vg-ibtn vg-toolsbtn" aria-haspopup="menu" aria-expanded="false" aria-pressed="false" title="Select, save, time-lapse">${icon("layers")}<span class="vg-tlabel">Tools</span><span class="vg-caret" aria-hidden="true">▾</span></button>
           <div class="vg-menu vg-toolsmenu" role="menu" hidden></div></div>
         <span class="vg-toolsrc" hidden>   <!-- the tools themselves: the Tools menu and the phone's picker sheet press these -->
