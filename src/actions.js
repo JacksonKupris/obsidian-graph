@@ -129,16 +129,18 @@ const VGActions = (() => {
 
   // Run one action: confirm if it asks, then do it and report. Resolves true when it ran. When the plugin recorded
   // a change for it (api.lastUndo moved on), the report carries an Undo for exactly that change.
-  async function run(a, n, c, e) {
+  async function run(a, n, c, e, again) {
     if (typeof a === "string") a = BY_KEY[a];
     if (!a) return false;
-    if (a.ask) { const [t, text, ok] = a.ask(n, c); if (!await c.ask(t, text, ok)) return false; }
+    if (a.ask && !again) { const [t, text, ok] = a.ask(n, c); if (!await c.ask(t, text, ok)) return false; }
     const mark = c.api.lastUndo ? c.api.lastUndo() : 0;
     try {
       const msg = await a.run(n, c, e);
       // the Undo puts back what the plugin recorded for it, and runs the action's own undo (a mark in the shared file)
       if (msg) { const id = c.api.lastUndo ? c.api.lastUndo() : 0, rec = id && id !== mark && c.api.undo ? id : 0; if (rec && c.api.labelUndo) c.api.labelUndo(rec, msg);
-        c.done(msg, rec || a.undo ? () => undo(rec, msg, c, a.undo && (() => a.undo(n, c))) : null); }
+        const entry = rec || a.undo ? { msg, undo: () => undo(rec, msg, c, a.undo && (() => a.undo(n, c))), redo: () => run(a, n, c, e, true) } : null;
+        if (entry) history.record(entry, !!again);
+        c.done(msg, entry ? () => history.undoEntry(entry) : null); }
       return msg !== null;
     }
     catch (err) { c.fail(`${a.label(n, c) || a.title(n, c)} didn't work: ${(err && err.message) || err}`); return false; }
@@ -265,9 +267,31 @@ const VGActions = (() => {
     return run({ label: () => m.label, title: () => title, ask: m.ask && (() => m.ask(it)), run: (_, cc, ee) => m.run(it, cc, ee), undo: m.undo }, it, c, e);
   }
   async function undo(id, msg, c, also) {
-    try { if (id) await c.api.undo(id); if (also) await also(); c.done(`Undone: ${msg}`); }
-    catch (err) { c.fail(`Couldn't undo: ${(err && err.message) || err}`); }
+    try { if (id) await c.api.undo(id); if (also) await also(); c.done(`Undone: ${msg}`); return true; }
+    catch (err) { c.fail(`Couldn't undo: ${(err && err.message) || err}`); return false; }
   }
+  // The one history every surface reads: each decision that changed something is recorded with how to reverse it and
+  // how to do it again. The Undo on a report, and the Previous, Undo and Redo buttons, all go through here, so they
+  // agree. A new decision clears Redo (the usual rule). Session-long, newest last, capped.
+  const history = (() => {
+    const past = [], future = [], subs = new Set(), CAP = 50;
+    const fire = () => subs.forEach(f => { try { f(); } catch (e) { /* a surface that is gone */ } });
+    const state = () => ({ past: past.map(x => x.msg), future: future.map(x => x.msg), canUndo: past.length > 0, canRedo: future.length > 0 });
+    function record(entry, keepFuture) { past.push(entry); if (!keepFuture) future.length = 0; if (past.length > CAP) past.shift(); fire(); }
+    async function undoEntry(entry) {
+      const i = past.indexOf(entry); if (i < 0) return false;
+      const ok = await entry.undo(); if (!ok) return false;
+      const j = past.indexOf(entry); if (j >= 0) past.splice(j, 1); future.push(entry); fire(); return true;
+    }
+    const undoLast = async () => (past.length ? undoEntry(past[past.length - 1]) : false);
+    async function redoLast() {
+      const entry = future[future.length - 1]; if (!entry) return false;
+      future.pop(); const ok = await entry.redo();
+      if (!ok) { future.push(entry); fire(); } return ok;
+    }
+    const reset = () => { past.length = 0; future.length = 0; fire(); };
+    return { state, record, undoEntry, undoLast, redoLast, reset, subscribe: f => { subs.add(f); return () => subs.delete(f); } };
+  })();
 
   // Buttons for `list` into `box` (plain DOM: works in Obsidian and on the standalone page).
   // cls: { btn, primary, ghost } class names for this surface's buttons; fullLabels: no icon-only buttons (menus).
@@ -290,5 +314,5 @@ const VGActions = (() => {
     return box;
   }
 
-  return { ACTIONS, PROBLEMS, reasonLook, forNote, problems, attention, run, render, archiveFolder, isArchived, nameOf, TODAY, todayWhen, todayLabel, runToday, TODAY_MORE, todayMore, runMore, runBatch, runMove, runRow };
+  return { history, ACTIONS, PROBLEMS, reasonLook, forNote, problems, attention, run, render, archiveFolder, isArchived, nameOf, TODAY, todayWhen, todayLabel, runToday, TODAY_MORE, todayMore, runMore, runBatch, runMove, runRow };
 })();
