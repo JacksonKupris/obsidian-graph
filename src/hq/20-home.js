@@ -67,12 +67,12 @@
     const feed = cards.length ? `<section class="vg-hq-feed"><div class="vg-hq-feedtrack">${cards.map(card).join("")}</div>
       ${cards.length > 1 ? `<button class="vg-hq-feednav is-prev" data-feed="-1" aria-label="Previous">${icon("left")}</button><button class="vg-hq-feednav is-next" data-feed="1" aria-label="Next">${icon("right")}</button>
       <div class="vg-hq-dots">${cards.map((_, i) => `<button class="${i === feedAt ? "is-on" : ""}" data-feedto="${i}" aria-label="Card ${i + 1}"></button>`).join("")}</div>` : ""}</section>` : "";
-    const next = doNext(), needs = ofGroup("needs"), projects = VGRules.hqProjects(DATA), count = g => projects.filter(p => p.group === g).length;
+    const next = doNext(), needs = ofGroup("needs"), counts = hqCounts(), count = g => counts.projects[g];
     const needsBy = [["approval", "approval"], ["review", "draft to review", "drafts to review"], ["job", "job"], ["inbox", "note to file", "notes to file"], ["report", "report"], ["backlog", "vault decision"]]
       .map(([k, w, ws]) => [needs.filter(i => i.kind === k).length, w, ws]).filter(([n]) => n).map(([n, w, ws]) => plural(n, w, ws)).join(" · ");
     const tiles = `<div class="vg-hq-tiles">
       <div class="vg-hq-tile"><div class="vg-hq-eyebrow">Do next</div>${next ? `<b>${esc(next.title)}</b><small>${esc(next.why)}</small><div class="vg-hq-row">${buttons(next)}</div>` : nextStep().key !== "capture" ? `<b>${esc(nextStep().label)}</b><div class="vg-hq-row">${stepButton()}</div>` : `<b>No daily work queued.</b><div class="vg-hq-row">${api.openDaily ? '<button class="vg-hq-btn" data-daily>Open today\'s journal</button>' : ""}</div>`}</div>
-      ${VGParts.cards([{ value: needs.length, label: "Needs you", sub: needsBy || "Nothing waiting on you", data: { go: "needs" } }, { value: count("active"), label: "Projects", sub: `in progress · ${count("planned")} planned · ${count("waiting")} waiting`, data: { go: "projects" } }])}</div>`;
+      ${VGParts.cards([{ value: counts.needs, label: "Needs you", sub: needsBy || "Nothing waiting on you", data: { go: "needs" } }, { value: count("active"), label: "Projects", sub: `in progress · ${count("planned")} planned · ${count("waiting")} waiting`, data: { go: "projects" } }])}</div>`;
     const upkeep = ofGroup("upkeep").slice(0, 3);
     const status = `<p class="vg-hq-status">${plural(nodes0(), "note")} · ${plural((DATA.clusters || []).length, "topic")}${DATA.date ? ` · analysed ${esc(shortDate(DATA.date))}` : ""}${api.recentChanges ? ' · <button class="vg-hq-linkbtn" data-go="changes">Recent changes</button>' : ""}${opts.openGraph ? ' · <button class="vg-hq-linkbtn" data-graph>Open the graph</button>' : ""}</p>`;
     const off = new Set((STATE.review || {}).hqHome || []), on = k => !off.has(k);

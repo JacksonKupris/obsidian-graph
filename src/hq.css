@@ -304,7 +304,8 @@
 .vg-hq .vg-hq-rail .vg-hq-ctx { border-top: 0; padding-top: 0; margin-top: 14px; }
 .vg-hq .vg-hq-item.is-sel { --hq-row: color-mix(in srgb, var(--hq-accent) 10%, var(--hq-bg)); box-shadow: inset 3px 0 0 var(--hq-accent); }
 /* the brief */
-.vg-hq .vg-hq-brief { margin: -2px 0 var(--hq-gap); max-width: 78ch; color: var(--hq-muted); font-size: var(--ds-fs-base); line-height: 1.5; }
+.vg-hq .vg-hq-brief { display: flex; flex-wrap: wrap; column-gap: 10px; margin: -2px 0 var(--hq-gap); max-width: 78ch; color: var(--hq-muted); font-size: var(--ds-fs-base); line-height: 1.5; }
+.vg-hq .vg-hq-briefline { min-height: 44px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; } .vg-hq .vg-hq-briefline:hover, .vg-hq .vg-hq-briefline:focus-visible { color: var(--hq-text); text-decoration: underline; }
 /* threads */
 .vg-hq .vg-hq-threads { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
 .vg-hq .vg-hq-thread { display: grid; gap: 4px; justify-content: stretch; text-align: left; white-space: normal; padding: 12px; border: 1px solid var(--hq-line); border-radius: var(--hq-r-sm); }

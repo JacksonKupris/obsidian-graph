@@ -856,38 +856,41 @@ const VGRules = (() => {
   // Threads: open work grouped by the project it belongs to. An item links its project, or its words pick one out: at least two
   // words of the project's title and half of them, or the one word of a short title that no other project has. Words many
   // projects or many open items share say nothing. A wrong group is worse than none, so what fits nowhere comes last, with no
-  // project. Work with no project of its own goes by the area it names (hq.thread_areas: the longest phrase wins, so "Odoo
+  // project. Shared words don't join an item to a project of another area (an Odoo item about billing isn't the AWS billing
+  // project); a link to the project still does. Work with no project of its own goes by the area it names (hq.thread_areas: the longest phrase wins, so "Odoo
   // console" isn't the Dispatch Console). Biggest thread first; closed projects aren't where open work goes.
   const areaOfText = (text, areas = H.thread_areas || {}) => { let best = null, len = 0; for (const [area, list] of Object.entries(areas)) for (const p of list) if (p.length > len && new RegExp(`\\b${VGShared.escapeRegex(p)}s?\\b`, "i").test(text)) { best = area; len = p.length; } return best; };
   function hqThreads(items, projects, areas = H.thread_areas || {}) {
     const phrases = Object.entries(areas).flatMap(([area, list]) => list.map(p => ({ area, len: p.length, re: new RegExp(`\\b${VGShared.escapeRegex(p)}s?\\b`, "i") })));
     const areaOf = text => { let best = null; for (const p of phrases) if ((!best || p.len > best.len) && p.re.test(text)) best = p; return best && best.area; };
     projects = projects.filter(p => p.group !== "closed");
-    const words = s => new Set(recallWords(String(s)).filter(w => w.length > 3 && !/^\d+$/.test(w))), by = projects.map(p => ({ p, w: words(p.title), names: [p.title, p.name].filter(Boolean).map(n => `[[${n}`) }));
+    const words = s => new Set(recallWords(String(s)).filter(w => w.length > 3 && !/^\d+$/.test(w))), by = projects.map(p => ({ p, w: words(p.title), area: areaOf(`${p.path || ""} ${p.title}`), names: [p.title, p.name].filter(Boolean).map(n => `[[${n}`) }));
     const df = new Map(), said = new Map(); by.forEach(x => x.w.forEach(w => df.set(w, (df.get(w) || 0) + 1)));
     const itemWords = items.map(it => { const text = `${it.text || ""} ${it.title || ""}`, tw = words(text); tw.forEach(w => said.set(w, (said.get(w) || 0) + 1)); return { it, text, tw }; });
     const common = Math.max(2, projects.length * 0.08), chatter = Math.max(3, items.length * 0.03), telling = w => df.get(w) <= common && (said.get(w) || 0) <= chatter, groups = new Map(), rest = [];
-    for (const { it, text, tw } of itemWords) { let best = null, bestScore = 0;
+    for (const { it, text, tw } of itemWords) { let best = null, bestScore = 0; const mine = areaOf(text);
       for (const x of by) { let score = x.names.some(n => text.includes(n)) ? 100 : 0;
-        if (!score) { let shared = 0, unique = false; x.w.forEach(w => { if (tw.has(w) && telling(w)) { shared++; if (df.get(w) === 1 && w.length > 4) unique = true; } }); if ((shared >= 2 && shared * 2 >= x.w.size) || (unique && x.w.size <= 2)) score = shared; }
+        if (!score && !(mine && x.area && mine !== x.area)) { let shared = 0, unique = false; x.w.forEach(w => { if (tw.has(w) && telling(w)) { shared++; if (df.get(w) === 1 && w.length > 4) unique = true; } }); if ((shared >= 2 && shared * 2 >= x.w.size) || (unique && x.w.size <= 2)) score = shared; }
         if (score > bestScore) { best = x; bestScore = score; } }
       if (best) { if (!groups.has(best.p.path)) groups.set(best.p.path, { project: best.p, title: best.p.title, items: [] }); groups.get(best.p.path).items.push(it); continue; }
-      const area = areaOf(text); if (!area) { rest.push(it); continue; }
+      const area = mine; if (!area) { rest.push(it); continue; }
       if (!groups.has(area)) groups.set(area, { project: null, area, title: area, items: [] }); groups.get(area).items.push(it); }
     const out = [...groups.values()].sort((a, b) => b.items.length - a.items.length || (a.title < b.title ? -1 : 1));
     if (rest.length) out.push({ project: null, title: "Everything else", items: rest });
     return out;
   }
   // The morning brief: short sentences of plain fact, what you'd want to know before starting
-  function hqBrief(data, list, review, day, threads, hour = 12) {
+  // hqBriefLines: each sentence with where its detail is ({ text, go: screen } or { text, proj: path }); hqBrief: the sentences alone
+  const hqBrief = (...a) => hqBriefLines(...a).map(l => l.text);
+  function hqBriefLines(data, list, review, day, threads, hour = 12) {
     const out = [], yesterday = localDay(new Date(VGShared.noon(day).getTime() - VGShared.DAY_MS)), done = doneToday(data, review, yesterday).length, today = doneToday(data, review, day).length;
-    if (today) out.push(`${today} done so far today.`); else if (done) out.push(`${done} done yesterday.`);
+    if (today) out.push({ text: `${today} done so far today.`, go: "today" }); else if (done) out.push({ text: `${done} done yesterday.`, go: "changes" });
     const focus = hqFocusItems(list, review, day), plan = list.filter(i => i.kind === "plan" || i.kind === "task").length;
-    if (focus.length) out.push(`Focus: ${focus.map(i => i.title).join("; ")}.`); else if (plan && hour < STANDUP_HOUR) out.push(`${plan} planned for today, none picked yet.`);
-    const top = (threads || []).find(t => t.project || t.area); if (top && top.items.length > 1) out.push(`Most open work is in ${top.title} (${top.items.length}).`);
-    const approvals = list.filter(i => i.kind === "approval"), reviews = list.filter(i => i.kind === "review"); if (approvals.length || reviews.length) out.push(`${[approvals.length ? `${approvals.length} approval${approvals.length === 1 ? "" : "s"}` : "", reviews.length ? `${reviews.length} draft${reviews.length === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ")} waiting on you.`);
-    const failed = list.filter(i => i.kind === "job"); if (failed.length) out.push(`${failed.length} automation${failed.length === 1 ? " needs" : "s need"} attention.`);
-    const who = hqPeople(data, list).filter(p => p.items.length)[0]; if (who && who.items.length > 1) out.push(`${who.name} is in ${who.items.length} open items.`);
+    if (focus.length) out.push({ text: `Focus: ${focus.map(i => i.title).join("; ")}.`, go: "today" }); else if (plan && hour < STANDUP_HOUR) out.push({ text: `${plan} planned for today, none picked yet.`, go: "today" });
+    const top = (threads || []).find(t => t.project || t.area); if (top && top.items.length > 1) out.push({ text: `Most open work is in ${top.title} (${top.items.length}).`, ...(top.project ? { proj: top.project.path } : { go: "threads" }) });
+    const approvals = list.filter(i => i.kind === "approval"), reviews = list.filter(i => i.kind === "review"); if (approvals.length || reviews.length) out.push({ text: `${[approvals.length ? `${approvals.length} approval${approvals.length === 1 ? "" : "s"}` : "", reviews.length ? `${reviews.length} draft${reviews.length === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ")} waiting on you.`, go: "needs" });
+    const failed = list.filter(i => i.kind === "job"); if (failed.length) out.push({ text: `${failed.length} automation${failed.length === 1 ? " needs" : "s need"} attention.`, go: "automations" });
+    const who = hqPeople(data, list).filter(p => p.items.length)[0]; if (who && who.items.length > 1) out.push({ text: `${who.name} is in ${who.items.length} open items.`, go: "people" });
     return out;
   }
   const PEOPLE_KINDS = new Set(["task", "plan", "carried", "approval", "review"]);   // your work; a suggestion or a backlog line that names someone isn't
@@ -1500,7 +1503,7 @@ const VGRules = (() => {
     }
     return out.map(g => ({ ids: g.ids, x: g.sx / g.ids.length, y: g.sy / g.ids.length }));
   }
-  return { ringClusters, errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, unmentioned, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { hqBriefLines, ringClusters, errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, unmentioned, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, NEXT_NOTE, nextView, nextItem, SCALES, VIEW_SCALES, viewScale, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, GUIDE_LOG_KEEP, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
