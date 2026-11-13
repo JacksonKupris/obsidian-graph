@@ -18,6 +18,8 @@ function readData(vault, rules) {
 
 // A server for one vault: app files built once, data built again on each change, every open app told through /events.
 function createServer({ vault, rules, version, log, debounceMs = 1500 }) {
+  // The server only reads the vault. Its one write is the log, so a log inside the vault is refused (it would add a file to the notes and be synced to every device).
+  if (log) { const rel = path.relative(path.resolve(vault), path.resolve(log)); if (rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel))) throw new Error("the log file is inside the vault; put it outside (for example in a temp folder)"); }
   const files = {}, clients = new Set(); let data = null, stamp = 0, timer = null;
   const refresh = () => {   // a failed read (a note half-written) keeps the last good data and is tried again on the next change
     try { data = readData(vault, rules); stamp = Date.now(); Object.assign(files, phoneApp(data, rules, version)); files["data.json"] = JSON.stringify({ stamp, data }); return true; }
