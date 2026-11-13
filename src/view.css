@@ -408,11 +408,12 @@
 .is-mobile .vg-switch { padding: 8px 2px; }
 .is-mobile .vg-tip { display: none; }
 /* every control a thumb can hit, at least --vg-tap on a phone (polish_loop.js reads the same token to check) */
-.vg-root { --vg-tap: 32px; --vg-hit-min: 24px; }
+.vg-root { --vg-tap: 40px; --vg-hit-min: 24px; }
 /* the floor on a desktop: the row buttons and chips the lenses draw (audit:views reads the same 24px) */
 .vg-root :is(.vg-mx-name, .vg-tl-label, .vg-rv-chip, .vg-visbtn, button.vg-fd-name, .vg-rp-pick, .vg-fd-bar) { min-height: var(--vg-hit-min); }
 .vg-root.is-mobile :is(.vg-btn, .vg-btn-sm, .vg-mx-cell, .vg-mx-name, .vg-tl-label, .vg-rv-chip, .vg-sandel, .vg-autobtn, .vg-dockbtn, .vg-visbtn, .vg-chip, .vg-linkish, .vg-fd-bar) { min-height: var(--vg-tap); }
-.vg-root.is-mobile .vg-ibtn { min-width: var(--vg-tap); min-height: var(--vg-tap); }
+.vg-root.is-mobile :is(.vg-ibtn, .vg-tab, .vg-searchbtn) { min-width: var(--vg-tap); min-height: var(--vg-tap); }
+.vg-root.is-mobile :is(.vg-viewhelp, .vg-visbtn, .vg-ms-head, .vg-rp-pick, .vg-side .vg-input) { min-width: var(--vg-tap); min-height: var(--vg-tap); }
 .vg-root.is-mobile .vg-linkbtn { display: inline-flex; align-items: center; min-height: var(--vg-tap); }   /* a link-style button in a sentence */
 .vg-root.is-mobile .vg-autobtn, .vg-root.is-mobile .vg-dockbtn, .vg-root.is-mobile .vg-btn-sm { min-width: var(--vg-tap); }
 .vg-dock > * { flex-shrink: 0; }
