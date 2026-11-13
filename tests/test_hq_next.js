@@ -69,6 +69,10 @@ assert(open(null, day), "the task is listed"); assert(!open("until:2026-11-09", 
     const hasWork = await tab.ev(`window.vaultHQ.items().some(i => i.group === "today")`);
     // the chip is on every screen, and says one thing everywhere
     const label = await chip(); check(!!label, "no next step named");
+    // on a phone the chip stays inside the screen and is big enough to tap, on every screen
+    await size(390, true);
+    for (const s of ["home", "today", "needs"]) { await screen(s); const r = await tab.ev(`(() => { const b = document.querySelector(".vg-hq-nextchip").getBoundingClientRect(); return { l: b.left, r: b.right, h: b.height, w: innerWidth, scroll: document.documentElement.scrollWidth }; })()`); check(r.l >= 0 && r.r <= r.w && r.h >= 32 && r.scroll <= r.w, `the chip on ${s} at phone width: ${JSON.stringify(r)}`); }
+    await size(1500);
     for (const s of ["home", "today", "needs", "people", "projects", "calendar"]) { await screen(s); check((await chip()) === label, `the chip differs on ${s}`); const n = await tab.ev(`[document.querySelectorAll(".vg-hq-nextchip").length, document.querySelectorAll("[data-nextstep]:not(.vg-hq-nextchip)").length]`); check(n[0] === 1 && n[1] <= 1, `${s} shows ${n[0]} next chips and ${n[1]} Go buttons: one of each at most`); }
     if (hasWork) {
       check(label === "Pick today's focus", `with nothing picked: ${label}`);
