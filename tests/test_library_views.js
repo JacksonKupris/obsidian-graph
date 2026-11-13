@@ -8,10 +8,9 @@ const { sleep, checks, finish, openPage } = require("./kit");
 const env = require("./env");
 (async () => {
   const full = env.data(), { fails, ok } = checks();
-  // Fed at hub notes, the sample's simulation finds no link worth suggesting, so the main page here is the sample without
-  // the hubs that own no topic (Simulate's Add and Decline are pressed on it); the whole sample is opened at the end.
+  // The sample has a hub that owns no topic (BUGS): the views are fed at it too, and Simulate still offers links between notes.
   const BUGS = "02-Projects/Rental App/Rental App Bugs Hub.md", own = new Set(full.mocs.map(m => m.id)), extra = new Set(full.nodes.filter(n => n.moc && !own.has(n.id)).map(n => n.id));
-  const data = env.topicMapsOnly(full);
+  const data = full;
   const D = "window.vaultGraph._debug", q = s => `document.querySelector(${JSON.stringify(s)})`;
   let tab = null;
   try {
