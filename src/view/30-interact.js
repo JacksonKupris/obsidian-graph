@@ -330,30 +330,33 @@
   root.ownerDocument.addEventListener("visibilitychange", onHidden);   // all three removed in destroy()
   holdKeys({ up: k => { const d = SCENES[st.view]; if (d && d.key) d.key(k, false); },
     all: () => Object.values(SCENES).forEach(d => d.release && d.release()) });
+  // One step back: closes the topmost layer. Escape runs it, and so does a phone's back gesture (handle.back). Returns 1 when
+  // it closed something, 2 when it only left a text field (the key goes on to the host), 0 when there was nothing to close.
+  function goBack(typingIn) {
+    // the topmost layer goes first: an open report sits over the scene, so it closes before the scene (a game in play) does
+    if ($(".vg-lens").hidden && SCENES[st.view] && SCENES[st.view].escape && SCENES[st.view].escape()) return 1;
+    if (tour) endTour();
+    else if (closeTools()) { $(".vg-toolsbtn").focus(); }
+    else if (!$(".vg-palette").hidden) { closePalette(); }
+    else if (!$(".vg-picker").hidden) { closeMenu(); $(".vg-pickbtn").focus(); }
+    else if (!$(".vg-lens").hidden) closeLens();
+    else if (typingIn) { typingIn.blur(); return 2; }
+    else if (st.lasso) setLassoMode(false);
+    else if (st.placing) { st.placing = null; root.classList.remove("is-placing"); $$(".vg-dockbtn").forEach(x => x.setAttribute("aria-pressed", "false")); dirty = true; }
+    else if (st.body) { st.body = null; $(".vg-inspector").hidden = true; root.classList.remove("has-inspector"); dirty = true; }
+    else if (st.path) clearPath();
+    else if (st.focus && !st.quietFocus) exitFocus();
+    else if (st.multi) clearMulti();
+    else if (st.selected) select(null);
+    else if (st.highlight) clearHighlight();
+    else if (root.classList.contains("vg-side-open")) root.classList.remove("vg-side-open");
+    else return 0;
+    return 1;
+  }
   root.addEventListener("keydown", e => {
     const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName);
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
-    if (e.key === "Escape") {
-      // the topmost layer takes Escape first: an open report sits over the scene, so it closes before the scene (a game in play) does
-      if ($(".vg-lens").hidden && SCENES[st.view] && SCENES[st.view].escape && SCENES[st.view].escape()) { e.stopPropagation(); return; }
-      if (tour) endTour();
-      else if (closeTools()) { $(".vg-toolsbtn").focus(); }
-      else if (!$(".vg-palette").hidden) { closePalette(); }
-      else if (!$(".vg-picker").hidden) { closeMenu(); $(".vg-pickbtn").focus(); }
-      else if (!$(".vg-lens").hidden) closeLens();
-      else if (typing) { e.target.blur(); return; }
-      else if (st.lasso) setLassoMode(false);
-      else if (st.placing) { st.placing = null; root.classList.remove("is-placing"); $$(".vg-dockbtn").forEach(x => x.setAttribute("aria-pressed", "false")); dirty = true; }
-      else if (st.body) { st.body = null; $(".vg-inspector").hidden = true; root.classList.remove("has-inspector"); dirty = true; }
-      else if (st.path) clearPath();
-      else if (st.focus && !st.quietFocus) exitFocus();
-      else if (st.multi) clearMulti();
-      else if (st.selected) select(null);
-      else if (st.highlight) clearHighlight();
-      else if (root.classList.contains("vg-side-open")) root.classList.remove("vg-side-open");
-      else return;
-      e.stopPropagation(); return;
-    }
+    if (e.key === "Escape") { if (goBack(typing ? e.target : null) === 1) e.stopPropagation(); return; }
     if (typing) return;
     lastInteract = performance.now();
     const k = KEYS.find(x => x.run && (x.match ? x.match(e) : !e.ctrlKey && !e.metaKey && !e.altKey && x.keys[0].toLowerCase() === e.key.toLowerCase()) && (!x.when || x.when()));

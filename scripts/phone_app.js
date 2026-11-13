@@ -40,7 +40,10 @@ self.addEventListener("fetch", e => {
 
 const HEAD = `<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#16161a"><meta name="mobile-web-app-capable" content="yes">`;
-const REGISTER = `<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});</script>`;
+// The back gesture closes the open panel or popup (the graph's one back step) instead of leaving the app; with nothing open it leaves.
+const REGISTER = `<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+history.pushState({ vg: 1 }, "");
+addEventListener("popstate", () => { const g = window.vaultGraph; if (g && g.back && g.back()) history.pushState({ vg: 1 }, ""); });</script>`;
 
 // What the phone tells the PC while the preview server runs (phone_preview.py's /__report): that it opened, and every error. Anywhere else the posts fail quietly.
 const REPORT = `<script>(() => { const say = (kind, data) => { try { fetch("__report", { method: "POST", body: JSON.stringify({ kind, data, at: new Date().toISOString() }), keepalive: true }).catch(() => {}); } catch (e) {} };
