@@ -30,8 +30,8 @@
 
   // ---- the morning brief: the day in a few sentences, from what the vault already says
   function briefHtml() {
-    const b = VGRules.hqBrief(DATA, LIST, STATE.review, day(), threads(), now().getHours());
-    return b.length ? `<p class="vg-hq-brief">${b.map(esc).join(" ")}</p>` : "";
+    const b = VGRules.hqBriefLines(DATA, LIST, STATE.review, day(), threads(), now().getHours());   // each sentence opens what it counts
+    return b.length ? `<p class="vg-hq-brief">${b.map(l => `<button class="vg-hq-briefline" ${l.proj ? `data-proj="${esc(l.proj)}"` : `data-go="${esc(l.go)}"`}>${esc(l.text)}</button>`).join(" ")}</p>` : "";
   }
   // Threads: the same open work, grouped by the project it belongs to, which is how it's thought about
   function threadsHtml(limit) {

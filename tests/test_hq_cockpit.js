@@ -15,6 +15,12 @@ assert.strictEqual(T[T.length - 1].project, null);
 assert.strictEqual(VGRules.hqThreads([{ key: "1", title: "Test the service alarm on the console" }], [{ path: "a.md", title: "Service Alarm Webhooks", group: "closed" }])[0].project, null, "open work joined a closed project");
 assert.strictEqual(VGRules.hqThreads([{ key: "1", title: "Update bills to use the credit card" }], [{ path: "a.md", title: "Hamachi Network Password + Kiosk Software Update", group: "active" }])[0].project, null, "one shared word of a long title made a thread");
 assert.strictEqual(VGRules.hqThreads([{ key: "1", title: "Update the console's packages" }, { key: "2", title: "Run the sticker fix on the console database" }], [{ path: "a.md", title: "Fix Dispatch Console Out-of-Memory Crashes", group: "active" }])[0].project, null, "the name of a system made a thread");
+// shared words don't pull an item into a project of another area; a link to the project still does
+{ const ar = { Odoo: ["odoo"], AWS: ["aws"] }, pr = [{ path: "Systems/AWS/US - Billing Optimization.md", title: "Billing Optimization", name: "US - Billing Optimization", group: "active" }];
+  const t = VGRules.hqThreads([{ key: "1", title: "Fix the Odoo billing export" }, { key: "2", title: "Review the billing alarms" }, { key: "3", text: "Odoo note for [[US - Billing Optimization]]" }], pr, ar);
+  const bill = t.find(x => x.project), odoo = t.find(x => x.area === "Odoo");
+  assert.deepStrictEqual(bill.items.map(i => i.key), ["2", "3"], "an Odoo item joined the AWS billing thread by one shared word");
+  assert.deepStrictEqual(odoo && odoo.items.map(i => i.key), ["1"], "the Odoo item goes by its area"); }
 const AREA = VGRules.hqThreads([{ key: "1", title: "Update the Console's packages" }, { key: "2", title: "Fix the Odoo console login" }, { key: "3", title: "Pay the bills" }, { key: "4", title: "Consoles are down" }], [], { Dispatch: ["console"], Odoo: ["odoo console"] });
 assert.deepStrictEqual(AREA.map(t => [t.title, t.items.length]), [["Dispatch", 2], ["Odoo", 1], ["Everything else", 1]], "work with no project should group by the area it names, longest phrase first");
 assert.strictEqual(VGRules.plainSnippet("> **SES lists** are [[Note|case]] `sensitive` | ▼ x"), "SES lists are case sensitive x", "a preview shows markup");
@@ -22,6 +28,14 @@ assert.strictEqual(VGRules.plainSnippet("> **SES lists** are [[Note|case]] `sens
 const brief = VGRules.hqBrief({ hq: { journals: [{ path: "j", tasks: [{ mark: "x", text: "A ✅ 2026-10-27" }] }] } }, [{ kind: "approval", key: "a", title: "x" }], {}, "2026-10-28", []);
 assert(brief.some(s => s.startsWith("1 done yesterday")), "brief: " + brief); assert(brief.some(s => s.includes("1 approval")), "brief: " + brief);
 assert.deepStrictEqual(VGRules.hqBrief({}, [], {}, "2026-10-28", []), [], "an empty vault should have no brief, not invented sentences");
+// every brief sentence says where its detail is, and the sentences alone are the same brief
+{ const args = [{ hq: { journals: [{ path: "j", tasks: [{ mark: "x", text: "A ✅ 2026-10-27" }] }] } }, [{ kind: "approval", key: "a", title: "x" }, { kind: "job", key: "j", title: "y" }], {}, "2026-10-28", [{ title: "Console", area: "Console", items: [1, 2] }]];
+  const lines = VGRules.hqBriefLines(...args);
+  assert.ok(lines.length >= 4 && lines.every(l => l.text && (l.go || l.proj)), "a brief sentence with nowhere to open: " + JSON.stringify(lines.filter(l => !(l.go || l.proj))));
+  assert.deepStrictEqual(VGRules.hqBrief(...args), lines.map(l => l.text), "hqBrief is the sentences of hqBriefLines");
+  // one count per fact: the strip, Home's cards and the dock read hqCounts, none counts for itself
+  const fs = require("fs"), path = require("path"), dir = path.join(__dirname, "..", "src", "hq"), own = fs.readdirSync(dir).flatMap(f => fs.readFileSync(path.join(dir, f), "utf8").split("\n").filter(l => /ofGroup\("needs"\)\.length|p\.group === "active"\)\.length/.test(l) && !/function hqCounts/.test(l)).map(() => f));
+  assert.deepStrictEqual(own, [], "a screen counts Needs you or active projects for itself, not through hqCounts: " + own.join(", ")); }
 
 (async () => {
   const tab = await openPage({ html: env.hqPage("") });
@@ -63,6 +77,10 @@ assert.deepStrictEqual(VGRules.hqBrief({}, [], {}, "2026-10-28", []), [], "an em
     await tab.ev(`(() => { window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), { nodes: [], links: [], hq: { journals: [], standups: [], projects: [], backlog: [], reports: [], reviews: [], decisions: [], runs: {}, runlog: [], inbox: [] } }, { now: new Date("2026-10-28T12:00:00"), api: { capture: async () => {}, openDaily: async () => {} } }); })()`); await sleep(30);
     check(await tab.ev(`/Welcome/.test(document.querySelector(".vg-hq-main").textContent) && !!document.querySelector(".vg-hq-captureinput")`), "a new vault gets no welcome");
     await mount(); await sleep(60); await tab.ev(`window.vaultHQ.setScreen("home")`); await sleep(30);
+    // the brief's sentences open what they count
+    const briefs = await tab.ev(`[...document.querySelectorAll(".vg-hq-briefline")].map(b => b.dataset.go || (b.dataset.proj ? "proj" : ""))`);
+    check(briefs.length > 0 && briefs.every(Boolean), "a brief sentence opens nothing: " + JSON.stringify(briefs));
+    { const go = briefs.find(g => g && g !== "proj"); if (go) { await tab.ev(`document.querySelector('.vg-hq-briefline[data-go="${go}"]').click()`); await sleep(40); check(await tab.ev(`window.vaultHQ.screen()`) === go, `a brief sentence didn't open ${go}`); await tab.ev(`window.vaultHQ.setScreen("home")`); await sleep(30); } }
     // every screen draws and goes somewhere
     for (const s of ["home", "today", "needs", "people", "projects", "threads", "wrap", "review", "automations"]) { await tab.ev(`window.vaultHQ.setScreen(${JSON.stringify(s)})`); await sleep(25);
       check(await tab.ev(`document.querySelectorAll(".vg-hq-main button").length > 0`), `${s} is a dead end`); check(await tab.ev(`window.vaultHQ.screen()`) === s, `${s} didn't open`); }

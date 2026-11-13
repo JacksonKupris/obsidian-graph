@@ -44,15 +44,17 @@
       const canChoose = api.openDaily || api.openStandup || (api.openNote && (j || standups.has(iso)));
       return `<button class="vg-hq-day${on ? " is-today" : ""}" ${canChoose ? `data-weekday="${iso}"` : "disabled"} ${duplicate ? `title="Duplicate journal date; using ${esc(j.path)}"` : ""} aria-label="${DAYS[d.getDay()]} ${d.getDate()}, journal and standup${duplicate ? ", duplicate journal paths; canonical copy selected" : ""}"><span>${DAYS[d.getDay()]}</span><b>${d.getDate()}</b><span class="vg-hq-marks">${marks}</span></button>`;
     }).join("");
-    const needs = ofGroup("needs").length, projects = VGRules.hqProjects(DATA).filter(p => p.group === "active").length, jobs = VGRules.hqJobs(h || {}, now());
+    const { needs, projects: { active: projects } } = hqCounts(), jobs = VGRules.hqJobs(h || {}, now());
     const badJobs = jobs.filter(j => j.state === "failed" || j.state === "late").length;
     const chip = (screen, ic, title, sub, dot) => `<button class="vg-hq-chip" data-go="${screen}">${icon(ic, 16)}<span><b>${esc(title)}</b>${dot ? '<i class="vg-hq-dot"></i>' : ""}<small>${esc(sub)}</small></span></button>`;
     return `<nav class="vg-hq-strip" aria-label="This week"><div class="vg-hq-week">${days}</div><div class="vg-hq-chips">` +
       chip("needs", "inbox", "Needs you", plural(needs, "item"), needs > 0) + chip("projects", "folder", "Projects", `${projects} active`) +
       (jobs.length ? chip("automations", "clock", "Automations", badJobs ? `${badJobs} need${badJobs === 1 ? "s" : ""} a look` : `${jobs.length} configured`, badJobs > 0) : "") + `</div></nav>`;
   }
+  // The counts Home, the week strip and the dock show: worked out in one place, so the same fact is the same number everywhere
+  function hqCounts() { const ps = VGRules.hqProjects(DATA), of = g => ps.filter(p => p.group === g).length; return { needs: ofGroup("needs").length, projects: { active: of("active"), planned: of("planned"), waiting: of("waiting") } }; }
   function dock() {
-    const needs = ofGroup("needs").length;
+    const { needs } = hqCounts();
     const nextAt = nextStep().screen, nextHome = SUB[nextAt] ? SUB[nextAt][1] : nextAt;
     return `<nav class="vg-hq-dock" aria-label="Screens">${SCREENS.map(([k, label, ic]) => `<button class="vg-hq-dockbtn${cur === k || (SUB[cur] && SUB[cur][1] === k) ? " is-on" : ""}${nextHome === k && cur !== nextAt ? " has-next" : ""}" data-go="${k}" aria-label="${label}" ${cur === k ? 'aria-current="page"' : ""} title="${label}">${icon(ic, 20)}${k === "needs" && needs ? `<span class="vg-hq-badge">${needs}</span>` : ""}</button>`).join("")}` +
       (api.openDaily ? `<span class="vg-hq-sep"></span><button class="vg-hq-dockbtn" data-daily aria-label="Open today's journal" title="Open today's journal">${icon("journal", 20)}</button>` : "") + `</nav>`;
