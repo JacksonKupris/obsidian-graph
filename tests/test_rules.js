@@ -400,12 +400,19 @@ for (const f of ["view.js", "plugin.js", "hq"]) {
       const hctx = { ...ctx, api: hapi, done: (m, u) => shown.push(m), fail: m => shown.push("FAIL " + m) };
       let ticks = 0; H.subscribe(() => ticks++);
       await VGActions.run("archive", note, hctx); await VGActions.run("complete", note, hctx);
-      check("each decision is recorded, newest last", H.state(), { past: ["Archived Plan", "Completed 1 task in Plan"], future: [], canUndo: true, canRedo: false });
+      check("each decision is recorded, newest last", H.state(), { past: ["Archived Plan", "Completed 1 task in Plan"], future: [], canUndo: true, canRedo: false, canPrevious: true, previous: "Completed 1 task in Plan" });
+      // Previous steps back through the decisions and changes nothing; a button press goes through the one wiring
+      { const w = wrote, t0 = ticks, a = H.previous(), b = H.previous(), c = H.previous();
+        check("Previous hands back what each decision was made on, newest first, then round again", [a.msg, b.msg, c.msg, a.path, wrote === w, ticks > t0], ["Completed 1 task in Plan", "Archived Plan", "Completed 1 task in Plan", note.id, true, true]);
+        check("and the button names the one it would show next", H.state().previous, "Archived Plan");
+        const btn = k => ({ disabled: false, hasAttribute: x => x === k }), got = [];
+        check("a Previous press shows it, a disabled or unknown button does nothing", [H.press(btn("data-hprev"), x => got.push(x.msg)), got, H.press({ disabled: true, hasAttribute: () => true }), H.press(btn("data-other")), wrote === w], [true, ["Archived Plan"], false, false, true]); }
       check("Undo reverses the newest change", [await H.undoLast(), undone, wrote], [true, [2], 1]);
       check("it moves to Redo", H.state().future, ["Completed 1 task in Plan"]);
       check("Redo does it again, without asking", [await H.redoLast(), wrote, H.state().canRedo, H.state().past.length], [true, 2, false, 2]);
       await H.undoLast(); await VGActions.run("archive", note, hctx);
       check("a new decision clears Redo", H.state().canRedo, false);
+      check("and Previous starts from the newest again", H.state().previous, H.state().past.slice(-1)[0]);
       check("surfaces are told on every change", ticks > 4, true);
       hapi.undo = async () => { throw new Error("gone"); };
       const before = H.state().past.length; check("a failed Undo leaves the entry in place", [await H.undoLast(), H.state().past.length], [false, before]);

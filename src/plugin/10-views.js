@@ -258,12 +258,12 @@ class VaultGraphSuggestView extends ItemView {
     const run = (key, node) => VGActions.run(key, node || subject, ctx);
     const head = el.createDiv({ cls: "vg-s-head" });
     head.createEl("div", { cls: "vg-s-title", text: file ? file.basename : "No note open" });
-    // Undo and Redo: the same pair and the same history as the graph's toolbar and Vault HQ
+    // Previous, Undo and Redo: the same buttons and the same history as the graph's toolbar and Vault HQ
     const hist = head.createDiv({ cls: "vg-s-history" });
     this.drawHistory = () => {
-      hist.innerHTML = VGParts.historyButtons(VGActions.history.state(), name => `<span data-icon="${name === "undo" ? "undo-2" : "redo-2"}"></span>`, "vg-s-btn vg-s-ghost");
+      hist.innerHTML = VGParts.historyButtons(VGActions.history.state(), name => `<span data-icon="${{ prev: "history", undo: "undo-2", redo: "redo-2" }[name]}"></span>`, "vg-s-btn vg-s-ghost");
       hist.querySelectorAll("[data-icon]").forEach(s => require("obsidian").setIcon(s, s.dataset.icon));
-      hist.querySelectorAll("button").forEach(b => { b.onclick = () => VGActions.history[b.hasAttribute("data-hundo") ? "undoLast" : "redoLast"](); });
+      hist.querySelectorAll("button").forEach(b => { b.onclick = () => VGActions.history.press(b, at => { if (at.path) this.app.workspace.openLinkText(at.path, "", false); }); });
     };
     this.drawHistory();
     if (n) head.createEl("div", { cls: "vg-s-muted", text: `${clusterName(n.cluster)} · ${n.inlinks} in · ${n.outlinks} out` });

@@ -204,8 +204,8 @@
       return `<button class="vg-mitem" role="menuitem" data-tool="${c}"${src && src.hasAttribute("aria-pressed") ? ` aria-checked="${toolOn(c)}"` : ""}><b>${icon(ic, 14)} ${esc(name)}</b>${src && src.title ? `<span class="vg-muted">${esc(src.title.replace(/^[^:(]*:\s*/, "").replace(/^./, ch => ch.toUpperCase()))}</span>` : ""}</button>`; }).join("");
     // Undo and Redo first: the toolbar pair is hidden when the pane is narrow, so the menu always has them
     const hs = VGActions.history.state(), hm = (key, ic, name, on, msg) => `<button class="vg-mitem" role="menuitem" data-${key}${on ? "" : " disabled"}><b>${icon(ic, 14)} ${name}</b><span class="vg-muted">${esc(on ? msg : "Nothing to " + name.toLowerCase())}</span></button>`;
-    m.insertAdjacentHTML("afterbegin", hm("hundo", "undo", "Undo", hs.canUndo, hs.past[hs.past.length - 1]) + hm("hredo", "redo", "Redo", hs.canRedo, hs.future[hs.future.length - 1]));
-    m.querySelectorAll("[data-hundo], [data-hredo]").forEach(x => x.onclick = () => { closeTools(); VGActions.history[x.hasAttribute("data-hundo") ? "undoLast" : "redoLast"](); });
+    m.insertAdjacentHTML("afterbegin", hm("hprev", "prev", "Previous", hs.canPrevious, hs.previous).replace("Nothing to previous", "No earlier decision") + hm("hundo", "undo", "Undo", hs.canUndo, hs.past[hs.past.length - 1]) + hm("hredo", "redo", "Redo", hs.canRedo, hs.future[hs.future.length - 1]));
+    m.querySelectorAll("[data-hprev], [data-hundo], [data-hredo]").forEach(x => x.onclick = () => { closeTools(); VGActions.history.press(x, showDecided); });
     m.querySelectorAll("[data-tool]").forEach(x => x.onclick = () => { closeTools(); runTool(x.dataset.tool); });
     m.hidden = false; $(".vg-toolsbtn").setAttribute("aria-expanded", "true"); m.querySelector("[data-tool]").focus({ preventScroll: true });
   }
@@ -264,9 +264,11 @@
   // the next step, the same one HQ and the status bar name; it leads to HQ, where it's marked
   const syncNextBtn = () => { const b = $(".vg-nextbtn"); if (!b || !opts.goNextStep || !DATA.hq) return; const n = VGRules.hqNextOf(todayData(), { review, hidden: cos.hidden, today: today(), session: opts.focusNow ? opts.focusNow() : null }); const v = VGRules.nextView(n); b.querySelector("b").textContent = v.label; b.setAttribute("aria-label", v.text); b.hidden = false; b.onclick = () => opts.goNextStep(); };
   // Undo and Redo in the toolbar: the one history (VGActions.history) every surface reads
+  // Previous: the note the decision was made on, selected in the graph
+  function showDecided(at) { if (at.path && byId[at.path]) select(at.path); }
   const syncHistory = () => { const h = $(".vg-toolhist"); if (h && !destroyed) h.innerHTML = VGParts.historyButtons(VGActions.history.state(), icon, "vg-ibtn"); };
   const unHistory = VGActions.history.subscribe(syncHistory);
-  root.addEventListener("click", e => { const b = e.target.closest && e.target.closest(".vg-toolhist [data-hundo], .vg-toolhist [data-hredo]"); if (b && !b.disabled) VGActions.history[b.hasAttribute("data-hundo") ? "undoLast" : "redoLast"](); });
+  root.addEventListener("click", e => { const b = e.target.closest && e.target.closest(".vg-toolhist .vg-historybtn"); if (b) VGActions.history.press(b, showDecided); });
   syncHistory();
   function syncMapsBtn(view) {   // the Views button shows where you are
     syncNextBtn();

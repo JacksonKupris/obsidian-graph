@@ -468,7 +468,7 @@
   // ---------------------------------------------------------------- first-run tour
   // one short sentence per step, each about the control it points at
   const TOUR = [
-    { sel: ".vg-toolhist", title: "Undo and Redo", text: "Reverse the last change you made, or do it again. The same history as in Vault HQ." },
+    { sel: ".vg-toolhist", title: "Previous, Undo and Redo", text: "Go back to the note of your last decision, reverse the last change, or do it again. The same history as in Vault HQ." },
     { sel: ".vg-nextbtn", title: "The next step", text: "The one thing to do now. It opens Vault HQ at that step." },
     { sel: ".vg-pickbtn", title: "Views", text: "Every way of looking at the vault, grouped by what you want to know: the map, your tasks, notes that need you, topics. Some draw a picture, some open a report beside it." },
     { sel: ".vg-searchbtn", title: "Search", text: "Jump to any note, topic or saved view. Press / or Ctrl K." },

@@ -122,6 +122,16 @@ assert(open(null, day), "the task is listed"); assert(!open("until:2026-11-09", 
     await size(390, true); const hbSize = await tab.ev(`Math.round(document.querySelector("[data-hredo]").getBoundingClientRect().height)`); check(hbSize >= 44, `Redo is ${hbSize}px tall on a phone`);
     await size(1500); await click("[data-hredo]"); await sleep(120);
     check((await tab.ev(`window.__h.join("")`)) === "ur", "Redo from the header does it again");
+    // Previous: off with nothing decided on an item, then it opens what the last decision was made on and changes nothing
+    await tab.ev(`VGActions.history.reset()`); await sleep(80);
+    check(await tab.ev(`(() => { const p = document.querySelector("[data-hprev]"); return !!p && p.disabled && p.title === "No earlier decision"; })()`), "the header has Previous, off with nothing decided");
+    const prevKey = await tab.ev(`(() => { const r = document.querySelector(".vg-hq-item[data-key]"); return r ? r.dataset.key : ""; })()`);
+    check(!!prevKey, "Home lists no item to decide on, so Previous is not tested");
+    await tab.ev(`window.__h = []; VGActions.history.record({ msg: "Done: A", at: { key: ${JSON.stringify(prevKey)}, path: "" }, undo: async () => { window.__h.push("u"); return true; }, redo: async () => true })`); await sleep(80);
+    check(await tab.ev(`document.querySelector("[data-hprev]").title`) === "Previous: Done: A", "Previous names the decision it goes back to");
+    await click("[data-hprev]"); await sleep(150);
+    check(await tab.ev(`(() => { const s = document.querySelector(".vg-hq-item.is-sel"); return !!s && s.dataset.key === ${JSON.stringify(prevKey)}; })()`) && (await tab.ev(`window.__h.join("")`)) === "", "Previous selects the decided item and reverses nothing");
+    await size(390, true); check(await tab.ev(`document.querySelector(".vg-hq").scrollWidth <= document.querySelector(".vg-hq").clientWidth && document.querySelector("[data-hprev]").getBoundingClientRect().height >= 44`), "with Previous the header runs off a phone, or the button is under 44px"); await size(1500);
     const errs = await tab.ev("window.__errs"); check(!errs.length, "page errors: " + errs.join("; "));
   } catch (e) { fails.push(e.message); } finally { await tab.close(); }
   if (fails.length) { console.log("FAIL - next step:\n  " + fails.join("\n  ")); process.exit(1); }
