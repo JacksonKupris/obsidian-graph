@@ -258,7 +258,7 @@
     const f = p.querySelector('.vg-tile[aria-pressed="true"]') || p.querySelector(".vg-picker-tab[aria-selected=\"true\"]") || p.querySelector(".vg-tile"); if (f) f.focus({ preventScroll: true });
   }
   // the next step, the same one HQ and the status bar name; it leads to HQ, where it's marked
-  const syncNextBtn = () => { const b = $(".vg-nextbtn"); if (!b || !opts.goNextStep || !DATA.hq) return; const n = VGRules.hqNextOf(todayData(), { review, hidden: cos.hidden, today: today(), session: opts.focusNow ? opts.focusNow() : null }); b.querySelector("b").textContent = n.label; b.setAttribute("aria-label", `Next: ${n.label}`); b.hidden = false; b.onclick = () => opts.goNextStep(); };
+  const syncNextBtn = () => { const b = $(".vg-nextbtn"); if (!b || !opts.goNextStep || !DATA.hq) return; const n = VGRules.hqNextOf(todayData(), { review, hidden: cos.hidden, today: today(), session: opts.focusNow ? opts.focusNow() : null }); const v = VGRules.nextView(n); b.querySelector("b").textContent = v.label; b.setAttribute("aria-label", v.text); b.hidden = false; b.onclick = () => opts.goNextStep(); };
   function syncMapsBtn(view) {   // the Views button shows where you are
     syncNextBtn();
     syncDim();

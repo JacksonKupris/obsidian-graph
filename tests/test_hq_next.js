@@ -112,3 +112,9 @@ assert(open(null, day), "the task is listed"); assert(!open("until:2026-11-09", 
   console.log("ok - next step: one rule, chip, beacon, dock and loop agree; it moves with the day, settles, and shows without motion; next week");
   process.exit(0);
 })();
+
+// one wording: no surface writes its own "Next: " text
+{ const fs = require("fs"), path = require("path"), bad = [];
+  for (const d of ["src/plugin", "src/view"]) for (const f of fs.readdirSync(path.join(__dirname, "..", d))) if (f.endsWith(".js") && /`Next: |"Next note"|"No more notes"/.test(fs.readFileSync(path.join(__dirname, "..", d, f), "utf8"))) bad.push(`${d}/${f}`);
+  assert.deepStrictEqual(bad, [], "Next wording comes from VGRules.nextView / NEXT_NOTE: " + bad);
+  assert.strictEqual(R.nextView({ label: "X" }).text, "Next: X"); }

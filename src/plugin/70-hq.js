@@ -91,7 +91,7 @@
       const data = await this.graphData(), sh = await this.loadShared();
       if (this.focusNow) return;   // the clock has the status bar; a session that started while this was reading
       const n = VGRules.hqNextOf(data || {}, { review: sh && sh.review, hidden: sh && sh.cosmos && sh.cosmos.hidden, today: today() });
-      this.nextEl.setText(`Next: ${n.label}`); this.nextEl.setAttr("aria-label", `Go to: ${n.label}`);
+      const v = VGRules.nextView(n); this.nextEl.setText(v.text); this.nextEl.setAttr("aria-label", v.aria);
     } catch (e) { console.error("Vault Graph: next step not worked out", e); }
   }
   // A focus session running in HQ: its clock takes the status bar, so it shows while you work in a note, and the graph's chip follows.
