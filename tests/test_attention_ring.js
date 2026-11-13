@@ -41,7 +41,9 @@ const env = require("./env");
     assert.ok(badged > 0, "the sample's crowded views must draw at least one count badge");
     // tapping a badge selects the notes behind it
     await tab.ev(`window.vaultGraph._debug.openView("neural")`); await sleep(1500);
-    const bd2 = await tab.ev(`window.vaultGraph._debug.ringBadges()`);
+    // the layout drifts while it settles (slower on a busy runner): wait for a badge that stays put
+    let bd2 = await tab.ev(`window.vaultGraph._debug.ringBadges()`);
+    for (let i = 0; i < 20; i++) { await sleep(250); const next = await tab.ev(`window.vaultGraph._debug.ringBadges()`); const still = next.length && bd2.length && Math.hypot(next[0].x - bd2[0].x, next[0].y - bd2[0].y) < 0.5; bd2 = next; if (still) break; }
     assert.ok(bd2.length, "the neural view must show a badge to tap");
     {
       const rect = await tab.ev(`(() => { const r = document.querySelector(".vg-root canvas").getBoundingClientRect(); return [r.left, r.top]; })()`);

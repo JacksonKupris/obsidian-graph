@@ -22,15 +22,16 @@ const assert = require("assert"), env = require("./env");
         DATA.hq.standups = [];
         DATA.hq.reviews = [{path:"Review.md",name:"Backlog Reconciliation test",title:"Review",status:"pending",reviewOnly:true}];
         window.__calls = [];
+        const later = Object.fromEntries(window.vaultHQ.items().filter(i => i.kind === "job").map(i => [i.key, "later:" + VGRules.localDay(new Date("2026-10-28T12:00:00"))]));  // a failed job takes the card; this check is about a task and an approval
         window.vaultHQ.destroy();
-        window.vaultHQ = mountVaultHQ(document.getElementById("hq"),DATA,{
+        window.vaultHQ = mountVaultHQ(document.getElementById("hq"),DATA,{ state: { review: { hq: later } },
           api:{openNote:p=>window.__calls.push(["open",p]),searchNotes:async q=>[{path:"Reference.md",heading:"Cross-screen source",line:4,score:9,why:["content match"],snippet:"A matching note body."}],
             setNoteStatus:async(...a)=>window.__calls.push(["status",...a]),hqMark:async()=>{}},
           ask:async()=>true,now:new Date("2026-10-28T12:00:00")
         });
         window.vaultHQ.setScreen("today");
       })()`);
-      assert(await tab.ev(`document.querySelector(".vg-hq-next").textContent.includes("Current action")`), "today action must outrank approval");
+      assert(await tab.ev(`document.querySelector(".vg-hq-next").textContent.includes("Current action")`), "today action must outrank approval: " + await tab.ev(`document.querySelector(".vg-hq-next").textContent + " / " + JSON.stringify(window.vaultHQ.items().map(i => [i.group, i.kind]))`));
       await tab.ev(`window.vaultHQ.setScreen("projects");window.__selectProjectFilter=(key,value)=>{const s=document.querySelector('[data-project-filter="'+key+'"]');s.value=value;s.focus();s.dispatchEvent(new Event("change",{bubbles:true}));};`);
       assert.deepEqual(await tab.ev(`[...document.querySelectorAll(".vg-hq-project-filters select")].map(s=>[s.getAttribute("aria-label"),s.value])`),
         [["Kind","all"],["System","all"],["Project status","active"]], "labeled native dropdowns retain defaults");
