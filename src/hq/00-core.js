@@ -42,7 +42,9 @@ function mountVaultHQ(root, data, opts) {
   const ofGroup = g => LIST.filter(it => it.group === g);
   const ofKind = k => LIST.filter(it => it.kind === k);
   const focus = () => VGRules.hqFocusItems(LIST, STATE.review, day());
-  const doNext = () => focus()[0] || LIST.find(it => it.group === "today") || null;
+  // Do next follows the day's one next step (the header, the status bar and the step bar read the same step); firstOpen is for screens that need some note whatever the step is
+  const doNext = () => VGRules.nextItem(nextStep(), LIST, focus());
+  const firstOpen = () => focus()[0] || LIST.find(it => it.group === "today") || null;
   const hq = () => DATA.hq || null;
 
   // ---- icons: small line icons drawn here (no icon font outside Obsidian)

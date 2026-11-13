@@ -140,6 +140,8 @@
     const h = hq() || {}, done = VGRules.doneToday(DATA, STATE.review, day()).length, standup = (h.standups || []).some(s => s.date === day());
     return VGRules.hqNextStep({ list: LIST, review: STATE.review, day: day(), hour: now().getHours(), done, standup, session: session && BY_KEY.get(session.key) ? { title: session.title } : null });
   }
+  // When the next step is a job of its own (standup, wrap up) the Do next card shows the step, with the button that goes to it
+  const stepButton = () => `<button class="vg-hq-btn" data-nextstep>Go</button>`;
   const nextChip = () => { const n = nextStep(); return `<button class="vg-hq-nextchip" data-nextstep title="${esc(n.label)}"><span class="vg-hq-nextdot" aria-hidden="true"></span><small>Next</small><b>${esc(n.label)}</b></button>`; };
   // the beacon sits on the one control that is the next step, on the screen that has it
   function markNext(again) {

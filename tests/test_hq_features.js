@@ -28,13 +28,15 @@ assert.strictEqual(R.statusForGroup("nowhere"), null);
     await tab.ev(`window.__errs = []; addEventListener("error", e => __errs.push(String(e.message)))`);
     const rec = (k, ret) => `${k}: async (...a) => { window.__calls.push(["${k}", ...a]); return ${ret}; }`;
     const API = ["setTaskStatus", "completeTask", "setTaskField", "setNoteStatus", "setProjectStatus", "hqMark", "hqFocus", "hqSession", "logWork"].map(k => rec(k, k === "setProjectStatus" ? "0" : "true")).join(", ");
-    const mount = () => tab.ev(`(() => { window.__calls = []; window.vaultHQ.destroy(); window.__calls = []; window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { state: {}, ask: async () => true, api: { ${API}, setTasksStatus: async (rows, s) => { window.__calls.push(["setTasksStatus", rows.length, s]); return rows.length; }, openNote: p => window.__calls.push(["open", p]), openDaily: async d => window.__calls.push(["daily", d]), openStandup: async d => window.__calls.push(["standup", d]), searchNotes: async () => [] } }); })()`);
+    let mount = (state = "{}") => tab.ev(`(() => { window.__calls = []; window.vaultHQ.destroy(); window.__calls = []; window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { state: ${state}, ask: async () => true, api: { ${API}, setTasksStatus: async (rows, s) => { window.__calls.push(["setTasksStatus", rows.length, s]); return rows.length; }, openNote: p => window.__calls.push(["open", p]), openDaily: async d => window.__calls.push(["daily", d]), openStandup: async d => window.__calls.push(["standup", d]), searchNotes: async () => [] } }); })()`);
     const calls = () => tab.ev(`window.__calls`), size = async (width, mobile = false) => { await tab.send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile }); await sleep(120); };
     const screen = s => tools(tab, { wait: 60 }).screen(s);
     const click = sel => tools(tab).click(sel);
     const shot = name => tools(tab, { shots: SHOTS }).shot(name);
     const key = (k, o = "{}") => tab.ev(`document.querySelector(".vg-hq").dispatchEvent(new KeyboardEvent("keydown", { key: ${JSON.stringify(k)}, bubbles: true, ...${o} }))`);
-    await mount(); await size(1500); await screen("today");
+    await mount(); await size(1500); const jobs = await tab.ev(`window.vaultHQ.items().filter(i => i.kind === "job").map(i => i.key)`);
+    if (jobs.length) { const set = `{ review: { hq: Object.fromEntries(${JSON.stringify(jobs)}.map(k => [k, "later:" + VGRules.localDay(new Date())])) } }`; const again = mount; mount = (state = set) => again(state); await mount(); await size(1500); }  // a failed job takes the Do next card; these checks are about a task
+    await screen("today");
 
     // ---- Calendar
     await click('[aria-label="Calendar"]'); await sleep(60);
