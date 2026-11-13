@@ -11,7 +11,7 @@ const env = require("./env");
   // Fed at hub notes, the sample's simulation finds no link worth suggesting, so the main page here is the sample without
   // the hubs that own no topic (Simulate's Add and Decline are pressed on it); the whole sample is opened at the end.
   const BUGS = "02-Projects/Rental App/Rental App Bugs Hub.md", own = new Set(full.mocs.map(m => m.id)), extra = new Set(full.nodes.filter(n => n.moc && !own.has(n.id)).map(n => n.id));
-  const data = env.VAULT ? full : { ...full, nodes: full.nodes.filter(n => !extra.has(n.id)), links: full.links.filter(l => !extra.has(l.source)) };
+  const data = env.topicMapsOnly(full);
   const D = "window.vaultGraph._debug", q = s => `document.querySelector(${JSON.stringify(s)})`;
   let tab = null;
   try {
