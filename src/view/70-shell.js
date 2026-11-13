@@ -573,6 +573,7 @@
       return true;
     },
     applyLive,
+    back: () => goBack(null) === 1,   // one step back (a phone's back gesture): true when it closed something
     setView, openLens,
     hasView: v => canvasView(v),   // a scene from a note exists once its block is in the state
     async snapshot() { const blob = await new Promise(res => cv.toBlob(res, "image/png")); return blob.arrayBuffer(); },   // the canvas as PNG (State of the vault)

@@ -8,6 +8,7 @@ assert.deepStrictEqual(Object.keys(files).sort(), ["icon-192.png", "icon-512.png
 const page = files["index.html"];
 assert(page.includes('rel="manifest" href="manifest.webmanifest"') && page.includes("serviceWorker.register"), "the page links its manifest and registers the cache");
 assert(page.includes("mountVaultGraph"), "it is still the graph page");
+assert(page.includes("popstate") && page.includes("g.back()"), "the back gesture closes what is open");
 assert(page.includes("app-open") && page.includes("unhandledrejection"), "the page reports that it opened and every error");
 // installable: Chrome wants a name, start page, standalone display and 192 and 512 px PNG icons that exist
 const m = JSON.parse(files["manifest.webmanifest"]);

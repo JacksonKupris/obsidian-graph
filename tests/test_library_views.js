@@ -28,6 +28,14 @@ const env = require("./env");
     const stat = await tab.ev(`${api}.handle().stat()`);
     ok(/days · .* domains · .* loops/.test(stat) && (await tab.ev(`${q(".vg-status")}.innerText`)).includes(stat), `the library's stat line is the plugin's status: ${stat}`);
 
+    // a phone has no Escape key: its back gesture is handle.back(), the same step Escape takes. It closes an open lens, then says there is nothing left
+    await tab.ev(`window.vaultGraph.openLens("survival")`); await sleep(800);
+    ok(await tab.ev(`!${q(".vg-lens")}.hidden`), "a lens is open");
+    // each press closes the topmost layer (a first-visit tour, then the lens): the lens is shut within a few presses and then nothing is left
+    let presses = 0; while (presses < 6 && await tab.ev(`window.vaultGraph.back()`) === true) presses++;
+    ok(presses >= 1 && presses < 6 && await tab.ev(`${q(".vg-lens")}.hidden`), `back closes the lens (${presses} presses)`);
+    ok(await tab.ev(`window.vaultGraph.back()`) === false, "with nothing open, back has nothing to close");
+
     // fresh vault data patched into the page: the library's view is mounted again from it, not left on the old notes
     await tab.ev(`window.__h0 = ${api}.handle()`);
     ok(await tab.ev(`window.vaultGraph.applyLive(structuredClone(${JSON.stringify(data)}))`) === true, "the plugin takes the fresh data in place");
