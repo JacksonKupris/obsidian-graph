@@ -22,6 +22,14 @@ const env = require("./env");
     const lead = all.filter(([, , h]) => /^(Lean manufacturing|Manufacturing|Clinical trials|Finance|Ecology|Gene editing|Epidemiology|Reliability engineering|Reservoir computing)\b[^:]*: /.test(h || "")).map(([k]) => k);
     assert.deepStrictEqual(lead, [], `hints that start with a field label (use field): ${lead.join(", ")}`);
     const tagged = all.filter(([, f]) => f).length; assert.ok(tagged >= 10, `the science views carry a field tag: ${tagged}`);
+    // every menu entry has its own icon: none is the generic grid (except the matrix, which is one), and none repeats within a menu group
+    const withMenu = await tab.ev(`window.vaultGraph._debug.allViews().filter(v => v.menu).map(v => [v.key, v.menu, v.icon])`);
+    assert.ok(withMenu.length >= 40, `menu views seen: ${withMenu.length}`);
+    const generic = withMenu.filter(([k, , i]) => !i || (i === "grid" && k !== "lens:matrix")).map(([k]) => k);
+    assert.deepStrictEqual(generic, [], `views on the generic icon: ${generic.join(", ")}`);
+    const seenIc = new Map(), dup = [];
+    for (const [k, m, i] of withMenu) { const id = m + "|" + i; if (seenIc.has(id)) dup.push(`${seenIc.get(id)} + ${k} (${i}, ${m})`); else seenIc.set(id, k); }
+    assert.deepStrictEqual(dup, [], `icons repeated within a menu group: ${dup.join("; ")}`);
     console.log(`ok - view manifest: all ${views.length} views declare a scale on the ladder, and the table has no dead entries`);
   } catch (e) { console.log("FAIL - view scale:\n  " + (e.message || e)); process.exitCode = 1; } finally { await tab.close(); }
 })();
