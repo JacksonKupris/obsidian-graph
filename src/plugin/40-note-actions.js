@@ -299,6 +299,7 @@
       planLine: text => this.planLine(text),
       searchMeaning: (q, n) => this.searchMeaning(q, n),
       stampReviewed: notePath => { this.vitalsMemo = null; return this.stampReviewed(notePath); },
+      dismissedPairs: () => this.dismissedPairs || [],
       dismissPair: async (a, b, kind) => { await this.dismiss(a, b, kind); new Notice("Won't suggest that pair again"); },
       linkText: (id, fromPath) => this.linkText(id, fromPath),
       addToMap: (mocId, ids) => this.addToMap(mocId, ids),

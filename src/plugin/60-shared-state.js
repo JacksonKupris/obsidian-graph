@@ -137,7 +137,8 @@
   async loadDismissed() {
     const pairs = ((await this.readJson(this.settings.dismissedPath)) || {}).pairs || [];
     const ledgers = await this.loadLedgers(); this.moves = VGRules.ledgerMoves(ledgers);
-    [...pairs, ...VGRules.ledgerDismissed(ledgers)].map(p => this.followSaved(p)).forEach(p => p && p.a && p.b && DISMISSED.add(dismissKey(p.a, p.b)));
+    this.dismissedPairs = [...pairs, ...VGRules.ledgerDismissed(ledgers)].map(p => this.followSaved(p)).filter(p => p && p.a && p.b);   // the list the views read (dismissedPairs)
+    this.dismissedPairs.forEach(p => DISMISSED.add(dismissKey(p.a, p.b)));
   }
   // The shared file, dismissals or a device ledger changed (here or by Sync): dismissals apply at once, the sidebar redraws
   async sharedChanged(file) {

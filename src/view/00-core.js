@@ -11,6 +11,7 @@
 //   opts.onHoverNote(path, event)       optional, e.g. Obsidian page preview
 //   opts.linkNotes(from, to, why)       optional (plugin): write a Related line
 //   opts.dismissPair(a, b, kind)        optional (plugin): never suggest a pair again
+//   opts.dismissedPairs()               optional (plugin): [{a, b}] every pair dismissed on any device (the one list the views read)
 //   opts.writeNote(path, md, {mode})    optional (plugin): create a note, or regenerate below a marker
 //   opts.appendSection(path, heading, lines)  optional (plugin): append lines under a dated heading (MOC drift)
 //   opts.saveBinary(path, arrayBuffer)  optional (plugin): save an exported image into the vault

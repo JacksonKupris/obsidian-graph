@@ -99,7 +99,7 @@
     this.cacheStale = true;
     if (data.pairs.some(p => (p.a === a && p.b === b) || (p.a === b && p.b === a))) return;   // already dismissed
     const pair = { a, b, kind, date: today(), via: "graph" };
-    data.pairs.push(pair);
+    data.pairs.push(pair); this.dismissedPairs = [...(this.dismissedPairs || []), pair];
     await this.ioData(path, JSON.stringify(data, null, 2) + "\n");
     await this.recordLedger(null, [pair]);   // kept even if Sync later keeps another device's copy of the file
   }
