@@ -18,7 +18,6 @@ const { sleep, openPage } = require("./kit");
 const env = require("./env");
 const arg = (f, d) => (process.argv.includes(f) ? process.argv[process.argv.indexOf(f) + 1] : d);
 const MOBILE = process.argv.includes("--mobile"), ONLY = arg("--view", ""), OUT = arg("--out", env.out(MOBILE ? "views-audit-mobile.md" : "views-audit.md"));
-const MIN_TAP = MOBILE ? 44 : 24;
 const SAYS = "automatically|right away|straight away|immediately|in the background|no refresh|without (a )?refresh|joins the|Live ·|don't worry|behind the scenes|re-?analysed|updates itself";
 
 const HOW = {
@@ -37,13 +36,15 @@ const HOW = {
 const probeOf = sel => `(() => { const root = document.querySelector(${JSON.stringify(sel)}) || document.body, R = root.getBoundingClientRect();
   /* a control inside a closed <details> is laid out but not drawn: it has a size and a place and cannot be seen or pressed */
   const closedMore = e => { for (let d = e.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) if (!d.open && !(e.closest("summary") && e.closest("summary").parentElement === d)) return true; return false; };
-  const seen = e => { const r = e.getBoundingClientRect(), c = getComputedStyle(e); return r.width > 0 && r.height > 0 && c.visibility !== "hidden" && c.display !== "none" && +c.opacity > 0.05 && !e.closest("[hidden]") && !closedMore(e); };
+  /* on a phone the side panel is a drawer slid off the pane until opened: its controls are not on screen */
+  const closedDrawer = e => { const d = e.closest(".vg-side"); return !!d && d.getBoundingClientRect().right <= R.left + 1; };
+  const seen = e => { const r = e.getBoundingClientRect(), c = getComputedStyle(e); return r.width > 0 && r.height > 0 && c.visibility !== "hidden" && c.display !== "none" && +c.opacity > 0.05 && !e.closest("[hidden]") && !closedMore(e) && !closedDrawer(e); };
   const name = e => (e.getAttribute("aria-label") || e.textContent || (e.labels && e.labels[0] ? e.labels[0].textContent : "") || e.title || e.getAttribute("data-act") || "").trim().replace(/\\s+/g, " ");
   // a control scrolled out of sight inside a scrolling panel (or clipped by it) is not off the pane
   const clipped = e => { const r = e.getBoundingClientRect(); for (let p = e.parentElement; p && p !== root; p = p.parentElement) { const c = getComputedStyle(p); if (/(auto|scroll|hidden|clip)/.test(c.overflow + c.overflowX + c.overflowY)) { const q = p.getBoundingClientRect(); if (r.bottom > q.bottom + 1 || r.top < q.top - 1 || r.right > q.right + 1 || r.left < q.left - 1) return true; } } return false; };
   const ctl = [...root.querySelectorAll("button, [role=button], [role=menuitem], input, select")].filter(e => seen(e) && !clipped(e) && !e.disabled && !e.closest(".vg-gl, .vg-tour, .vg-tour-card") && !(e.type === "range"));
   const noName = ctl.filter(e => !name(e) && !(e.type === "range")).map(e => e.className.toString().slice(0, 40));
-  const small = ctl.filter(e => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height) < ${MIN_TAP} && !e.closest(".vg-seg, .vg-dock") && !(e.matches("input[type=checkbox], input[type=radio]") && e.labels && e.labels.length);   /* a box inside its label: the label is what is pressed */ }).map(e => (name(e).slice(0, 24) || e.className.toString().slice(0, 30)) + " " + Math.round(e.getBoundingClientRect().width) + "x" + Math.round(e.getBoundingClientRect().height) + " ." + String(e.className.baseVal ?? e.className).split(" ")[0]);
+  const small = ctl.filter(e => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height) < ${MOBILE ? "(parseFloat(getComputedStyle(root).getPropertyValue('--vg-tap')) || 44)" : 24} && !e.closest(".vg-seg, .vg-dock") && !(e.matches("input[type=checkbox], input[type=radio]") && e.labels && e.labels.length);   /* a box inside its label: the label is what is pressed */ }).map(e => (name(e).slice(0, 24) || e.className.toString().slice(0, 30)) + " " + Math.round(e.getBoundingClientRect().width) + "x" + Math.round(e.getBoundingClientRect().height) + " ." + String(e.className.baseVal ?? e.className).split(" ")[0]);
   const out = ctl.filter(e => { const r = e.getBoundingClientRect(); return r.right > R.right + 2 || r.left < R.left - 2 || r.bottom > R.bottom + 2; }).map(e => name(e).slice(0, 24));
   const over = []; const boxes = ctl.map(e => ({ e, r: e.getBoundingClientRect() }));
   for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) { const a = boxes[i], b = boxes[j]; if (a.e.contains(b.e) || b.e.contains(a.e)) continue;
