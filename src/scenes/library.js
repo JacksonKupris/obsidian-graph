@@ -3,7 +3,6 @@
   // the theme, and takes back what it asks for: a note opened, the stat line, the Today strip, and the actions it names.
   // A library view sits under its own key (hidden: true, so no picker lists it) beside the plugin's own copy of that view,
   // until the library's has been looked at in Obsidian and on a phone; then the key moves to the menu and the old copy goes.
-  function libDrop() { if (LIBV.handle) LIBV.handle.dispose(); LIBV.handle = null; LIBV.key = null; }
   const libTheme = () => ({ bg: css("--vg-bg") || undefined, fg: css("--vg-fg") || undefined, muted: css("--vg-muted") || undefined, accent: css("--vg-accent") || undefined, palette: PALETTE });
   // a note the library names: the shared detail when it is in the graph, the note itself otherwise (a journal day)
   const libOpen = id => { if (byId[id]) select(id); else if (opts.openNote) opts.openNote(id, false); };

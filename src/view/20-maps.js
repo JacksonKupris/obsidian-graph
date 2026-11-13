@@ -68,6 +68,7 @@
   // A view from the graphs library draws on its own canvas laid over this one (src/scenes/library.js is its host side). The
   // state and the way out are here, in the renderer's scope, so drawView can put it away when any other view is drawn.
   const LIBV = { host: null, key: null, handle: null, selected: undefined, size: "", marked: undefined };
+  function libDrop() { if (LIBV.handle) LIBV.handle.dispose(); LIBV.handle = null; LIBV.key = null; }   // the next draw mounts the library view again
   function libHide() {
     if (!LIBV.host || LIBV.host.hidden) return;
     LIBV.host.hidden = true; cv.style.visibility = ""; LIBV.key = null;   // the library's canvas stays mounted: the next visit starts where this one stopped

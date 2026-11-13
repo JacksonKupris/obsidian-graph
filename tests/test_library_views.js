@@ -28,6 +28,12 @@ const env = require("./env");
     const stat = await tab.ev(`${api}.handle().stat()`);
     ok(/days · .* domains · .* loops/.test(stat) && (await tab.ev(`${q(".vg-status")}.innerText`)).includes(stat), `the library's stat line is the plugin's status: ${stat}`);
 
+    // fresh vault data patched into the page: the library's view is mounted again from it, not left on the old notes
+    await tab.ev(`window.__h0 = ${api}.handle()`);
+    ok(await tab.ev(`window.vaultGraph.applyLive(structuredClone(${JSON.stringify(data)}))`) === true, "the plugin takes the fresh data in place");
+    await tab.ev(`${D}.drawNow()`); await sleep(1500);
+    ok(await tab.ev(`!!${api}.handle() && ${api}.handle() !== window.__h0`), "the library's view was mounted again with the fresh data");
+
     // the library's frame lies under the toolbar, and its stat line (the status pill's) is not drawn twice
     const lay = await tab.ev(`(() => { const f = ${q(".vg-lib .vgv-frame")}, t = ${q(".vg-toolbar")}, s = ${q(".vg-lib .vgv-stat")}; return { frame: f && f.getBoundingClientRect().top, bar: t && t.getBoundingClientRect().bottom, stat: s && getComputedStyle(s).display }; })()`);
     ok(lay.frame !== null && lay.bar !== null && lay.frame >= lay.bar - 1, `the library's frame starts under the toolbar (${JSON.stringify(lay)})`);

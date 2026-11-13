@@ -8,6 +8,7 @@ assert.deepStrictEqual(Object.keys(files).sort(), ["icon-192.png", "icon-512.png
 const page = files["index.html"];
 assert(page.includes('rel="manifest" href="manifest.webmanifest"') && page.includes("serviceWorker.register"), "the page links its manifest and registers the cache");
 assert(page.includes("mountVaultGraph"), "it is still the graph page");
+assert(page.includes("app-open") && page.includes("unhandledrejection"), "the page reports that it opened and every error");
 // installable: Chrome wants a name, start page, standalone display and 192 and 512 px PNG icons that exist
 const m = JSON.parse(files["manifest.webmanifest"]);
 assert(m.name && m.start_url && m.display === "standalone", "manifest basics");
@@ -26,3 +27,9 @@ const tmp = fs.mkdtempSync(path.join(require("os").tmpdir(), "phone-app-"));
 require("child_process").execFileSync(process.execPath, [path.join(__dirname, "..", "scripts", "phone_app.js"), "--out", tmp]);
 assert(fs.readFileSync(path.join(tmp, "icon-192.png")).equals(iconPng(192)), "icon on disk is the icon built");
 console.log("ok - phone app: command writes icons intact");
+// a phone page has no vault to read: the journals and HQ notes ride inside it, and Task survival reads them there
+const { hqFromFolder } = require("../scripts/vault_hq"), env = require("./env");
+const got = hqFromFolder(env.dir(), rules);
+assert(got.journalHistory.length >= 5 && got.hq.journals.length > 0, "the test vault's journals are read");
+assert(fs.readFileSync(path.join(__dirname, "..", "src", "view", "62-science.js"), "utf8").includes("DATA.journalHistory"), "the lenses read the carried journals");
+console.log("ok - phone app: journals and HQ notes travel with the page");
