@@ -55,8 +55,10 @@ const probeOf = sel => `(() => { const root = document.querySelector(${JSON.stri
   const lens = document.querySelector(".vg-lens"), lensOpen = !!lens && !lens.hidden, body = lensOpen ? lens.querySelector(".vg-lens-body") : null;
   const legend = (document.querySelector(".vg-legend") || {}).textContent || "", sub = lensOpen ? (lens.querySelector(".vg-lens-sub") || {}).textContent || "" : "";
   const empties = [...root.querySelectorAll(".vg-empty")].filter(seen).map(e => ({ text: e.textContent.trim().slice(0, 60), next: !!(e.parentElement && e.parentElement.querySelector(".vg-empty-next button, button, a")) }));
+  /* text the pane cuts off with an ellipsis, and no title carries the rest: a person cannot read it */
+  const cut = [...root.querySelectorAll("*")].filter(e => seen(e) && getComputedStyle(e).textOverflow === "ellipsis" && e.scrollWidth > e.clientWidth + 1 && !e.title && !e.closest("[title], [aria-label]")).map(e => e.textContent.trim().replace(/\s+/g, " ").slice(0, 30));
   const text = [...root.querySelectorAll("*")].filter(e => seen(e) && ![...e.children].length && e.textContent.trim().length > 6).map(e => e.textContent.trim()).filter(t => new RegExp(${JSON.stringify(SAYS)}, "i").test(t)).map(t => t.slice(0, 70));
-  return { lensOpen, legend: legend.trim().slice(0, 60), sub: sub.trim().slice(0, 60), buttons: body ? body.querySelectorAll("button").length : null, noName: [...new Set(noName)], small: [...new Set(small)], out: [...new Set(out)], over: [...new Set(over)].slice(0, 6), empties, text: [...new Set(text)], view: ((window.vaultGraph && window.vaultGraph.viewport()) || {}).view || null, errs: (window.__errs || []).length }; })()`;
+  return { lensOpen, legend: legend.trim().slice(0, 60), sub: sub.trim().slice(0, 60), buttons: body ? body.querySelectorAll("button").length : null, noName: [...new Set(noName)], small: [...new Set(small)], out: [...new Set(out)], over: [...new Set(over)].slice(0, 6), empties, text: [...new Set(text)], cut: [...new Set(cut)], view: ((window.vaultGraph && window.vaultGraph.viewport()) || {}).view || null, errs: (window.__errs || []).length }; })()`;
 const PROBE = probeOf(".vg-root");
 
 (async () => {
@@ -131,7 +133,7 @@ const PROBE = probeOf(".vg-root");
             await sleep(500); const after = await tab.ev(`JSON.stringify([window.vaultGraph.viewport().selected, window.vaultGraph.viewport().cam, !!document.querySelector(".vg-inspector:not([hidden])"), document.querySelector(".vg-lens:not([hidden])") ? 1 : 0, document.querySelector(".vg-side").innerHTML.length, (document.querySelector(".vg-tab[aria-selected=true]") || {}).textContent, document.querySelectorAll(".vg-side .is-on").length, Math.round(document.querySelector(".vg-side").getBoundingClientRect().right)])`); /* a row that marks itself or closes the phone drawer did something */
             pr.acts = before !== after; await esc(); await esc(); }
         } catch (e) { pr.err = String(e.message || e).slice(0, 80); }
-        const sp = pr.probe; if (sp) { if (sp.noName.length || sp.small.length) note("panels", pr.name, "named: " + [...sp.noName.map(n => "no name " + n), ...sp.small.map(n => "small " + n)].slice(0, 4).join(", ")); if (sp.out.length || sp.over.length) note("panels", pr.name, "fits: " + [...sp.out, ...sp.over].slice(0, 4).join(", ")); if (!sp.empties.every(e => e.next)) note("panels", pr.name, "dead end: " + sp.empties.filter(e => !e.next).map(e => e.text).join(", ")); if (sp.text.length) note("panels", pr.name, "wording: " + sp.text.join(", ")); }
+        const sp = pr.probe; if (sp) { if (sp.noName.length || sp.small.length) note("panels", pr.name, "named: " + [...sp.noName.map(n => "no name " + n), ...sp.small.map(n => "small " + n)].slice(0, 4).join(", ")); if (sp.out.length || sp.over.length) note("panels", pr.name, "fits: " + [...sp.out, ...sp.over].slice(0, 4).join(", ")); if (!sp.empties.every(e => e.next)) note("panels", pr.name, "dead end: " + sp.empties.filter(e => !e.next).map(e => e.text).join(", ")); if (sp.text.length) note("panels", pr.name, "wording: " + sp.text.join(", ")); if (sp.cut.length) note("panels", pr.name, "cut off, with no full text: " + sp.cut.slice(0, 4).join(", ")); }
         if (pr.rows === 0) note("panels", pr.name, "nothing to click"); else if (pr.acts === false) note("panels", pr.name, "its first row does nothing: " + pr.what);
         menuRows.push({ name: pr.name, opens: pr.rows > 0, items: pr.rows, closes: pr.acts !== false, panel: true }); console.log(`  ${pr.name}: ${pr.rows} controls, first one ${pr.acts === null ? "–" + (pr.err ? " (" + pr.err + ")" : "") : pr.acts ? "acts" : "does nothing"}`);
       }
@@ -155,7 +157,7 @@ const PROBE = probeOf(".vg-root");
           if (sp.noName.length || sp.small.length) note("panels", pr.name, "named: " + [...sp.noName.map(n => "no name " + n), ...sp.small.map(n => "small " + n)].slice(0, 4).join(", "));
           if (sp.out.length || sp.over.length) note("panels", pr.name, "fits: " + [...sp.out, ...sp.over].slice(0, 4).join(", "));
           if (!sp.empties.every(e => e.next)) note("panels", pr.name, "dead end: " + sp.empties.filter(e => !e.next).map(e => e.text).join(", "));
-          if (sp.text.length) note("panels", pr.name, "wording: " + sp.text.join(", "));
+          if (sp.text.length) note("panels", pr.name, "wording: " + sp.text.join(", ")); if (sp.cut.length) note("panels", pr.name, "cut off, with no full text: " + sp.cut.slice(0, 4).join(", "));
         } catch (e) { note("panels", pr.name, "error: " + String(e.message || e).slice(0, 80)); }
         menuRows.push(pr); console.log(`  ${pr.name}: ${pr.opens ? "read" : "did not open"}`);
       }
@@ -176,7 +178,7 @@ const PROBE = probeOf(".vg-root");
       if (sp.noName.length || sp.small.length) note("panels", pr.name, "named: " + [...sp.noName.map(n => "no name " + n), ...sp.small.map(n => "small " + n)].slice(0, 4).join(", "));
       if (sp.out.length || sp.over.length) note("panels", pr.name, "fits: " + [...sp.out, ...sp.over].slice(0, 4).join(", "));
       if (!sp.empties.every(e => e.next)) note("panels", pr.name, "dead end: " + sp.empties.filter(e => !e.next).map(e => e.text).join(", "));
-      if (sp.text.length) note("panels", pr.name, "wording: " + sp.text.join(", "));
+      if (sp.text.length) note("panels", pr.name, "wording: " + sp.text.join(", ")); if (sp.cut.length) note("panels", pr.name, "cut off, with no full text: " + sp.cut.slice(0, 4).join(", "));
       menuRows.push(pr); console.log(`  ${pr.name}: read in Obsidian`);
     }
   }
