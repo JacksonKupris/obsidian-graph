@@ -47,18 +47,29 @@
     if (!attnCache) { attnCache = new Map(); const c = actionCtx(); for (const n of nodes) { const k = VGActions.attention(n, c).length; if (k) attnCache.set(n.id, k); } }
     return attnCache;
   }
+  let ringBadges = [];   // the count badges drawn last frame: [{ ids, x, y, r }], for a tap to open the notes behind one
+  const RING_GAP = 18;
   function drawAttention() {
-    const hits = attentionOf(); if (!hits.size) return;
-    const col = css("--vg-warn") || "#f59e0b";
+    const hits = attentionOf(); ringBadges = []; if (!hits.size) return;
+    const col = css("--vg-warn") || "#f59e0b", bg = css("--vg-bg") || "#16161a";
+    const items = []; for (const [id, k] of hits) { const p = P.get(id); if (p && p.a > 0.5 && byId[id]) items.push({ id, x: p.x, y: p.y, k, r: Math.max(4, Math.min(24, p.r || 6)) + 4 }); }
+    const one = new Map(items.map(i => [i.id, i]));
     ctx.save(); ctx.globalCompositeOperation = "source-over"; ctx.strokeStyle = col;
-    for (const [id, k] of hits) {
-      const p = P.get(id); if (!p || !(p.a > 0.5) || !byId[id]) continue;
-      const r = Math.max(4, Math.min(24, p.r || 6)) + 4; ctx.globalAlpha = 0.95; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 2 * Math.PI); ctx.stroke();
-      if (k > 1) { ctx.globalAlpha = 0.55; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, r + 4, 0, 2 * Math.PI); ctx.stroke(); }
+    for (const g of VGRules.ringClusters(items, RING_GAP)) {
+      if (g.ids.length === 1) {
+        const i = one.get(g.ids[0]); ctx.globalAlpha = 0.95; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(i.x, i.y, i.r, 0, 2 * Math.PI); ctx.stroke();
+        if (i.k > 1) { ctx.globalAlpha = 0.55; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(i.x, i.y, i.r + 4, 0, 2 * Math.PI); ctx.stroke(); }
+        continue;
+      }
+      const r = 11; ringBadges.push({ ids: g.ids, x: g.x, y: g.y, r });
+      ctx.globalAlpha = 0.95; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(g.x, g.y, r, 0, 2 * Math.PI); ctx.fill();
+      ctx.fillStyle = bg; ctx.font = "600 11px " + (css("--vg-font") || "system-ui, sans-serif"); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(g.ids.length > 99 ? "99+" : String(g.ids.length), g.x, g.y + 0.5);
     }
     ctx.restore();
   }
+  const ringBadgeAt = (x, y) => ringBadges.find(b => Math.hypot(b.x - x, b.y - y) <= b.r + (MOBILE ? 8 : 2));
   function drawView(now) {
     GL.show(glOn());
     if (!(SCENES[st.view] && SCENES[st.view].lib)) libHide();   // a library view's canvas lies over this one: put it away when another view is drawn
