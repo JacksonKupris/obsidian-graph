@@ -44,27 +44,33 @@
   // Notes with a problem beyond a missing reference or a short note (VGActions.attention) get a ring in the warning colour, over every view that
   // records where it put each note (P), so what to click next stands out whichever view is open. Two or more problems: a second ring.
   function attentionOf() {
-    if (!attnCache) { attnCache = new Map(); const c = actionCtx(); for (const n of nodes) { const k = VGActions.attention(n, c).length; if (k) attnCache.set(n.id, k); } }
+    if (!attnCache) { attnCache = new Map(); attnWhy = new Map(); const c = actionCtx(); for (const n of nodes) { const ks = VGActions.attention(n, c).map(p => p.key); if (ks.length) { attnCache.set(n.id, ks.length); attnWhy.set(n.id, ks); } } }
     return attnCache;
   }
-  let ringBadges = [];   // the count badges drawn last frame: [{ ids, x, y, r }], for a tap to open the notes behind one
+  let attnWhy = new Map();   // id -> the reasons (problem keys) behind its ring, filled together with attnCache
+  const reasonsOf = id => (attentionOf(), attnWhy.get(id) || []);
+  // one arc of the ring per reason, in that reason's colour (one reason: the whole ring)
+  function ringArcs(x, y, r, keys, width, alpha) {
+    const n = keys.length, gap = n > 1 ? 0.18 : 0; ctx.lineWidth = width; ctx.globalAlpha = alpha;
+    keys.forEach((k, i) => { ctx.strokeStyle = VGActions.reasonLook(k).color; ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2 + i * 2 * Math.PI / n + gap / 2, -Math.PI / 2 + (i + 1) * 2 * Math.PI / n - gap / 2); ctx.stroke(); });
+  }
+  let ringBadges = [];   // the count badges drawn last frame: [{ ids, x, y, r, reasons }], for a tap to open the notes behind one
   const RING_GAP = 18;
   function drawAttention() {
     const hits = attentionOf(); ringBadges = []; if (!hits.size) return;
-    const col = css("--vg-warn") || "#f59e0b", bg = css("--vg-bg") || "#16161a";
-    const items = []; for (const [id, k] of hits) { const p = P.get(id); if (p && p.a > 0.5 && byId[id]) items.push({ id, x: p.x, y: p.y, k, r: Math.max(4, Math.min(24, p.r || 6)) + 4 }); }
+    const bg = css("--vg-bg") || "#16161a";
+    const items = []; for (const [id] of hits) { const p = P.get(id); if (p && p.a > 0.5 && byId[id]) items.push({ id, x: p.x, y: p.y, r: Math.max(4, Math.min(24, p.r || 6)) + 4 }); }
     const one = new Map(items.map(i => [i.id, i]));
-    ctx.save(); ctx.globalCompositeOperation = "source-over"; ctx.strokeStyle = col;
+    ctx.save(); ctx.globalCompositeOperation = "source-over";
     for (const g of VGRules.ringClusters(items, RING_GAP)) {
-      if (g.ids.length === 1) {
-        const i = one.get(g.ids[0]); ctx.globalAlpha = 0.95; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(i.x, i.y, i.r, 0, 2 * Math.PI); ctx.stroke();
-        if (i.k > 1) { ctx.globalAlpha = 0.55; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(i.x, i.y, i.r + 4, 0, 2 * Math.PI); ctx.stroke(); }
-        continue;
-      }
-      const r = 11; ringBadges.push({ ids: g.ids, x: g.x, y: g.y, r });
-      ctx.globalAlpha = 0.95; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(g.x, g.y, r, 0, 2 * Math.PI); ctx.fill();
-      ctx.fillStyle = bg; ctx.font = "600 11px " + (css("--vg-font") || "system-ui, sans-serif"); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      if (g.ids.length === 1) { const i = one.get(g.ids[0]); ringArcs(i.x, i.y, i.r, reasonsOf(i.id), 2.5, 0.95); continue; }
+      // a badge: a pie of the reasons behind the notes it holds, the count in the middle
+      const r = 12, tally = new Map(); for (const id of g.ids) for (const k of reasonsOf(id)) tally.set(k, (tally.get(k) || 0) + 1);
+      const total = [...tally.values()].reduce((a, b) => a + b, 0); let at = -Math.PI / 2; ringBadges.push({ ids: g.ids, x: g.x, y: g.y, r, reasons: [...tally.keys()] });
+      ctx.globalAlpha = 0.95;
+      for (const [k, v] of tally) { const to = at + 2 * Math.PI * v / total; ctx.fillStyle = VGActions.reasonLook(k).color; ctx.beginPath(); ctx.moveTo(g.x, g.y); ctx.arc(g.x, g.y, r, at, to); ctx.closePath(); ctx.fill(); at = to; }
+      ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(g.x, g.y, r - 4, 0, 2 * Math.PI); ctx.fill();
+      ctx.fillStyle = css("--vg-fg") || "#eee"; ctx.font = "600 10px " + (css("--vg-font") || "system-ui, sans-serif"); ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(g.ids.length > 99 ? "99+" : String(g.ids.length), g.x, g.y + 0.5);
     }
     ctx.restore();

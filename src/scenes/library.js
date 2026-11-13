@@ -6,7 +6,18 @@
   const libTheme = () => ({ bg: css("--vg-bg") || undefined, fg: css("--vg-fg") || undefined, muted: css("--vg-muted") || undefined, accent: css("--vg-accent") || undefined, palette: PALETTE });
   // a note the library names: the shared detail when it is in the graph, the note itself otherwise (a journal day)
   const libOpen = id => { if (byId[id]) select(id); else if (opts.openNote) opts.openNote(id, false); };
-  const LIB_ACTIONS = { graph: () => setView("2d"), "guide-scan": () => openLens("guide"), triage: () => startTriage() };
+  // Simulated links (Slime mould): Add goes through the one Link action every surface uses (confirmation, write into the staler
+  // note's Related section, log, undo); Decline is only remembered, so nothing is written.
+  // Declines are kept on this device (localStorage, like the first-visit tour) and handed back as inputs.declined, so a declined link stays gone.
+  const DECLINED_KEY = "vg-declined-links", declinedLinks = new Set();
+  try { for (const k of JSON.parse(localStorage.getItem(DECLINED_KEY) || "[]")) declinedLinks.add(k); } catch (e) { /* none kept */ }
+  const declinedList = () => [...declinedLinks].map(k => { const [from, to] = k.split(" > "); return { from, to }; });
+  const declineLink = (from, to) => { declinedLinks.add(from + " > " + to); try { localStorage.setItem(DECLINED_KEY, JSON.stringify([...declinedLinks])); } catch (e) { /* nothing to keep it in */ } };
+  const LIB_ACTIONS = {
+    graph: () => setView("2d"), "guide-scan": () => openLens("guide"), triage: () => startTriage(),
+    "add-link": d => { if (d && d.from && d.to) VGActions.runToday({ kind: "link", from: d.from, to: d.to, names: [VGShared.nameOf(d.from), VGShared.nameOf(d.to)], title: "Link " + VGShared.nameOf(d.from) + " to " + VGShared.nameOf(d.to), why: "suggested by the slime mould simulation" }, actionCtx(), null); },
+    "decline-link": d => { if (d && d.from && d.to) { declineLink(d.from, d.to); if (LIBV.handle) LIBV.handle.update({ declined: declinedList() }); } },
+  };
   // Mount the library's view for `key` (once, and again when the data it was built from changed), show it, keep it level
   // with the pane and with the selection, and put its stat line in the status. inputs() is what the view takes beyond the data.
   function libDraw(key, libView, inputs) {
@@ -15,7 +26,7 @@
       if (LIBV.handle && LIBV.handle.view !== libView) libDrop();
       if (!LIBV.handle) {
         LIBV.host.innerHTML = "";
-        LIBV.handle = VaultGraphViews.mountViews(LIBV.host, { view: libView, data: DATA, inputs: inputs(), onOpen: libOpen, onAction: a => (LIB_ACTIONS[a] || (() => {}))(), theme: libTheme() });
+        LIBV.handle = VaultGraphViews.mountViews(LIBV.host, { view: libView, data: DATA, inputs: inputs(), onOpen: libOpen, onAction: (a, d) => (LIB_ACTIONS[a] || (() => {}))(d), theme: libTheme() });
         LIBV.selected = undefined; LIBV.size = ""; LIBV.marked = undefined;
       }
       LIBV.key = key; LIBV.host.hidden = false;
@@ -56,6 +67,16 @@
     today: libToday, api: libApi(),
   });
 
+  // The library's 3D Food web beside the plugin's own 2D one: levels come from the written links' direction (VGScience.trophic), handed over
+  // as one converter (webForViews). With no host index (the test page) no link has a direction, so every note sits at level 1.
+  scene("foodweb-lib", {
+    name: "Food web (3D)", icon: "leaf", hidden: true, lib: true, hint: "Which notes feed which, in layers: what everything rests on at the base",
+    layout: () => ({ pos: new Map(), bounds: [], web: VGScience.webForViews(directedNotes() || VGScience.directedGraph(sciNotes().map(n => n.id), [])) }),
+    draw: () => libDraw("foodweb-lib", "foodweb", () => ({ web: mapCache["foodweb-lib"].web })),
+    legend: item => item(`<i class="vg-dot" style="background:#f87171"></i>`, "stale, and others rest on it") + item(`<i class="vg-lg-line" style="border-color:#fde047;opacity:1"></i>`, "rests on the picked note") + item(`<i class="vg-lg-line" style="border-color:#22d3ee;opacity:1"></i>`, "the picked note rests on"),
+    today: libToday, api: libApi(),
+  });
+
   // The library's Cyberpunk beside the plugin's own 2D one, hidden until it has been looked at in Obsidian and on a phone;
   // then "cyberpunk" takes this draw and the old file goes.
   scene("cyberpunk-lib", {
@@ -85,7 +106,7 @@
 
   // Light cones: a view that lives only in the library, so it is in the menu under its own name.
   scene("cones", {
-    name: "Light cones", icon: "clock", menu: "see", space: true, lib: true, hint: "What a note rested on and what it touched, with time upward",
+    name: "Light cones", icon: "ripple", menu: "see", space: true, lib: true, hint: "What a note rested on and what it touched, with time upward",
     toast: "Light cones — time runs upward and every note sits at the day it was written. Pick a note: blue below it is what it rested on, amber above it is what it could have touched.",
     layout: () => ({ pos: new Map(), bounds: [] }),
     draw: () => libDraw("cones", "cones", () => ({})),
@@ -108,9 +129,9 @@
     name: "Slime mould", icon: "mould", menu: "see", space: true, lib: true, hint: "Which written links carry the vault, and which fade away",
     toast: "Slime mould — tubes between notes grow thick where flow between the hubs is high and thin where it is not. Press Play to watch it grow from tubes of equal width; what stays thick is the backbone of the written links.",
     layout: () => ({ pos: new Map(), bounds: [] }),
-    draw: () => libDraw("slime", "slime", () => ({})),
+    draw: () => libDraw("slime", "slime", () => ({ declined: declinedList() })),
     legend: item => item(`<i class="vg-lg-line" style="border-color:#f59e0b;opacity:1"></i>`, "carries flow") + item(`<i class="vg-lg-line" style="opacity:.5"></i>`, "fades"),
-    today: libToday, api: libApi(),
+    today: libToday, api: { ...libApi(), declined: () => [...declinedLinks] },
   });
 
   // Normal modes: the vault as a drum skin that rings; also only in the library.

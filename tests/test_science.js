@@ -264,6 +264,10 @@ const again = S.outbreakStats(K5, 1, 0.4, 100, 5), twice = S.outbreakStats(K5, 1
   assert.deepStrictEqual(S.genomeFold([["a"], ["a"]]).X, [[0, 0, 0], [1, 0, 0]], "too few days to fold: laid in a line");
   assert.deepStrictEqual([0.02, 0.05, 0.1, 0.29].map(S.stressGrade), ["excellent", "good", "fair", "poor"], "Kruskal's grades for a fit");
 }
+// the Food web as the library takes it: a chain a -> b -> c (a links to b, b to c) puts c at the base, a at the top, edges kept by index
+{ const w = S.webForViews(S.directedGraph(["a", "b", "c"], [["a", "b"], ["b", "c"]]));
+  assert.deepStrictEqual(w.ids, ["a", "b", "c"], "the notes, in order"); assert.deepStrictEqual(w.level, [3, 2, 1], "a feeds on b feeds on c: c is the base");
+  assert.deepStrictEqual(w.edges, [[0, 1], [1, 2]], "each link keeps its direction"); assert.strictEqual(w.stats.maxLevel, 3, "the top level"); assert.strictEqual(w.stats.links, 2, "two links"); }
 // ---- a double helix along a path (the Cas9 view's DNA arms)
 {
   const frame = { o: [5, -2, 1], x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1], phase: 0.5 }, step = { turn: Math.PI / 5, rise: 3.4 }, row = (X, j) => Array.from(X.slice(j * 12, j * 12 + 12));

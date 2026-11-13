@@ -25,6 +25,12 @@ assert(P.cards([{ value: "<b>", label: "'" }]).includes("&lt;b&gt;") && P.row({ 
   const count = rx => js.reduce((n, [, t]) => n + (t.match(rx) || []).length, 0);
   const DETAILS_CAP = 0; check(count(/<details\b/g) <= DETAILS_CAP, `${count(/<details\b/g)} hand-written <details>: use VGParts.more`);
   js.forEach(([f, t]) => check(!/vg-list-h|"vg-stat\b|vg-stats|"vg-kv/.test(t), `${f} writes an old tile or list heading: use VGParts`));
+  // menu tiles and sidebar rows come from VGParts.item; the cap only comes down: lower it when a row moves over
+  const ITEM_CAP = 20; check(count(/class="vg-item-main"/g) <= ITEM_CAP, `${count(/class="vg-item-main"/g)} hand-written item rows (cap ${ITEM_CAP}): use VGParts.item`);
+  check(!/class="vg-tile"/.test(js.map(([, t]) => t).join("")), "a menu tile is written by hand: use VGParts.item");
+  check(P.item({ cls: "x", attrs: 'data-k="1"', lead: "<i></i>", title: "<b>T</b>", tag: "F<", mid: "<u></u>", sub: "S" }) === '<button class="vg-item x" data-k="1"><i></i><span class="vg-item-main"><b>T</b><em class="vg-item-tag">F&lt;</em><u></u><span class="vg-item-sub">S</span></span></button>', "item: lead, title, tag, middle and sub in one layout");
+  js.forEach(([f, t]) => check(!/data-nextstep/.test(t), `${f} writes its own next-step control: use VGParts.nextButton`));
+  check(P.nextButton({ label: "A", chip: true }).includes("data-nextstep") && P.nextButton().includes("data-nextstep"), "nextButton makes the next-step control");
   check(!/sciFacts = [^\n]*<div/.test(build.viewSource()) && !/sciRead = [^\n]*<p/.test(build.viewSource()), "the science views' cards and notes should come from VGParts"); }
 
 // ---- on a real page: Task survival's cards open what's behind them. 80 tasks: half finished over time, half still open.

@@ -1367,6 +1367,24 @@ const VGRules = (() => {
     if (needs.length) return { key: "needs", label: `Clear Needs you (${needs.length})`, screen: "needs", target: ".vg-hq-sec .vg-hq-item[data-key]" };
     return { key: "capture", label: "Capture what's next", screen: "today", target: ".vg-hq-captureinput" };
   }
+  // The note a step points at, or null when the step is a task of its own (standup, wrap up, capture). The Do next card shows this, so it never names a different job from the header.
+  function nextItem(step, list, focus) {
+    const of = g => (list || []).find(i => i.group === g);
+    if (step.key === "do") return (focus || [])[0] || null;
+    if (step.key === "job") return (list || []).find(i => i.group === "needs" && i.kind === "job") || null;
+    if (step.key === "plan") return of("today") || null;
+    if (step.key === "needs") return of("needs") || null;
+    return null;
+  }
+  // The view manifest, first phase: how big a thing each view is about, so a view knows its zoom-in and zoom-out neighbours.
+  // One table for every view (a library copy, "x-lib", takes its source's scale). tests/test_view_scale.js fails for a view with no entry.
+  const SCALES = ["character", "line", "note", "folder", "system", "vault", "time"];
+  const VIEW_SCALES = { "2d": "vault", "3d": "vault", neural: "system", cosmos: "vault", subway: "system", weather: "time", clock: "time", radar: "line", foodweb: "note", cas9: "note", cyberpunk: "vault", dungeon: "folder", genome: "vault",
+    cones: "note", loadpaths: "note", slime: "vault", modes: "vault", survivors: "time", triage: "note", wikirace: "note",
+    "lens:flowlens": "time", "lens:control": "note", "lens:survival": "line", "lens:follow": "note", "lens:stale": "note", "lens:twoway": "note", "lens:drift": "time", "lens:guide": "vault", "lens:dupes": "note", "lens:blind": "note", "lens:write": "note", "lens:missing": "note",
+    "lens:blast": "note", "lens:spof": "note", "lens:attention": "note", "lens:river": "time", "lens:timeline": "time", "lens:matrix": "vault", "lens:folders": "folder", "lens:ring": "system", "lens:maptree": "system", "lens:projects": "system", "lens:people": "vault",
+    "lens:code": "character", "lens:path": "note", "lens:adjacent": "note", "lens:netlens": "vault" };
+  const viewScale = key => VIEW_SCALES[String(key).replace(/-lib$/, "")] || null;
   // The next step from the data alone, for a surface with no list of its own (the status bar, the graph).
   function hqNextOf(data, o = {}) {
     const day = o.today || today(), when = o.now || new Date(), hq = (data && data.hq) || {};
@@ -1483,7 +1501,7 @@ const VGRules = (() => {
     return out.map(g => ({ ids: g.ids, x: g.sx / g.ids.length, y: g.sy / g.ids.length }));
   }
   return { ringClusters, errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, unmentioned, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
-    RULES: R, NEXT_NOTE, nextView, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, GUIDE_LOG_KEEP, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+    RULES: R, NEXT_NOTE, nextView, nextItem, SCALES, VIEW_SCALES, viewScale, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, GUIDE_LOG_KEEP, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)

@@ -73,5 +73,20 @@ const VGParts = (() => {
       e.stopPropagation(); e.preventDefault(); if (grid) closeDetail(grid); if (was) was.focus();
     }, true);
   }
-  return { cards, heading, section, more, howTo, row, list, wire, opened, reopen };
+  // The one next-step control: the header chip (label shown) or a Go button inside a card. Every surface builds it here, so a second kind of "Next" can't appear.
+  const nextButton = ({ label = "", chip = false } = {}) => chip
+    ? `<button class="vg-hq-nextchip" data-nextstep title="${esc(label)}"><span class="vg-hq-nextdot" aria-hidden="true"></span><small>Next</small><b>${esc(label)}</b></button>`
+    : `<button class="vg-hq-btn" data-nextstep>Go</button>`;
+  // The one list item, for menu tiles and sidebar rows: a lead (icon, dot), a title, an optional tag (the science field), a middle (a bar) and a sub line.
+  // title, mid, sub and lead are HTML the caller has already escaped; the tag is plain text.
+  const item = ({ cls = "", attrs = "", lead = "", title = "", tag = "", mid = "", sub = "" } = {}) =>
+    `<button class="vg-item${cls ? " " + cls : ""}"${attrs ? " " + attrs : ""}>${lead}<span class="vg-item-main">${title}${tag ? `<em class="vg-item-tag">${esc(tag)}</em>` : ""}${mid}${sub ? `<span class="vg-item-sub">${sub}</span>` : ""}</span></button>`;
+  // Undo and Redo, one pair for every surface; `state` is VGActions.history.state(). Disabled when there is nothing to do,
+  // and the title names what each would reverse or repeat. The surface wires data-hundo / data-hredo to history.undoLast / redoLast.
+  const historyButtons = (state, icon, cls = "vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost") => {
+    const s = state || {}, last = a => (a && a.length ? a[a.length - 1] : "");
+    const one = (key, ic, name, on, msg) => `<button class="${cls} vg-historybtn" data-${key} aria-label="${name}" title="${esc(on ? name + ": " + msg : "Nothing to " + name.toLowerCase())}"${on ? "" : " disabled"}>${icon(ic, 14)}</button>`;
+    return `<span class="vg-historybtns">${one("hundo", "undo", "Undo", s.canUndo, last(s.past))}${one("hredo", "redo", "Redo", s.canRedo, last(s.future))}</span>`;
+  };
+  return { cards, heading, section, more, howTo, row, list, wire, opened, reopen, nextButton, item, historyButtons };
 })();

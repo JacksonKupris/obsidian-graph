@@ -19,15 +19,11 @@
     };
   });
   const dotOf = id => byId[id].person ? css("--vg-person") : byId[id].ghost ? "transparent" : colorOf(byId[id].cluster);
-  const noteRow = (id, extra, cls) => `<button class="vg-item ${cls || ""}" data-id="${esc(id)}"><span class="vg-dot ${byId[id].ghost ? "is-ghost" : ""}" style="background:${dotOf(id)}"></span>` +
-    `<span class="vg-item-main">${label(id)}${extra ? `<span class="vg-item-sub">${extra}</span>` : ""}</span></button>`;
+  const noteRow = (id, extra, cls) => VGParts.item({ cls: cls || "", attrs: `data-id="${esc(id)}"`, lead: `<span class="vg-dot ${byId[id].ghost ? "is-ghost" : ""}" style="background:${dotOf(id)}"></span>`, title: label(id), sub: extra });
   const groupHtml = (c, ms, open) => VGParts.more({ cls: "vg-group", open, head: `<span class="vg-dot" style="background:${colorOf(+c)}"></span>${esc(clusterName(+c))}`, count: ms.length, body: ms.map(m => noteRow(m)).join("") });
   const sideList = (rows, word = "notes") => VGParts.list(rows, { first: 5, word });
   const card = (title, hint, body) => `<div class="vg-card"><div class="vg-card-h"><span>${title}</span>${hint ? `<span class="vg-muted vg-card-hint">${hint}</span>` : ""}</div>${body}</div>`;
-  const gapRow = g => `<div class="vg-gaprow"><button class="vg-item vg-gap" data-a="${g.a}" data-b="${g.b}">
-      <span class="vg-dots"><span class="vg-dot" style="background:${colorOf(g.a)}"></span><span class="vg-dot" style="background:${colorOf(g.b)}"></span></span>
-      <span class="vg-item-main"><span>${esc(clusterName(g.a))} <span class="vg-muted">↔</span> ${esc(clusterName(g.b))}</span>
-      <span class="vg-item-sub">${g.comentions} co-mentions · only ${plural(g.links, "link")}</span></span></button>
+  const gapRow = g => `<div class="vg-gaprow">${VGParts.item({ cls: "vg-gap", attrs: `data-a="${g.a}" data-b="${g.b}"`, lead: `<span class="vg-dots"><span class="vg-dot" style="background:${colorOf(g.a)}"></span><span class="vg-dot" style="background:${colorOf(g.b)}"></span></span>`, title: `<span>${esc(clusterName(g.a))} <span class="vg-muted">↔</span> ${esc(clusterName(g.b))}</span>`, sub: `${g.comentions} co-mentions · only ${plural(g.links, "link")}` })}
       ${opts.writeNote ? `<button class="vg-ibtn vg-bridgebtn" data-a="${g.a}" data-b="${g.b}" title="Draft a bridge note for this gap" aria-label="Draft bridge note">${icon("bridge", 15)}</button>` : ""}</div>`;
   const wordFor = (n, one, many) => plural(n, one, many).replace(/^\S+ /, "");   // the word alone, for when the number sits apart from it
   function renderChanges() {
@@ -126,8 +122,7 @@
   }
   function renderSaved() {
     const box = $(".vg-saved");
-    box.innerHTML = savedViews.length ? savedViews.map((v, i) => `<div class="vg-savedrow"><button class="vg-item" data-sv="${i}"><span class="vg-item-main"><b>${esc(v.name)}</b>
-      <span class="vg-item-sub">${esc(v.view.toUpperCase())}${v.view === "neural" ? " · " + esc(v.vision) : ""}${v.focus && byId[v.focus] ? " · focus " + esc(byId[v.focus].name) : ""}${v.hiddenClusters.length ? ` · ${v.hiddenClusters.length} hidden` : ""}</span></span></button>
+    box.innerHTML = savedViews.length ? savedViews.map((v, i) => `<div class="vg-savedrow">${VGParts.item({ attrs: `data-sv="${i}"`, title: `<b>${esc(v.name)}</b>`, sub: `${esc(v.view.toUpperCase())}${v.view === "neural" ? " · " + esc(v.vision) : ""}${v.focus && byId[v.focus] ? " · focus " + esc(byId[v.focus].name) : ""}${v.hiddenClusters.length ? ` · ${v.hiddenClusters.length} hidden` : ""}` })}
       <button class="vg-ibtn" data-svdel="${i}" aria-label="Delete ${esc(v.name)}" title="Delete">${icon("close", 14)}</button></div>`).join("")
       : `<div class="vg-muted vg-lead">Bookmark the camera, view and filters you're looking at — e.g. “AWS lobe, thermal”.</div>`;
     box.querySelectorAll("[data-sv]").forEach(b => b.onclick = () => applySaved(savedViews[+b.dataset.sv]));
@@ -150,12 +145,8 @@
     }).sort((a, b) => b.miss - a.miss);
     const unmapped = DATA.clusters.filter(c => !mocOf[c.id] && c.size >= 6);
     return card("Maps", "how much of each topic its map lists · click to light up what it misses",
-      rows.map(({ m, size, miss, pct }) => `<button class="vg-item vg-maprow" data-moc="${esc(m.id)}"><span class="vg-hex" style="--c:${colorOf(m.clusters[0])}"></span>
-        <span class="vg-item-main"><span><b>${esc(m.title)}</b></span>
-        <span class="vg-bar"><i style="width:${Math.max(3, pct)}%;background:${colorOf(m.clusters[0])}"></i></span>
-        <span class="vg-item-sub">${pct}% of ${size} · ${miss ? `${miss} missing` : "complete"}${m.clusters.length > 1 ? ` · ${m.clusters.length} topics` : ""}</span></span></button>`).join("") +
-      (unmapped.length ? VGParts.section({ title: "No map yet", count: unmapped.length, body: sideList(unmapped.map(c => `<button class="vg-item vg-unmapped" data-c="${c.id}"><span class="vg-dot" style="background:${colorOf(c.id)}"></span>
-        <span class="vg-item-main"><span>${esc(c.name)}</span><span class="vg-item-sub">${plural(c.size, "note")}${opts.writeNote ? " · make one from its row under Topics" : ""}</span></span></button>`), "topics") }) : ""));
+      rows.map(({ m, size, miss, pct }) => `${VGParts.item({ cls: "vg-maprow", attrs: `data-moc="${esc(m.id)}"`, lead: `<span class="vg-hex" style="--c:${colorOf(m.clusters[0])}"></span>`, title: `<span><b>${esc(m.title)}</b></span>`, mid: `<span class="vg-bar"><i style="width:${Math.max(3, pct)}%;background:${colorOf(m.clusters[0])}"></i></span>`, sub: `${pct}% of ${size} · ${miss ? `${miss} missing` : "complete"}${m.clusters.length > 1 ? ` · ${m.clusters.length} topics` : ""}` })}`).join("") +
+      (unmapped.length ? VGParts.section({ title: "No map yet", count: unmapped.length, body: sideList(unmapped.map(c => `${VGParts.item({ cls: "vg-unmapped", attrs: `data-c="${c.id}"`, lead: `<span class="vg-dot" style="background:${colorOf(c.id)}"></span>`, title: `<span>${esc(c.name)}</span>`, sub: `${plural(c.size, "note")}${opts.writeNote ? " · make one from its row under Topics" : ""}` })}`), "topics") }) : ""));
   }
   function showMocMissing(id) {
     const m = mocs.find(x => x.id === id); if (!m) return;
@@ -208,11 +199,7 @@
         const off = st.hiddenClusters.has(c.id), ms = nodes.filter(n => n.cluster === c.id);
         const healthy = ms.length ? Math.round(100 * ms.filter(n => n.words >= Q.stub_words && !staleFor(n, Q.stale_days) && n.broken === 0).length / ms.length) : 0;
         return `<div class="vg-cluster ${off ? "is-off" : ""}" data-c="${c.id}">
-          <button class="vg-item vg-cl-main" data-c="${c.id}" title="Show this topic">
-            <span class="vg-dot" style="background:${colorOf(c.id)}"></span>
-            <span class="vg-item-main"><span><b>${esc(clusterName(c.id))}</b></span>
-            <span class="vg-bar"><i style="width:${Math.max(4, 100 * c.size / max)}%;background:${colorOf(c.id)}"></i></span>
-            <span class="vg-item-sub">${plural(c.size, "note")} · ${healthy}% healthy (not a stub or stale, no broken links)${c.keywords ? ` · <i>${esc(c.keywords)}</i>` : ""} · ${c.core.map(esc).join(", ")}</span></span></button>
+          ${VGParts.item({ cls: "vg-cl-main", attrs: `data-c="${c.id}" title="Show this topic"`, lead: `<span class="vg-dot" style="background:${colorOf(c.id)}"></span>`, title: `<span><b>${esc(clusterName(c.id))}</b></span>`, mid: `<span class="vg-bar"><i style="width:${Math.max(4, 100 * c.size / max)}%;background:${colorOf(c.id)}"></i></span>`, sub: `${plural(c.size, "note")} · ${healthy}% healthy (not a stub or stale, no broken links)${c.keywords ? ` · <i>${esc(c.keywords)}</i>` : ""} · ${c.core.map(esc).join(", ")}` })}
           <div class="vg-cl-acts">
             ${opts.writeNote ? `<button class="vg-ibtn vg-cl-hub" data-c="${c.id}" title="Create or refresh this topic's map" aria-label="Map for ${esc(c.name)}">${icon("hub", 15)}</button>` : ""}
             <button class="vg-ibtn vg-cl-eye" data-c="${c.id}" aria-pressed="${!off}" aria-label="${off ? "Show" : "Hide"} ${esc(c.name)}" title="${off ? "Show" : "Hide"} topic">${icon(off ? "eyeOff" : "eye", 15)}</button>
@@ -239,8 +226,7 @@
     $(".vg-series").innerHTML = series.length ? card("Series", "dated notes that belong in a chain",
       series.map(s => {
         const gapsIn = s.notes.slice(1).filter((id, k) => !nb[id].has(s.notes[k])).length;
-        return `<button class="vg-item vg-seriesrow" data-s="${s.i}"><span class="vg-item-main"><b>${esc(s.name)}</b>
-          <span class="vg-item-sub">${plural(s.notes.length, "note")} · ${gapsIn ? `${gapsIn} not linked to the previous one` : "fully chained"}</span></span></button>`;
+        return VGParts.item({ cls: "vg-seriesrow", attrs: `data-s="${s.i}"`, title: `<b>${esc(s.name)}</b>`, sub: `${plural(s.notes.length, "note")} · ${gapsIn ? `${gapsIn} not linked to the previous one` : "fully chained"}` });
       }).join("")) : "";
     $$(".vg-seriesrow").forEach(b => b.onclick = () => {
       const s = series[+b.dataset.s];
