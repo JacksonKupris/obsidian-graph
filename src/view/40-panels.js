@@ -440,8 +440,23 @@
   function wireAddToMap(box) {
     box.querySelectorAll("[data-addmap]").forEach(b => b.onclick = async e => { e.stopPropagation(); if (await addToMap(b.dataset.addmap, [b.dataset.note], b)) select(st.selected); });
   }
+  // a hub that owns no topic (a kind hub, a second map of a topic): the notes it lists, each opening its own detail
+  function inspectHub(n, box) {
+    const listed = [...(mocMembers[n.id] || [])].filter(i => byId[i]).sort((a, b) => (rankOf[a] || 1e9) - (rankOf[b] || 1e9));
+    box.innerHTML = `<div class="vg-sheet-handle" aria-hidden="true"></div>
+      <div class="vg-ins-head"><span class="vg-chip" style="--c:${colorOf(n.cluster)}">Map</span>
+        <button class="vg-ibtn vg-ins-close" aria-label="Close" title="Close (Esc)">${icon("close")}</button></div>
+      <h2 class="vg-ins-title">${esc(n.name)}</h2>
+      <div class="vg-muted vg-ins-path">${esc(n.id)}</div>
+      <div class="vg-ins-actions vg-wrap"><span class="vg-noteacts"></span></div>
+      <div class="vg-ins-sec"><div class="vg-ins-h">Notes it lists <span class="vg-count">${listed.length}</span></div>
+      ${listed.slice(0, 60).map(i => `<div class="vg-sugg">${noteRow(i, clusterById[byId[i].cluster] ? esc(clusterName(byId[i].cluster)) : "")}</div>`).join("")}</div>`;
+    box.querySelector(".vg-ins-close").onclick = () => select(null);
+    noteActions(n, box.querySelector(".vg-noteacts"), ["open", "copy", "current", "archive"]);
+    wire(box); wireSheet(box);
+  }
   function inspectMoc(n, box) {
-    const m = mocs.find(x => x.id === n.id) || { clusters: [n.cluster], missing: {}, members: [] };
+    const m = mocs.find(x => x.id === n.id); if (!m) return inspectHub(n, box);
     const miss = m.clusters.flatMap(c => m.missing[c] || []).filter(i => byId[i]);
     box.innerHTML = `<div class="vg-sheet-handle" aria-hidden="true"></div>
       <div class="vg-ins-head"><span class="vg-chip" style="--c:${colorOf(n.cluster)}">Map</span>
@@ -592,7 +607,6 @@
     (D.mocs || []).forEach(m => { const mine = mocs.find(x => x.id === m.id); if (mine) { mine.members = m.members; mine.missing = m.missing; } });
     countLeaves();
     DATA.live = D.live; healthCache.clear();
-    if (D.hubs) DATA.hubs = D.hubs;   // hub notes the main graph does not draw (VGRules.libraryData): one deleted since is gone from the library's views too
     if (D.journalHistory) { DATA.journalHistory = D.journalHistory; survivalLives = null; }   // a page built outside Obsidian carries its journals: the lenses read the new ones
     if (D.hq) DATA.hq = D.hq;
     rebuild(false);

@@ -7,7 +7,11 @@
 const { sleep, checks, finish, openPage } = require("./kit");
 const env = require("./env");
 (async () => {
-  const data = env.data(), { fails, ok } = checks();
+  const full = env.data(), { fails, ok } = checks();
+  // Fed at hub notes, the sample's simulation finds no link worth suggesting, so the main page here is the sample without
+  // the hubs that own no topic (Simulate's Add and Decline are pressed on it); the whole sample is opened at the end.
+  const BUGS = "02-Projects/Rental App/Rental App Bugs Hub.md", own = new Set(full.mocs.map(m => m.id)), extra = new Set(full.nodes.filter(n => n.moc && !own.has(n.id)).map(n => n.id));
+  const data = env.VAULT ? full : { ...full, nodes: full.nodes.filter(n => !extra.has(n.id)), links: full.links.filter(l => !extra.has(l.source)) };
   const D = "window.vaultGraph._debug", q = s => `document.querySelector(${JSON.stringify(s)})`;
   let tab = null;
   try {
@@ -142,10 +146,6 @@ const env = require("./env");
     ok(await tab.ev(`!!${D}.scenes().slime && ${D}.views().includes("slime") && !${D}.scenes().slime.hidden`), "Slime mould is a view in the menu");
     await tab.ev(`${D}.setView("slime")`); await sleep(1900); await calm();
     const mould = `${D}.scenes().slime.api`;
-    // the library is given every hub note, also one that owns no topic and so is not a node of the main graph
-    if (!env.VAULT) { const BUGS = "02-Projects/Rental App/Rental App Bugs Hub.md", fed = await tab.ev(`${mould}.handle().api.hubs()`);
-      ok(fed.includes(BUGS), `Slime mould is fed at the hub the main graph leaves out (${fed.map(h => h.split("/").pop())})`);
-      ok(!data.nodes.some(n => n.id === BUGS), "that hub is not a node of the main graph"); }
     const tubes = await tab.ev(`(${mould}.handle().api.setStep(${mould}.handle().api.steps()), ${mould}.handle().api.links())`);
     ok(tubes >= 9, `the library finds tubes in the plugin's linked notes (${tubes})`);
     const sstat = await tab.ev(`${mould}.handle().stat()`);
@@ -161,8 +161,6 @@ const env = require("./env");
 
     // Slime mould Simulate: Decline is remembered and writes nothing; Add link goes through the shared link action (confirmation, then one write)
     const press = text => tab.ev(`(() => { const b = [...document.querySelectorAll(".vg-lib button")].find(x => x.textContent.trim() === ${JSON.stringify(text)} && x.offsetParent); if (b) b.click(); return !!b; })()`);
-    // fed at hub notes, the sample's simulation finds no link worth suggesting, so the buttons are pressed on the same vault without its extra hubs
-    if (!env.VAULT) { await tab.ev(`window.vaultGraph.applyLive(structuredClone(${JSON.stringify({ ...data, hubs: [] })}))`); await tab.ev(`${D}.drawNow()`); await sleep(1900); await calm(); }
     ok(await press("Simulate"), "Slime mould has a Simulate button"); await sleep(2500);
     const firstRow = () => tab.ev(`(() => { const b = [...document.querySelectorAll(".vg-lib button")].find(x => x.textContent.trim() === "Add link" && x.offsetParent); const r = b && [...document.querySelectorAll(".vg-lib .vgv-insights > div")].find(x => x.contains(b)); return r ? r.firstChild.textContent : null; })()`);
     const beforeDecline = await firstRow();
@@ -245,6 +243,18 @@ const env = require("./env");
     const back = await tab.ev(`({ hidden: ${q(".vg-lib")}.hidden, plugin: ${q(".vg-cv")}.style.visibility })`);
     ok(back.hidden === true && back.plugin === "", `leaving the view puts the library's canvas away and the plugin's back: ${JSON.stringify(back)}`);
     ok((await tab.ev("window.__errs")).length === 0, `no page errors: ${JSON.stringify(await tab.ev("window.__errs"))}`);
+    // every hub note is a node of the graph: the library is fed at one that owns no topic, and the main graph lists its notes
+    if (!env.VAULT) {
+      ok(extra.has(BUGS), "the sample has a hub that owns no topic");
+      await tab.close(); tab = await openPage({ html: env.pageWith("", full) });
+      if (!await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000)) throw new Error("the graph didn't mount with the whole sample");
+      await tab.ev(`${D}.setView("slime")`); await sleep(1900);
+      const fed = await tab.ev(`${D}.scenes().slime.api.handle().api.hubs()`);
+      ok(fed.includes(BUGS), `Slime mould is fed at a hub that owns no topic (${fed.map(h => h.split("/").pop())})`);
+      await tab.ev(`${D}.setView("2d")`); await sleep(900); await tab.ev(`window.vaultGraph.restoreViewport({ selected: ${JSON.stringify(BUGS)} })`); await sleep(300);
+      const ins = await tab.ev(`(() => { const b = ${q(".vg-inspector")}; return { hidden: b.hidden, text: b.innerText.slice(0, 200), rows: b.querySelectorAll(".vg-sugg").length }; })()`);
+      ok(!ins.hidden && /Notes it lists/i.test(ins.text) && ins.rows === 3, `selected in the main graph, that hub lists its three notes: ${JSON.stringify(ins)}`);
+    }
   } catch (e) { fails.push(e.stack || String(e)); }
   finally { if (tab) await tab.close(); }
   finish(fails, "the graphs library's view works inside the plugin", "a graphs library view fails inside the plugin");
