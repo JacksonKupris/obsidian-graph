@@ -1,7 +1,7 @@
 // What the tests run on, in one place: the sample vault (fixtures/, the default) or a real vault (--vault [dir];
 // without a dir, local.json's "vault"). Every test loads the page, rules and notes through here.
 //   const env = require("./env")
-//   env.rules · env.data() · env.page() · env.pageWith(mountOptions, data?) · env.topicMapsOnly(data) · env.inlineJson(v) · env.out(...p) · env.notes() · env.VAULT (null for the sample) · env.args
+//   env.rules · env.data() · env.page() · env.pageWith(mountOptions, data?) · env.inlineJson(v) · env.out(...p) · env.notes() · env.VAULT (null for the sample) · env.args
 const fs = require("fs"), path = require("path"), build = require("../build");
 const ROOT = build.ROOT, SAMPLE = path.join(ROOT, "fixtures");
 
@@ -78,9 +78,4 @@ function hqPage(extra, o = {}) {
 // arguments to pass on to another test, so it runs on the same vault
 const args = VAULT ? ["--vault", VAULT] : [];
 
-// The sample without the hubs that own no topic. Fed at every hub, the sample's simulation finds no link worth suggesting,
-// so a test that presses Simulate's Add or Decline runs on this (the vault's own data is left as it is).
-function topicMapsOnly(d) { if (VAULT) return d; const own = new Set(d.mocs.map(m => m.id)), extra = new Set(d.nodes.filter(n => n.moc && !own.has(n.id)).map(n => n.id));
-  if (!extra.size) throw new Error("the sample has no hub that owns no topic: topicMapsOnly removes nothing");
-  return { ...d, nodes: d.nodes.filter(n => !extra.has(n.id)), links: d.links.filter(l => !extra.has(l.source) && !extra.has(l.target)) }; }
-module.exports = { ROOT, VAULT, RULES_FILE, rules, data, topicMapsOnly, page, pageWith, hqData, hqPage, inlineJson, out, notes, dir, args };
+module.exports = { ROOT, VAULT, RULES_FILE, rules, data, page, pageWith, hqData, hqPage, inlineJson, out, notes, dir, args };

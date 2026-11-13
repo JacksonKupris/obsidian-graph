@@ -5,7 +5,7 @@
 const { sleep, checks, finish, openPage } = require("./kit");
 const env = require("./env");
 (async () => {
-  const data = env.topicMapsOnly(env.data()), { fails, ok } = checks(), D = "window.vaultGraph._debug";
+  const data = env.data(), { fails, ok } = checks(), D = "window.vaultGraph._debug";
   let tab = null;
   try {
     tab = await openPage({ html: env.pageWith(`dismissPair: async (a, b, kind) => { (window.__dis = window.__dis || []).push({ a, b, kind }); }, dismissedPairs: () => window.__dis || [],`, data) });
