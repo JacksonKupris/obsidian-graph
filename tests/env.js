@@ -66,21 +66,7 @@ function notes() {
 
 // data.hq for the vault under test, read the way the plugin reads it: the notes VGRules.hqKind picks, and each
 // device's run records, through VGRules.hqGather
-function hqData(today) {
-  const VGRules = new Function(`${build.rulesSource(rules)}; return VGRules;`)(), H = rules.hq || {};
-  const dir = module.exports.dir(), files = [], day = today || VGRules.today();
-  const skip = new Set([".obsidian", ".trash", ".git", ".cache", ".smart-env", "node_modules"]);
-  const walk = d => fs.readdirSync(d, { withFileTypes: true }).forEach(e => {
-    const p = path.join(d, e.name), rel = path.relative(dir, p).replace(/\\/g, "/");
-    if (e.isDirectory()) { if (!skip.has(e.name)) walk(p); return; }
-    if (H.automation_status && rel.startsWith(H.automation_status + "/") && e.name.endsWith(".json")) { try { files.push({ path: rel, json: JSON.parse(fs.readFileSync(p, "utf8")) }); } catch (err) { /* half-written */ } return; }
-    if (!e.name.endsWith(".md")) return;
-    const text = fs.readFileSync(p, "utf8");
-    if (VGRules.hqKind(rel, VGRules.frontOf(text), day, /^\s*[-*+] \[ \]/m.test(text))) files.push({ path: rel, text });
-  });
-  walk(dir);
-  return VGRules.hqGather(files, { today: day });
-}
+function hqData(today) { return require("../scripts/vault_hq").hqFromFolder(module.exports.dir(), rules, today).hq; }   // the same reader the phone app uses
 // the HQ page on the vault under test (graph data + its HQ notes), with extra mount options
 function hqPage(extra, o = {}) {
   const d = { ...data(), hq: o.hq !== undefined ? o.hq : hqData(o.today) };

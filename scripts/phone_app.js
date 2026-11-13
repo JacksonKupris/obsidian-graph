@@ -42,12 +42,17 @@ const HEAD = `<link rel="manifest" href="manifest.webmanifest"><link rel="icon" 
 <meta name="theme-color" content="#16161a"><meta name="mobile-web-app-capable" content="yes">`;
 const REGISTER = `<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});</script>`;
 
+// What the phone tells the PC while the preview server runs (phone_preview.py's /__report): that it opened, and every error. Anywhere else the posts fail quietly.
+const REPORT = `<script>(() => { const say = (kind, data) => { try { fetch("__report", { method: "POST", body: JSON.stringify({ kind, data, at: new Date().toISOString() }), keepalive: true }).catch(() => {}); } catch (e) {} };
+say("app-open", { w: innerWidth, h: innerHeight, standalone: matchMedia("(display-mode: standalone)").matches });
+addEventListener("error", e => say("error", String(e.message))); addEventListener("unhandledrejection", e => say("error", String(e.reason))); })();</script>`;
+
 // What goes in the folder: file name -> text or bytes. Throws when the page is missing its mount point.
 function phoneApp(data, rules, version) {
   const page = build.buildPage(data, rules);
   if (!page.includes("</head>") || !page.includes("</body>")) throw new Error("the graph page has no head or body to add the app parts to");
   return {
-    "index.html": page.replace("</head>", HEAD + "</head>").replace("</body>", REGISTER + "</body>"),
+    "index.html": page.replace("</head>", HEAD + "</head>").replace("</body>", REGISTER + REPORT + "</body>"),
     "manifest.webmanifest": JSON.stringify(MANIFEST, null, 2), "sw.js": sw(version), "icon-192.png": iconPng(192), "icon-512.png": iconPng(512),
   };
 }
@@ -56,7 +61,9 @@ if (require.main === module) {
   const rules = build.loadRules(), vault = arg("--vault"), out = arg("--out", path.join(build.ROOT, ".out", "phone"));
   const dataFile = vault ? path.join(vault, rules.files.data) : path.join(build.ROOT, "fixtures", "sample-graph.json");
   if (!fs.existsSync(dataFile)) { console.error(`FAIL - no graph data at ${dataFile}. Open the vault in Obsidian once so the plugin writes it, or leave out --vault to use the sample.`); process.exit(1); }
-  const files = phoneApp(JSON.parse(fs.readFileSync(dataFile, "utf8")), rules, require("../package.json").version);
+  const data = JSON.parse(fs.readFileSync(dataFile, "utf8"));
+  if (vault) Object.assign(data, require("./vault_hq").hqFromFolder(vault, rules));   // the page has no vault to read, so it carries the HQ notes and every journal's tasks
+  const files = phoneApp(data, rules, require("../package.json").version);
   for (const [f, body] of Object.entries(files)) { const to = path.join(out, f); fs.mkdirSync(path.dirname(to), { recursive: true }); fs.writeFileSync(to, body); }
   console.log(`Wrote ${path.relative(process.cwd(), out)}/ from ${vault ? "the vault" : "the sample vault"}. Serve it over https (docs/phone-app.md).`);
 }

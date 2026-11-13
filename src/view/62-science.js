@@ -78,6 +78,8 @@
   function blastShow(id) { const g = spreadGraph(), s = VGScience.outbreakStats(g, g.at.get(id), blastT, BLAST_RUNS), set = new Set([id]); s.hit.forEach((p, i) => { if (p >= 0.05) set.add(g.ids[i]); }); setHighlight(set, `${byId[id].name}: ${plural(set.size - 1, "note")} at risk`); if (!lensBeside()) closeLens(); fit(n => set.has(n.id), 500); }
 
   // ---- Task survival: how long a task stays open, the way a trial follows patients. A task still open is censored, not ignored.
+  // every journal's tasks: read from the vault by the plugin, else the history the page was built with (the phone app), else the carry-over window
+  const taskJournals = async () => opts.taskHistory ? opts.taskHistory() : (DATA.journalHistory || (DATA.hq || {}).journals || []);
   let survivalSplit = "person", survivalLives = null, lensCards = {};   // lensCards: what's behind the open lens's cards (VGParts.wire)
   const taskSplits = {
     person: ["names someone", r => VGRules.hqPeople(DATA, [{ kind: "task", text: r.text, title: r.text }]).some(p => p.items.length)],
@@ -90,7 +92,7 @@
   const stair = km => km.steps.map(x => [x.t, x.s]);
   const censorTicks = (km, every) => km.steps.filter(x => x.censored).filter((_, i) => i % every === 0).map(x => [x.t, x.s]);
   async function loadSurvival() {
-    const journals = opts.taskHistory ? await opts.taskHistory() : ((DATA.hq || {}).journals || []);
+    const journals = await taskJournals();
     survivalLives = VGScience.taskLives(journals, DATA.date || today()); return renderSurvival();
   }
   function renderSurvival() {
@@ -174,7 +176,7 @@
   }
   // ---- Flow: the task history as a queue. Little's law ties together what's open, how fast it arrives and how long it stays.
   let flowDays = 90;
-  async function loadFlow() { if (!survivalLives) { const journals = opts.taskHistory ? await opts.taskHistory() : ((DATA.hq || {}).journals || []); survivalLives = VGScience.taskLives(journals, DATA.date || today()); } return renderFlow(); }
+  async function loadFlow() { if (!survivalLives) { const journals = await taskJournals(); survivalLives = VGScience.taskLives(journals, DATA.date || today()); } return renderFlow(); }
   function renderFlow() {
     const rows = (survivalLives || { rows: [] }).rows.map(r => ({ born: r.born, done: r.event ? r.done : null })); if (rows.length < 5) return emptyNext("Flow needs journals with at least a few tasks.", "daily", "search");
     const F = VGScience.flow(rows, DATA.date || today(), flowDays), top = Math.max(1, F.cumIn[F.days], F.cumOut[F.days]), span = Math.ceil(top / 10) * 10 || 10, line = a => a.map((v, i) => [i, v]);
@@ -242,7 +244,7 @@
   }
   // ---- Control chart: Shewhart's question. What's the normal range of your work, and has anything moved outside it?
   let controlKind = "finished";
-  async function loadControl() { if (!survivalLives) { const journals = opts.taskHistory ? await opts.taskHistory() : ((DATA.hq || {}).journals || []); survivalLives = VGScience.taskLives(journals, DATA.date || today()); } return renderControl(); }
+  async function loadControl() { if (!survivalLives) { const journals = await taskJournals(); survivalLives = VGScience.taskLives(journals, DATA.date || today()); } return renderControl(); }
   function renderControl() {
     const rows = (survivalLives || { rows: [] }).rows, end = VGShared.utcNoon(DATA.date || today()), WEEKS = 16, bucket = d => { const w = Math.floor((end - VGShared.utcNoon(d)) / (7 * VGShared.DAY_MS)); return w >= 0 && w < WEEKS ? WEEKS - 1 - w : -1; }, v = new Array(WEEKS).fill(0);
     rows.forEach(r => { const d = controlKind === "finished" ? (r.event ? r.done : null) : r.born; if (!d) return; const b = bucket(d); if (b >= 0) v[b]++; });

@@ -611,6 +611,7 @@
     else if (st.body && isCosmos()) selectBody(st.body);
     if (!opts.compact) updateGameSoon();
     renderToday(); refreshLens();   // an open lens shows the new state too
+    libDrop();   // a library view was given the old data when it mounted: it mounts again from this
     return true;
   }
   function reveal(id) {
