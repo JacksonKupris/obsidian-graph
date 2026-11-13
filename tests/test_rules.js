@@ -392,6 +392,26 @@ for (const f of ["view.js", "plugin.js", "hq"]) {
       check("Undo reports it", doneWithUndo[1][0], "Undone: Archived Plan");
       check("no Undo without the plugin's undo", (await (async () => { const s = []; await VGActions.run("archive", note, { ...ctx, done: (m, u) => s.push(u) }); return s; })()), [null]);
     }
+    // one history behind every Undo: Undo and Redo walk the same stack, a new decision clears Redo, a failed undo stays put
+    {
+      const H = VGActions.history; H.reset();
+      let seq = 0, wrote = 0; const undone = [], shown = [];
+      const hapi = { ...api, moveNote: async () => { seq++; wrote++; }, setNoteTasks: async () => { seq++; wrote++; return 1; }, openNote: () => {}, lastUndo: () => seq, undo: async id => { undone.push(id); wrote--; } };
+      const hctx = { ...ctx, api: hapi, done: (m, u) => shown.push(m), fail: m => shown.push("FAIL " + m) };
+      let ticks = 0; H.subscribe(() => ticks++);
+      await VGActions.run("archive", note, hctx); await VGActions.run("complete", note, hctx);
+      check("each decision is recorded, newest last", H.state(), { past: ["Archived Plan", "Completed 1 task in Plan"], future: [], canUndo: true, canRedo: false });
+      check("Undo reverses the newest change", [await H.undoLast(), undone, wrote], [true, [2], 1]);
+      check("it moves to Redo", H.state().future, ["Completed 1 task in Plan"]);
+      check("Redo does it again, without asking", [await H.redoLast(), wrote, H.state().canRedo, H.state().past.length], [true, 2, false, 2]);
+      await H.undoLast(); await VGActions.run("archive", note, hctx);
+      check("a new decision clears Redo", H.state().canRedo, false);
+      check("surfaces are told on every change", ticks > 4, true);
+      hapi.undo = async () => { throw new Error("gone"); };
+      const before = H.state().past.length; check("a failed Undo leaves the entry in place", [await H.undoLast(), H.state().past.length], [false, before]);
+      check("with nothing to redo, Redo does nothing", [await H.redoLast()], [false]);
+      H.reset(); check("reset empties it", H.state().canUndo, false);
+    }
     // every icon an action uses exists on both surfaces
     const view = srcOf("view.js"), plugin = srcOf("plugin.js");
     const viewIcons = new Set([...view.slice(0, view.indexOf("const icon = ")).matchAll(/^    ([a-z0-9]+): '/gm)].map(m => m[1]));
