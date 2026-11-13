@@ -16,11 +16,11 @@ Merge a pull request and GitHub does the rest. `test.yml` runs the tests in shar
 | the pull request's title has `[minor]` or `[major]` | that step instead of a patch |
 | the newest commit's message has `[no release]` | no release |
 
-- **Hand it over:** `npm run ship -- 61 --auto` turns on auto-merge: GitHub merges the pull request once the `tests` check passes, then releases. No computer has to wait. `npm run ship -- 61` does the same but waits and prints `SHIPPED #61: Released ...` or `No release: ...`.
+- **Hand it over:** `npm run ship -- 61 --auto` turns on auto-merge (GitHub merges once the `tests` check passes, then releases, so no computer waits; refused until the branch rule below exists). `npm run ship -- 61` waits for the checks, merges and prints `SHIPPED #61: Released ...` or `No release: ...`.
 - **Check what it would do** from any clone, changing nothing: `node scripts/ci_release.js --plan`.
 - **When the release job fails** (the run is red after its tests were green): open the run, "Re-run failed jobs". A tag that was pushed without its GitHub release is published on that re-run. If GitHub itself is down, use `npm run release` below; it is the same release by hand.
 - **Two merges close together:** one release at a time. The run for the earlier merge sees a newer commit on `main` and skips; the later run releases both.
-- **Branch rule:** the repository requires the `tests` check before a pull request merges (the name stays the same when the shard count changes).
+- **Why `--auto` is refused today:** it needs a branch rule requiring the `tests` check, and the release job pushes the `Release x.y.z` commit to `main` as GitHub Actions, which a personal repository can't exempt from that rule (the rules API answers "GitHub Actions integration must be part of the ruleset source or owner organization"). To turn it on, either move the repository into an organization and let Actions bypass the rule, or stop committing the version (build it from the tag). Until then `npm run ship -- <pr>` waits for the checks and merges.
 
 ## Release by hand
 
