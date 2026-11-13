@@ -334,7 +334,8 @@
     const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName);
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
     if (e.key === "Escape") {
-      if (SCENES[st.view] && SCENES[st.view].escape && SCENES[st.view].escape()) { e.stopPropagation(); return; }
+      // the topmost layer takes Escape first: an open report sits over the scene, so it closes before the scene (a game in play) does
+      if ($(".vg-lens").hidden && SCENES[st.view] && SCENES[st.view].escape && SCENES[st.view].escape()) { e.stopPropagation(); return; }
       if (tour) endTour();
       else if (closeTools()) { $(".vg-toolsbtn").focus(); }
       else if (!$(".vg-palette").hidden) { closePalette(); }
