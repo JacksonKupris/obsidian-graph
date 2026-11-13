@@ -196,6 +196,7 @@ class VaultGraphSuggestView extends ItemView {
   getIcon() { return "lightbulb"; }
   async onOpen() {
     this.registerEvent(this.app.workspace.on("file-open", f => { if (f) { this.file = f; this.renderSoon(); } }));
+    this.register(VGActions.history.subscribe(() => { if (this.drawHistory) this.drawHistory(); }));
     this.file = this.app.workspace.getActiveFile();
     this.render();
   }
@@ -257,6 +258,14 @@ class VaultGraphSuggestView extends ItemView {
     const run = (key, node) => VGActions.run(key, node || subject, ctx);
     const head = el.createDiv({ cls: "vg-s-head" });
     head.createEl("div", { cls: "vg-s-title", text: file ? file.basename : "No note open" });
+    // Undo and Redo: the same pair and the same history as the graph's toolbar and Vault HQ
+    const hist = head.createDiv({ cls: "vg-s-history" });
+    this.drawHistory = () => {
+      hist.innerHTML = VGParts.historyButtons(VGActions.history.state(), name => `<span data-icon="${name === "undo" ? "undo-2" : "redo-2"}"></span>`, "vg-s-btn vg-s-ghost");
+      hist.querySelectorAll("[data-icon]").forEach(s => require("obsidian").setIcon(s, s.dataset.icon));
+      hist.querySelectorAll("button").forEach(b => { b.onclick = () => VGActions.history[b.hasAttribute("data-hundo") ? "undoLast" : "redoLast"](); });
+    };
+    this.drawHistory();
     if (n) head.createEl("div", { cls: "vg-s-muted", text: `${clusterName(n.cluster)} · ${n.inlinks} in · ${n.outlinks} out` });
     if (subject) VGActions.render(head.createDiv({ cls: "vg-s-acts vg-s-noteacts" }), VGActions.forNote(subject, ctx), subject, ctx, { btn: "vg-s-btn", primary: "mod-cta", ghost: "vg-s-ghost" });
     // every suggestion for this note, best first; each button is one of the shared actions above

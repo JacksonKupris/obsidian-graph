@@ -66,5 +66,8 @@ assert.strictEqual(S.shiftDay("2026-03-01", -1), "2026-02-28"); assert.strictEqu
   for (const [what, rx] of [["reading local.json", /"local\.json"\)/], ["choosing Python", /"win32" \? "python"/], ["a GitHub address", /github\\\.com\[:\/\]/], ["failing out", /const fail = msg/]]) {
     assert.ok(rx.test(fs.readFileSync(LIB, "utf8")), `the guard for ${what} doesn't match scripts/lib.js`);
     const copies = scripts.filter(f => rx.test(fs.readFileSync(f, "utf8"))).map(f => path.basename(f)); assert.deepStrictEqual(copies, [], `${what} is written again in ${copies.join(", ")}: use scripts/lib.js`); }
+  // Undo and Redo: every surface that changes notes has the one pair (VGParts.historyButtons), none draws its own
+  for (const f of ["hq/70-frame.js", "view/70-shell.js", "plugin/10-views.js"]) assert.ok(/VGParts\.historyButtons\(/.test(fs.readFileSync(path.join(SRC, f), "utf8")), `${f} has no Undo and Redo pair (VGParts.historyButtons)`);
+  for (const f of ["view/70-shell.js", "plugin/10-views.js", "hq/70-frame.js"]) assert.ok(/VGActions\.history\.subscribe\(/.test(fs.readFileSync(path.join(SRC, f), "utf8")), `${f} doesn't follow the shared history`);
   console.log("ok - shared helpers");
 })().catch(e => { console.log(`FAIL - ${e.message}`); process.exit(1); });

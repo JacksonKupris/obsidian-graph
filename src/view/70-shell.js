@@ -202,6 +202,10 @@
     const m = $(".vg-toolsmenu"); closeMenu();
     m.innerHTML = tools().map(([c, ic, name]) => { const src = c.startsWith("vg-") ? $("." + c) : null;
       return `<button class="vg-mitem" role="menuitem" data-tool="${c}"${src && src.hasAttribute("aria-pressed") ? ` aria-checked="${toolOn(c)}"` : ""}><b>${icon(ic, 14)} ${esc(name)}</b>${src && src.title ? `<span class="vg-muted">${esc(src.title.replace(/^[^:(]*:\s*/, "").replace(/^./, ch => ch.toUpperCase()))}</span>` : ""}</button>`; }).join("");
+    // Undo and Redo first: the toolbar pair is hidden when the pane is narrow, so the menu always has them
+    const hs = VGActions.history.state(), hm = (key, ic, name, on, msg) => `<button class="vg-mitem" role="menuitem" data-${key}${on ? "" : " disabled"}><b>${icon(ic, 14)} ${name}</b><span class="vg-muted">${esc(on ? msg : "Nothing to " + name.toLowerCase())}</span></button>`;
+    m.insertAdjacentHTML("afterbegin", hm("hundo", "undo", "Undo", hs.canUndo, hs.past[hs.past.length - 1]) + hm("hredo", "redo", "Redo", hs.canRedo, hs.future[hs.future.length - 1]));
+    m.querySelectorAll("[data-hundo], [data-hredo]").forEach(x => x.onclick = () => { closeTools(); VGActions.history[x.hasAttribute("data-hundo") ? "undoLast" : "redoLast"](); });
     m.querySelectorAll("[data-tool]").forEach(x => x.onclick = () => { closeTools(); runTool(x.dataset.tool); });
     m.hidden = false; $(".vg-toolsbtn").setAttribute("aria-expanded", "true"); m.querySelector("[data-tool]").focus({ preventScroll: true });
   }
@@ -259,6 +263,11 @@
   }
   // the next step, the same one HQ and the status bar name; it leads to HQ, where it's marked
   const syncNextBtn = () => { const b = $(".vg-nextbtn"); if (!b || !opts.goNextStep || !DATA.hq) return; const n = VGRules.hqNextOf(todayData(), { review, hidden: cos.hidden, today: today(), session: opts.focusNow ? opts.focusNow() : null }); const v = VGRules.nextView(n); b.querySelector("b").textContent = v.label; b.setAttribute("aria-label", v.text); b.hidden = false; b.onclick = () => opts.goNextStep(); };
+  // Undo and Redo in the toolbar: the one history (VGActions.history) every surface reads
+  const syncHistory = () => { const h = $(".vg-toolhist"); if (h && !destroyed) h.innerHTML = VGParts.historyButtons(VGActions.history.state(), icon, "vg-ibtn"); };
+  const unHistory = VGActions.history.subscribe(syncHistory);
+  root.addEventListener("click", e => { const b = e.target.closest && e.target.closest(".vg-toolhist [data-hundo], .vg-toolhist [data-hredo]"); if (b && !b.disabled) VGActions.history[b.hasAttribute("data-hundo") ? "undoLast" : "redoLast"](); });
+  syncHistory();
   function syncMapsBtn(view) {   // the Views button shows where you are
     syncNextBtn();
     syncDim();
@@ -598,7 +607,7 @@
         return { cx: o.x, cy: o.y, top: o.y - r, bottom: o.y + r, left: o.x - r, right: o.x + r, W, H, under, held: held ? held.id : null }; },
       clockRing(i) { const C = mapCache.clock; if (!C || !C.cs[i]) return null; const R = rot(), k = cam.k, [dx, dy] = C.DIAL[0], o = scr(dx, dy, R), a = -Math.PI / 2 + 0.25 * Math.PI / 7, d = (C.ring(i) + 9) * k; return { x: o.x + Math.cos(a) * d, y: o.y + Math.sin(a) * d, c: C.cs[i].c }; }, saved: { snapshot: snapshotView, apply: applySaved, bodies: () => cos.bodies, auto: () => cos.auto, captured: () => Object.fromEntries(cos.bodies.map(b => [b.id, (bodyCaptured.get(b.id) || []).length])) }, openLens, closeLens, lensFps, noteGraph, renewLinks: () => { linkGen++; }, dropLink: () => { const at = links.findIndex(l => l.kind === "link"), l = links[at]; links.splice(at, 1); return () => links.splice(at, 0, l); }, st, cam, active: () => active, P, alpha: () => alpha, layouts, setView, scenes: () => SCENES, drawMs: () => drawMs, maps: () => mapCache, cos: () => cos, nodes, nb, replay: () => replay, visible, rules: VGRules },
     syncNext: syncNextBtn,
-    destroy() { persistNow(); destroyed = true; GL.destroy(); clearTimeout(persistTimer); 
+    destroy() { persistNow(); destroyed = true; unHistory(); GL.destroy(); clearTimeout(persistTimer); 
       if (RM && RM.removeEventListener) RM.removeEventListener("change", onReduced);
       win.removeEventListener("keyup", keyUp, true); win.removeEventListener("blur", releaseKeys); root.ownerDocument.removeEventListener("visibilitychange", onHidden);
       cancelAnimationFrame(raf); ro.disconnect(); if (dprQuery) dprQuery.removeEventListener("change", dprChanged); if (io) io.disconnect(); root.innerHTML = ""; root.classList.remove("vg-root", "has-inspector", "vg-side-hidden", "vg-side-open", "is-neural", "is-compact", "is-mobile", "is-playing"); },
