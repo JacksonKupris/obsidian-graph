@@ -67,7 +67,7 @@
     ...(opts.mocReport ? { mocalign: { menu: "topics", name: "Map alignment", hint: "Tick the report's rows here; apply when ready", render: () => "", load: lensMocAlign } } : {}),
     projects: { menu: "topics", name: "Context notes", icon: "truss", hint: "Each Context note as a card: activity, tasks, staleness", render: lensProjects },
     people: { menu: "topics", name: "People by topic", icon: "people", hint: "Who you work with on which topics", render: lensPeople },
-    ...((DATA.code && (DATA.code.repos || []).length) ? { code: { menu: "topics", name: "Code ↔ docs", hint: "Code that changes often with no note, and notes that have fallen behind their code", render: lensCode } } : {}),   // only where work repos exist
+    ...((DATA.code && (DATA.code.repos || []).length) ? { code: { menu: "topics", name: "Code ↔ docs", icon: "code", hint: "Code that changes often with no note, and notes that have fallen behind their code", render: lensCode } } : {}),   // only where work repos exist
     path: { menu: "topics", name: "Reading path", icon: "bridge", hint: "An ordered reading list for getting up to speed on a topic", render: lensPath },
     adjacent: { menu: "topics", name: "Adjacent possible", icon: "lasso", hint: "Notes one step past what you're working on, and strange pairs to combine", render: lensAdjacent },
     netlens: { menu: "topics", name: "As a neural net", icon: "hub", field: "Reservoir computing", hint: "Wire a recurrent network the way your notes link, and measure what it can do against random wiring", render: () => "", load: loadNetLens },
