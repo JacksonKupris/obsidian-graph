@@ -73,5 +73,9 @@ const VGParts = (() => {
       e.stopPropagation(); e.preventDefault(); if (grid) closeDetail(grid); if (was) was.focus();
     }, true);
   }
-  return { cards, heading, section, more, howTo, row, list, wire, opened, reopen };
+  // The one next-step control: the header chip (label shown) or a Go button inside a card. Every surface builds it here, so a second kind of "Next" can't appear.
+  const nextButton = ({ label = "", chip = false } = {}) => chip
+    ? `<button class="vg-hq-nextchip" data-nextstep title="${esc(label)}"><span class="vg-hq-nextdot" aria-hidden="true"></span><small>Next</small><b>${esc(label)}</b></button>`
+    : `<button class="vg-hq-btn" data-nextstep>Go</button>`;
+  return { cards, heading, section, more, howTo, row, list, wire, opened, reopen, nextButton };
 })();

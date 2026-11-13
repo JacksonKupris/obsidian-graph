@@ -69,7 +69,7 @@ assert(open(null, day), "the task is listed"); assert(!open("until:2026-11-09", 
     const hasWork = await tab.ev(`window.vaultHQ.items().some(i => i.group === "today")`);
     // the chip is on every screen, and says one thing everywhere
     const label = await chip(); check(!!label, "no next step named");
-    for (const s of ["home", "today", "needs", "people", "projects", "calendar"]) { await screen(s); check((await chip()) === label, `the chip differs on ${s}`); }
+    for (const s of ["home", "today", "needs", "people", "projects", "calendar"]) { await screen(s); check((await chip()) === label, `the chip differs on ${s}`); const n = await tab.ev(`[document.querySelectorAll(".vg-hq-nextchip").length, document.querySelectorAll("[data-nextstep]:not(.vg-hq-nextchip)").length]`); check(n[0] === 1 && n[1] <= 1, `${s} shows ${n[0]} next chips and ${n[1]} Go buttons: one of each at most`); }
     if (hasWork) {
       check(label === "Pick today's focus", `with nothing picked: ${label}`);
       // the marker: off its screen a dot on the dock, on it the beacon on the one control
