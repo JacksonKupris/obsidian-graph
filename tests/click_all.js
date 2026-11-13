@@ -22,7 +22,7 @@ const MOBILE = process.argv.includes("--mobile"), PHONE = process.argv.includes(
 const probe = String.raw`<script>
 (run => (async () => {
 const live = () => window.__VG_RUN__ === run;
-const { sleep } = require("./kit"), out = { clicks: 0, contexts: 0, errors: [], covered: [], notices: [], noEffect: [], wired: {}, wiredAct: {}, unwired: [], slow: [] };
+const sleep = ms => new Promise(r => setTimeout(r, ms)), out = {   /* in the page there is no require: the kit's sleep is Node-side */  clicks: 0, contexts: 0, errors: [], covered: [], notices: [], noEffect: [], wired: {}, wiredAct: {}, unwired: [], slow: [] };
 // a frame should fit 30 fps on a slow machine; headless Chrome draws without a GPU, so the budget is loose
 const FRAME_BUDGET = 60;
 let errs = [];
