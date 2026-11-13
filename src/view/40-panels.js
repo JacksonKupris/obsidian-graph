@@ -284,8 +284,8 @@
   function addNextControl(id) {
     const box = $(".vg-inspector"); if (!id || box.hidden || box.querySelector(".vg-next")) return;
     const head = box.querySelector(".vg-ins-head") || box, b = document.createElement("button");
-    b.className = "vg-btn vg-btn-sm vg-next"; b.textContent = "Next note"; b.title = "The note the vault gains most from next";
-    b.onclick = () => { const nid = nextNoteId(id); if (nid) select(nid); else { b.disabled = true; b.textContent = "No more notes"; } };
+    b.className = "vg-btn vg-btn-sm vg-next"; b.textContent = VGRules.NEXT_NOTE.text; b.title = VGRules.NEXT_NOTE.title;
+    b.onclick = () => { const nid = nextNoteId(id); if (nid) select(nid); else { b.disabled = true; b.textContent = VGRules.NEXT_NOTE.empty; } };
     head.insertBefore(b, head.querySelector(".vg-ins-close"));
   }
   function select(id) { if (!id) st.nextSeen = null; const r = selectNow(id); addNextControl(id); return r; }
