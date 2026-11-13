@@ -6,11 +6,12 @@ const SRC = path.join(build.ROOT, "src");
 const S = new Function(`${fs.readFileSync(path.join(SRC, "shared.js"), "utf8")}; return VGShared;`)();
 
 // ---- what they do
-assert.deepStrictEqual(S.scopeOf({ folder: "/Work/Kiosk/", tag: "#Project/Kiosk" }), { folder: "Work/Kiosk", tag: "project/kiosk" });
-assert.deepStrictEqual(S.scopeOf(null), { folder: "", tag: "" });
+assert.deepStrictEqual(S.scopeOf({ folder: "/Work/Kiosk/", tag: "#Project/Kiosk" }), { folder: "Work/Kiosk", tag: "project/kiosk", path: "" });
+assert.deepStrictEqual(S.scopeOf(null), { folder: "", tag: "", path: "" });
 assert.strictEqual(S.scopeHas(null, "a.md", []), true, "no scope: every note"); assert.strictEqual(S.scopeHas({}, "a.md"), true);
 assert.strictEqual(S.scopeHas({ folder: "Work" }, "Work/a.md", []), true); assert.strictEqual(S.scopeHas({ folder: "Work" }, "Workshop/a.md", []), false, "a folder isn't a prefix of a name");
 assert.strictEqual(S.scopeHas({ tag: "project/kiosk" }, "a.md", ["#Project/Kiosk"]), true); assert.strictEqual(S.scopeHas({ tag: "project" }, "a.md", ["project/kiosk"]), true, "a tag holds the tags under it");
+assert.strictEqual(S.scopeHas({ path: "Work/a.md" }, "Work/a.md", []), true, "a scope can name one note"); assert.strictEqual(S.scopeHas({ path: "Work/a.md" }, "Work/ab.md", []), false, "and only that note"); assert.strictEqual(S.scopeHas({ path: "Work/a.md", folder: "Other" }, "Work/a.md", []), false, "the path and the folder both have to hold");
 assert.strictEqual(S.scopeHas({ tag: "project/kiosk" }, "a.md", ["project/kiosks"]), false); assert.strictEqual(S.scopeHas({ tag: "project" }, "a.md"), false, "no tags, not in a tag");
 assert.strictEqual(S.scopeHas({ folder: "Work", tag: "x" }, "Work/a.md", ["y"]), false, "a folder and a tag: both");
 // the Guide scan and the Cas9 scene ask the same rule which notes a scan covers

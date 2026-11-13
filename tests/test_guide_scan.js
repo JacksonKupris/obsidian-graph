@@ -7,6 +7,12 @@ const { sleep, checks, openPage } = require("./kit");
 const assert = require("assert"), env = require("./env"), stub = require("./plugin_stub");
 const S = new Function(`${require("../build").scienceSource()}; return VGScience;`)();
 
+// ---- a rules-file guide with a replacement is also a suggestion for the open note (the suggestions sidebar), through the same guide and the same repair
+{ const preset = { name: "Retired tag tech/", seq: "tech/", to: "technology/" }, g = S.guideOfPreset(preset);
+  assert.deepStrictEqual([g.seq, g.mismatches, g.word, g.where.join()], ["tech/", 0, true, S.GUIDE_DEFAULT.join()], "a preset becomes the guide the scan reads, with the defaults filled in");
+  const cuts = S.guideCuts("tags:\n  - tech/python\ntext tech/x\n", g, { to: preset.to }); assert.ok(cuts.length >= 1 && cuts.every(c => c.after.includes("technology/")), "the guide's repair is what the sidebar offers");
+  const src = require("fs").readFileSync(require("path").join(__dirname, "..", "src", "plugin", "10-views.js"), "utf8");
+  assert.ok(/VGScience\.guideOfPreset\(/.test(src) && /plugin\.guideApply\(/.test(src) && /scope = \{ path: file\.path \}/.test(src), "the sidebar suggests the repair through the shared guide and the one guideApply, scoped to the open note"); }
 // ---- the survey: totals over several notes, excerpts, and the order
 { const s = S.guideSurvey({ seq: "tech/python", mismatches: 1 });
   s.add("b.md", "one tech/python"); s.add("a.md", "tech/python and tech/python\n`tech/python`"); s.add("c.md", "nothing here"); s.add("d.md", "only teck/python");
