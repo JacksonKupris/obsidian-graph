@@ -19,7 +19,7 @@
   const sessionTell = () => { if (opts.onSession) opts.onSession(session ? { title: session.title, clock: sessionClock(), over: !!session.over, paused: !session.since } : null); };
   function sessionStart(key) {
     compute();
-    const it = BY_KEY.get(key) || (session && BY_KEY.get(session.key)) || doNext();
+    const it = BY_KEY.get(key) || (session && BY_KEY.get(session.key)) || firstOpen();
     if (session && it && session.key !== it.key) sessionLog();
     if (it && (!session || session.key !== it.key)) session = { key: it.key, title: it.title, length: sessionLength, spent: 0, logged: 0, since: Date.now(), over: false };
     clearInterval(sessionTick); sessionTick = setInterval(sessionPaint, 1000); sessionTell();
@@ -49,7 +49,7 @@
   const sessionButton = (it, big) => api.hqSession && it && it.group === "today" ? `<button class="vg-hq-btn${big ? "" : " vg-hq-btn-sm"} vg-hq-focusbtn" data-session="${esc(it.key)}" title="Work on this with a timer (s)">${icon("clock", 14)} Focus</button>` : "";
   // before a session: what it would be on, how long, and the one button that starts it; or pick something else from the list
   function sessionIdle() {
-    const first = doNext(); if (!first) return `<h1 class="vg-hq-h1">Focus</h1>` + empty("Nothing open to focus on.", [["Today", 'data-go="today"'], ...(api.openDaily ? [["Open today's journal", "data-daily"]] : [])]);
+    const first = firstOpen(); if (!first) return `<h1 class="vg-hq-h1">Focus</h1>` + empty("Nothing open to focus on.", [["Today", 'data-go="today"'], ...(api.openDaily ? [["Open today's journal", "data-daily"]] : [])]);
     const others = [...new Set([...focus(), ...ofGroup("today")])].filter(x => x !== first), spent = VGRules.sessionMinutes(STATE.review, day());
     return `<section class="vg-hq-session"><div class="vg-hq-eyebrow">Focus on</div><h1 class="vg-hq-session-title">${esc(first.title)}</h1>${first.why ? `<p class="vg-hq-lede">${esc(first.why)}</p>` : ""}
       <div class="vg-hq-timer is-paused"><b>${sessionLength}:00</b></div>

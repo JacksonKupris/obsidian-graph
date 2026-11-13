@@ -12,6 +12,15 @@ const PY = process.platform === "win32" ? "python" : "python3";   // Linux has n
 const R = env.rules;
 const VGRules = new Function(`${require("../build").rulesSource(R)}; return VGRules;`)();
 const { fails, check } = checks();
+// One next step: the Do next card shows the note the step points at, never a different one (Home said "start the standup" beside a card about something else)
+{
+  const job = { key: "job|1", group: "needs", kind: "job" }, td = { key: "t1", group: "today", kind: "task" }, nd = { key: "n1", group: "needs", kind: "review" }, fo = { key: "f1", group: "today", kind: "task" }, list = [td, nd, job];
+  check("a job step points at the job", VGRules.nextItem({ key: "job" }, list, []) === job, true);
+  check("a focus step points at the first starred note", VGRules.nextItem({ key: "do" }, list, [fo]) === fo, true);
+  check("a plan step points at the first note of today", VGRules.nextItem({ key: "plan" }, list, []) === td, true);
+  check("a needs step points at the first note waiting on you", VGRules.nextItem({ key: "needs" }, list.filter(i => i !== job), []) === nd, true);
+  check("standup, wrap up and capture are steps of their own: no note", [VGRules.nextItem({ key: "standup" }, list, [fo]), VGRules.nextItem({ key: "wrap" }, list, [fo]), VGRules.nextItem({ key: "capture" }, [], [])].every(x => x === null), true);
+}
 
 // ---- 1. rules
 const old = { id: "a/Plan.md", name: "Plan", tags: [], age: R.stale_days + 1 };
