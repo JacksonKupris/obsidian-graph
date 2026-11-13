@@ -77,5 +77,9 @@ const VGParts = (() => {
   const nextButton = ({ label = "", chip = false } = {}) => chip
     ? `<button class="vg-hq-nextchip" data-nextstep title="${esc(label)}"><span class="vg-hq-nextdot" aria-hidden="true"></span><small>Next</small><b>${esc(label)}</b></button>`
     : `<button class="vg-hq-btn" data-nextstep>Go</button>`;
-  return { cards, heading, section, more, howTo, row, list, wire, opened, reopen, nextButton };
+  // The one list item, for menu tiles and sidebar rows: a lead (icon, dot), a title, an optional tag (the science field), a middle (a bar) and a sub line.
+  // title, mid, sub and lead are HTML the caller has already escaped; the tag is plain text.
+  const item = ({ cls = "", attrs = "", lead = "", title = "", tag = "", mid = "", sub = "" } = {}) =>
+    `<button class="vg-item${cls ? " " + cls : ""}"${attrs ? " " + attrs : ""}>${lead}<span class="vg-item-main">${title}${tag ? `<em class="vg-item-tag">${esc(tag)}</em>` : ""}${mid}${sub ? `<span class="vg-item-sub">${sub}</span>` : ""}</span></button>`;
+  return { cards, heading, section, more, howTo, row, list, wire, opened, reopen, nextButton, item };
 })();

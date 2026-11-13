@@ -233,7 +233,7 @@
     if (!tabs.some(([t]) => t === pickTab)) pickTab = tabs[0][0];
     $(".vg-picker-tabs").innerHTML = tabs.map(([t, name]) => { const n = items.filter(i => i.tab === t).length;
       return `<button role="tab" class="vg-picker-tab" data-tab="${t}" aria-selected="${!q && t === pickTab}">${name}${n && !PANEL_TABS.has(t) ? `<span class="vg-count">${n}</span>` : ""}</button>`; }).join("");
-    const tile = i => `<button class="vg-tile" data-tab="${i.tab}" data-k="${esc(i.k)}" aria-pressed="${i.on}"><span class="vg-tile-ic">${icon(i.ic, 18)}</span><span class="vg-tile-txt"><b>${esc(i.name)}</b>${i.field ? `<em class="vg-tile-field">${esc(i.field)}</em>` : ""}<span>${esc(i.hint)}</span></span></button>`;
+    const tile = i => VGParts.item({ cls: "vg-tile", attrs: `data-tab="${i.tab}" data-k="${esc(i.k)}" aria-pressed="${i.on}"`, lead: `<span class="vg-tile-ic">${icon(i.ic, 18)}</span>`, title: `<b>${esc(i.name)}</b>`, tag: i.field, sub: esc(i.hint) });
     const hit = i => (i.name + " " + i.hint + " " + (i.field || "")).toLowerCase().includes(q);
     $$(".vg-ppanel").forEach(x => x.hidden = !!q || x.dataset.ppanel !== pickTab);
     $(".vg-picker-tiles").innerHTML = q
