@@ -33,7 +33,7 @@ const CACHE = "vault-graph-${version}", SHELL = ["./", "manifest.webmanifest", "
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {
-  if (e.request.method !== "GET" || new URL(e.request.url).origin !== location.origin) return;
+  if (e.request.method !== "GET" || new URL(e.request.url).origin !== location.origin || new URL(e.request.url).pathname.endsWith("/events")) return;
   e.respondWith(fetch(e.request).then(r => { const copy = r.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); return r; }).catch(() => caches.match(e.request).then(r => r || caches.match("./"))));
 });
 `;
@@ -50,12 +50,18 @@ const REPORT = `<script>(() => { const say = (kind, data) => { try { fetch("__re
 say("app-open", { w: innerWidth, h: innerHeight, standalone: matchMedia("(display-mode: standalone)").matches });
 addEventListener("error", e => say("error", String(e.message))); addEventListener("unhandledrejection", e => say("error", String(e.reason))); })();</script>`;
 
+// Live updates, when served by phone_server.js: it names each change on /events, the app takes data.json in place (graph, HQ notes, journals),
+// and reloads only when notes were added or removed (the graph can't patch those in). Served as plain files, /events is missing and nothing happens.
+const LIVE = `<script>(() => { if (!window.EventSource) return; let seen = null;
+const es = new EventSource("events"); es.onmessage = async e => { if (seen === null) { seen = e.data; return; } if (e.data === seen) return; seen = e.data;
+  try { const r = await fetch("data.json", { cache: "no-store" }), d = (await r.json()).data, g = window.vaultGraph; if (!(g && g.applyLive && g.applyLive(d))) location.reload(); } catch (err) { /* offline: the next change tries again */ } }; })();</script>`;
+
 // What goes in the folder: file name -> text or bytes. Throws when the page is missing its mount point.
 function phoneApp(data, rules, version) {
   const page = build.buildPage(data, rules);
   if (!page.includes("</head>") || !page.includes("</body>")) throw new Error("the graph page has no head or body to add the app parts to");
   return {
-    "index.html": page.replace("</head>", HEAD + "</head>").replace("</body>", REGISTER + REPORT + "</body>"),
+    "index.html": page.replace("</head>", HEAD + "</head>").replace("</body>", REGISTER + REPORT + LIVE + "</body>"),
     "manifest.webmanifest": JSON.stringify(MANIFEST, null, 2), "sw.js": sw(version), "icon-192.png": iconPng(192), "icon-512.png": iconPng(512),
   };
 }
