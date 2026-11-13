@@ -25,6 +25,8 @@ assert(P.cards([{ value: "<b>", label: "'" }]).includes("&lt;b&gt;") && P.row({ 
   const count = rx => js.reduce((n, [, t]) => n + (t.match(rx) || []).length, 0);
   const DETAILS_CAP = 0; check(count(/<details\b/g) <= DETAILS_CAP, `${count(/<details\b/g)} hand-written <details>: use VGParts.more`);
   js.forEach(([f, t]) => check(!/vg-list-h|"vg-stat\b|vg-stats|"vg-kv/.test(t), `${f} writes an old tile or list heading: use VGParts`));
+  js.forEach(([f, t]) => check(!/data-nextstep/.test(t), `${f} writes its own next-step control: use VGParts.nextButton`));
+  check(P.nextButton({ label: "A", chip: true }).includes("data-nextstep") && P.nextButton().includes("data-nextstep"), "nextButton makes the next-step control");
   check(!/sciFacts = [^\n]*<div/.test(build.viewSource()) && !/sciRead = [^\n]*<p/.test(build.viewSource()), "the science views' cards and notes should come from VGParts"); }
 
 // ---- on a real page: Task survival's cards open what's behind them. 80 tasks: half finished over time, half still open.
