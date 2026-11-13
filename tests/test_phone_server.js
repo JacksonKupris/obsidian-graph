@@ -14,6 +14,13 @@ const get = (port, p) => new Promise((res, rej) => http.get({ port, path: p }, r
   const app = createServer({ vault, rules, version: "9.9.9", debounceMs: 100 });
   await new Promise(r => app.server.listen(0, "127.0.0.1", r)); const port = app.server.address().port;
   try {
+    // the vault is only read: a log inside it is refused, and serving the page and taking a phone report leaves every file as it was
+    assert.throws(() => createServer({ vault, rules, version: "9.9.9", log: path.join(vault, "phone.log") }), /inside the vault/, "a log inside the vault is refused");
+    const snap = dir => { const out = {}; const walk = d => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else out[path.relative(vault, p)] = fs.readFileSync(p, "utf8"); } }; walk(dir); return out; };
+    const before = snap(vault);
+    await get(port, "/"); await get(port, "/data.json");
+    await new Promise(r => { const q = http.request({ port, path: "/__report", method: "POST" }, x => { x.resume(); x.on("end", r); }); q.end(JSON.stringify({ kind: "app-open" })); });
+    assert.deepStrictEqual(snap(vault), before, "serving and a phone report must not change the vault");
     const page = await get(port, "/");
     assert(page.status === 200 && page.body.includes("EventSource") && page.body.includes("manifest.webmanifest"), "the app page is served with its live updates");
     assert.strictEqual((await get(port, "/manifest.webmanifest")).type, "application/manifest+json");
