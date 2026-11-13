@@ -16,12 +16,18 @@ const env = require("./env");
       return { minor: A.attention({ ...base, refs: false, words: 3 }, c).length, orphan: A.attention({ ...base, inlinks: 0 }, c).length, broken: A.attention({ ...base, broken: 2 }, c).length, inspector: A.problems({ ...base, refs: false, words: 3 }, c).length }; })()`);
     assert.ok(rule, "VGActions must be on the page");
     assert.deepStrictEqual(rule, { minor: 0, orphan: 1, broken: 1, inspector: 2 }, "only the non-minor problems flag a note: " + JSON.stringify(rule));
-    let seen = 0;
+    // crowded rings group: three notes within a few pixels are one badge, a far one stays its own ring, and every note is in exactly one group
+    const cl = await tab.ev(`VGRules.ringClusters([{ id: "a", x: 10, y: 10 }, { id: "b", x: 14, y: 12 }, { id: "c", x: 18, y: 10 }, { id: "d", x: 200, y: 200 }], 18).map(g => g.ids.join(""))`);
+    assert.deepStrictEqual(cl, ["abc", "d"], "ringClusters must merge close notes and keep far ones apart: " + JSON.stringify(cl));
+    let seen = 0, badged = 0;
     for (const view of ["2d", "3d", "neural", "subway", "weather", "radar"]) {
       await tab.ev(`window.vaultGraph._debug.openView(${JSON.stringify(view)})`); await sleep(1500);
       const r = await tab.ev(`window.vaultGraph._debug.attention().filter(x => x.at)`);
       assert.ok(r.length > 0, view + ": some notes must be flagged and placed (saw " + r.length + ")");
       seen += r.length;
+      // every badge is a group of flagged notes, and a group is two or more notes
+      const bd = await tab.ev(`window.vaultGraph._debug.ringBadges()`), flagged = new Set((await tab.ev(`window.vaultGraph._debug.attention().map(x => x.id)`)));
+      for (const b of bd) { assert.ok(b.ids.length >= 2 && b.ids.every(id => flagged.has(id)), view + ": a badge groups flagged notes: " + JSON.stringify(b)); badged += b.ids.length; }
       const lg = await tab.ev(`document.querySelector(".vg-legend").textContent`);
       assert.ok(/needs attention/.test(lg), view + ": the legend must explain the ring: " + lg);
       // the ring is really painted: the pixel on its rim is the warning colour
@@ -29,6 +35,18 @@ const env = require("./env");
         let n = 0, amber = 0; for (const x of window.vaultGraph._debug.attention().filter(x => x.at).slice(0, 12)) { const rr = Math.max(4, Math.min(24, x.at.r)) + 4, d = g.getImageData(Math.round((x.at.x + rr) * s) - 1, Math.round(x.at.y * s), 3, 1).data;
           n++; for (let i = 0; i < 9; i += 4) if (Math.abs(d[i] - W[0]) < 30 && Math.abs(d[i + 1] - W[1]) < 30 && Math.abs(d[i + 2] - W[2]) < 30 && d[i + 3] > 80) { amber++; break; } } return { n, amber }; })()`);
       assert.ok(hit.amber > 0, view + ": the ring must be painted in the warning colour " + JSON.stringify(hit));
+    }
+    assert.ok(badged > 0, "the sample's crowded views must draw at least one count badge");
+    // tapping a badge selects the notes behind it
+    await tab.ev(`window.vaultGraph._debug.openView("neural")`); await sleep(1500);
+    const bd2 = await tab.ev(`window.vaultGraph._debug.ringBadges()`);
+    assert.ok(bd2.length, "the neural view must show a badge to tap");
+    {
+      const rect = await tab.ev(`(() => { const r = document.querySelector(".vg-root canvas").getBoundingClientRect(); return [r.left, r.top]; })()`);
+      for (const type of ["mousePressed", "mouseReleased"]) await tab.send("Input.dispatchMouseEvent", { type, x: rect[0] + bd2[0].x, y: rect[1] + bd2[0].y, button: "left", clickCount: 1 });
+      await sleep(400);
+      const sel = await tab.ev(`document.querySelector(".vg-inspector") && !document.querySelector(".vg-inspector").hidden ? 1 : 0`);
+      assert.ok(sel, "tapping a badge must open the notes behind it");
     }
     // the switch turns it off
     await tab.ev(`window.vaultGraph._debug.openView("2d")`); await sleep(600);

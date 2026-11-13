@@ -239,7 +239,9 @@
     if (d && d.node && d.node.pin) { d.node.pin = null; alpha = Math.max(alpha, 0.15); kick(); }   // let go: it springs back into place
     if (d && d.moved && d.orbit && !d.node && Math.abs(d.vy) + Math.abs(d.vp) > 0.004) { cam.spin = { y: d.vy, p: d.vp }; kick(); }
     if (!d || d.moved || d.longPress) return;
-    const [x, y] = local(e), n = hit(x, y);
+    const [x, y] = local(e), badge = st.layers.attention ? ringBadgeAt(x, y) : null;
+    if (badge) { st.multi = new Set(badge.ids); select(null); showMulti(); dirty = true; kick(); return; }   // a count badge: the notes behind it, as a selection
+    const n = hit(x, y);
     if (d.touch) {   // double-tap focuses (dblclick doesn't fire reliably for touch)
       const now = performance.now();
       if (n && lastTap && lastTap.id === n.id && now - lastTap.t < 320) { lastTap = null; enterFocus(n.id); return; }
