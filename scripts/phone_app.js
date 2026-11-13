@@ -52,9 +52,15 @@ addEventListener("error", e => say("error", String(e.message))); addEventListene
 
 // Live updates, when served by phone_server.js: it names each change on /events, the app takes data.json in place (graph, HQ notes, journals),
 // and reloads only when notes were added or removed (the graph can't patch those in). Served as plain files, /events is missing and nothing happens.
-const LIVE = `<script>(() => { if (!window.EventSource) return; let seen = null;
-const es = new EventSource("events"); es.onmessage = async e => { if (seen === null) { seen = e.data; return; } if (e.data === seen) return; seen = e.data;
-  try { const r = await fetch("data.json", { cache: "no-store" }), d = (await r.json()).data, g = window.vaultGraph; if (!(g && g.applyLive && g.applyLive(d))) location.reload(); } catch (err) { /* offline: the next change tries again */ } }; })();</script>`;
+const LIVE = `<script>(() => { let have = null, busy = false;
+// The data the page is showing is stamped; an announcement from the PC, or the app waking (opened, unlocked, back from another app), compares the PC's stamp to it and takes anything newer.
+const check = async first => { if (busy) return; busy = true;
+  try { const r = await fetch("data.json", { cache: "no-store" }), j = await r.json(); if (first) { have = j.stamp; return; } if (j.stamp === have) return;
+    const g = window.vaultGraph; if (g && g.applyLive && g.applyLive(j.data)) have = j.stamp; else location.reload(); }
+  catch (err) { /* offline: the next wake or change tries again */ } finally { busy = false; } };
+check(true);
+addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") check(false); }); addEventListener("pageshow", () => check(false)); addEventListener("online", () => check(false));
+if (window.EventSource) { const es = new EventSource("events"); es.onmessage = () => check(false); } })();</script>`;
 
 // What goes in the folder: file name -> text or bytes. Throws when the page is missing its mount point.
 function phoneApp(data, rules, version) {
