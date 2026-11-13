@@ -94,17 +94,19 @@ const VGActions = (() => {
   // (the inspector's "Needs attention"). test(n, c): the problem is there, whatever this surface can do about it;
   // text(n, c): the problem as a fact; fix: an ACTIONS key, offered when that action can run here.
   const PROBLEMS = [
-    { key: "unmapped", fix: "map", test: (n, c) => { const m = mapOf(c, n); return !!m && !VGRules.onMap(m, n.id); },
+    { key: "unmapped", ring: "#38bdf8", label: "not on its map", fix: "map", test: (n, c) => { const m = mapOf(c, n); return !!m && !VGRules.onMap(m, n.id); },
       text: (n, c) => `Not listed in ${mapOf(c, n).title}, its topic's map` },
-    { key: "stale", fix: "current", test: (n, c) => VGRules.isStale(n, ((c.data || {}).quality || {}).stale_days), text: n => `Unchanged for ${n.age} days` },
-    { key: "unlinked-mentions", fix: "mentions", test: (n, c) => ((c.data || {}).said_unlinked || []).some(([id]) => id === n.id),
+    { key: "stale", ring: "#eab308", label: "stale", fix: "current", test: (n, c) => VGRules.isStale(n, ((c.data || {}).quality || {}).stale_days), text: n => `Unchanged for ${n.age} days` },
+    { key: "unlinked-mentions", ring: "#a78bfa", label: "named, not linked", fix: "mentions", test: (n, c) => ((c.data || {}).said_unlinked || []).some(([id]) => id === n.id),
       text: (n, c) => { const hit = ((c.data || {}).said_unlinked || []).find(([id]) => id === n.id); return `Named in ${plural(hit[1], "daily note")}, never linked`; } },
-    { key: "orphan", fix: "link", test: n => n.inlinks === 0, text: () => "Nothing links here" },
-    { key: "deadend", fix: "link", test: n => n.outlinks === 0, text: () => "Links to no other note" },
-    { key: "refs", minor: true, fix: "reference", test: n => n.refs === false, text: () => "No references" },
-    { key: "broken", fix: "open", test: n => n.broken > 0, text: n => plural(n.broken, "broken link") },
-    { key: "stub", minor: true, fix: "open", test: (n, c) => n.words != null && n.words < (((c.data || {}).quality || {}).stub_words || 0), text: n => `${plural(n.words, "word")} so far` },
+    { key: "orphan", ring: "#e879f9", label: "nothing links here", fix: "link", test: n => n.inlinks === 0, text: () => "Nothing links here" },
+    { key: "deadend", ring: "#fb923c", label: "links nowhere", fix: "link", test: n => n.outlinks === 0, text: () => "Links to no other note" },
+    { key: "refs", ring: "#94a3b8", label: "no references", minor: true, fix: "reference", test: n => n.refs === false, text: () => "No references" },
+    { key: "broken", ring: "#ef4444", label: "broken link", fix: "open", test: n => n.broken > 0, text: n => plural(n.broken, "broken link") },
+    { key: "stub", ring: "#94a3b8", label: "short note", minor: true, fix: "open", test: (n, c) => n.words != null && n.words < (((c.data || {}).quality || {}).stub_words || 0), text: n => `${plural(n.words, "word")} so far` },
   ];
+  // Each problem has one look in every view: its ring colour and its legend label. A note with two problems gets a ring split in two colours.
+  const reasonLook = key => { const p = PROBLEMS.find(x => x.key === key); return p ? { color: p.ring, label: p.label } : { color: "#94a3b8", label: key }; };
   // [{ key, text, fix: action | null }] for a note, in PROBLEMS order (maps, people and unwritten notes have none)
   function problems(n, c) {
     if (!n || n.ghost || n.person || n.moc) return [];
@@ -288,5 +290,5 @@ const VGActions = (() => {
     return box;
   }
 
-  return { ACTIONS, PROBLEMS, forNote, problems, attention, run, render, archiveFolder, isArchived, nameOf, TODAY, todayWhen, todayLabel, runToday, TODAY_MORE, todayMore, runMore, runBatch, runMove, runRow };
+  return { ACTIONS, PROBLEMS, reasonLook, forNote, problems, attention, run, render, archiveFolder, isArchived, nameOf, TODAY, todayWhen, todayLabel, runToday, TODAY_MORE, todayMore, runMore, runBatch, runMove, runRow };
 })();
