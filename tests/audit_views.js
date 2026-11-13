@@ -14,7 +14,7 @@
 //   node tests/audit_views.js [--obsidian] [--mobile] [--view slime] [--out file.md] [--gate] [--vault [dir]]
 // Writes .out/views-audit.md (and .json; --gate fails when a check got worse than the last run).
 const fs = require("fs"), path = require("path");
-const { sleep, openPage } = require("./kit");
+const { sleep, openPage, tools } = require("./kit");
 const env = require("./env");
 const arg = (f, d) => (process.argv.includes(f) ? process.argv[process.argv.indexOf(f) + 1] : d);
 const MOBILE = process.argv.includes("--mobile"), ONLY = arg("--view", ""), OUT = arg("--out", env.out(MOBILE ? "views-audit-mobile.md" : "views-audit.md"));
@@ -135,6 +135,31 @@ const PROBE = probeOf(".vg-root");
       }
     }
   } finally { if (tab) await tab.close(); }
+
+  // Vault HQ, the home screen: each screen is probed like a side panel (named, fits, no dead end, plain wording)
+  if (!ONLY) {
+    let hq = null;
+    try {
+      hq = await openPage({ html: env.hqPage(""), mobile: MOBILE });
+      if (!await hq.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
+      await hq.send("Emulation.setDeviceMetricsOverride", { width: MOBILE ? 390 : 1200, height: 900, deviceScaleFactor: 1, mobile: MOBILE }); await sleep(200);
+      for (const name of ["home", "today", "needs", "people", "projects", "calendar"]) {
+        const pr = { name: "Vault HQ: " + name, opens: false, items: 0, closes: true, panel: true };
+        try {
+          await tools(hq, { wait: 60 }).screen(name);
+          pr.opens = (await hq.ev(`window.vaultHQ.screen()`)) === name;
+          const sp = await hq.ev(probeOf(".vg-hq")); pr.items = sp.noName.length + sp.small.length;
+          if (!pr.opens) note("panels", pr.name, "didn't open");
+          if (sp.noName.length || sp.small.length) note("panels", pr.name, "named: " + [...sp.noName.map(n => "no name " + n), ...sp.small.map(n => "small " + n)].slice(0, 4).join(", "));
+          if (sp.out.length || sp.over.length) note("panels", pr.name, "fits: " + [...sp.out, ...sp.over].slice(0, 4).join(", "));
+          if (!sp.empties.every(e => e.next)) note("panels", pr.name, "dead end: " + sp.empties.filter(e => !e.next).map(e => e.text).join(", "));
+          if (sp.text.length) note("panels", pr.name, "wording: " + sp.text.join(", "));
+        } catch (e) { note("panels", pr.name, "error: " + String(e.message || e).slice(0, 80)); }
+        menuRows.push(pr); console.log(`  ${pr.name}: ${pr.opens ? "read" : "did not open"}`);
+      }
+    } catch (e) { note("panels", "Vault HQ", "error: " + String(e.message || e).slice(0, 80)); console.log("  Vault HQ: " + e.message); }
+    finally { if (hq) await hq.close(); }
+  }
 
   // the plugin's own side views, in the real Obsidian (needs it running; the helper is the vault's, as install_release uses)
   if (process.argv.includes("--obsidian") && !ONLY) {
