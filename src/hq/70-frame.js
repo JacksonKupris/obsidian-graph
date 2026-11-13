@@ -69,8 +69,7 @@
     else if (d.peeklink) peekOpen(d.peeklink, [...peek.back, peek.path]);
     else if (d.peekback !== undefined) { const back = peek.back.slice(), to = back.pop(); peekOpen(to, back); }
     else if (d.peekclose !== undefined) { peek = null; render(); }
-    else if (d.hundo !== undefined) VGActions.history.undoLast();
-    else if (d.hredo !== undefined) VGActions.history.redoLast();
+    else if (VGActions.history.press(b, showDecided)) { /* Previous, Undo or Redo */ }
     else if (d.keys !== undefined) keySheet();
     else if (d.walk) walk(d.walk, d.key);
     else if (d.pickall !== undefined) { const f = needFilter; ofGroup("needs").filter(i => (f === "all" || i.kind === f) && pickable(i)).forEach(i => picked.add(i.key)); render(); }
@@ -226,6 +225,8 @@
     if (keys() !== was || day() !== shownDay) { shownDay = day(); render(); }
   }
   clockTimer = opts.now ? null : setInterval(tick, 30000);
+  // Previous: the item the decision was made on, in the rail if it is still listed, or else its note
+  function showDecided(at) { if (at.key && BY_KEY.get(at.key)) selectItem(at.key); else if (at.path) peekOpen(at.path); }
   const unhistory = VGActions.history.subscribe(() => render());   // an Undo or Redo from any surface redraws the header
   return {
     tick,

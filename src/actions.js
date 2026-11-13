@@ -138,7 +138,8 @@ const VGActions = (() => {
       const msg = await a.run(n, c, e);
       // the Undo puts back what the plugin recorded for it, and runs the action's own undo (a mark in the shared file)
       if (msg) { const id = c.api.lastUndo ? c.api.lastUndo() : 0, rec = id && id !== mark && c.api.undo ? id : 0; if (rec && c.api.labelUndo) c.api.labelUndo(rec, msg);
-        const entry = rec || a.undo ? { msg, undo: () => undo(rec, msg, c, a.undo && (() => a.undo(n, c))), redo: () => run(a, n, c, e, true) } : null;
+        const at = n && (n.key || n.path || n.id || (n.ids || [])[0]) ? { key: n.key || "", path: n.path || n.id || (n.ids || [])[0] || "" } : null;
+        const entry = rec || a.undo ? { msg, at, undo: () => undo(rec, msg, c, a.undo && (() => a.undo(n, c))), redo: () => run(a, n, c, e, true) } : null;
         if (entry) history.record(entry, !!again);
         c.done(msg, entry ? () => history.undoEntry(entry) : null); }
       return msg !== null;
@@ -273,15 +274,26 @@ const VGActions = (() => {
   // The one history every surface reads: each decision that changed something is recorded with how to reverse it and
   // how to do it again. The Undo on a report, and the Previous, Undo and Redo buttons, all go through here, so they
   // agree. A new decision clears Redo (the usual rule). Session-long, newest last, capped.
+  // Previous changes nothing: it steps back through the decisions, newest first, and hands the surface what each was
+  // made on ({ key, path, msg }) to show again. Any new decision, Undo or Redo starts it from the newest again.
   const history = (() => {
-    const past = [], future = [], subs = new Set(), CAP = 50;
+    const past = [], future = [], subs = new Set(), CAP = 50; let back = 0;
+    const seen = () => past.filter(x => x.at), target = () => { const s = seen(); return s.length ? s[s.length - 1 - (back % s.length)] : null; };
     const fire = () => subs.forEach(f => { try { f(); } catch (e) { /* a surface that is gone */ } });
-    const state = () => ({ past: past.map(x => x.msg), future: future.map(x => x.msg), canUndo: past.length > 0, canRedo: future.length > 0 });
-    function record(entry, keepFuture) { past.push(entry); if (!keepFuture) future.length = 0; if (past.length > CAP) past.shift(); fire(); }
+    const state = () => { const t = target(); return { past: past.map(x => x.msg), future: future.map(x => x.msg), canUndo: past.length > 0, canRedo: future.length > 0, canPrevious: !!t, previous: t ? t.msg : "" }; };
+    function previous() { const t = target(); if (!t) return null; back++; fire(); return { ...t.at, msg: t.msg }; }
+    // the one wiring for the three buttons (VGParts.historyButtons): `el` is the pressed button, `show` opens what Previous hands back
+    function press(el, show) {
+      if (!el || el.disabled) return false;
+      if (el.hasAttribute("data-hundo")) undoLast(); else if (el.hasAttribute("data-hredo")) redoLast();
+      else if (el.hasAttribute("data-hprev")) { const at = previous(); if (at && show) show(at); } else return false;
+      return true;
+    }
+    function record(entry, keepFuture) { back = 0; past.push(entry); if (!keepFuture) future.length = 0; if (past.length > CAP) past.shift(); fire(); }
     async function undoEntry(entry) {
       const i = past.indexOf(entry); if (i < 0) return false;
       const ok = await entry.undo(); if (!ok) return false;
-      const j = past.indexOf(entry); if (j >= 0) past.splice(j, 1); future.push(entry); fire(); return true;
+      const j = past.indexOf(entry); if (j >= 0) past.splice(j, 1); future.push(entry); back = 0; fire(); return true;
     }
     const undoLast = async () => (past.length ? undoEntry(past[past.length - 1]) : false);
     async function redoLast() {
@@ -289,8 +301,8 @@ const VGActions = (() => {
       future.pop(); const ok = await entry.redo();
       if (!ok) { future.push(entry); fire(); } return ok;
     }
-    const reset = () => { past.length = 0; future.length = 0; fire(); };
-    return { state, record, undoEntry, undoLast, redoLast, reset, subscribe: f => { subs.add(f); return () => subs.delete(f); } };
+    const reset = () => { past.length = 0; future.length = 0; back = 0; fire(); };
+    return { state, record, undoEntry, undoLast, redoLast, previous, press, reset, subscribe: f => { subs.add(f); return () => subs.delete(f); } };
   })();
 
   // Buttons for `list` into `box` (plain DOM: works in Obsidian and on the standalone page).

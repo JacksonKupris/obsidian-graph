@@ -64,7 +64,7 @@ function mountVaultGraph(root, DATA, opts) {
   // local date, not UTC: in Central time the UTC date rolls over at 7 PM, which dated notes and quests a day early
   const { today, localDay, safeName } = VGRules;   // the shared date and file-name rules
   const ICON = {
-    undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/>', redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/>',
+    prev: '<path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>', undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 010 12h-3"/>', redo: '<path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 000 12h3"/>',
     menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
     search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',

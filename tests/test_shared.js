@@ -69,6 +69,9 @@ assert.strictEqual(S.shiftDay("2026-03-01", -1), "2026-02-28"); assert.strictEqu
     const copies = scripts.filter(f => rx.test(fs.readFileSync(f, "utf8"))).map(f => path.basename(f)); assert.deepStrictEqual(copies, [], `${what} is written again in ${copies.join(", ")}: use scripts/lib.js`); }
   // Undo and Redo: every surface that changes notes has the one pair (VGParts.historyButtons), none draws its own
   for (const f of ["hq/70-frame.js", "view/70-shell.js", "plugin/10-views.js"]) assert.ok(/VGParts\.historyButtons\(/.test(fs.readFileSync(path.join(SRC, f), "utf8")), `${f} has no Undo and Redo pair (VGParts.historyButtons)`);
+  // and one wiring: a surface hands the click to history.press, none calls undoLast / redoLast or steps Previous for itself
+  for (const f of ["hq/70-frame.js", "view/70-shell.js", "plugin/10-views.js"]) { const s = fs.readFileSync(path.join(SRC, f), "utf8"); assert.ok(/history\.press\(/.test(s) && !/history\.(undoLast|redoLast|previous)\(|history\[/.test(s), `${f} wires Previous, Undo or Redo for itself, not through VGActions.history.press`); }
+  assert.ok(/data-hprev|"hprev"/.test(fs.readFileSync(path.join(SRC, "parts.js"), "utf8")), "the shared buttons have no Previous");
   for (const f of ["view/70-shell.js", "plugin/10-views.js", "hq/70-frame.js"]) assert.ok(/VGActions\.history\.subscribe\(/.test(fs.readFileSync(path.join(SRC, f), "utf8")), `${f} doesn't follow the shared history`);
   console.log("ok - shared helpers");
 })().catch(e => { console.log(`FAIL - ${e.message}`); process.exit(1); });
