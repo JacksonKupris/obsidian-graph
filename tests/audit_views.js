@@ -14,7 +14,7 @@
 //   node tests/audit_views.js [--obsidian] [--mobile] [--view slime] [--out file.md] [--gate] [--vault [dir]]
 // Writes .out/views-audit.md (and .json; --gate fails when a check got worse than the last run).
 const fs = require("fs"), path = require("path");
-const { sleep, openPage } = require("./kit");
+const { sleep, openPage, tools } = require("./kit");
 const env = require("./env");
 const arg = (f, d) => (process.argv.includes(f) ? process.argv[process.argv.indexOf(f) + 1] : d);
 const MOBILE = process.argv.includes("--mobile"), ONLY = arg("--view", ""), OUT = arg("--out", env.out(MOBILE ? "views-audit-mobile.md" : "views-audit.md"));
@@ -44,10 +44,12 @@ const probeOf = sel => `(() => { const root = document.querySelector(${JSON.stri
   const clipped = e => { const r = e.getBoundingClientRect(); for (let p = e.parentElement; p && p !== root; p = p.parentElement) { const c = getComputedStyle(p); if (/(auto|scroll|hidden|clip)/.test(c.overflow + c.overflowX + c.overflowY)) { const q = p.getBoundingClientRect(); if (r.bottom > q.bottom + 1 || r.top < q.top - 1 || r.right > q.right + 1 || r.left < q.left - 1) return true; } } return false; };
   const ctl = [...root.querySelectorAll("button, [role=button], [role=menuitem], input, select")].filter(e => seen(e) && !clipped(e) && !e.disabled && !e.closest(".vg-gl, .vg-tour, .vg-tour-card") && !(e.type === "range"));
   const noName = ctl.filter(e => !name(e) && !(e.type === "range")).map(e => e.className.toString().slice(0, 40));
-  const small = ctl.filter(e => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height) < ${MOBILE ? "(e.closest('.vgv-labels') ? 24 /* canvas labels: the library floors them at 24 px (WCAG 2.5.8) */ : (parseFloat(getComputedStyle(root).getPropertyValue('--vg-tap')) || 44))" : 24} && !e.closest(".vg-seg, .vg-dock") && !(e.matches("input[type=checkbox], input[type=radio]") && e.labels && e.labels.length);   /* a box inside its label: the label is what is pressed */ }).map(e => (name(e).slice(0, 24) || e.className.toString().slice(0, 30)) + " " + Math.round(e.getBoundingClientRect().width) + "x" + Math.round(e.getBoundingClientRect().height) + " ." + String(e.className.baseVal ?? e.className).split(" ")[0]);
+  const small = ctl.filter(e => { const r = e.getBoundingClientRect(); return Math.round(Math.min(r.width, r.height)) < ${MOBILE ? "(e.closest('.vgv-labels') ? 24 /* canvas labels: the library floors them at 24 px (WCAG 2.5.8) */ : (parseFloat(getComputedStyle(root).getPropertyValue('--vg-tap')) || 44))" : 24} && !e.closest(".vg-seg, .vg-dock") && !(e.matches("input[type=checkbox], input[type=radio]") && e.labels && e.labels.length);   /* a box inside its label: the label is what is pressed */ }).map(e => (name(e).slice(0, 24) || e.className.toString().slice(0, 30)) + " " + Math.round(e.getBoundingClientRect().width) + "x" + Math.round(e.getBoundingClientRect().height) + " ." + String(e.className.baseVal ?? e.className).split(" ")[0]);
   const out = ctl.filter(e => { const r = e.getBoundingClientRect(); return r.right > R.right + 2 || r.left < R.left - 2 || r.bottom > R.bottom + 2; }).map(e => name(e).slice(0, 24));
+  /* page content scrolling under a pinned bar (the HQ dock) is not an overlap: only two controls pinned alike, or both free, can collide */
+  const pinned = e => { for (let p = e; p && p !== document.body; p = p.parentElement) { const q = getComputedStyle(p).position; if (q === "fixed" || q === "sticky" || p.classList.contains("vg-hq-dock")) return true; } return false; };
   const over = []; const boxes = ctl.map(e => ({ e, r: e.getBoundingClientRect() }));
-  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) { const a = boxes[i], b = boxes[j]; if (a.e.contains(b.e) || b.e.contains(a.e)) continue;
+  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) { const a = boxes[i], b = boxes[j]; if (a.e.contains(b.e) || b.e.contains(a.e) || pinned(a.e) !== pinned(b.e)) continue;
     const w = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left), h = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
     if (w > 4 && h > 4) over.push(name(a.e).slice(0, 18) + " / " + name(b.e).slice(0, 18)); }
   const lens = document.querySelector(".vg-lens"), lensOpen = !!lens && !lens.hidden, body = lensOpen ? lens.querySelector(".vg-lens-body") : null;
@@ -135,6 +137,31 @@ const PROBE = probeOf(".vg-root");
       }
     }
   } finally { if (tab) await tab.close(); }
+
+  // Vault HQ, the home screen: each screen is probed like a side panel (named, fits, no dead end, plain wording)
+  if (!ONLY) {
+    let hq = null;
+    try {
+      hq = await openPage({ html: env.hqPage(""), mobile: MOBILE });
+      if (!await hq.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
+      await hq.send("Emulation.setDeviceMetricsOverride", { width: MOBILE ? 390 : 1200, height: 900, deviceScaleFactor: 1, mobile: MOBILE }); await sleep(200);
+      for (const name of ["home", "today", "needs", "people", "projects", "calendar"]) {
+        const pr = { name: "Vault HQ: " + name, opens: false, items: 0, closes: true, panel: true };
+        try {
+          await tools(hq, { wait: 60 }).screen(name);
+          pr.opens = (await hq.ev(`window.vaultHQ.screen()`)) === name;
+          const sp = await hq.ev(probeOf(".vg-hq")); pr.items = sp.noName.length + sp.small.length;
+          if (!pr.opens) note("panels", pr.name, "didn't open");
+          if (sp.noName.length || sp.small.length) note("panels", pr.name, "named: " + [...sp.noName.map(n => "no name " + n), ...sp.small.map(n => "small " + n)].slice(0, 4).join(", "));
+          if (sp.out.length || sp.over.length) note("panels", pr.name, "fits: " + [...sp.out, ...sp.over].slice(0, 4).join(", "));
+          if (!sp.empties.every(e => e.next)) note("panels", pr.name, "dead end: " + sp.empties.filter(e => !e.next).map(e => e.text).join(", "));
+          if (sp.text.length) note("panels", pr.name, "wording: " + sp.text.join(", "));
+        } catch (e) { note("panels", pr.name, "error: " + String(e.message || e).slice(0, 80)); }
+        menuRows.push(pr); console.log(`  ${pr.name}: ${pr.opens ? "read" : "did not open"}`);
+      }
+    } catch (e) { note("panels", "Vault HQ", "error: " + String(e.message || e).slice(0, 80)); console.log("  Vault HQ: " + e.message); }
+    finally { if (hq) await hq.close(); }
+  }
 
   // the plugin's own side views, in the real Obsidian (needs it running; the helper is the vault's, as install_release uses)
   if (process.argv.includes("--obsidian") && !ONLY) {
