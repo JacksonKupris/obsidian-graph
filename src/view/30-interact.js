@@ -578,10 +578,12 @@
       (st.layers.wanted ? `<span class="vg-lg-item"><i class="vg-lg-ghost"></i>not written</span>` : "") + attentionLegend();
   }
   // the ring drawAttention puts on notes with a problem to fix, explained the same way in every view
+  // one entry, so the legend stays on one line: a dot per reason present, the labels in its tooltip
   const attentionLegend = () => {
     if (!st.layers.attention || !attentionOf().size) return "";
     const seen = new Set(); for (const ks of attnWhy.values()) ks.forEach(k => seen.add(k));
-    return [...seen].map(k => { const lk = VGActions.reasonLook(k); return `<span class="vg-lg-item" title="A ring in this colour: ${lk.label}"><i class="vg-lg-attn" style="--ring:${lk.color}"></i>${lk.label}</span>`; }).join("");
+    const looks = [...seen].map(k => VGActions.reasonLook(k));
+    return `<span class="vg-lg-item vg-lg-attn-set" title="A ring says why a note needs attention: ${looks.map(l => l.label).join(", ")}"><span class="vg-lg-dots">${looks.map(l => `<i class="vg-lg-attn" style="--ring:${l.color}"></i>`).join("")}</span>needs attention</span>`;
   };
   // A scene's own counts (alchemy's reactions, radar's tasks) go in the status pill like every other view's,
   // instead of text painted on the canvas where the banner or legend can cover it

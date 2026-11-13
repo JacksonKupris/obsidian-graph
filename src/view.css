@@ -1037,3 +1037,4 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-lib .vgv-frame { top: var(--vg-under-bar) !important; }
 .vg-lib .vgv-stat { display: none !important; }
 .vg-lib[hidden] { display: none; }
+.vg-lg-attn-set .vg-lg-dots { gap: 5px; margin-right: 4px; } .vg-lg-attn-set .vg-lg-dots i { margin-right: 0; width: 10px; height: 10px; box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 45%, transparent); }
