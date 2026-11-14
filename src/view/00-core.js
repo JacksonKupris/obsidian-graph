@@ -386,9 +386,9 @@ function mountVaultGraph(root, DATA, opts) {
   </div>
   <div class="vg-palette" hidden>
     <div class="vg-palette-box" role="dialog" aria-modal="true" aria-label="Search notes">
-      <div class="vg-palette-input">${icon("search")}<input type="text" class="vg-pq" placeholder="Search notes and topics…" aria-label="Search" autocomplete="off" spellcheck="false"><kbd>Esc</kbd></div>
+      <div class="vg-palette-input">${icon("search")}<input type="text" class="vg-pq" placeholder="Search notes and topics…" aria-label="Search" autocomplete="off" spellcheck="false"><button class="vg-ibtn vg-pal-x" aria-label="Close search" title="Close (Esc)">${icon("close")}</button></div>
       <div class="vg-palette-list" role="listbox"></div>
-      <div class="vg-palette-foot vg-muted"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>Enter</kbd> go to</span><span><kbd>Shift Enter</kbd> highlight all</span></div>
+      <div class="vg-palette-foot vg-muted"><span class="vg-pal-keys"><kbd>↑</kbd><kbd>↓</kbd> move</span><span class="vg-pal-keys"><kbd>Enter</kbd> go to</span><button class="vg-btn vg-btn-sm vg-pal-all" hidden>Highlight all <kbd>Shift Enter</kbd></button></div>
     </div>
   </div>`;
   const $ = s => root.querySelector(s);
