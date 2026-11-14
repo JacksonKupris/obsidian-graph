@@ -35,7 +35,7 @@ const html = env.pageWith(`${MOBILE ? "mobile: true, " : ""}recall: async () => 
     await sleep(300);
     await tab.ev(`(() => { const i = document.activeElement; i.value = ${JSON.stringify(RECALL_Q)}; i.dispatchEvent(new Event("input", { bubbles: true })); })()`);
     await sleep(900); await shot("palette"); n++;
-    await tab.ev("document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))"); }
+    await tab.ev("document.querySelector('.vg-pal-x').click()"); }
   // a note's inspector and its actions menu
   if (want("inspector")) { await tab.ev("(() => { const x = document.querySelector('.vg-picker-x'); if (x) x.click(); })()");
     await tab.ev(`(() => { const d = ${D}; const n = d.nodes.filter(n => !n.ghost && !n.person && !n.moc).sort((a, b) => (b.tasks || 0) - (a.tasks || 0))[0]; window.vaultGraph.focusNote(n.id); })()`);

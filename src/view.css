@@ -226,6 +226,14 @@
   font: var(--vg-fs-xs)/1.4 var(--vg-mono, ui-monospace, monospace); color: var(--vg-muted); background: var(--vg-raised); border-radius: var(--vg-r-sm); }
 .vg-palette-foot { display: flex; gap: 16px; padding: 8px 14px; border-top: 1px solid var(--vg-line); font-size: var(--vg-fs-xs); flex-wrap: wrap; }
 .vg-palette-foot span { display: inline-flex; gap: 4px; align-items: center; }
+.vg-palette-foot { align-items: center; }
+.vg-root .vg-pal-all { margin-left: auto; min-height: var(--vg-hit-min); gap: 6px; }
+.vg-root .vg-pal-all[hidden] { display: none; }
+/* a phone has no keys to hint at: search is closed and "highlight all" is pressed with its buttons */
+.vg-root.is-mobile .vg-palette kbd, .vg-root.is-mobile .vg-pal-keys { display: none; }
+.vg-root.is-mobile .vg-pal-x { width: var(--vg-tap); height: var(--vg-tap); }
+.vg-root.is-mobile .vg-pal-all { min-height: var(--vg-tap); }
+.vg-root.is-mobile .vg-palette-foot:not(:has(.vg-pal-all:not([hidden]))) { display: none; }
 
 /* ---------- an open note gets the sidebar's room where both wouldn't leave the graph enough: the sidebar slides over instead (drawerMode, the same width) ---------- */
 @container vg (min-width: 761px) and (max-width: 1319px) {

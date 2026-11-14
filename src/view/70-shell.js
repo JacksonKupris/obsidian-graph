@@ -9,7 +9,13 @@
     bar.hidden = false; const tx = $(".vg-today-text"); tx.textContent = t.text; tx.title = t.text;   // the whole text on hover
     tx.onclick = () => bar.classList.toggle("is-open");   // and on a tap: a cut-off line opens to its full text
     const b = $(".vg-today-act"); b.hidden = !t.run; b.textContent = t.label; b.onclick = () => t.run && t.run();
+    todayRoom();
   }
+  // the room kept under the strip (--vg-today-h, which the status pill and the framing read) is the strip's real height and its gap:
+  // on a phone its buttons are tap size, and an opened line wraps, so a fixed number put the pill under it
+  const TODAY_GAP = 8;
+  function todayRoom() { const bar = $(".vg-today"), app = $(".vg-app"); if (bar && app && !bar.hidden && bar.offsetHeight) app.style.setProperty("--vg-today-h", bar.offsetHeight + TODAY_GAP + "px"); }
+  if ($(".vg-today") && typeof ResizeObserver === "function") new ResizeObserver(todayRoom).observe($(".vg-today"));
   $(".vg-today-x").onclick = () => { todayHidden.add(st.view); renderToday(); };
 
   // ---------------------------------------------------------------- save the current view in one click
@@ -34,8 +40,10 @@
     const p = $(".vg-palette"); p.hidden = false;
     const input = $(".vg-pq"); input.value = (mode && mode.query) || "";
     input.placeholder = palMode && palMode.pick ? palMode.placeholder || "Choose a note…" : palMode && palMode.linkFrom ? `Link “${byId[palMode.linkFrom].name}” from which note?` : palMode && palMode.pickFor ? "Which note or map is this star?" : palMode ? `Path from “${byId[palMode.pathFrom].name}” to…` : "Search notes and topics…";
-    renderPalette(input.value); input.focus();
+    renderPalette(input.value); palAll(); input.focus();
   }
+  // "Highlight all" is offered when there are words and notes that match them, in a plain search (a pick or a path wants one note)
+  function palAll() { $(".vg-pal-all").hidden = !!palMode || !$(".vg-pq").value.trim() || !palItems.some(x => x.kind === "note"); }
   function closePalette() {
     if (palMode && palMode.pick) { const r = palMode.pick; palMode = null; r(null); }   // closed without choosing
     $(".vg-palette").hidden = true; root.focus({ preventScroll: true });
@@ -150,7 +158,9 @@
     renderStatus();
   }
   function clearPath() { st.path = null; $(".vg-pathbar").hidden = true; renderStatus(); dirty = true; kick(); }
-  $(".vg-pq").oninput = e => renderPalette(e.target.value);
+  $(".vg-pq").oninput = e => { renderPalette(e.target.value); palAll(); };
+  $(".vg-pal-x").onclick = closePalette;
+  $(".vg-pal-all").onclick = () => choosePal(palIdx, true);
   $(".vg-pq").onkeydown = e => {
     if (e.key === "ArrowDown") { movePal(palIdx + 1); e.preventDefault(); }
     else if (e.key === "ArrowUp") { movePal(palIdx - 1); e.preventDefault(); }
