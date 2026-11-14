@@ -181,12 +181,12 @@
     panel.querySelectorAll(".vg-gap").forEach(e => e.onclick = () => focusClusters([+e.dataset.a, +e.dataset.b]));
     const STAT_GO = {
       all: () => fit(),
-      topics: () => setTab("clusters"),
+      topics: () => (setTab("clusters"), true),   // true: what it opens is in this panel, so a phone's drawer stays open
       gaps: () => openLens("matrix"),
       unlinked: () => { const ids = new Set(nodes.filter(n => n.isolated && !special(n)).map(n => n.id)); if (!ids.size) return;
         st.isolated = true; $(".vg-isolated").checked = true; rebuild(true); setHighlight(ids, plural(ids.size, "unlinked note")); fit(n => ids.has(n.id), 400); },
     };
-    panel.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { STAT_GO[b.dataset.stat](); closeDrawer(); });
+    panel.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { if (!STAT_GO[b.dataset.stat]()) closeDrawer(); });
     panel.querySelectorAll(".vg-maprow").forEach(e => e.onclick = () => showMocMissing(e.dataset.moc));
     renderTodayList();
     panel.querySelectorAll(".vg-unmapped").forEach(e => e.onclick = () => focusClusters([+e.dataset.c]));

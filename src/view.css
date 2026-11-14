@@ -535,7 +535,13 @@
 .vg-fd-row { display: grid; grid-template-columns: minmax(120px, 30%) 1fr auto; gap: 10px; align-items: center; margin: 4px 0; font-size: var(--vg-fs-sm); }
 .vg-fd-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vg-fd-bar { display: flex; height: 14px; border-radius: var(--ds-r-xs); overflow: hidden; gap: 1px; }
-.vg-root .vg-fd-bar button { height: 100%; border-radius: 0; min-width: 3px; }
+.vg-root .vg-fd-bar button { height: 100%; border-radius: 0; min-width: var(--vg-hit-min); }
+.vg-root.is-mobile .vg-fd-bar button { min-width: var(--vg-tap); }
+/* a folder's smaller topics together: striped, so it reads as "several" and not as one more topic's colour */
+.vg-root .vg-fd-bar .vg-fd-rest { background: repeating-linear-gradient(135deg, var(--vg-faint) 0 4px, transparent 4px 8px); }
+/* on a phone the bar takes the whole row under the folder's name, so seven segments fit */
+.vg-root.is-mobile .vg-fd-row { grid-template-columns: 1fr auto; }
+.vg-root.is-mobile .vg-fd-bar { grid-column: 1 / -1; grid-row: 2; }
 .vg-root .vg-fd-bar button:hover { filter: brightness(1.25); }
 /* topic river */
 .vg-rv { width: 100%; max-width: 1100px; height: auto; display: block; margin: 4px auto; }
