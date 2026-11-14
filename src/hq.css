@@ -478,7 +478,7 @@
   .vg-hq button, .vg-hq [role="button"], .vg-hq [role="tab"], .vg-hq select, .vg-hq input:not([type="checkbox"]):not([type="radio"]) { min-height: 44px; }
   .vg-hq .vg-hq-btn, .vg-hq .vg-hq-nextchip, .vg-hq .vg-hq-dockbtn { min-width: 44px; }
 }
-@container (max-width: 760px) { .vg-hq .vg-hq-person h3 .vg-hq-linkbtn { min-height: 44px; } }
+@container (max-width: 760px) { .vg-hq .vg-hq-person h3 .vg-hq-linkbtn { min-height: 44px; min-width: 44px; } }
 .vg-hq .vg-historybtns { display: inline-flex; gap: 2px; } .vg-hq .vg-historybtn { min-width: 32px; } .vg-hq .vg-historybtn:disabled { opacity: 0.4; }
 @container (min-width: 761px) { .vg-hq .vg-historybtn { min-width: 0; padding: 4px 6px; } .vg-hq .vg-hq-global-tools { min-width: 120px; } }   /* the header keeps fitting at 800 with the two history buttons */
 @container (min-width: 761px) and (max-width: 900px) { .vg-hq .vg-hq-clock span { display: none; } }   /* the date goes first when the header is tight; the time stays */

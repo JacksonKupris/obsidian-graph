@@ -1505,15 +1505,28 @@ const VGRules = (() => {
   const taskRowsOf = it => [{ path: it.path, line: it.line, text: it.text }, ...(it.subs || []).map(s => ({ path: it.path, line: s.line, text: s.text }))];
   // Attention rings that would overlap on screen become one badge with a count, so nothing hides under a neighbour: items [{id,x,y}] -> [{ids,x,y}].
   // A note joins the first group whose first note lies within gap pixels; the badge sits at the group's centre. Zooming in spreads the notes, which splits the badge.
-  function ringClusters(items, gap) {
-    const out = [];
-    for (const it of items) {
-      const g = out.find(c => Math.hypot(c.x0 - it.x, c.y0 - it.y) < gap);
-      if (g) { g.ids.push(it.id); g.sx += it.x; g.sy += it.y; } else out.push({ ids: [it.id], x0: it.x, y0: it.y, sx: it.x, sy: it.y });
-    }
+  // With a budget (max), the gap widens until the marks fit it: a whole vault on screen reads as a few counted badges, not a ring on every third note.
+  function ringClusters(items, gap, max) {
+    const group = gap => { const out = [];
+      for (const it of items) {
+        const g = out.find(c => Math.hypot(c.x0 - it.x, c.y0 - it.y) < gap);
+        if (g) { g.ids.push(it.id); g.sx += it.x; g.sy += it.y; } else out.push({ ids: [it.id], x0: it.x, y0: it.y, sx: it.x, sy: it.y });
+      }
+      return out; };
+    let out = group(gap);
+    while (max && out.length > max && gap < 2000) { gap *= 1.3; out = group(gap); }
     return out.map(g => ({ ids: g.ids, x: g.sx / g.ids.length, y: g.sy / g.ids.length }));
   }
-  return { hqBriefLines, ringClusters, errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, mocNode, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, unmentioned, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  // how many attention marks a pane of this size can hold and still be read: about one per 200 x 200 px, between 10 and 28
+  const ringBudget = (w, h) => Math.max(10, Math.min(28, Math.round(w * h / 40000)));
+  // a bar split into shares: the ones under `floor` of the whole are folded into one, so each segment drawn is big enough to press.
+  // One small share stays as it is (a group of one says less than its own name). pairs: [key, count]; returns both lists, biggest first.
+  const foldSmall = (pairs, floor) => {
+    const all = [...pairs].sort((a, b) => b[1] - a[1]), total = all.reduce((s, p) => s + p[1], 0) || 1;
+    const kept = all.filter(p => p[1] / total >= floor), rest = all.filter(p => p[1] / total < floor);
+    return rest.length === 1 ? { kept: all, rest: [] } : { kept, rest };
+  };
+  return { hqBriefLines, ringClusters, ringBudget, foldSmall, errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, mocNode, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, unmentioned, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, NEXT_NOTE, nextView, nextItem, SCALES, VIEW_SCALES, viewScale, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, GUIDE_LOG_KEEP, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }

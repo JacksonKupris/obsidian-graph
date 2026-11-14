@@ -56,16 +56,18 @@
   }
   let ringBadges = [];   // the count badges drawn last frame: [{ ids, x, y, r, reasons }], for a tap to open the notes behind one
   const RING_GAP = 18;
+  let ringMarks = { n: 0, budget: 0, notes: 0 };   // what the last frame drew: marks (rings and badges), the pane's budget, the flagged notes on screen
   function drawAttention() {
     const hits = attentionOf(); ringBadges = []; if (!hits.size) return;
     const bg = css("--vg-bg") || "#16161a";
-    const items = []; for (const [id] of hits) { const p = P.get(id); if (p && p.a > 0.5 && byId[id]) items.push({ id, x: p.x, y: p.y, r: Math.max(4, Math.min(24, p.r || 6)) + 4 }); }
+    const items = []; for (const [id] of hits) { const p = P.get(id); if (p && p.a > 0.5 && byId[id] && p.x > -30 && p.x < W + 30 && p.y > -30 && p.y < H + 30) items.push({ id, x: p.x, y: p.y, r: Math.max(4, Math.min(24, p.r || 6)) + 4 }); }
     const one = new Map(items.map(i => [i.id, i]));
     ctx.save(); ctx.globalCompositeOperation = "source-over";
-    for (const g of VGRules.ringClusters(items, RING_GAP)) {
+    const groups = VGRules.ringClusters(items, RING_GAP, VGRules.ringBudget(W, H)); ringMarks = { n: groups.length, budget: VGRules.ringBudget(W, H), notes: items.length };
+    for (const g of groups) {
       if (g.ids.length === 1) { const i = one.get(g.ids[0]); ringArcs(i.x, i.y, i.r, reasonsOf(i.id), 2.5, 0.95); continue; }
-      // a badge: a pie of the reasons behind the notes it holds, the count in the middle
-      const r = 12, tally = new Map(); for (const id of g.ids) for (const k of reasonsOf(id)) tally.set(k, (tally.get(k) || 0) + 1);
+      // a badge: a pie of the reasons behind the notes it holds, the count in the middle; one holding more notes is a little larger
+      const r = Math.min(20, Math.round(10.5 + Math.sqrt(g.ids.length))), tally = new Map(); for (const id of g.ids) for (const k of reasonsOf(id)) tally.set(k, (tally.get(k) || 0) + 1);
       const total = [...tally.values()].reduce((a, b) => a + b, 0); let at = -Math.PI / 2; ringBadges.push({ ids: g.ids, x: g.x, y: g.y, r, reasons: [...tally.keys()] });
       ctx.globalAlpha = 0.95;
       for (const [k, v] of tally) { const to = at + 2 * Math.PI * v / total; ctx.fillStyle = VGActions.reasonLook(k).color; ctx.beginPath(); ctx.moveTo(g.x, g.y); ctx.arc(g.x, g.y, r, at, to); ctx.closePath(); ctx.fill(); at = to; }

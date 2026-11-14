@@ -11,6 +11,7 @@
       if (k === "draftmap") return opts.writeNote && clusterById[arg] ? `<button class="vg-btn vg-btn-sm" data-draftmap="${arg}">${icon("plus", 12)} Draft a map for ${esc(shortName(+arg))}</button>` : "";
       if (k === "daily") return opts.openDaily ? `<button class="vg-btn vg-btn-sm" data-next="daily">${icon("open", 12)} Today's daily note</button>` : "";
       if (k === "new") return opts.writeNote && NEW_KINDS[arg] ? `<button class="vg-btn vg-btn-sm" data-next="${s}">${icon("plus", 12)} ${NEW_KINDS[arg].label}</button>` : "";
+      if (k === "back") return `<button class="vg-btn vg-btn-sm" data-next="back">${icon("prev", 12)} Back to the graph</button>`;
       return `<button class="vg-btn vg-btn-sm" data-next="${k === "search" ? esc(s) : "search"}">${icon("search", 12)} Search notes</button>`; };   // "search:<words>" opens on them
     const bs = steps.map(btn).filter(Boolean);
     if (!bs.length) bs.push(btn("search"));
@@ -30,6 +31,7 @@
   async function runNext(step) {
     if (step.startsWith("search")) { closeLens(); closeMenu(); openPalette(step.includes(":") ? { query: step.slice(7) } : undefined); return; }
     if (step === "daily") { opts.openDaily(); return; }
+    if (step === "back") { closeLens(); return; }
     const K = NEW_KINDS[step.split(":")[1]]; if (!K) return;
     const name = await confirmBox(K.label, `A note in ${esc(K.folder())}.`, "Create", K.ask);
     if (name) createNote(K, name);
@@ -86,7 +88,7 @@
     body.querySelectorAll("[data-id]").forEach(d => d.onclick = () => { if (!lensBeside()) closeLens(); reveal(d.dataset.id); });
     body.querySelectorAll("[data-cl]").forEach(d => d.onclick = () => { if (!lensBeside()) closeLens(); focusClusters(d.dataset.cl.split(",").map(Number)); });
     wireLens(body); if (keep) VGParts.reopen(body, keep);
-    if (l.load && !none) { body.innerHTML = `<div class="vg-empty">Loading…</div>`; l.load().then(html => { if (lensKey === k) { body.innerHTML = html; wireLens(body); if (keep) { VGParts.reopen(body, keep); body.scrollTop = keep.y || 0; } } }).catch(err => { console.error(`Vault Graph: ${l.name} didn't load`, err); if (lensKey === k) { body.innerHTML = emptyNext(esc(`${l.name} didn't load: ${(err && err.message) || err}.`), "lens:" + k); wireNext(body); } }); }
+    if (l.load && !none) { body.innerHTML = emptyNext(esc(`Loading ${l.name}…`), "back"); wireNext(body); l.load().then(html => { if (lensKey === k) { body.innerHTML = html; wireLens(body); if (keep) { VGParts.reopen(body, keep); body.scrollTop = keep.y || 0; } } }).catch(err => { console.error(`Vault Graph: ${l.name} didn't load`, err); if (lensKey === k) { body.innerHTML = emptyNext(esc(`${l.name} didn't load: ${(err && err.message) || err}.`), "lens:" + k); wireNext(body); } }); }
   }
   function wireLens(body) {
     // every note row in a lens gets the shared actions behind "⋯", whatever buttons the lens adds itself
@@ -219,6 +221,8 @@
       ${sciRead(`Counts daily notes (journals and standups) that link or name each note. "Heating" compares the last 4 weeks with the 8 before.`)}`;
   }
 
+  // a topic under this share of a folder's bar is drawn in the bar's one "smaller topics" segment (at most seven segments, so each can be pressed on a phone)
+  const FOLD_SHARE = 0.15;
   function lensFolders() {
     const top = id => id.split("/").slice(0, 2).join("/"), groups = {};
     nodes.filter(n => !special(n) && n.cluster >= 0 && n.id.includes("/")).forEach(n => (groups[top(n.id)] = groups[top(n.id)] || []).push(n));
@@ -229,12 +233,12 @@
     const odd = [];
     const bars = folders.map(([f, ms]) => {
       const per = {}; ms.forEach(n => per[n.cluster] = (per[n.cluster] || 0) + 1);
-      const segs = Object.entries(per).sort((a, b) => b[1] - a[1]);
+      const { kept, rest } = VGRules.foldSmall(Object.entries(per), FOLD_SHARE), restN = rest.reduce((s, p) => s + p[1], 0);
+      const seg = (cl, k, name, cls = "") => `<button class="${cls}" style="flex:${k};${cls ? "" : `background:${colorOf(+cl)}`}" data-cl="${cl}" title="${esc(name)}: ${k}" aria-label="${esc(name)}: ${k}"></button>`;
       ms.forEach(n => { const h = homeOf(n.cluster); if (h && h[0] !== f && h[1] >= 0.5 * clusterById[n.cluster].size && per[n.cluster] <= 2) odd.push([n, h[0]]); });
-      return `<div class="vg-fd-row"><span class="vg-fd-name" title="${esc(f)}">${esc(f)}</span><span class="vg-fd-bar" data-chart>${segs.map(([c, k]) =>
-        `<button style="flex:${k};background:${colorOf(+c)}" data-cl="${c}" title="${esc(clusterName(+c))}: ${k}"></button>`).join("")}</span><span class="vg-count">${ms.length}</span></div>`;
+      return `<div class="vg-fd-row"><span class="vg-fd-name" title="${esc(f)}">${esc(f)}</span><span class="vg-fd-bar" data-chart>${kept.map(([c, k]) => seg(c, k, clusterName(+c))).join("")}${rest.length ? seg(rest.map(p => p[0]).join(","), restN, `${rest.length} smaller topics`, "vg-fd-rest") : ""}</span><span class="vg-count">${ms.length}</span></div>`;
     }).join("");
-    return `<p class="vg-muted vg-lens-note">Each bar is a folder, split by topic. One colour = the folder matches a topic; many colours = the folder mixes topics.</p>${bars}
+    return `<p class="vg-muted vg-lens-note">Each bar is a folder, split by topic. One colour = the folder matches a topic; many colours = the folder mixes topics. The striped end is its smaller topics together.</p>${bars}
       ${odd.length ? lensSec("Possibly misfiled", odd.sort((a, b) => b[0].bc - a[0].bc).slice(0, 40).map(([n, h]) => `<div class="vg-sugg">${noteRow(n.id, `in ${esc(top(n.id))} · its topic lives in <b>${esc(h)}</b>`)}
         ${opts.moveNote && !VGRules.RULES.not_map_tops.includes(h.split("/")[0]) ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-move="${esc(n.id)}" data-to="${esc(h)}">Move to ${esc(VGShared.baseOf(h))}</button></span>` : ""}</div>`), { count: odd.length, word: "notes" }) : emptyNext("Nothing looks misfiled.", "lens:stale")}`;
   }

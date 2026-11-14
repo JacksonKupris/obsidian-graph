@@ -600,7 +600,7 @@
       },
       neuro() { const N = neuro; if (!N) return { spikes: 0, ok: false }; const P = N.net.P; let ok = true; for (const v of N.net.V) if (!isFinite(v) || v > P.threshold + 40 || v < -200) ok = false; return { spikes: N.net.total(), hz: neuroRate(), ok, n: N.list.length, time: N.net.time(), morph: !!morph, vMax: Math.max(...N.net.V), vMean: N.net.V.reduce((x, y) => x + y, 0) / N.net.V.length, shown: neuroSpikes.length }; },
       drawNow() { if (!W) return null; const t0 = performance.now(); draw(performance.now()); dirty = false; return performance.now() - t0; },   // tests: a frame now, its ms
-      ringBadges: () => ringBadges.map(b => ({ ids: b.ids, x: b.x, y: b.y, r: b.r })),
+      ringMarks: () => ringMarks, ringBadges: () => ringBadges.map(b => ({ ids: b.ids, x: b.x, y: b.y, r: b.r, reasons: b.reasons })),
       attention: () => [...attentionOf()].map(([id, k]) => ({ id, k, why: reasonsOf(id), at: P.get(id) ? { x: P.get(id).x, y: P.get(id).y, r: P.get(id).r || 6 } : null })),
       lensDefs: () => LENSES,   // the test swaps a lens's load() to make it fail
       views: () => Object.keys(VIEWS).filter(canvasView), allViews: () => Object.entries(VIEWS).map(([key, v]) => ({ key, kind: v.kind, name: v.name, menu: v.menu, hint: v.hint, icon: v.icon, field: v.field || "", scale: VGRules.viewScale(key), hidden: !!v.hidden })), openView, lenses: () => Object.keys(LENSES), clusters: () => DATA.clusters, links: () => links, screen: id => { const p = P.get(id); return p ? { x: p.x, y: p.y, r: p.r, a: p.a } : null; },
