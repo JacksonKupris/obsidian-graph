@@ -88,6 +88,32 @@
     today: libToday, api: libApi(),
   });
 
+  // Atom, Station and Reactor: the library's models to turn in the hand. None has a copy in the plugin, so each is a view in the menu.
+  scene("atom", {
+    name: "Atom", icon: "atom", menu: "see", space: true, lib: true, hint: "One note as an atom: its links the nucleus, the notes one, two and three links away its shells",
+    toast: "Atom — the picked note is the nucleus: a red ball for each note that links to it, a blue ball for each note it links to. Each shell holds the notes that many links away. Pick an electron to make it the nucleus.",
+    layout: () => ({ pos: new Map(), bounds: [] }),
+    draw: () => libDraw("atom", "atom", () => ({})),
+    legend: item => item(`<i class="vg-dot" style="background:#ef4444"></i>`, "a note that links to it") + item(`<i class="vg-dot" style="background:#60a5fa"></i>`, "a note it links to") + item("●", "electron = a note, shell = links away"),
+    today: libToday, api: libApi(),
+  });
+  scene("station", {
+    name: "Station", icon: "ring", menu: "see", space: true, lib: true, hint: "One topic as a ring station: notes its map links are docked, the rest ride the second ring or drift outside",
+    toast: "Station — one topic as a space station. The hub is the topic's map; notes it links are docked on the front ring, notes that link only with the topic ride the second ring, and notes that link with nothing here drift outside.",
+    layout: () => ({ pos: new Map(), bounds: [] }),
+    draw: () => libDraw("station", "station", () => ({})),
+    legend: item => item(`<i class="vg-dot" style="background:#fbbf24"></i>`, "edited lately") + item(`<i class="vg-dot" style="background:#8a8d96"></i>`, "stale") + item(`<i class="vg-lg-line" style="opacity:1"></i>`, "spoke or strut = a link"),
+    today: libToday, api: libApi(),
+  });
+  scene("reactor", {
+    name: "Reactor", icon: "pulse", menu: "see", space: true, lib: true, hint: "The last 30 days as a reactor: edited notes are fuel, stale notes others link to are control rods",
+    toast: "Reactor — the last 30 days. Each fuel rod is a note edited lately, coloured by topic; each control rod is a stale note that others link to. Pick a loop to filter by topic.",
+    layout: () => ({ pos: new Map(), bounds: [] }),
+    draw: () => libDraw("reactor", "reactor", () => ({})),
+    legend: item => item(`<i class="vg-dot" style="background:#f59e0b"></i>`, "fuel = edited in the last 30 days") + item(`<i class="vg-dot" style="background:#8a8d96"></i>`, "control rod = stale, and others link to it"),
+    today: libToday, api: libApi(),
+  });
+
   // The library's Cyberpunk beside the plugin's own 2D one, hidden until it has been looked at in Obsidian and on a phone;
   // then "cyberpunk" takes this draw and the old file goes.
   scene("cyberpunk-lib", {

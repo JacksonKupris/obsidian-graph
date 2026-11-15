@@ -216,6 +216,23 @@ const env = require("./env");
       ok((await tab.ev(`${town}.handle().api.selected()`)) === bnote.id, "and the City marks the same building");
     }
 
+    // Atom, Station, Reactor: the library's three models, in the menu with no copy in the plugin; each builds, shows its stat line in the plugin's status, and a real click on a note in it selects that note
+    for (const id of ["atom", "station", "reactor"]) {
+      ok(await tab.ev(`!!${D}.scenes().${id} && ${D}.views().includes("${id}") && !${D}.scenes().${id}.hidden`), `${id} is a view in the menu`);
+      await tab.ev(`window.vaultGraph.select && window.vaultGraph.select(null); ${D}.setView("${id}")`); await sleep(1900); await calm();
+      const m = `${D}.scenes().${id}.api`;
+      await tab.ev(`${m}.handle().api.hold && ${m}.handle().api.hold()`);
+      const mstat = await tab.ev(`${m}.handle().stat()`);
+      ok(typeof mstat === "string" && mstat.length > 0 && (await tab.ev(`${q(".vg-status")}.innerText`)).includes(mstat), `${id}: its stat line is the plugin's status: ${mstat}`);
+      const mpt = await tab.ev(`(() => { const h = ${m}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, kind: k.kind, x, y }; } return null; })()`);
+      ok(!!mpt, `${id}: something in it is on screen to click`);
+      if (mpt) {
+        for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: mpt.x, y: mpt.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
+        await sleep(300); await calm();
+        if (mpt.kind === "note") ok((await tab.ev(`window.vaultGraph.viewport().selected`)) === mpt.id, `${id}: a click on a note in it selects that note in the plugin`);
+      }
+    }
+
     // Radar: the library's first flat view, hidden beside the plugin's own; a real click on a blip selects its note
     ok(await tab.ev(`!!${D}.scenes()["radar-lib"] && !!${D}.scenes().radar`), "the plugin has its own Radar and a scene for the library's");
     await tab.ev(`${D}.setView("radar-lib")`); await sleep(1900); await calm();
