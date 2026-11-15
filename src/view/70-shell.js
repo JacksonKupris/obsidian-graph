@@ -200,10 +200,12 @@
   // layers, saved views; Health = the overlays
   const PICK_TABS = [["views", "Views"], ["style", "Display"], ["health", "Health"]];
   const PANEL_TABS = new Set(["style", "health"]);
-  const PICK_TOOLS = [["vg-lassobtn", "lasso", "Lasso"], ["vg-savebtn", "star", "Save view"], ["vg-timebtn", "clock", "Time-lapse"],
+  // the one A–Z rule for every menu, picker tab and group: by name, numbers in order, capitals ignored
+  const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+  const PICK_TOOLS =[["vg-lassobtn", "lasso", "Lasso"], ["vg-savebtn", "star", "Save view"], ["vg-timebtn", "clock", "Time-lapse"],
     ["randomize", "sparkles", "Randomize layout"], ["resetlayout", "refresh", "Reset layout"]];
   // the tools, wherever they're offered (the Tools menu, the phone's picker sheet): which apply now, and one way to run one
-  const tools = () => PICK_TOOLS.filter(([c]) => (c !== "randomize" || !isGame()) && (c !== "resetlayout" || canReset()));
+  const tools = () => PICK_TOOLS.filter(([c]) => (c !== "randomize" || !isGame()) && (c !== "resetlayout" || canReset())).sort((a, b) => byName({ name: a[2] }, { name: b[2] }));   // A–Z, like the views
   const runTool = c => ({ randomize: randomizeLayout, resetlayout: resetLayout }[c] || (() => $("." + c).click()))();
   const toolOn = c => { const b = c.startsWith("vg-") && $("." + c); return !!b && b.getAttribute("aria-pressed") === "true"; };
   function syncToolsBtn() { const b = $(".vg-toolsbtn"); if (b) b.setAttribute("aria-pressed", PICK_TOOLS.some(([c]) => toolOn(c))); }
@@ -227,7 +229,7 @@
     Object.entries(VIEWS).forEach(([k, v]) => { if (v.hidden || (opts.compact && (v.kind === "lens" || k === "cosmos"))) return;   // hidden: reachable by key, listed in no picker
       out.push({ tab: "views", k, ic: v.icon, name: v.name, hint: v.hint, field: v.field, on: v.kind === "lens" ? lensKey === v.lens : st.view === k, run: () => openView(k) }); });
     Object.entries(PRESETS).forEach(([k, p]) => out.push({ tab: "style", k, ic: "sparkles", name: p.name, hint: p.hint, on: st.preset === k, run: () => applyPreset(k) }));
-    out.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));   // A–Z within every tab
+    out.sort(byName);   // A–Z within every tab
     if (opts.writeNote && !opts.compact) out.push({ tab: "views", k: "newscene", ic: "plus", name: "New view", hint: "Your own view, written in a note", on: false, run: () => newScene() });
     return out;
   }
@@ -237,7 +239,7 @@
     const take = (name, keys) => { const g = keys.map(k => by.get(k)).filter(Boolean); g.forEach(i => used.add(i.k)); if (g.length) out.push([name, g]); };
     const recent = (st.recent || []).filter(k => k !== st.view && by.has(k)).slice(0, 3);
     if (recent.length) out.push(["Recent", recent.map(k => by.get(k))]);
-    VIEW_MENUS.forEach(([id, name]) => take(name, [...Object.keys(VIEWS).filter(k => VIEWS[k].menu === id), ...(id === "own" ? ["newscene"] : [])]));
+    VIEW_MENUS.forEach(([id, name]) => take(name, xs.filter(i => i.k === "newscene" ? id === "own" : (VIEWS[i.k] || {}).menu === id).sort(byName).map(i => i.k)));   // A–Z inside every group
     take("More", xs.filter(i => !used.has(i.k)).map(i => i.k));
     return out;
   }
