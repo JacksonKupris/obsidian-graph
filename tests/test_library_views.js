@@ -17,6 +17,9 @@ const env = require("./env");
     tab = await openPage({ html: env.pageWith(`linkNotes: async (...a) => { (window.__links = window.__links || []).push(a); return true; }, guideScan: async g => { const s = VGScience.guideSurvey(g); for (const [p, t] of window.__guideNotes || []) s.add(p, t); return s.done(); },`, data) });
     if (!await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000)) throw new Error("the graph didn't mount");
     await tab.ev(`window.__errs = []; addEventListener("error", e => __errs.push(String(e.message)))`);
+    // a note of a library view that is on screen to click: found, hovered (the plugin's hover can move the stage), then found again where it now stands
+    const findNote = h => tab.ev(`(() => { const h = ${h}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
+    const noteOn = async h => { const first = await findNote(h); if (!first) return null; await tab.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: first.x, y: first.y, button: "none" }); await sleep(400); return (await findNote(h)) || first; };
     const calm = async () => { await tab.ev(`document.querySelectorAll('.vg-tour, .vg-tour-card').forEach(x => x.remove()); ${D}.drawNow()`); await sleep(60); };
     ok(await tab.ev(`typeof VaultGraphViews === "object" && typeof VaultGraphViews.mountViews === "function"`), "the graphs library is built into the page");
     ok(await tab.ev(`!!${D}.scenes()["genome-lib"]`), "the plugin has a scene for the library's Genome fold");
@@ -115,7 +118,7 @@ const env = require("./env");
     ok(joints >= 10, `the library makes joints of the plugin's linked notes (${joints})`);
     const lstat = await tab.ev(`${truss}.handle().stat()`);
     ok((await tab.ev(`${q(".vg-status")}.innerText`)).includes(lstat), `its stat line is the plugin's status: ${lstat}`);
-    const lnote = await tab.ev(`(() => { const h = ${truss}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
+    const lnote = await noteOn(truss);
     ok(!!lnote, "a note of Load paths is on screen to click");
     if (lnote) {
       for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: lnote.x, y: lnote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
@@ -132,7 +135,7 @@ const env = require("./env");
     ok(hold >= 9, `the library finds modes in the plugin's linked notes (${hold})`);
     const mstat = await tab.ev(`${drum}.handle().stat()`);
     ok((await tab.ev(`${q(".vg-status")}.innerText`)).includes(mstat), `its stat line is the plugin's status: ${mstat}`);
-    const mnote = await tab.ev(`(() => { const h = ${drum}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
+    const mnote = await noteOn(drum);
     ok(!!mnote, "a note of Normal modes is on screen to click");
     if (mnote) {
       for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: mnote.x, y: mnote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
@@ -149,7 +152,7 @@ const env = require("./env");
     ok(tubes >= 9, `the library finds tubes in the plugin's linked notes (${tubes})`);
     const sstat = await tab.ev(`${mould}.handle().stat()`);
     ok((await tab.ev(`${q(".vg-status")}.innerText`)).includes(sstat), `its stat line is the plugin's status: ${sstat}`);
-    const snote = await tab.ev(`(() => { const h = ${mould}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
+    const snote = await noteOn(mould);
     ok(!!snote, "a note of Slime mould is on screen to click");
     if (snote) {
       for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: snote.x, y: snote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
@@ -188,7 +191,7 @@ const env = require("./env");
     const cstat2 = await tab.ev(`${city}.handle().stat()`);
     // the plugin's selection from the views above is still picked, so the line is the whole city's or the picked tower's
     ok(/( towers? · \d+ dark · \d+ districts?$| in · (dark|busy|dim)| · map of \d+ notes?$)/.test(cstat2) && (await tab.ev(`${q(".vg-status")}.innerText`)).includes(cstat2), `its stat line is the plugin's status: ${cstat2}`);
-    const tnote = await tab.ev(`(() => { const h = ${city}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
+    const tnote = await noteOn(city);
     ok(!!tnote, "a tower of Cyberpunk is on screen to click");
     if (tnote) {
       for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: tnote.x, y: tnote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
@@ -207,7 +210,7 @@ const env = require("./env");
     const tstat = await tab.ev(`${town}.handle().stat()`);
     // a note picked in the views above is still picked, so the line is the whole city's or the picked building's
     ok(/(buildings? · \d+ new this week · tallest: | in · (dark|busy|dim)| · map of \d+ notes?$)/.test(tstat) && (await tab.ev(`${q(".vg-status")}.innerText`)).includes(tstat), `its stat line is the plugin's status: ${tstat}`);
-    const bnote = await tab.ev(`(() => { const h = ${town}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
+    const bnote = await noteOn(town);
     ok(!!bnote, "a building of the City is on screen to click");
     if (bnote) {
       for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: bnote.x, y: bnote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
@@ -241,7 +244,7 @@ const env = require("./env");
     ok((await tab.ev(`${rad}.handle().api.blips()`)) >= 1, "the library builds blips from the plugin's notes with open tasks");
     const rstat = await tab.ev(`${rad}.handle().stat()`);
     ok(/^[0-9]+ open tasks? · [0-9]+ notes?$| · [0-9]+ open tasks? · waiting [0-9]+ days$/.test(rstat) && (await tab.ev(`${q(".vg-status")}.innerText`)).includes(rstat), `its stat line is the plugin's status: ${rstat}`);
-    const rnote = await tab.ev(`(() => { const h = ${rad}.handle(); for (let y = 100; y < innerHeight - 60; y += 6) for (let x = 60; x < innerWidth - 60; x += 6) { const k = h.keyAt(x, y); if (k && k.kind === "note" && (document.elementFromPoint(x, y) || {}).tagName === "CANVAS") return { id: k.id, x, y }; } return null; })()`);
+    const rnote = await noteOn(rad);
     ok(!!rnote, "a blip of Radar is on screen to click");
     if (rnote) {
       for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) { await tab.send("Input.dispatchMouseEvent", { type, x: rnote.x, y: rnote.y, button: type === "mouseMoved" ? "none" : "left", clickCount: 1 }); await sleep(60); }
