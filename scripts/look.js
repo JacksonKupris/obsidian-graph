@@ -3,6 +3,7 @@
 // screenshot and says what it found. For checking a change (npm run deploy -- --plugin puts the local build in first).
 //   npm run look                              every library view
 //   npm run look -- "Load paths" "Cas9"       only these (the names in the picker)
+//   npm run look -- --3d "City"           switch the 2D/3D toggle to 3D first (a 3D view opens flat by default)
 //   npm run look -- --out some/folder         where the screenshots go (default: ./look-shots)
 // Needs Obsidian running with this vault open and its command line on (Settings > General > Advanced). The CLI is
 // `obsidian` on the PATH, or set OBSIDIAN_CLI to its file (Windows: the Obsidian.com next to Obsidian.exe).
@@ -11,7 +12,9 @@
 // photographs is what the window would show. The screenshot and the check use the same drawn page.
 const fs = require("fs"), path = require("path"), { spawnSync } = require("child_process");
 
-const args = process.argv.slice(2), outAt = args.indexOf("--out");
+const args = process.argv.slice(2), want3d = args.includes("--3d");
+if (want3d) args.splice(args.indexOf("--3d"), 1);
+const outAt = args.indexOf("--out");
 const out = path.resolve(outAt >= 0 ? args.splice(outAt, 2)[1] : "look-shots");
 const views = args.length ? args : ["Light cones", "Load paths", "Slime mould", "Normal modes", "Genome fold", "Cas9"];
 const WIN_DEFAULT = "D:\\Obsidian\\Obsidian.com";
@@ -44,6 +47,7 @@ let bad = 0;
 for (const name of views) {
   const got = pick(name);
   if (got !== "ok") { console.log(`FAIL ${name}: ${got}`); bad++; continue; }
+  if (want3d) { ev(`(()=>{const b=[...document.querySelectorAll('button,div,span')].find(x=>x.children.length===0&&x.textContent.trim()==='3D');if(b)b.click();return 1})()`); sleep(4000); }
   let s = null;
   for (let i = 0; i < 25; i++) { sleep(400); s = state(); if (s.pill === name && s.unplaced === 0 && s.w > 0) break; }
   const shot = path.join(out, name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".png");
