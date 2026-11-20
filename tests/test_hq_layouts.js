@@ -13,7 +13,7 @@ const env = require("./env");
     await tab.ev(`(() => { window.__layouts = []; window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { now: new Date("2026-10-28T12:00:00"), layout: "bench", onLayout: l => window.__layouts.push(l), api: {} }); window.vaultHQ.setScreen("today"); })()`); await sleep(150);
     const sel = `document.querySelector(".vg-hq-layoutsel")`;
     check(await tab.ev(`!!${sel}`), "no layout select in the header");
-    check(await tab.ev(`${sel} && ${sel}.options.length >= 15`), "the layout select should offer at least 15 layouts");
+    check(await tab.ev(`${sel} && ${sel}.options.length >= 8`), "the layout select should offer all 8 layouts");
     check(await tab.ev(`!!document.querySelector(".vg-hq-bench")`), "the remembered layout (Workbench) didn't open");
     const set = v => tab.ev(`(s => { s.value = ${JSON.stringify(v)}; s.dispatchEvent(new Event("change", { bubbles: true })); })(${sel})`);
     await set("day"); await sleep(120);

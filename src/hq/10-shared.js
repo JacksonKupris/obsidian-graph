@@ -119,8 +119,9 @@
   const whyNext = it => isFocus(it) ? "First because you starred it for today." : it.urgent ? "First because it's urgent." : it.kind === "task" ? "First because nothing's starred, and today's journal comes first." : it.kind === "plan" ? "First because nothing's starred or in today's journal, and it's next in your last standup's plan." : it.kind === "carried" ? "First because nothing newer is planned, and this is the most recent left over." : "First on the list.";
   const statusWord = p => VGRules.statusWords(p && p.status) || "no status";
   // what Later and Next week have taken off the list, still in sight, with a way back. Open by itself if something urgent is in it.
+  const heldList = () => VGRules.hqPutOff(DATA, { review: STATE.review, hidden: STATE.hidden, today: day(), now: now() });
   function putOffHtml() {
-    const held = VGRules.hqPutOff(DATA, { review: STATE.review, hidden: STATE.hidden, today: day(), now: now() }); if (!held.length || !api.hqMark) return "";
+    const held = heldList(); if (!held.length || !api.hqMark) return "";
     const urgent = held.filter(it => it.urgent).length;
     return VGParts.more({ cls: "vg-hq-sec vg-hq-putoff", open: !!urgent, head: `<span>Put off${urgent ? ` · <b class="vg-hq-jobbad">${urgent} urgent</b>` : ""}</span><span>${held.length}</span>`, body: held.map(it => `<div class="vg-hq-item${it.urgent ? " is-old" : ""}"><span class="vg-hq-kind">${icon(KIND_ICON[it.kind] || "clock", 16)}</span><div class="vg-hq-txt"><b>${esc(it.title)}</b><small>${esc(it.until ? `Back on ${shortDate(it.until)}` : "Back tomorrow")} · ${esc(it.why || "")}</small></div><div class="vg-hq-acts vg-hq-keepacts"><button class="vg-hq-btn vg-hq-btn-sm" data-bringback="${esc(it.key)}">Bring back</button></div></div>`).join("") });
   }
