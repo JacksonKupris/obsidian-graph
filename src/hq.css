@@ -561,3 +561,9 @@ div.vg-hq-densehead { color: var(--hq-muted); border-top: 0; }
 .vg-hq-thead2 { align-items: baseline; flex-wrap: wrap; margin-bottom: 8px; }
 .vg-hq-thead2 h2 { margin: 0; font-size: var(--ds-fs-lg); }
 @media (max-width: 700px) { .vg-hq-thead { display: none; } .vg-hq-trow { grid-template-columns: 24px minmax(0, 1fr); } .vg-hq-trow > .vg-hq-tkind, .vg-hq-trow > .vg-hq-tthread, .vg-hq-trow > .vg-hq-tage { display: none; } .vg-hq-trow > .vg-hq-acts { grid-column: 1 / -1; } }
+
+/* phones: once the list is scrolled, the search, next step, layout and week strip fold away so the list gets the screen */
+@container (max-width: 760px) {
+  .vg-hq.is-scrolled .vg-hq-global-tools, .vg-hq.is-scrolled .vg-hq-strip, .vg-hq.is-scrolled .vg-hq-nextchip, .vg-hq.is-scrolled .vg-hq-layoutlabel, .vg-hq.is-scrolled .vg-hq-clock { display: none; }
+  .vg-hq .vg-hq-top { gap: 8px; }
+}
