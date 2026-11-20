@@ -16,6 +16,13 @@ const env = require("./env"), RULES = require("./design_rules");
       check(await tab.ev(`document.querySelectorAll(".vg-hq button").length > 3`), `${layout} at ${w}px drew nothing to check`);   // a rule over an empty page passes for nothing
       for (const r of RULES) { const bad = await tab.ev(r.js); if (bad.length > r.max) check(false, `${r.id} (${r.from}) at ${layout} ${w}px: ${bad.join(", ")}`); }
     }
+    // the same rules on every other tab, so a refinement made to shared components is held on all of them
+    for (const screen of ["home", "needs", "people", "projects", "automations", "calendar", "threads", "review", "changes"]) for (const [w, mobile] of [[390, true], [1500, false]]) {
+      await tab.send("Emulation.setDeviceMetricsOverride", { width: w, height: 900, deviceScaleFactor: 1, mobile });
+      await tab.ev(`(() => { window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { api: {} }); window.vaultHQ.setScreen(${JSON.stringify(screen)}); })()`); await sleep(150);
+      check(await tab.ev(`document.querySelectorAll(".vg-hq button").length > 3`), `${screen} at ${w}px drew nothing to check`);
+      for (const r of RULES) { const bad = await tab.ev(r.js); if (bad.length > r.max) check(false, `${r.id} (${r.from}) on ${screen} ${w}px: ${bad.join(", ")}`); }
+    }
   } catch (e) { fails.push(e.message); }
   await tab.close();
   finish(fails, "design rules: overflow, targets, text size, names, contrast and empty states across every layout and three widths", "design rules");
