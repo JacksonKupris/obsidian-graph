@@ -47,7 +47,7 @@
   let review = { skipped: {} };
   const todayData = () => ({ ...DATA, links, mocs, wanted: ghosts.filter(g => !g.created).map(g => ({ id: g.id, name: g.name, refs: g.from, creatable: g.creatable })) });
   const todayItems = () => VGRules.todayList(todayData(), { review, hidden: cos.hidden, today: today(), skipDays: UI.time.skipDays, groups: ["upkeep"] });
-  function pinReview(id) { review.pinned = [...new Set([...(review.pinned || []), id])]; persistSoon(); renderTodayList(); toast(`${byId[id].name} added to Upkeep`, "ok"); }
+  function pinReview(id) { review.pinned = [...new Set([...(review.pinned || []), id])]; persistSoon(); toast(`${byId[id].name} added to Upkeep`, "ok"); }
   function todayRow(it, pick) {
     const done = !!(pick && pick.done), can = !done && VGActions.todayWhen(it, actionCtx());
     return `<div class="vg-td ${done ? "is-done" : ""}" data-tkey="${esc(it.key)}"><div class="vg-td-main"><b class="vg-rv-title">${pick ? (done ? "✓ " : "○ ") : ""}${esc(it.title)}</b>${it.why && !done ? `<span class="vg-item-sub">${esc(VGRules.whyWords(it.why))}</span>` : ""}</div>` +
@@ -78,7 +78,7 @@
     review.skipped[it.key] = today();
     if (it.key.startsWith("pin|")) review.pinned = (review.pinned || []).filter(x => x !== it.id);
     if (cos.daily.quests.some(q => q.key === it.key)) { cos.daily.quests = cos.daily.quests.filter(q => q.key !== it.key); const next = nextPick(); if (next) cos.daily.quests.push(next); }
-    persistSoon(); renderTodayList();
+    persistSoon(); 
   }
   function wireToday(box) {
     const find = k => cos.daily.quests.find(q => q.key === k) || todayItems().find(it => it.key === k);
@@ -90,11 +90,6 @@
       if (q("[data-tskip]")) q("[data-tskip]").onclick = e => { e.stopPropagation(); skipToday(it); };
     });
     wireNext(box);
-  }
-  // the count on the Upkeep button, and the panel when it's open: the one place the graph lists these
-  function renderTodayList() {
-    const badge = $(".vg-gamecount"); if (badge) { const n = cos.daily ? cos.daily.quests.filter(q => !q.done).length : 0; badge.textContent = n; badge.hidden = !n; }
-    if (root.classList.contains("show-missions")) renderMissions();
   }
 
   // ---------------------------------------------------------------- saved views
@@ -188,7 +183,7 @@
     };
     panel.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { if (!STAT_GO[b.dataset.stat]()) closeDrawer(); });
     panel.querySelectorAll(".vg-maprow").forEach(e => e.onclick = () => showMocMissing(e.dataset.moc));
-    renderTodayList();
+    
     panel.querySelectorAll(".vg-unmapped").forEach(e => e.onclick = () => focusClusters([+e.dataset.c]));
     panel.querySelectorAll(".vg-bridgebtn").forEach(e => e.onclick = ev => { ev.stopPropagation(); writeBridge(+e.dataset.a, +e.dataset.b); });
   }

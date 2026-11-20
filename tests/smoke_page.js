@@ -39,17 +39,13 @@ setTimeout(async () => {
     catch (e) { __errs.push("keys: " + e.message); }
     // Tools: the menu lists the tools, runs one through the same path as the phone's sheet, and shows that one is on
     try { window.vaultGraph._debug.setView("2d"); await sleep(300);   // the view order can leave it in a game, which has no Time-lapse
-      const tb = document.querySelector(".vg-toolsbtn"); tb.click(); await sleep(100);
-      const items = [...document.querySelectorAll(".vg-toolsmenu:not([hidden]) [data-tool]")];
-      if (items.length < 4) __errs.push("tools: the menu lists " + items.length + " tools");
-      const time = items.find(x => x.dataset.tool === "vg-timebtn"); if (time) time.click(); await sleep(100);
+      const ts = document.querySelector(".vg-toolsel"), items = [...ts.querySelectorAll("optgroup[label=Tools] option")];
+      if (items.length < 4) __errs.push("tools: the select lists " + items.length + " tools");
+      if (items.find(x => x.value === "vg-timebtn")) { ts.value = "vg-timebtn"; ts.dispatchEvent(new Event("change")); } await sleep(100);
       if (document.querySelector(".vg-timebar").hidden) __errs.push("tools: Time-lapse didn't open the time bar");
-      if (tb.getAttribute("aria-pressed") !== "true") __errs.push("tools: the button doesn't show a tool is on");
-      if (!document.querySelector(".vg-toolsmenu").hidden) __errs.push("tools: the menu stayed open after choosing");
-      tb.click(); await sleep(50); document.querySelector(".vg-root").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await sleep(50);
-      if (!document.querySelector(".vg-toolsmenu").hidden) __errs.push("tools: Esc didn't close the menu");
+      if (!ts.querySelector("option[value=vg-timebtn]").textContent.startsWith("✓")) __errs.push("tools: the select doesn't show a tool is on");
       document.querySelector(".vg-root").dispatchEvent(new KeyboardEvent("keydown", { key: "t", bubbles: true })); await sleep(50);
-      if (tb.getAttribute("aria-pressed") === "true") __errs.push("tools: still pressed after the time bar closed"); }
+      if (ts.querySelector("option[value=vg-timebtn]").textContent.startsWith("✓")) __errs.push("tools: still marked on after the time bar closed"); }
     catch (e) { __errs.push("tools: " + e.message); }
     // no dead ends: on a small vault (6 notes, nothing else) and an empty one, every lens has something to click besides
     // close. The plugin's hooks are stand-ins, so the buttons it would show are drawn too.
@@ -77,11 +73,10 @@ setTimeout(async () => {
           if (!n) __errs.push("dead end: lens " + k + " with " + keep + " notes has nothing to click");
         }
         // with the plugin's hooks the picker offers New scene, and its form opens and cancels
-        if (keep) { document.querySelector(".vg-lens:not([hidden]) .vg-lens-close")?.click(); document.querySelector(".vg-pickbtn").click(); await sleep(100);
-          document.querySelector('.vg-picker-tab[data-tab="views"]')?.click(); await sleep(50);   // the Scenes gallery holds it
-          const tile = [...document.querySelectorAll(".vg-tile")].find(t => t.dataset.k === "newscene");
-          if (!tile) __errs.push("New view: no tile in the picker");
-          else { tile.click(); await sleep(100); const f = document.querySelector(".vg-confirm .vg-form");
+        if (keep) { document.querySelector(".vg-lens:not([hidden]) .vg-lens-close")?.click(); await sleep(50);
+          const vs = document.querySelector(".vg-viewsel");
+          if (!vs.querySelector("option[value=newscene]")) __errs.push("New view: no entry in the View select");
+          else { vs.value = "newscene"; vs.dispatchEvent(new Event("change")); await sleep(100); const f = document.querySelector(".vg-confirm .vg-form");
             if (!f || f.querySelectorAll("select").length < 8) __errs.push("New scene: the form didn't open with its choices");
             document.querySelector('.vg-confirm [data-c="no"]')?.click(); await sleep(50);
             if (document.querySelector(".vg-confirm")) __errs.push("New scene: Cancel left the form open"); } }

@@ -30,8 +30,7 @@ const { fails, ok: check } = checks();
       await audit(`${w} sidebar`);
       await ev(`document.querySelector('.vg-tab[data-tab="clusters"]').click()`); await sleep(150); await audit(`${w} topics`); await ev(`document.querySelector('.vg-tab[data-tab="insights"]').click()`);
       if (mobile) { await ev(`document.querySelector(".vg-toggle").click()`); await sleep(250); }
-      await ev(`document.querySelector(".vg-gamebtn").click()`); await sleep(250); await audit(`${w} upkeep`); await ev(`document.querySelector(".vg-gamebtn").click()`);
-      for (const t of ["views", "style", "health"]) { await ev(`(() => { const p = document.querySelector(".vg-picker"); if (p.hidden) document.querySelector(".vg-pickbtn").click(); document.querySelector('.vg-picker-tab[data-tab="${t}"]').click(); })()`); await sleep(150); await audit(`${w} picker ${t}`); }
+      for (const t of ["style", "health"]) { await ev(`(() => { const p = document.querySelector(".vg-picker"); if (p.hidden) (s=>{s.value="panel:style";s.dispatchEvent(new Event("change"))})(document.querySelector(".vg-displaysel")); document.querySelector('.vg-picker-tab[data-tab="${t}"]').click(); })()`); await sleep(150); await audit(`${w} picker ${t}`); }
       await ev(`document.querySelector(".vg-picker-x").click()`);
       await ev(`(() => { const n = ${D}.nodes.filter(n => !n.ghost && !n.person && !n.moc).sort((a, b) => (b.tasks || 0) - (a.tasks || 0))[0]; window.vaultGraph.focusNote(n.id); })()`); await sleep(500); await audit(`${w} note`);
       await ev(`(() => { const x = document.querySelector(".vg-ins-close"); if (x) x.click(); })()`); await sleep(100);
@@ -46,19 +45,14 @@ const { fails, ok: check } = checks();
     await pressKey("ArrowLeft"); await sleep(120);
     check(await ev(`document.activeElement.dataset.tab`) === "insights", "ArrowLeft on the sidebar's tabs didn't move");
     check(await ev(`document.querySelectorAll('.vg-tab[tabindex="0"]').length`) === 1, "only the open tab should be in the Tab order");
-    await ev(`document.querySelector(".vg-pickbtn").click()`); await sleep(200);
+    await ev(`(s=>{s.value="panel:style";s.dispatchEvent(new Event("change"))})(document.querySelector(".vg-displaysel"))`); await sleep(200);
     check(await ev(`!!document.activeElement.closest(".vg-picker")`), "opening the picker should move focus into it");
     await ev(`document.querySelector('.vg-picker-tab[aria-selected="true"]').focus()`); await pressKey("ArrowRight"); await sleep(150);
-    check(await ev(`document.activeElement.classList.contains("vg-picker-tab") && document.activeElement.dataset.tab === "style"`), "ArrowRight on the picker's tabs didn't move");
-    check(await ev(`document.querySelector('.vg-picker-tab[data-tab="style"]').getAttribute("aria-selected")`) === "true", "ArrowRight didn't open the picker's next tab");
+    check(await ev(`document.activeElement.classList.contains("vg-picker-tab") && document.activeElement.dataset.tab === "health"`), "ArrowRight on the picker's tabs didn't move");
+    check(await ev(`document.querySelector('.vg-picker-tab[data-tab="health"]').getAttribute("aria-selected")`) === "true", "ArrowRight didn't open the picker's next tab");
     await pressKey("Escape"); await sleep(150);
     check(await ev(`document.querySelector(".vg-picker").hidden`), "Escape should close the picker");
-    check(await ev(`document.activeElement === document.querySelector(".vg-pickbtn")`), "closing the picker should put focus back on its button");
-    // the Upkeep panel is reachable and its button says it's open
-    await ev(`document.querySelector(".vg-gamebtn").focus(); document.querySelector(".vg-gamebtn").click()`); await sleep(200);
-    check(await ev(`document.querySelector(".vg-gamebtn").getAttribute("aria-pressed")`) === "true", "the Upkeep button should say it's on");
-    check(await ev(`document.querySelector(".vg-missions").getAttribute("aria-label")`) === "Upkeep", "the Upkeep panel has no name");
-    await ev(`document.querySelector(".vg-gamebtn").click()`);
+    check(await ev(`document.activeElement === document.querySelector(".vg-displaysel")`), "closing the picker should put focus back on its button");
     // a note's panel takes focus when opened from the keyboard path, and gives it back
     check(await ev(`document.querySelector(".vg-inspector").getAttribute("aria-label")`) === "Selected note", "the note's panel has no name");
   } catch (e) { fails.push(e.message); }

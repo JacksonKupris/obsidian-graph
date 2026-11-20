@@ -12,7 +12,7 @@ const { fails, ok } = checks(), D = "window.vaultGraph._debug";
     await sleep(1200);
     await tab.ev(`document.querySelectorAll('.vg-tour, .vg-tour-card').forEach(x => x.remove())`);
     // the real vault shows the Next pill and the Upkeep count; the sample page doesn't, so show them as they are there
-    await tab.ev(`(() => { const n = document.querySelector(".vg-nextbtn"); n.hidden = false; n.querySelector("b").textContent = ""; const c = document.querySelector(".vg-gamecount"); c.hidden = false; c.textContent = "3"; })()`);
+    await tab.ev(`(() => { const n = document.querySelector(".vg-nextbtn"); n.hidden = false; n.querySelector("b").textContent = ""; })()`);
     for (const view of ["2d", "loadpaths", "modes", "slime"]) {
       await tab.ev(`${D}.setView(${JSON.stringify(view)})`); await sleep(900);
       const r = await tab.ev(`(() => { const bar = document.querySelector(".vg-toolbar"), W = document.querySelector(".vg-root").getBoundingClientRect().width;
@@ -28,9 +28,8 @@ const { fails, ok } = checks(), D = "window.vaultGraph._debug";
     await tab.ev(`${D}.setView("2d")`); await sleep(500);
     await tab.ev(`VGActions.history.reset(); window.__h = []; VGActions.history.record({ msg: "Archived Plan", undo: async () => { window.__h.push("u"); return true; }, redo: async () => { window.__h.push("r"); return true; } })`);
     ok(await tab.ev(`getComputedStyle(document.querySelector(".vg-toolhist")).display === "none"`), "phone: the toolbar pair is hidden");
-    await tab.ev(`document.querySelector(".vg-toolsbtn").click()`); await sleep(200);
-    ok(await tab.ev(`(() => { const u = document.querySelector(".vg-toolsmenu [data-hundo]"), r = document.querySelector(".vg-toolsmenu [data-hredo]"); return !!u && !!r && !u.disabled && r.disabled; })()`), "phone: the Tools menu has Undo on and Redo off after a change");
-    await tab.ev(`document.querySelector(".vg-toolsmenu [data-hundo]").click()`); await sleep(200);
+        ok(await tab.ev(`(() => { const u = document.querySelector(".vg-toolsel option[value=hundo]"), r = document.querySelector(".vg-toolsel option[value=hredo]"); return !!u && !!r && !u.disabled && r.disabled; })()`), "phone: the Tools menu has Undo on and Redo off after a change");
+    await tab.ev(`(s => { s.value = "hundo"; s.dispatchEvent(new Event("change")); })(document.querySelector(".vg-toolsel"))`); await sleep(200);
     ok((await tab.ev(`window.__h.join("")`)) === "u", "phone: Undo in the Tools menu reverses it");
   } catch (e) { fails.push(`toolbar: ${e.message}`); }
   await tab.close();

@@ -295,7 +295,7 @@
     if (!ids.length) return;
     st.multi = new Set(ids); select(null); showMulti(); dirty = true; kick();
   }
-  function setLassoMode(on) { st.lasso = on; $(".vg-lassobtn").setAttribute("aria-pressed", on); syncToolsBtn(); root.classList.toggle("is-lasso", on); if (on) toast("Drag a box around the notes to select"); }
+  function setLassoMode(on) { st.lasso = on; $(".vg-lassobtn").setAttribute("aria-pressed", on); syncSelects(); root.classList.toggle("is-lasso", on); if (on) toast("Drag a box around the notes to select"); }
   $(".vg-lassobtn").onclick = () => setLassoMode(!st.lasso);
   function clearMulti() { if (!st.multi) return; st.multi = null; const box = $(".vg-inspector"); box.hidden = true; root.classList.remove("has-inspector"); dirty = true; kick(); }
   function showMulti() {
@@ -338,9 +338,8 @@
     // the topmost layer goes first: an open report sits over the scene, so it closes before the scene (a game in play) does
     if ($(".vg-lens").hidden && SCENES[st.view] && SCENES[st.view].escape && SCENES[st.view].escape()) return 1;
     if (tour) endTour();
-    else if (closeTools()) { $(".vg-toolsbtn").focus(); }
     else if (!$(".vg-palette").hidden) { closePalette(); }
-    else if (!$(".vg-picker").hidden) { closeMenu(); $(".vg-pickbtn").focus(); }
+    else if (!$(".vg-picker").hidden) { closeMenu(); $(".vg-displaysel").focus(); }
     else if (!$(".vg-lens").hidden) closeLens();
     else if (typingIn) { typingIn.blur(); return 2; }
     else if (st.lasso) setLassoMode(false);
@@ -379,12 +378,11 @@
     { keys: ["Tab", "Shift Tab"], label: "Next or previous linked note", prevent: true, match: e => e.key === "Tab", when: () => st.selected, run: e => cycleNeighbour(e.shiftKey ? -1 : 1) },
     { keys: ["+", "−"], label: "Zoom in or out", match: e => "+=-_".includes(e.key) && e.key.length === 1, run: e => zoomBy("+=".includes(e.key) ? 1.25 : 0.8) },
     { keys: ["0"], label: "Fit everything on screen", run: () => fit(neural() ? n => !special(n) : null) },
-    { keys: ["M"], label: "Choose a view", run: () => openPicker() },
+    { keys: ["M"], label: "Choose a view", run: () => { const v = $(".vg-viewsel"); v.focus(); if (v.showPicker) try { v.showPicker(); } catch (e) {} } },
     { keys: ["3"], label: "Switch 2D and 3D", run: () => setDim(dimOf() === "3d" ? "2d" : "3d") },
     { keys: ["N"], label: "Neural view", run: () => setView(neural() ? "3d" : "neural") },
     { keys: ["C"], label: "Cosmos view", run: () => setView(isCosmos() ? "2d" : "cosmos") },
     { keys: ["T"], label: "Time-lapse: the vault as it grew", run: () => toggleTime() },
-    { keys: ["G"], label: "Upkeep", when: () => !opts.compact, run: () => setMissionsShown(!root.classList.contains("show-missions"), true) },
     { keys: ["Space"], label: "Pause or play (Cosmos)", prevent: true, match: e => e.key === " ", when: () => isCosmos(), run: () => setPaused(!st.paused) },
     { keys: ["?"], label: "This list", match: e => e.key === "?", run: () => showKeys() },
   ];
@@ -470,9 +468,8 @@
   const TOUR = [
     { sel: ".vg-toolhist", title: "Previous, Undo and Redo", text: "Go back to the note of your last decision, reverse the last change, or do it again. The same history as in Vault HQ." },
     { sel: ".vg-nextbtn", title: "The next step", text: "The one thing to do now. It opens Vault HQ at that step." },
-    { sel: ".vg-pickbtn", title: "Views", text: "Every way of looking at the vault, grouped by what you want to know: the map, your tasks, notes that need you, topics. Some draw a picture, some open a report beside it." },
+    { sel: ".vg-viewsel", title: "Views", text: "Every way of looking at the vault, grouped by what you want to know: the map, your tasks, notes that need you, topics. Some draw a picture, some open a report beside it." },
     { sel: ".vg-searchbtn", title: "Search", text: "Jump to any note, topic or saved view. Press / or Ctrl K." },
-    { sel: ".vg-gamebtn", title: "Upkeep", text: "One small improvement at a time: a link to add, a note to put on its map, a note to write." },
     { sel: ".vg-toggle", title: "Insights", text: "What changed since the last analysis, your topics and the gaps between them. Tap a count to see those notes." },
     { sel: ".vg-cv", ring: false, title: "Tap a note", text: "Its panel lists what it needs, each with the button that fixes it." },
   ];
@@ -556,7 +553,7 @@
     cos.log.unshift({ date: today(), text }); cos.log = cos.log.slice(0, 200);
     const rule = XP_FOR.find(([re]) => re.test(text)); if (rule) awardXp(rule[1], text);
     if (typeof updateDaily === "function") updateDaily(true);
-    persistSoon(); if (typeof renderMissions === "function") renderMissions();
+    persistSoon();
   }
 
   // ---------------------------------------------------------------- legend + status + HUD + toasts

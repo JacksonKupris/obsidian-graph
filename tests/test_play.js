@@ -40,8 +40,6 @@ assert.strictEqual(R.mergeShared({ cosmos: {} }, { cosmos: { wikirace: { day: "2
 
     // the canvas is named for screen readers without an aria-label, which Obsidian would show as a tooltip on every hover
     check(await tab.ev(`(() => { const c = document.querySelector('.vg-cv'), l = document.getElementById(c.getAttribute('aria-labelledby')); return !c.hasAttribute('aria-label') && !!l && /notes in/.test(l.textContent); })()`), "the graph canvas has an aria-label, or no name at all");
-    // the view button doesn't repeat the 2D/3D switch
-    check(await tab.ev(`document.querySelector('.vg-pickname').textContent`) !== "2D", "the Views button repeats the 2D/3D switch");
     // ---- Survivors
     const SV = `${D}.scenes().survivors`, G = `${SV}.state`, A = `${SV}.api`;
     await tab.ev(`${clear}; ${D}.setView("survivors")`); await sleep(300); await tab.ev(clear); await frame();
