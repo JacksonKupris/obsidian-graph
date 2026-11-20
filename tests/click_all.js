@@ -57,7 +57,7 @@ async function enter(ctx) {
   if (D().st.view !== ctx.view) { D().setView(ctx.view); await sleep(ctx.view === "2d" || ctx.view === "3d" ? 500 : 1300); }
   if (ctx.select) { H().focusNote(ctx.select); await sleep(350); } else { const x = [...doc().querySelectorAll(".vg-ins-close")].find(visible); if (x) { x.click(); await sleep(120); } }   // the open one: each inspector kind has its own close, and a phone's sheet stays open over the next view
   if (ctx.lens) { D().openLens(ctx.lens); await sleep(300); }
-  if (ctx.picker) { doc().querySelector(".vg-pickbtn").click(); await sleep(150); const t = doc().querySelector('.vg-picker-tab[data-tab="' + ctx.picker + '"]'); if (t) t.click(); await sleep(150); }
+  if (ctx.picker) { (s=>{s.value="panel:style";s.dispatchEvent(new Event("change"))})(doc().querySelector(".vg-displaysel")); await sleep(150); const t = doc().querySelector('.vg-picker-tab[data-tab="' + ctx.picker + '"]'); if (t) t.click(); await sleep(150); }
   if (ctx.floor != null) { const b = [...doc().querySelectorAll(".vg-floorbar button")][ctx.floor]; if (b) { b.click(); await sleep(1300); } }
   if (ctx.side && !root().classList.contains("vg-side-open")) { doc().querySelector(".vg-toggle").click(); await sleep(250); }
   if (ctx.missions) { const g = doc().querySelector(".vg-gamebtn"); if (g && g.getAttribute("aria-pressed") !== "true") g.click(); await sleep(200); }

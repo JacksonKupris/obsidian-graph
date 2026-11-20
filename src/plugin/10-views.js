@@ -175,6 +175,7 @@ class VaultHQView extends ItemView {
     this.handle = mountVaultHQ(el.createDiv({ cls: "vg-hq-root" }), d, {
       api, state, mobile: Platform.isMobile, screen: this.plugin.settings.hqScreen, onNext: () => this.plugin.nextStepSoon(), onSession: s => this.plugin.showFocus(s), notify: msg => new Notice(msg, 0),
       onScreen: s => { this.plugin.settings.hqScreen = s; this.plugin.saveSettings(); },
+      layout: this.plugin.settings.hqLayout, onLayout: l => { this.plugin.settings.hqLayout = l; this.plugin.saveSettings(); },
       ask: (title, text, ok) => confirmModal(this.app, title, text, ok),
       input: (title, text, placeholder) => inputModal(this.app, title, text, placeholder),
       onDone: msg => this.plugin.recordAction(msg),

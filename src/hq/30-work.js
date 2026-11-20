@@ -1,7 +1,11 @@
   // ---- Today: Do next, then the day in order: today's journal, the last standup's plan, what's carried over
-  function todayScreen() {
+  // Do next in full: the one card Queue and Day both lead with
+  function nextBig(next) {
+    return next ? `<section class="vg-hq-next vg-hq-item" data-key="${esc(next.key)}"><div class="vg-hq-eyebrow">Do next</div><h2>${esc(next.title)}</h2><p>${esc(VGRules.whyWords(next.why))}</p><p class="vg-hq-whynext">${esc(whyNext(next))}</p><div class="vg-hq-row">${starButton(next, true)}${railOn() ? "" : ctxButton(next)}${buttons(next, true)}${sessionButton(next, true)}</div>${railOn() ? "" : contextPanel(next)}</section>` : nextStep().key !== "capture" ? `<section class="vg-hq-next vg-hq-item"><div class="vg-hq-eyebrow">Do next</div><h2>${esc(nextStep().label)}</h2><div class="vg-hq-row">${stepButton()}</div></section>` : "";
+  }
+  function todayQueue() {
     const next = doNext(), tasks = ofKind("task"), plan = ofKind("plan"), carried = ofKind("carried");
-    const big = next ? `<section class="vg-hq-next vg-hq-item" data-key="${esc(next.key)}"><div class="vg-hq-eyebrow">Do next</div><h2>${esc(next.title)}</h2><p>${esc(VGRules.whyWords(next.why))}</p><p class="vg-hq-whynext">${esc(whyNext(next))}</p><div class="vg-hq-row">${starButton(next, true)}${railOn() ? "" : ctxButton(next)}${buttons(next, true)}${sessionButton(next, true)}</div>${railOn() ? "" : contextPanel(next)}</section>` : nextStep().key !== "capture" ? `<section class="vg-hq-next vg-hq-item"><div class="vg-hq-eyebrow">Do next</div><h2>${esc(nextStep().label)}</h2><div class="vg-hq-row">${stepButton()}</div></section>` : "";
+    const big = nextBig(next);
     const planFrom = plan.length ? `Plan from ${shortDate((plan[0].path.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || "")}` : "Plan";
     const shown = carriedAll ? carried : carried.slice(0, 8);
     const inFocus = focus().filter(t => t !== next);

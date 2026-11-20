@@ -46,7 +46,7 @@
 .vg-hq .vg-hq-strip { position: relative; z-index: 7; display: flex; gap: 12px; align-items: center; justify-content: space-between; margin: 8px 24px 0 var(--hq-gutter); }
 .vg-hq .vg-hq-week { display: grid; grid-template-columns: repeat(7, minmax(36px, 52px)); gap: 2px; min-width: 0; }
 .vg-hq .vg-hq-day { display: flex; flex-direction: column; align-items: center; gap: 0; padding: 3px 2px 4px; border: 0; border-radius: var(--hq-r-sm); background: transparent; }
-.vg-hq .vg-hq-day span:first-child { font-size: var(--ds-fs-2xs); color: var(--hq-muted); } .vg-hq .vg-hq-day b { font-size: var(--ds-fs-base); font-variant-numeric: tabular-nums; }
+.vg-hq .vg-hq-day span:first-child { font-size: var(--ds-fs-xs); color: var(--hq-muted); } .vg-hq .vg-hq-day b { font-size: var(--ds-fs-base); font-variant-numeric: tabular-nums; }
 .vg-hq .vg-hq-day:disabled { cursor: default; opacity: .75; } .vg-hq .vg-hq-day:not(:disabled):hover { background: var(--background-modifier-hover); }
 .vg-hq .vg-hq-day.is-today { background: var(--hq-accent-soft); color: var(--hq-text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hq-accent) 55%, transparent); opacity: 1; } .vg-hq .vg-hq-day.is-today span { color: inherit; }   /* where you are, not the screen's one loud thing */
 .vg-hq .vg-hq-marks { display: flex; gap: 3px; height: 5px; } .vg-hq .vg-hq-marks i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .55; } .vg-hq .vg-hq-marks i.is-s { opacity: .9; }
@@ -482,3 +482,25 @@
 .vg-hq .vg-historybtns { display: inline-flex; gap: 2px; } .vg-hq .vg-historybtn { min-width: 32px; } .vg-hq .vg-historybtn:disabled { opacity: 0.4; }
 @container (min-width: 761px) { .vg-hq .vg-historybtn { min-width: 0; padding: 4px 6px; } .vg-hq .vg-hq-global-tools { min-width: 120px; } }   /* the header keeps fitting at 800 with the two history buttons */
 @container (min-width: 761px) and (max-width: 900px) { .vg-hq .vg-hq-clock span { display: none; } }   /* the date goes first when the header is tight; the time stays */
+
+/* layouts of Today: a select in the header, Workbench lenses and the Day spine */
+.vg-hq-layoutsel { height: 28px; padding: 0 6px; border-radius: var(--ds-r-sm); border: 1px solid var(--background-modifier-border); background: var(--background-secondary); color: var(--text-normal); font: inherit; font-size: var(--ds-fs-sm); cursor: pointer; }
+.vg-hq-bench { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 14px; align-items: start; }
+.vg-hq-lenses { display: flex; flex-direction: column; gap: 2px; position: sticky; top: 0; }
+.vg-hq-lensbtn { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 0; background: none; border-radius: var(--ds-r-md); text-align: left; color: inherit; font: inherit; cursor: pointer; width: 100%; }
+.vg-hq-lensbtn:hover { background: var(--background-modifier-hover); }
+.vg-hq-lensbtn.is-on { background: var(--background-modifier-hover); font-weight: 700; }
+.vg-hq-lensbtn span { margin-left: auto; color: var(--text-muted); font-size: var(--ds-fs-sm); }
+.vg-hq-benchlist { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+@media (max-width: 700px) { .vg-hq-bench { grid-template-columns: 1fr; } .vg-hq-lenses { flex-direction: row; overflow-x: auto; position: static; } .vg-hq-lensbtn { width: auto; white-space: nowrap; flex: none; } }
+.vg-hq-spine { position: relative; display: flex; flex-direction: column; gap: 26px; padding-left: 34px; }
+.vg-hq-spine::before { content: ""; position: absolute; left: 11px; top: 6px; bottom: 6px; width: 2px; background: var(--background-modifier-border); }
+.vg-hq-phase { position: relative; display: flex; flex-direction: column; gap: 10px; }
+.vg-hq-node { position: absolute; left: -34px; top: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--background-primary); border: 2px solid var(--background-modifier-border); display: grid; place-items: center; font-size: var(--ds-fs-xs); font-weight: 700; color: var(--text-muted); }
+.vg-hq-phase.is-now .vg-hq-node { border-color: var(--interactive-accent); color: var(--interactive-accent); }
+.vg-hq-phase.is-past .vg-hq-node { background: var(--interactive-accent); border-color: var(--interactive-accent); color: var(--text-on-accent); }
+.vg-hq-phase.is-locked { opacity: .55; }
+.vg-hq-phase h2 { font-size: var(--ds-fs-lg); display: flex; gap: 10px; align-items: baseline; margin: 0; }
+.vg-hq-phase h2 small { font-weight: 500; color: var(--text-muted); font-size: var(--ds-fs-sm); }
+.vg-hq-brief p { margin: 0 0 6px; max-width: 60ch; }
+.vg-hq-wraplist { margin: 0; padding-left: 18px; }

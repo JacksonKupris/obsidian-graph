@@ -198,7 +198,7 @@
   const openView = k => { const v = VIEWS[k]; if (!v) return; if (v.kind === "lens") openLens(v.lens); else setView(k); };
   // Display = style presets + node size/colour,
   // layers, saved views; Health = the overlays
-  const PICK_TABS = [["views", "Views"], ["style", "Display"], ["health", "Health"]];
+  const PICK_TABS = [["style", "Display"], ["health", "Health"]];   // the views themselves are the View select in the toolbar
   const PANEL_TABS = new Set(["style", "health"]);
   // the one A–Z rule for every menu, picker tab and group: by name, numbers in order, capitals ignored
   const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
@@ -208,20 +208,24 @@
   const tools = () => PICK_TOOLS.filter(([c]) => (c !== "randomize" || !isGame()) && (c !== "resetlayout" || canReset())).sort((a, b) => byName({ name: a[2] }, { name: b[2] }));   // A–Z, like the views
   const runTool = c => ({ randomize: randomizeLayout, resetlayout: resetLayout }[c] || (() => $("." + c).click()))();
   const toolOn = c => { const b = c.startsWith("vg-") && $("." + c); return !!b && b.getAttribute("aria-pressed") === "true"; };
-  function syncToolsBtn() { const b = $(".vg-toolsbtn"); if (b) b.setAttribute("aria-pressed", PICK_TOOLS.some(([c]) => toolOn(c))); }
-  function closeTools() { const m = $(".vg-toolsmenu"); if (!m || m.hidden) return false; m.hidden = true; $(".vg-toolsbtn").setAttribute("aria-expanded", "false"); return true; }
-  function openTools() {
-    const m = $(".vg-toolsmenu"); closeMenu();
-    m.innerHTML = tools().map(([c, ic, name]) => { const src = c.startsWith("vg-") ? $("." + c) : null;
-      return `<button class="vg-mitem" role="menuitem" data-tool="${c}"${src && src.hasAttribute("aria-pressed") ? ` aria-checked="${toolOn(c)}"` : ""}><b>${icon(ic, 14)} ${esc(name)}</b>${src && src.title ? `<span class="vg-muted">${esc(src.title.replace(/^[^:(]*:\s*/, "").replace(/^./, ch => ch.toUpperCase()))}</span>` : ""}</button>`; }).join("");
-    // Undo and Redo first: the toolbar pair is hidden when the pane is narrow, so the menu always has them
-    const hs = VGActions.history.state(), hm = (key, ic, name, on, msg) => `<button class="vg-mitem" role="menuitem" data-${key}${on ? "" : " disabled"}><b>${icon(ic, 14)} ${name}</b><span class="vg-muted">${esc(on ? msg : "Nothing to " + name.toLowerCase())}</span></button>`;
-    m.insertAdjacentHTML("afterbegin", hm("hprev", "prev", "Previous", hs.canPrevious, hs.previous).replace("Nothing to previous", "No earlier decision") + hm("hundo", "undo", "Undo", hs.canUndo, hs.past[hs.past.length - 1]) + hm("hredo", "redo", "Redo", hs.canRedo, hs.future[hs.future.length - 1]));
-    m.querySelectorAll("[data-hprev], [data-hundo], [data-hredo]").forEach(x => x.onclick = () => { closeTools(); VGActions.history.press(x, showDecided); });
-    m.querySelectorAll("[data-tool]").forEach(x => x.onclick = () => { closeTools(); runTool(x.dataset.tool); });
-    m.hidden = false; $(".vg-toolsbtn").setAttribute("aria-expanded", "true"); m.querySelector("[data-tool]").focus({ preventScroll: true });
+  // The toolbar's select boxes: View, Display and Tools, built from the same lists the picker used (pickItems, PRESETS, tools).
+  const opt = (v, label, extra = "") => `<option value="${esc(v)}"${extra}>${esc(label)}</option>`;
+  function syncSelects() {
+    const vs = $(".vg-viewsel"), ds = $(".vg-displaysel"), ts = $(".vg-toolsel"); if (!vs) return;
+    const items = pickItems().filter(i => i.tab === "views"), cur = items.find(i => i.on);
+    vs.innerHTML = (cur ? "" : opt("", "View", " hidden disabled")) + viewGroups(items).map(([name, xs]) => `<optgroup label="${esc(name)}">${xs.map(i => opt(i.k, i.name)).join("")}</optgroup>`).join("");
+    vs.value = cur ? cur.k : "";
+    const displayOpts = `<optgroup label="Styles">${Object.entries(PRESETS).sort((a, b) => byName(a[1], b[1])).map(([k, p]) => opt("preset:" + k, (st.preset === k ? "✓ " : "") + p.name)).join("")}</optgroup><optgroup label="Settings">${opt("panel:style", "Size, colour and layers…")}${opt("panel:health", "Health overlays…")}</optgroup>`;
+    ds.innerHTML = opt("", "Display", " hidden disabled") + displayOpts;
+    ds.value = "";
+    const hs = VGActions.history.state(), h = (v, name, on) => opt(v, name, on ? "" : " disabled");
+    ts.innerHTML = opt("", sheetMode() ? "⋯" : "Tools", " hidden disabled") + `<optgroup label="History">${h("hprev", "Previous", hs.canPrevious)}${h("hundo", "Undo", hs.canUndo)}${h("hredo", "Redo", hs.canRedo)}</optgroup><optgroup label="Tools">${tools().map(([c, ic, name]) => opt(c, (toolOn(c) ? "✓ " : "") + name)).join("")}</optgroup>` + (sheetMode() ? displayOpts : "");   // on a phone the Display select is folded into this one
+    ts.value = "";
   }
-  $(".vg-toolsbtn").onclick = e => { e.stopPropagation(); if (!closeTools()) openTools(); };
+  $(".vg-viewsel").onchange = e => { const it = pickItems().find(i => i.tab === "views" && i.k === e.target.value); if (it) it.run(); syncSelects(); };
+  const chooseDisplay = v => { const [kind, k] = v.split(":"); if (kind === "preset") applyPreset(k); else if (kind === "panel") openPicker(k); };
+  $(".vg-displaysel").onchange = e => { const v = e.target.value; e.target.value = ""; chooseDisplay(v); syncSelects(); };
+  $(".vg-toolsel").onchange = e => { const v = e.target.value; e.target.value = ""; if (v === "hprev" || v === "hundo" || v === "hredo") { const b = document.createElement("button"); b.setAttribute("data-" + v, ""); VGActions.history.press(b, showDecided); } else if (/^(preset|panel):/.test(v)) chooseDisplay(v); else if (v) runTool(v); syncSelects(); };
   const sheetMode = () => MOBILE || root.clientWidth < 760;
   let pickTab = null;
   function pickItems() {
@@ -244,7 +248,7 @@
     return out;
   }
   function renderPicker() {
-    const items = pickItems(), q = $(".vg-picker-q").value.trim().toLowerCase();
+    const items = pickItems().filter(i => PANEL_TABS.has(i.tab)), q = "";
     const tabs = PICK_TABS.filter(([t]) => PANEL_TABS.has(t) || items.some(i => i.tab === t));
     if (!tabs.some(([t]) => t === pickTab)) pickTab = tabs[0][0];
     $(".vg-picker-tabs").innerHTML = tabs.map(([t, name]) => { const n = items.filter(i => i.tab === t).length;
@@ -261,13 +265,11 @@
     $$(".vg-picker-body .vg-tile").forEach(b => b.onclick = () => { const it = items.find(i => i.tab === b.dataset.tab && i.k === b.dataset.k); pickTab = it.tab; closeMenu(); it.run(); });
   }
   function openPicker(tab) {
-    const p = $(".vg-picker"), b = $(".vg-pickbtn");
-    pickTab = PANEL_TABS.has(tab) ? tab : "views";
+    const p = $(".vg-picker"), b = $(".vg-displaysel");
+    pickTab = PANEL_TABS.has(tab) ? tab : "style";
     $(".vg-picker-q").value = ""; renderPicker();
-    $(".vg-picker-tools").innerHTML = tools().map(([c, ic, name]) => `<button class="vg-btn" data-tool="${c}">${icon(ic, 14)} ${name}</button>`).join("");
-    $$(".vg-picker-tools [data-tool]").forEach(x => x.onclick = () => { closeMenu(); runTool(x.dataset.tool); });
     root.classList.toggle("vg-pick-sheet", sheetMode());
-    p.hidden = false; $(".vg-picker-scrim").hidden = false; b.setAttribute("aria-expanded", "true");
+    p.hidden = false; $(".vg-picker-scrim").hidden = false; 
     if (sheetMode()) { p.style.left = ""; p.style.top = ""; }
     else { const r = b.getBoundingClientRect(), op = (p.offsetParent || root).getBoundingClientRect();   // under the button, kept inside the pane
       p.style.left = Math.max(8, Math.min(r.left - op.left, op.width - p.offsetWidth - 8)) + "px"; p.style.top = (r.bottom - op.top + 6) + "px"; }
@@ -278,22 +280,20 @@
   // Undo and Redo in the toolbar: the one history (VGActions.history) every surface reads
   // Previous: the note the decision was made on, selected in the graph
   function showDecided(at) { if (at.path && byId[at.path]) select(at.path); }
-  const syncHistory = () => { const h = $(".vg-toolhist"); if (h && !destroyed) h.innerHTML = VGParts.historyButtons(VGActions.history.state(), icon, "vg-ibtn"); };
+  const syncHistory = () => { const h = $(".vg-toolhist"); if (selectsReady && !destroyed) syncSelects(); if (h && !destroyed) h.innerHTML = VGParts.historyButtons(VGActions.history.state(), icon, "vg-ibtn"); };
+  let selectsReady = false;   // set after the first build, so history changes before it do not draw the selects early
   const unHistory = VGActions.history.subscribe(syncHistory);
   root.addEventListener("click", e => { const b = e.target.closest && e.target.closest(".vg-toolhist .vg-historybtn"); if (b) VGActions.history.press(b, showDecided); });
   syncHistory();
   function syncMapsBtn(view) {   // the Views button shows where you are
     syncNextBtn();
     syncDim();
-    const d = VIEWS[view]; if (!$(".vg-pickbtn")) return;
-    $(".vg-pickname").textContent = view === "2d" || view === "3d" ? "Views" /* the 2D/3D switch beside it says which */ : d ? d.name : view;
-    $(".vg-pickicon").innerHTML = icon(d ? d.icon : "layers", 16);
+    syncSelects();
   }
   function closeMenu() {
     const p = $(".vg-picker"); if (!p || p.hidden) return;
-    p.hidden = true; $(".vg-picker-scrim").hidden = true; $(".vg-pickbtn").setAttribute("aria-expanded", "false");
+    p.hidden = true; $(".vg-picker-scrim").hidden = true; 
   }
-  $(".vg-pickbtn").onclick = e => { e.stopPropagation(); const open = $(".vg-picker").hidden; closeMenu(); if (open) openPicker(); };
   $(".vg-picker-x").onclick = () => closeMenu();
   $(".vg-picker-scrim").onclick = () => closeMenu();
   $(".vg-picker-q").oninput = () => renderPicker();
@@ -307,7 +307,7 @@
     if (step && i >= 0) { tiles[(i + step + tiles.length) % tiles.length].focus(); e.preventDefault(); e.stopPropagation(); }
   };
   $(".vg-picker").addEventListener("click", e => e.stopPropagation());   // tabs re-render under the click: it must not read as "outside"
-  root.addEventListener("click", e => { if (!e.target.closest(".vg-menuwrap")) { closeMenu(); closeTools(); } });
+  root.addEventListener("click", e => { if (!e.target.closest(".vg-sels")) closeMenu(); });
 
   // ---------------------------------------------------------------- views + controls
   // a view explains itself the first time on this device; after that its legend is enough
@@ -329,7 +329,6 @@
     syncMapsBtn(view); syncLayoutBtns(); syncDim();
     root.classList.toggle("is-neural", view === "neural");
     root.classList.toggle("is-cosmos", view === "cosmos");
-    setMissionsShown(missionsPref != null ? missionsPref : view === "cosmos");   // the cosmos opens with them; elsewhere on request
     if (view !== "cosmos" && st.paused) setPaused(false);
     if (view !== "cosmos") { st.placing = null; root.classList.remove("is-placing"); if (st.body) { st.body = null; $(".vg-inspector").hidden = true; root.classList.remove("has-inspector"); } }
     root.dataset.vision = view === "neural" ? st.vision : "";
@@ -525,7 +524,6 @@
     if (view === "cosmos") { st.three = false; root.classList.add("is-cosmos"); }
     // the same markers setView sets: map-only controls (time bar, floors, legend) key off them
     root.classList.toggle("is-map", !!SCENES[view]); root.dataset.map = SCENES[view] ? view : "";
-    setMissionsShown(view === "cosmos");
     return ok;
   }
 
@@ -539,9 +537,10 @@
   if (iv === "neural") { st.view = "neural"; st.three = true; root.classList.add("is-neural"); root.dataset.vision = st.vision; }
   else if (iv && SCENES[iv]) { st.view = iv; Object.assign(cam, enterSpace(iv)); root.classList.add("is-map"); root.dataset.map = iv; }
   else if (iv === "3d") { st.view = "3d"; st.three = true; cv.style.cursor = "grab"; }
-  if (iv) syncMapsBtn(st.view);
+  if (iv) syncMapsBtn(st.view); else syncSelects();
+  selectsReady = true;
   const restored = opts.compact ? (neural() ? false : seeded()) : restoreSaved();
-  renderClusters(""); renderSaved(); renderTodayList(); renderToday();
+  renderClusters(""); renderSaved(); renderToday();
   rebuild(true);
   if (mapView()) alpha = 0;   // rebuild() above laid it out
   else if (neural()) { brainLayout(false); if (st.angles.neural === "flat") st.three = false; alpha = 0; }
@@ -565,7 +564,7 @@
     if (sh.cosmos && Array.isArray(sh.cosmos.bodies)) cos = { ...cos, ...sh.cosmos, auto: { ...cos.auto, ...(sh.cosmos.auto || {}) } };
     (sh.pending || []).forEach(text => logDiscovery(text));   // actions from the sidebar: award them now
     if ((sh.pending || []).length) persistNow();
-    renderSaved(); renderTodayList(); if (isCosmos()) cosmosCapture(); updateGameSoon(); dirty = true; kick();
+    renderSaved(); if (isCosmos()) cosmosCapture(); updateGameSoon(); dirty = true; kick();
   });
 
   return {
