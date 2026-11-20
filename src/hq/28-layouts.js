@@ -3,7 +3,7 @@
   const LAYOUTS = [["queue", "Queue", () => todayQueue()], ["bench", "Workbench", () => benchScreen()], ["day", "Day", () => dayScreen()]];
   let layout = opts.layout || "queue", benchLens = "today";
   const layoutNow = () => LAYOUTS.some(l => l[0] === layout) ? layout : "queue";   // a remembered choice from a newer build falls back
-  const layoutSelect = () => `<label class="vg-hq-layoutlabel"><span class="vg-hq-sr">Layout</span><select class="vg-hq-layoutsel" data-layout aria-label="Layout" title="Layout of Today">${LAYOUTS.map(([k, name]) => `<option value="${k}"${layoutNow() === k ? " selected" : ""}>${name}</option>`).join("")}</select></label>`;
+  const layoutSelect = () => `<label class="vg-hq-layoutlabel"><select class="vg-hq-layoutsel" data-layout aria-label="Layout" title="Layout of Today">${LAYOUTS.map(([k, name]) => `<option value="${k}"${layoutNow() === k ? " selected" : ""}>${name}</option>`).join("")}</select></label>`;
   function setLayout(l) {
     if (!LAYOUTS.some(x => x[0] === l) || l === layoutNow()) return;
     layout = l; if (opts.onLayout) opts.onLayout(l);
