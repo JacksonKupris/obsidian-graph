@@ -58,7 +58,7 @@
   const sayEl = document.createElement("div"); sayEl.className = "vg-hq-sr"; sayEl.setAttribute("role", "status");
   // one listener for every button (the screen is redrawn whole)
   el.addEventListener("click", e => {
-    const txt = e.target.closest(".vg-hq-item[data-key] .vg-hq-txt"); if (txt && !e.target.closest("button, a") && !String(window.getSelection && window.getSelection()).length) { const k = txt.closest(".vg-hq-item").dataset.key; if (railOn()) selectItem(k); else if (api.searchNotes) toggleContext(k); return; }
+    const rowHit = e.target.closest(".vg-hq-item[data-key]"); if (rowHit && !e.target.closest("button, a, input, select, textarea, label, [data-drop] .vg-hq-movesel, .vg-hq-ctx") && !String(window.getSelection && window.getSelection()).length) { const k = rowHit.dataset.key; if (railOn()) selectItem(k); else if (api.searchNotes) toggleContext(k); return; }
     const tri = e.target.closest("[data-triage]"); if (tri) { triageDo(tri.dataset.triage); return; }
     const thr = e.target.closest("[data-thread]"); if (thr) { thrSel = thr.dataset.thread; render(); return; }
     if (cur === "today" && layoutNow() === "table" && tableDo(e)) return;

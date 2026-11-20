@@ -262,7 +262,7 @@
   .vg-hq .vg-hq-item:not(:hover):not(:focus-within):not(:focus) .vg-hq-react { opacity: 0; }
   .vg-hq .vg-hq-item:not(:hover):not(:focus-within):not(:focus) .vg-hq-ctxbtn:not([aria-expanded="true"]) { opacity: .35; }
   .vg-hq .vg-hq-react, .vg-hq .vg-hq-ctxbtn { transition: opacity var(--ds-base); }
-  .vg-hq .vg-hq-item[data-key] .vg-hq-txt { cursor: pointer; }
+  .vg-hq .vg-hq-item[data-key] { cursor: pointer; }
 }
 .vg-hq .vg-hq-item .vg-hq-txt b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-weight: 500; }
 .vg-hq .vg-hq-item .vg-hq-txt small { font-size: var(--ds-fs-sm); }
