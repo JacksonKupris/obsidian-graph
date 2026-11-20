@@ -29,7 +29,7 @@
     if (fromHost && html === drawn && el.querySelector(".vg-hq-main")) return;
     drawn = html; el.innerHTML = html;
     el.appendChild(toastEl); el.appendChild(sayEl); overlays.forEach(o => el.appendChild(o)); markNext();
-    const main = el.querySelector(".vg-hq-main"); if (main) { main.scrollTop = scroll; el.style.setProperty("--hq-panel-top", `${main.offsetTop}px`); }
+    const main = el.querySelector(".vg-hq-main"); if (main) { main.scrollTop = scroll; foldTop(); el.style.setProperty("--hq-panel-top", `${main.offsetTop}px`); }
     if (restoreSearch !== null) { const next = el.querySelector(".vg-hq-global-search"); if (next) { next.focus(); next.setSelectionRange(...restoreSearch); } }
     if (focusedFilter) { const next = el.querySelector(`[data-project-filter="${focusedFilter}"]`); if (next) next.focus(); }
     if (onRow) focusRow(onRow);
@@ -141,6 +141,9 @@
   });
   // the board's drag: one path at a time, dropped on a column
   let dragging = null;
+  // on a phone the header rows and the week strip take half the screen; once the list is scrolled they fold away (the CSS only acts in a narrow pane)
+  function foldTop() { const m = el.querySelector(".vg-hq-main"); if (!m) return; const on = el.classList.contains("is-scrolled"); if (!on && m.scrollTop > 60) el.classList.add("is-scrolled"); else if (on && m.scrollTop < 8) el.classList.remove("is-scrolled"); }
+  el.addEventListener("scroll", e => { if (e.target.classList && e.target.classList.contains("vg-hq-main")) foldTop(); }, true);
   el.addEventListener("dragstart", e => { const c = e.target.closest && e.target.closest("[data-card]"); if (!c) return; dragging = c.dataset.card; c.classList.add("is-dragging"); if (e.dataTransfer) { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", dragging); } });
   el.addEventListener("dragend", () => { dragging = null; el.querySelectorAll(".is-dragging, .is-drop").forEach(x => x.classList.remove("is-dragging", "is-drop")); });
   el.addEventListener("dragover", e => { const col = dragging && e.target.closest && e.target.closest("[data-column]"); if (!col || col.dataset.column === "other") return; e.preventDefault(); el.querySelectorAll(".is-drop").forEach(x => x !== col && x.classList.remove("is-drop")); col.classList.add("is-drop"); });
