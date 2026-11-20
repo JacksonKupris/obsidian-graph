@@ -59,6 +59,7 @@
   // one listener for every button (the screen is redrawn whole)
   el.addEventListener("click", e => {
     const txt = e.target.closest(".vg-hq-item[data-key] .vg-hq-txt"); if (txt && !e.target.closest("button, a") && !String(window.getSelection && window.getSelection()).length) { const k = txt.closest(".vg-hq-item").dataset.key; if (railOn()) selectItem(k); else if (api.searchNotes) toggleContext(k); return; }
+    const pickL = e.target.closest("[data-layoutpick]"); if (pickL) { setLayout(pickL.dataset.layoutpick); return; }
     const lens = e.target.closest("[data-benchlens]"); if (lens) { pickLens(lens.dataset.benchlens); return; }
     const box = e.target.closest("[data-pick]"); if (box) { togglePick(box.dataset.pick, e.shiftKey); return; }
     const b = e.target.closest("button, [data-closedrawer], [data-peekclose]"); if (!b || !el.contains(b) || b.disabled) return;

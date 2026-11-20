@@ -1,15 +1,15 @@
-  // ---- layouts: the Today screen drawn three ways over the same list, the same rail and the same buttons.
-  // Queue is the one next step with the list under it, Workbench is lenses, a list and the rail side by side, and Day is the
-  // day's own loop (morning, plan, do, wrap up) down one spine. Only the arrangement differs: every row, button and rule is shared.
-  const LAYOUTS = [["queue", "Queue"], ["bench", "Workbench"], ["day", "Day"]];
-  let layout = LAYOUTS.some(l => l[0] === opts.layout) ? opts.layout : "queue", benchLens = "today";
-  const layoutSelect = () => `<label class="vg-hq-layoutlabel"><span class="vg-hq-sr">Layout</span><select class="vg-hq-layoutsel" data-layout aria-label="Layout" title="Layout of Today">${LAYOUTS.map(([k, name]) => `<option value="${k}"${layout === k ? " selected" : ""}>${name}</option>`).join("")}</select></label>`;
+  // ---- layouts: the Today screen drawn many ways over the same list, the same rail and the same buttons.
+  // Each layout is [key, name, draw]: only the arrangement differs, every row, button and rule is shared. 29-layouts-more.js adds the rest.
+  const LAYOUTS = [["queue", "Queue", () => todayQueue()], ["bench", "Workbench", () => benchScreen()], ["day", "Day", () => dayScreen()]];
+  let layout = opts.layout || "queue", benchLens = "today";
+  const layoutNow = () => LAYOUTS.some(l => l[0] === layout) ? layout : "queue";   // a remembered choice from a newer build falls back
+  const layoutSelect = () => `<label class="vg-hq-layoutlabel"><span class="vg-hq-sr">Layout</span><select class="vg-hq-layoutsel" data-layout aria-label="Layout" title="Layout of Today">${LAYOUTS.map(([k, name]) => `<option value="${k}"${layoutNow() === k ? " selected" : ""}>${name}</option>`).join("")}</select></label>`;
   function setLayout(l) {
-    if (!LAYOUTS.some(x => x[0] === l) || l === layout) return;
+    if (!LAYOUTS.some(x => x[0] === l) || l === layoutNow()) return;
     layout = l; if (opts.onLayout) opts.onLayout(l);
     if (cur !== "today") setScreen("today"); else render();
   }
-  function todayScreen() { return layout === "bench" ? benchScreen() : layout === "day" ? dayScreen() : todayQueue(); }
+  function todayScreen() { return LAYOUTS.find(l => l[0] === layoutNow())[2](); }
 
   // ---- Workbench: one list, many lenses. Today, Needs you and each project are filters of the one list.
   function benchLenses() {

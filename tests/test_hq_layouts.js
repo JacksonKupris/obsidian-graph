@@ -13,7 +13,7 @@ const env = require("./env");
     await tab.ev(`(() => { window.__layouts = []; window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { now: new Date("2026-10-28T12:00:00"), layout: "bench", onLayout: l => window.__layouts.push(l), api: {} }); window.vaultHQ.setScreen("today"); })()`); await sleep(150);
     const sel = `document.querySelector(".vg-hq-layoutsel")`;
     check(await tab.ev(`!!${sel}`), "no layout select in the header");
-    check(await tab.ev(`${sel} && ${sel}.options.length === 3`), "the layout select should offer Queue, Workbench and Day");
+    check(await tab.ev(`${sel} && ${sel}.options.length >= 15`), "the layout select should offer at least 15 layouts");
     check(await tab.ev(`!!document.querySelector(".vg-hq-bench")`), "the remembered layout (Workbench) didn't open");
     const set = v => tab.ev(`(s => { s.value = ${JSON.stringify(v)}; s.dispatchEvent(new Event("change", { bubbles: true })); })(${sel})`);
     await set("day"); await sleep(120);
@@ -35,6 +35,14 @@ const env = require("./env");
     const n = await tab.ev(`document.querySelectorAll(".vg-hq-benchlist .vg-hq-item[data-key]").length`);
     check(n === (await tab.ev(`window.vaultHQ.items().filter(i => i.group === "needs").length`)), "the Needs you lens shows " + n + " rows, not the Needs you list");
     check(await tab.ev(`!!document.querySelector(".vg-hq-rail") || document.querySelectorAll(".vg-hq-benchlist .vg-hq-item").length === 0`), "no rail beside the Workbench list");
+    // every layout draws the same open items, each as something that can be picked, and says something on an empty vault
+    const ids = await tab.ev(`[...document.querySelector(".vg-hq-layoutsel").options].map(o => o.value)`);
+    const open = await tab.ev(`window.vaultHQ.items().filter(i => i.group === "needs" || i.group === "today").length`);
+    for (const v of ids) { await set(v); await sleep(80);
+      const n = await tab.ev(`document.querySelectorAll(".vg-hq-main .vg-hq-item[data-key]").length`);
+      const emptyNote = await tab.ev(`!!document.querySelector(".vg-hq-main .vg-hq-empty button")`);
+      if (open > 0 && v !== "day" && v !== "bench") check(n > 0 || emptyNote, v + " shows no items though " + open + " are open");
+      check(await tab.ev(`!!document.querySelector(".vg-hq-main h1")`), v + " has no heading"); }
     // phone width: nothing wider than the screen
     await tab.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 800, deviceScaleFactor: 1, mobile: true }); await sleep(150);
     for (const v of ["queue", "bench", "day"]) { await set(v); await sleep(100); check(await tab.ev(`document.documentElement.scrollWidth <= innerWidth + 1`), v + " overflows at phone width"); }

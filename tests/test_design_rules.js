@@ -10,7 +10,7 @@ const env = require("./env"), RULES = require("./design_rules");
   try {
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     check(RULES.length >= 7, "the rulebook shrank to " + RULES.length + " rules");
-    for (const layout of ["queue", "bench", "day"]) for (const [w, mobile] of [[390, true], [820, false], [1500, false]]) {
+    for (const layout of ["queue", "bench", "day", "inbox", "board", "brief", "focus", "threads", "people", "digest", "matrix", "timeline", "cards", "table", "agenda"]) for (const [w, mobile] of [[390, true], [820, false], [1500, false]]) {
       await tab.send("Emulation.setDeviceMetricsOverride", { width: w, height: 900, deviceScaleFactor: 1, mobile });
       await tab.ev(`(() => { window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { layout: ${JSON.stringify(layout)}, api: {} }); window.vaultHQ.setScreen("today"); })()`); await sleep(150);
       check(await tab.ev(`document.querySelectorAll(".vg-hq button").length > 3`), `${layout} at ${w}px drew nothing to check`);   // a rule over an empty page passes for nothing
@@ -18,5 +18,5 @@ const env = require("./env"), RULES = require("./design_rules");
     }
   } catch (e) { fails.push(e.message); }
   await tab.close();
-  finish(fails, "design rules: overflow, targets, text size, names, contrast and empty states across three layouts and three widths", "design rules");
+  finish(fails, "design rules: overflow, targets, text size, names, contrast and empty states across every layout and three widths", "design rules");
 })();
