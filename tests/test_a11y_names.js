@@ -28,6 +28,11 @@ const NAMED = `(el) => !!((el.getAttribute("aria-label") || el.getAttribute("ari
     // toasts: at most two at once, and a repeat is not stacked
     const n = await tab.ev(`(() => { for (const m of ["a", "b", "c", "c", "d"]) window.vaultGraph._debug.toast(m); return document.querySelectorAll(".vg-toast").length; })()`);
     check(n > 0 && n <= 2, "toasts pile up: " + n);
+    // matrix cells show "0/2" or "15"; the name has to say which two topics and what the number is (persona round 2)
+    await tab.ev(`${D}.openView("lens:matrix")`); await sleep(500);
+    const cells = await tab.ev(`[...document.querySelectorAll(".vg-lens .vg-mx-cell")].map(c => c.getAttribute("aria-label") || "")`);
+    check(cells.length > 0, "the matrix has cells (the test can't fail without them)");
+    check(cells.every(t => t.length > 8), "matrix cells need a name saying which topics: " + JSON.stringify(cells.filter(t => t.length <= 8).slice(0, 3)));
   } catch (e) { fails.push("crashed: " + e.message); }
   await tab.close(); finish(fails, "controls and dialogs have names");
 })();
