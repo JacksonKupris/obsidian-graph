@@ -20,7 +20,7 @@ const VGParts = (() => {
   const cards = (items, o = {}) => `<div class="ds-cards${o.small ? " is-small" : ""}">${items.map(card).join("")}</div>`;
   const count = n => (n == null ? "" : ` <span class="ds-count">${esc(n)}</span>`);
   const heading = (title, n) => `<h4 class="ds-heading">${esc(title)}${count(n)}</h4>`;
-  const section = ({ title, count: n, hint, body }) => `<section class="ds-section"><h4>${esc(title)}${count(n)}</h4>${hint ? `<p class="ds-hint">${hint}</p>` : ""}${body}</section>`;
+  const section = ({ title, count: n, hint, body }) => `<section class="ds-section" data-sec="${esc(title)}"><h4>${esc(title)}${count(n)}</h4>${hint ? `<p class="ds-hint">${hint}</p>` : ""}${body}</section>`;
   const more = ({ label, head, count: n, body, open, cls }) => `<details class="ds-more${cls ? ` ${esc(cls)}` : ""}"${open ? " open" : ""}><summary>${head || esc(label)}${count(n)}</summary><div class="ds-more-body">${body}</div></details>`;
   const howTo = text => more({ label: "How to read this", body: `<p>${text}</p>` });
   const row = ({ title, sub, open }) => {

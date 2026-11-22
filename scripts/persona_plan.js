@@ -9,7 +9,7 @@ const { openPage } = require("../tests/kit"), env = require("../tests/env");
 const ALL = ["persona-phone", "persona-keyboard"];
 const BY_KIND = {
   scene: ["persona-first-timer", "persona-design-motion-feel", "persona-design-first-impression"],
-  lens: ["persona-skeptic", "persona-findability", "persona-power-user", "persona-design-hierarchy"],
+  lens: ["persona-skeptic", "persona-findability", "persona-architect", "persona-power-user", "persona-design-hierarchy"],
   default: ["persona-first-timer", "persona-skeptic", "persona-design-hierarchy"],
 };
 const forKind = k => [...new Set([...ALL, ...(BY_KIND[k] || BY_KIND.default)])];
