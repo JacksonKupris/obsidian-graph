@@ -80,6 +80,7 @@
   VGParts.wire($(".vg-lens-body"), { details: () => lensCards, onOpen: panel => wireLens(panel), openNote: (p, e) => { if (opts.openNote) opts.openNote(p, e.ctrlKey || e.metaKey); } });
   const LENS_MOVED = { triage: "stale", debt: "stale" };   // "triage" was this lens before the game took the word; debt merged into it
   function openLens(k, keep) {
+    if (SCENES[st.view] && SCENES[st.view].game) setView("2d");   // a game fills the screen: a report opened from it leaves it, so the game's own text doesn't show beside the report
     k = LENS_MOVED[k] || k; lensKey = k; lensCards = {}; closeDrawer(true); const box = $(".vg-lens"), l = LENSES[k];
     box.hidden = false; box.dataset.lens = k; root.classList.add("has-lens"); syncSelects();
     $(".vg-lens-title").textContent = l.name; $(".vg-lens-sub").textContent = l.hint;
