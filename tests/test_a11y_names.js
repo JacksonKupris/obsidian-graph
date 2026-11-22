@@ -26,6 +26,7 @@ const NAMED = `(el) => !!((el.getAttribute("aria-label") || el.getAttribute("ari
     const act = await tab.ev(`document.activeElement === document.body ? "body" : document.activeElement.className`);
     check(act !== "body", "focus fell to the page after a control lost it: " + act);
     // toasts: at most two at once, and a repeat is not stacked
+    await tab.ev(`document.querySelector(".vg-root").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`); await sleep(200);   // explanatory toasts stay quiet while the tour shows
     const n = await tab.ev(`(() => { for (const m of ["a", "b", "c", "c", "d"]) window.vaultGraph._debug.toast(m); return document.querySelectorAll(".vg-toast").length; })()`);
     check(n > 0 && n <= 2, "toasts pile up: " + n);
     // matrix cells show "0/2" or "15"; the name has to say which two topics and what the number is (persona round 2)
