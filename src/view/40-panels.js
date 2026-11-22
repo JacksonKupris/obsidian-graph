@@ -180,7 +180,7 @@
       gaps: () => openLens("matrix"),
       unlinked: () => openLens("blind"),   // the list, each with its fix; Islands is every note with no links
     };
-    panel.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { if (!STAT_GO[b.dataset.stat]()) closeDrawer(); });
+    panel.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { if (!STAT_GO[b.dataset.stat]()) closeDrawer(true); });
     panel.querySelectorAll(".vg-maprow").forEach(e => e.onclick = () => showMocMissing(e.dataset.moc));
     
     panel.querySelectorAll(".vg-unmapped").forEach(e => e.onclick = () => focusClusters([+e.dataset.c]));
@@ -632,7 +632,7 @@
       if (n.person) setLayer("people", true);
     }
     if (st.focusDist && !st.focusDist.has(id)) { st.focus = null; st.focusDist = null; $(".vg-focusbar:not(.vg-pathbar)").hidden = true; if (!neural()) cam.cx = cam.cy = cam.cz = 0; }
-    closeDrawer();
+    closeDrawer(true);
     rebuild(false); select(id); setTimeout(() => centreOn(id, neural() ? 1.8 : 2.5), 30);
   }
   function wire(el) {

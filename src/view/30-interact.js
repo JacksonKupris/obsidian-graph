@@ -99,7 +99,9 @@
   // in a narrow pane the side panel is a drawer over the toolbar: anything that opens a panel or acts on the graph closes it
   // the sidebar slides over the graph on a narrow pane, and where an open note would leave the graph too little room (view.css: the same width)
   const drawerMode = () => narrow() || (root.classList.contains("has-inspector") && root.clientWidth < 1320);
-  const closeDrawer = () => { if (drawerMode()) root.classList.remove("vg-side-open"); };
+  // closeDrawer(true) is for a detail opened from the panel: Back (goBack) then brings the panel back; tapping the graph does not
+  let drawerBack = false;
+  const closeDrawer = back => { const was = root.classList.contains("vg-side-open"); if (!back) drawerBack = false; else if (was && drawerMode()) drawerBack = true; if (drawerMode()) root.classList.remove("vg-side-open"); };
 
   // ---------------------------------------------------------------- pointer (mouse, pen, touch)
   // the notes a pointer can reach: what's drawn (map views also draw unlinked notes, through mapShown)
@@ -352,6 +354,7 @@
     else if (st.highlight) clearHighlight();
     else if (root.classList.contains("vg-side-open")) root.classList.remove("vg-side-open");
     else return 0;
+    if (drawerBack) { drawerBack = false; if (drawerMode()) root.classList.add("vg-side-open"); }
     return 1;
   }
   // closing a panel, dialog or the tour removes the element that had focus, so focus falls to the page and every shortcut stops; it goes back to the graph
