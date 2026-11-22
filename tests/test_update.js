@@ -59,9 +59,16 @@ function world({ running = "0.6.85", latest = "0.6.86", serve = good, failOn, au
   assert.strictEqual(await w.up.check(), "updated");
   assert.strictEqual(w.disk["p/main.js"], good("0.6.86")["main.js"]);
   assert.strictEqual(JSON.parse(w.disk["p/manifest.json"]).version, "0.6.86");
-  assert.ok(!Object.keys(w.disk).some(k => k.endsWith(".new")), "no half-written file is left");
+  assert.ok(!Object.keys(w.disk).some(k => /\.(new|old)$/.test(k)), "no half-written or backup file is left");
   assert.deepStrictEqual(w.calls.filter(c => c !== "saved"), ["manifests", "off", "on"], "the manifest is read again before the reload");
   assert.match(w.notices[0], /updated 0\.6\.85 to 0\.6\.86/);
+  // a rename that fails partway through the swap: every live file is put back, nothing is left behind
+  w = world();
+  const ad = w.plugin.app.vault.adapter, realRename = ad.rename;
+  ad.rename = async (a, b) => { if (b.endsWith("manifest.json") && a.endsWith(".new")) throw new Error("locked by sync"); return realRename(a, b); };
+  assert.strictEqual(await w.up.check({ manual: true }), "failed");
+  assert.deepStrictEqual(["main.js", "manifest.json", "styles.css"].map(f => w.disk["p/" + f]).map(x => x === undefined ? "MISSING" : /0\.6\.86/.test(x) ? "NEW" : "old"), ["old", "old", "old"], "a failed swap leaves the running version whole");
+  assert.ok(!Object.keys(w.disk).some(k => /\.(new|old)$/.test(k)), "a failed swap leaves no .new or .old file");
   // the same version: nothing is written, and the automatic check stays quiet
   w = world({ latest: "0.6.85" });
   assert.strictEqual(await w.up.check(), "current");

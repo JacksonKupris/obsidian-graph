@@ -18,6 +18,8 @@
 .vg-root .ds-detail-close:hover, .vg-hq .ds-detail-close:hover { color: var(--ds-text); background: var(--ds-hover); }
 
 .ds-section { margin: 14px 0; }
+.ds-section.is-landed > h4 { color: var(--ds-text); }
+.ds-section.is-landed > h4::before { content: "→ "; color: var(--ds-accent); }
 .ds-section h4, .ds-heading { margin: 0 0 6px; font-size: var(--ds-fs-xs); font-weight: var(--ds-w-semi); letter-spacing: .06em; text-transform: uppercase; color: var(--ds-muted); }
 .ds-hint { margin: 0 0 6px; font-size: var(--ds-fs-xs); line-height: 1.4; color: var(--ds-muted); }
 .ds-count { padding: 0 6px; font-size: var(--ds-fs-2xs); font-weight: var(--ds-w-semi); letter-spacing: 0; color: var(--ds-muted); background: var(--ds-hover); border-radius: var(--ds-r-pill); }
