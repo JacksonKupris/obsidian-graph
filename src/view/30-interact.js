@@ -338,6 +338,8 @@
   // it closed something, 2 when it only left a text field (the key goes on to the host), 0 when there was nothing to close.
   function goBack(typingIn) {
     // the topmost layer goes first: an open report sits over the scene, so it closes before the scene (a game in play) does
+    const dialog = $$(".vg-confirm").pop();   // a dialog is the top layer wherever focus is; its own key handler only hears Escape while focus is inside it
+    if (dialog) { (dialog.querySelector('[data-c="no"]') || dialog.querySelector('[data-c="ok"]')).click(); return 1; }
     if ($(".vg-lens").hidden && SCENES[st.view] && SCENES[st.view].escape && SCENES[st.view].escape()) return 1;
     if (tour) endTour();
     else if (!$(".vg-palette").hidden) { closePalette(); }
