@@ -524,7 +524,10 @@
   --ds-accent-text: var(--vg-hud-sky); --ds-accent-soft: rgba(56, 189, 248, .16);
   --vg-raised: var(--ds-bg); --vg-panel: var(--ds-surface); --vg-fg: var(--ds-text); --vg-muted: var(--ds-muted); --vg-faint: var(--ds-faint); --vg-line: var(--ds-line); --vg-border: var(--ds-line); --vg-hover: var(--ds-hover); --vg-accent-text: var(--ds-accent-text); }
 /* matrix */
-.vg-mx-wrap { overflow: auto; }
+/* the row names stay while the columns scroll; a soft edge on the side that has more shows there is more to scroll to */
+.vg-mx-wrap { overflow: auto; background: linear-gradient(to right, var(--vg-panel) 30%, transparent) left / 28px 100% no-repeat local, linear-gradient(to left, var(--vg-panel) 30%, transparent) right / 28px 100% no-repeat local, linear-gradient(to right, rgba(0,0,0,.28), transparent) left / 12px 100% no-repeat scroll, linear-gradient(to left, rgba(0,0,0,.28), transparent) right / 12px 100% no-repeat scroll; }
+.vg-mx-row { position: sticky; left: 0; z-index: 1; background: var(--vg-panel); }
+.vg-root.is-mobile .vg-mx-name { max-width: 120px; }
 .vg-mx { border-collapse: separate; border-spacing: 2px; font-size: var(--vg-fs-xs); }
 .vg-mx th { font-weight: 600; white-space: nowrap; }
 .vg-mx-col { padding: 0 2px; } .vg-mx-row { text-align: left; }
