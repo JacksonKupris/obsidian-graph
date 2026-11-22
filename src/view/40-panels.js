@@ -178,7 +178,7 @@
       all: () => (openPalette(), true),   // the notes themselves, most connected first
       topics: () => (setTab("clusters"), true),   // true: what it opens is in this panel, so a phone's drawer stays open
       gaps: () => openLens("matrix"),
-      unlinked: () => openLens("blind"),   // the list, each with its fix; Islands is every note with no links
+      unlinked: () => openLens("blind", null, "Islands"),   // the list, each with its fix: Islands is every note with no links, the number on the tile
     };
     panel.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { if (!STAT_GO[b.dataset.stat]()) closeDrawer(true); });
     panel.querySelectorAll(".vg-maprow").forEach(e => e.onclick = () => showMocMissing(e.dataset.moc));
