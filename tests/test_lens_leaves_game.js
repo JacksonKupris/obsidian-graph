@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Opening a report from a game screen (Triage, Dungeon) leaves the game: the game's title and button no longer show beside the report (persona round 3, design).
+// Opening a report from a game on its title screen (Triage, Dungeon) leaves the game (a game in play keeps running: test_escape_layers.js): the game's title and button no longer show beside the report (persona round 3, design).
 const { sleep, checks, finish, openPage } = require("./kit"), env = require("./env");
 const { fails, ok: check } = checks();
 const D = "window.vaultGraph._debug";
