@@ -5,7 +5,8 @@
   // is always there.
   // a vault with no analysis file (DATA.engine) hasn't got this yet: say that, not something untrue about its notes
   const needsAnalysis = name => (DATA.engine ? emptyNext(`${name} needs the analysis, which this vault doesn't have yet.`, "search") : null);
-  function emptyNext(text, ...steps) {
+  // the next-step buttons under an empty list; with no steps given, a search
+  function nextButtons(steps) {
     const btn = s => { const [k, arg] = s.split(":");
       if (k === "lens") return LENSES[arg] ? `<button class="vg-btn vg-btn-sm" data-relens="${arg}">${esc(LENSES[arg].name)}</button>` : "";
       if (k === "draftmap") return opts.writeNote && clusterById[arg] ? `<button class="vg-btn vg-btn-sm" data-draftmap="${arg}">${icon("plus", 12)} Draft a map for ${esc(shortName(+arg))}</button>` : "";
@@ -15,8 +16,9 @@
       return `<button class="vg-btn vg-btn-sm" data-next="${k === "search" ? esc(s) : "search"}">${icon("search", 12)} Search notes</button>`; };   // "search:<words>" opens on them
     const bs = steps.map(btn).filter(Boolean);
     if (!bs.length) bs.push(btn("search"));
-    return `<div class="vg-empty">${text}</div><div class="vg-ins-actions vg-empty-next">${bs.join("")}</div>`;
+    return `<div class="vg-ins-actions vg-empty-next">${bs.join("")}</div>`;
   }
+  function emptyNext(text, ...steps) { return `<div class="vg-empty">${text}</div>${nextButtons(steps)}`; }
   // the buttons emptyNext draws (a lens, a new note, search), working wherever it was drawn
   function wireNext(el) {
     el.querySelectorAll("[data-relens]").forEach(d => d.onclick = e => { e.stopPropagation(); openLens(d.dataset.relens); });
