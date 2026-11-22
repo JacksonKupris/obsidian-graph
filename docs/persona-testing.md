@@ -21,6 +21,9 @@ Made-up users work through the real graph page and report where they were blocke
 ## Coverage
 `node scripts/persona_plan.js` reads the page's own view list (scenes, lenses, views) and writes who looks at which view to `.out/persona-plan.md`. Every view goes to the phone and keyboard personas, plus others by kind, so a view added later is covered without editing a list. `tests/test_persona_plan.js` fails if a view has fewer than three personas or a named persona has no agent file. `tests/audit_views.js` runs the same list mechanically.
 
+## Hunting (no AI, no cost)
+`npm run hunt` runs random walks with fresh seeds over every view, then the sweeps that visit every view (tap sizes, persona assignment). It also runs weekly in CI (`.github/workflows/hunt.yml`), and `npm run queue` prints when it last ran and how it ended. A failure prints its seed: replay it with `node tests/test_monkey.js --seed N`, pin what it found as a plain failing test, then fix the shared cause. When a miss is found any other way (a persona, a person), ask which sweep should have caught it and add that sweep.
+
 ## Whole-plugin and release personas
 `persona-integration` follows one note, number or action across every view, panel and sidebar and reports where the pieces disagree or lose state. `persona-release` installs, upgrades and rolls back from a GitHub release on a clean computer and ends with a ranked list of how the release path could improve. Run both before a release, with the user personas.
 

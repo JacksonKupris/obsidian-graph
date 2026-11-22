@@ -4,7 +4,7 @@
 //   node tests/test_queue.js        exit 0 = pass
 const { checks, finish } = require("./kit");
 const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
-const { checkState, gitState, render, openPrs } = require("../scripts/queue");
+const { lastHunt, checkState, gitState, render, openPrs } = require("../scripts/queue");
 const { fails, ok: check } = checks();
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "vg-queue-"));
 const git = (dir, ...a) => { const r = spawnSync("git", a, { cwd: dir, encoding: "utf8" }); if (r.status) throw new Error(`git ${a.join(" ")}: ${r.stderr}`); return (r.stdout || "").trim(); };
@@ -47,6 +47,12 @@ try {
     check(text.includes(want), `the queue lacks "${want}"`);
   check(render({ git: g, prs: null, prsWhy: "gh missing" }).join("\n").includes("not shown: gh missing"), "no gh: says why");
   check(render({ git: { tag: null, merged: [], loose: [] }, prs: [] }).join("\n").includes("main is what was released"), "an empty queue says so");
+  // the weekly hunt line: how the last run ended, and the next step when it failed or never ran
+  const hunt = out => lastHunt(() => ({ status: 0, stdout: JSON.stringify(out) }));
+  check(/success on 2026-11-22/.test(hunt([{ conclusion: "success", createdAt: "2026-11-22T06:00:00Z" }])), "a passing hunt shows its date");
+  check(/failure on .*replay its seed/.test(hunt([{ conclusion: "failure", createdAt: "2026-11-22T06:00:00Z" }])), "a failed hunt says to replay its seed");
+  check(/has not run yet.*npm run hunt/.test(hunt([])), "no hunt yet says how to run one");
+  check(/not known/.test(lastHunt(() => ({ status: 1 }))), "gh failing is reported, not hidden");
 } catch (e) { check(false, "threw: " + e.message); }
 fs.rmSync(tmp, { recursive: true, force: true });
 finish(fails, "queue: check states, the git half, gh failures and the printed lines", "queue");

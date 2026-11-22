@@ -1,0 +1,17 @@
+# Weekly hunt: random walks with fresh seeds over every view, plus the sweeps that visit every view (npm run hunt).
+# A failure shows in the Actions tab and emails the owner; the seed is in the log, so the walk can be replayed.
+name: Hunt
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run hunt
