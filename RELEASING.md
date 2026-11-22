@@ -17,7 +17,7 @@ Merge a pull request and GitHub does the rest. `test.yml` runs the tests in shar
 | the newest commit's message has `[no release]` | no release |
 
 - **Hand it over:** `npm run ship -- 61 --auto` turns on auto-merge (GitHub merges once the `tests` check passes, then releases, so no computer waits; refused until the branch rule below exists). `npm run ship -- 61` waits for the checks, merges and prints `SHIPPED #61: Released ...` or `No release: ...`.
-- **Check what it would do** from any clone, changing nothing: `node scripts/ci_release.js --plan`.
+- **Check what it would do** from any clone, changing nothing: `npm run release:check` (the same as `node scripts/ci_release.js --plan`). It says whether a release is due and which version it would be.
 - **When the release job fails** (the run is red after its tests were green): open the run, "Re-run failed jobs". A tag that was pushed without its GitHub release is published on that re-run. If GitHub itself is down, use `npm run release` below; it is the same release by hand.
 - **Two merges close together:** one release at a time. The run for the earlier merge sees a newer commit on `main` and skips; the later run releases both.
 - **Why `--auto` is refused today:** it needs a branch rule requiring the `tests` check, and the release job pushes the `Release x.y.z` commit to `main` as GitHub Actions, which a personal repository can't exempt from that rule (the rules API answers "GitHub Actions integration must be part of the ruleset source or owner organization"). To turn it on, either move the repository into an organization and let Actions bypass the rule, or stop committing the version (build it from the tag). Until then `npm run ship -- <pr>` waits for the checks and merges.
@@ -118,7 +118,7 @@ https://github.com/JacksonKupris/obsidian-graph/releases. Install it with `npm r
 | Where | How |
 |---|---|
 | This computer, after `npm run release` | Done for you when `local.json` (or `--vault`) names the vault. |
-| This computer, any time | `npm run install-release` (latest), `npm run install-release -- 0.6.15` (that one, also to go back), `npm run install-release -- --vault <folder>` for another vault. |
+| This computer, any time | `npm run install-release` (latest), `npm run install-release -- 0.6.15` (that one, also to go back: turn off Update automatically in the plugin settings first, or the next check installs the latest again; the command says so), `npm run install-release -- --vault <folder>` for another vault. |
 | Any device, by itself | Once installed, the plugin updates itself: on start and every few hours it asks GitHub for the latest release, downloads the three files, checks the manifest matches the tag and the plugin id, writes them, and reloads. Works on Android too. Settings > Vault Graph > **Update automatically** turns it off (it then only says a release is out); **Check now** or the command **Update Vault Graph** installs by hand. Rules: `src/release.js`, shared with `npm run install-release`. |
 | Any computer, in Obsidian | Install BRAT from Community plugins, then BRAT: **Add a beta plugin** > `JacksonKupris/obsidian-graph`. To update: Ctrl/Cmd+P, type `BRAT`, run its **check for updates** command. |
 | By hand | Download `main.js`, `manifest.json` and `styles.css` from a [release](https://github.com/JacksonKupris/obsidian-graph/releases) into `<vault>/.obsidian/plugins/jk-vault-graph/`. |

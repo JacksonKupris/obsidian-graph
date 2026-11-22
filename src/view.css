@@ -260,7 +260,15 @@
 /* an open inspector narrows the canvas: the today banner then reaches the status pill and floor bar, so they go under it */
 .vg-root.has-inspector:has(.vg-today:not([hidden])) .vg-status { top: var(--vg-under-today); }
 @keyframes vg-sheet-in { from { opacity: 0; transform: translateY(20px); } }
-@container vg (max-width: 460px) { .vg-legend { display: none; } }
+/* a phone has no room for the legend beside the graph: a Key button opens it above the button (Escape or a second tap closes it) */
+.vg-legend-key { display: none; position: absolute; left: 10px; bottom: calc(42px + var(--vg-bottom, 0px)); z-index: 2; }
+@container vg (max-width: 460px) {
+  .vg-legend { display: none; }
+  .vg-legend-key { display: inline-flex; }
+  .vg-legend:empty + .vg-legend-key, .is-neural .vg-legend-key, .is-cosmos .vg-legend-key, .has-inspector .vg-legend-key, .has-lens .vg-legend-key, .is-playing .vg-legend-key { display: none; }
+  .vg-root.legend-open .vg-legend { display: flex; bottom: calc(76px + var(--vg-bottom, 0px)); z-index: 3; }
+}
+.is-compact .vg-legend-key { display: none !important; }
 
 @media (prefers-reduced-motion: reduce) {
   .vg-root *, .vg-root *::before, .vg-root *::after { animation: none !important; transition: none !important; }
@@ -417,6 +425,9 @@
 .is-mobile .vg-tip { display: none; }
 /* every control a thumb can hit, at least --vg-tap on a phone (polish_loop.js reads the same token to check) */
 .vg-root { --vg-tap: 40px; --vg-hit-min: 24px; }
+/* a phone is read at arm's length: the two smallest text sizes become 12px, for every control and label at once */
+.vg-root.is-mobile { --ds-fs-2xs: 12px; --ds-fs-xs: 12px; --vg-fs-xs: 12px; }
+.vg-root small { font-size: var(--ds-fs-xs); }
 /* the floor on a desktop: the row buttons and chips the lenses draw (audit:views reads the same 24px) */
 .vg-root :is(.vg-mx-name, .vg-tl-label, .vg-rv-chip, .vg-visbtn, button.vg-fd-name, .vg-rp-pick, .vg-fd-bar) { min-height: var(--vg-hit-min); }
 /* every slider is 36 px tall on a phone, and a checkbox's label is its tap area */
@@ -1031,3 +1042,11 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-root.is-mobile .vg-viewsel { max-width: 17cqw; field-sizing: content; flex: 0 1 auto; min-width: 48px; font-size: var(--ds-fs-sm); }
 .vg-root.is-mobile.has-lens .vg-viewsel { max-width: 112px; }   /* a report names itself in full: the toolbar has room while it is open */   /* wide enough for the longest view name ("Topic river") */
 .vg-root.is-mobile .vg-toolsel { max-width: 36px; text-align: center; }
+@container vg (max-width: 460px) {   /* a narrow pane on a computer is not flagged mobile; it gets the same compact selects */
+  .vg-sels { gap: 4px; }
+  .vg-sel { padding: 0 2px; font-size: var(--ds-fs-md); }
+  .vg-viewsel { max-width: 17cqw; field-sizing: content; flex: 0 1 auto; min-width: 48px; font-size: var(--ds-fs-sm); }
+  .vg-toolsel { max-width: 36px; text-align: center; }
+}
+/* chart labels: the unit size fitChartText sets per chart keeps them at 11 px on screen */
+.vg-root :is(.vg-rv, .vg-st, .vg-sci-chart, .vg-rg) text { font-size: var(--chart-fs, var(--ds-fs-xs)); }

@@ -257,7 +257,7 @@ function mountVaultGraph(root, DATA, opts) {
       </div>
     </aside>
     <main class="vg-canvas">
-      <span class="vg-sr" id="vg-cv-label-${vgId}">Graph of ${VGRules.noteCounts(nodes).notes} notes in ${plural(DATA.clusters.length, "topic")}.</span>
+      <span class="vg-sr vg-cv-name" id="vg-cv-label-${vgId}"></span>
       <canvas class="vg-cv" role="img" tabindex="0" aria-labelledby="vg-cv-label-${vgId}"></canvas>
       <div class="vg-hud" aria-hidden="true"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
         <div class="vg-hud-title"></div><div class="vg-hud-tele"></div><div class="vg-scan"></div></div>
@@ -375,6 +375,7 @@ function mountVaultGraph(root, DATA, opts) {
       </section>
       <div class="vg-tip" role="tooltip"></div>
       <div class="vg-legend" aria-label="Legend"></div>
+      <button class="vg-btn vg-btn-sm vg-legend-key" aria-expanded="false" title="What the colours and shapes mean">Key</button>
       <div class="vg-status" aria-live="polite"></div>
       <div class="vg-toasts" aria-live="polite"></div>
     </main>

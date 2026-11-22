@@ -16,6 +16,15 @@
   const TODAY_GAP = 8;
   function todayRoom() { const bar = $(".vg-today"), app = $(".vg-app"); if (bar && app && !bar.hidden && bar.offsetHeight) app.style.setProperty("--vg-today-h", bar.offsetHeight + TODAY_GAP + "px"); }
   if ($(".vg-today") && typeof ResizeObserver === "function") new ResizeObserver(todayRoom).observe($(".vg-today"));
+  // chart text is drawn in the chart's own units and scaled with the drawing, so each chart gets the unit size that comes out at 11 px on screen
+  const CHART_PX = 11.5;
+  function fitChartText() {
+    for (const s of root.querySelectorAll("svg.vg-rv, svg.vg-st, svg.vg-sci-chart, svg.vg-rg")) {
+      const w = s.getBoundingClientRect().width, vb = s.viewBox.baseVal;
+      if (w > 20 && vb && vb.width) s.style.setProperty("--chart-fs", (CHART_PX * vb.width / w).toFixed(1) + "px");
+    }
+  }
+  if (typeof MutationObserver === "function") { let q = 0; const again = () => { cancelAnimationFrame(q); q = requestAnimationFrame(fitChartText); }; new MutationObserver(again).observe(root, { childList: true, subtree: true }); if (typeof ResizeObserver === "function") new ResizeObserver(again).observe(root); }
   $(".vg-today-x").onclick = () => { todayHidden.add(st.view); renderToday(); };
 
   // ---------------------------------------------------------------- save the current view in one click
@@ -604,7 +613,7 @@
     setView, openLens,
     hasView: v => canvasView(v),   // a scene from a note exists once its block is in the state
     async snapshot() { const blob = await new Promise(res => cv.toBlob(res, "image/png")); return blob.arrayBuffer(); },   // the canvas as PNG (State of the vault)
-    _debug: { gl: {
+    _debug: { select: id => select(id), gl: {
         info: () => GL.info(),
         // two spheres at one spot, in both drawing orders: the depth buffer decides, so the near (red) one must show either way. Pixels are read in the same task, before the page composites.
         depthCheck() { if (!GL.ok()) return null; const put = (a, b) => { GL.begin([0, 0, 0], 1); glSn = 0; for (const [d, c] of [a, b]) putSprite(W / 2, H / 2, d, 60, c, 1, 0, 0); GL.sprites("lit", glS, glSn, { light: [0, 0, -1], dark: true }); glSn = 0; return GL.pixel(W / 2, H / 2); }, near = [0.3, [1, 0, 0]], far = [0.35, [0, 0, 1]], out = { nearLast: put(far, near), nearFirst: put(near, far) }; dirty = true; kick(); return out; },

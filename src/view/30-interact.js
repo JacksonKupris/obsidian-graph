@@ -80,6 +80,7 @@
     cv.width = Math.max(1, Math.round(W * dpr)); cv.height = Math.max(1, Math.round(H * dpr));
     cv.style.width = W + "px"; cv.style.height = H + "px";
     if (fitted && !cam.userMoved) fit(lastFit, 0);   // keep the framing until the user pans/zooms
+    if (W && fitted) { draw(performance.now()); dirty = false; }   // a resize clears the canvas: drawn again before the browser paints, or one empty frame shows
     dirty = true; kick();
   };
   const ro = new ResizeObserver(sizeCanvas);
@@ -334,6 +335,8 @@
   root.ownerDocument.addEventListener("visibilitychange", onHidden);   // all three removed in destroy()
   holdKeys({ up: k => { const d = SCENES[st.view]; if (d && d.key) d.key(k, false); },
     all: () => Object.values(SCENES).forEach(d => d.release && d.release()) });
+  function setLegendOpen(on) { root.classList.toggle("legend-open", on); $(".vg-legend-key").setAttribute("aria-expanded", String(on)); }
+  $(".vg-legend-key").onclick = () => setLegendOpen(!root.classList.contains("legend-open"));
   // One step back: closes the topmost layer. Escape runs it, and so does a phone's back gesture (handle.back). Returns 1 when
   // it closed something, 2 when it only left a text field (the key goes on to the host), 0 when there was nothing to close.
   function goBack(typingIn) {
@@ -342,6 +345,7 @@
     if (dialog) { (dialog.querySelector('[data-c="no"]') || dialog.querySelector('[data-c="ok"]')).click(); return 1; }
     if ($(".vg-lens").hidden && SCENES[st.view] && SCENES[st.view].escape && SCENES[st.view].escape()) return 1;
     if (tour) endTour();
+    else if (root.classList.contains("legend-open")) setLegendOpen(false);
     else if (!$(".vg-palette").hidden) { closePalette(); }
     else if (!$(".vg-picker").hidden) { closeMenu(); $(".vg-displaysel").focus(); }
     else if (!$(".vg-lens").hidden) closeLens();
@@ -353,7 +357,7 @@
     else if (st.path) clearPath();
     else if (st.focus && !st.quietFocus) exitFocus();
     else if (st.multi) clearMulti();
-    else if (st.selected) select(null);
+    else if (st.selected) { const tied = st.highlightTied === st.selected; if (!stepBackNote()) { select(null); if (tied) clearHighlight(); } }
     else if (st.highlight) clearHighlight();
     else if (root.classList.contains("vg-side-open")) root.classList.remove("vg-side-open");
     else return 0;
@@ -573,10 +577,18 @@
   }
 
   // ---------------------------------------------------------------- legend + status + HUD + toasts
+  // a glyph's colour is picked for the scene it names, not for the page behind the legend: each one is moved only as far as it takes to read there
+  function inkLegend() {
+    const lg = $(".vg-legend"); let bg = null;
+    for (let e = lg; e && !bg; e = e.parentElement) { const c = getComputedStyle(e).backgroundColor, m = c.match(/[0-9.]+/g); if (m && m.length >= 3 && (m[3] === undefined || +m[3] > 0.6)) bg = c; }
+    bg = bg || css("--vg-bg") || "#ffffff";
+    lg.querySelectorAll("b, span, i").forEach(e => { if (e.style.color && e.textContent.trim()) e.style.color = VGShared.inkOn(getComputedStyle(e).color, bg); });
+  }
   function renderLegend() {
     if (mapView()) {
       const item = (sw, t) => `<span class="vg-lg-item">${sw}${t}</span>`;
       $(".vg-legend").innerHTML = (SCENES[st.view].legend ? SCENES[st.view].legend(item) : "") + (SCENES[st.view].lib ? "" : attentionLegend());
+      inkLegend();
       return;
     }
     const sizeWord = { bc: "routes through it", recent: "daily mentions" }[st.sizeBy];
@@ -617,13 +629,14 @@
     if (st.multi) parts.push(`${st.multi.size} selected`);
     if (st.hiddenClusters.size) parts.push(`${plural(st.hiddenClusters.size, "topic")} hidden`);
     if (st.hidden.size) parts.push(`top ${st.hidden.size} hidden`);
+    $(".vg-cv-name").textContent = `Graph of ${plural(VGRules.noteCounts(active).notes, "note")} in ${plural(DATA.clusters.length, "topic")}.`;
     $(".vg-status").innerHTML = `${settling ? '<span class="vg-spin" aria-hidden="true"></span>Laying out · ' : ""}${parts.map(esc).join(" · ")}`;
   }
   function renderHud() {
     if (!neural()) return;
     const n = st.selected && byId[st.selected];
     $(".vg-hud-title").innerHTML = `<b>VAULT // NEURAL MAP</b><span>${esc(DATA.vault || "").toUpperCase()} · ${esc(DATA.date)} · ${st.vision.toUpperCase()}</span>` +
-      `<span>NODES ${active.length} · LINKS ${visLinks.filter(l => l.kind === "link").length} · LOBES ${DATA.clusters.length} · MAPS ${mocs.length} · BRIDGES ${nodes.filter(n => n.bridge).length}</span>` + (st.three && glOn() ? `<span>LIF NETWORK · 80/20 E/I · ${neuroRate().toFixed(1)} HZ · ×1/${NEURO_SLOW} SPEED</span>` : "");
+      `<span>NOTES ${VGRules.noteCounts(active).notes} · LINKS ${visLinks.filter(l => l.kind === "link").length} · LOBES ${DATA.clusters.length} · MAPS ${mocs.length} · BRIDGES ${nodes.filter(n => n.bridge).length}</span>` + (st.three && glOn() ? `<span>LIF NETWORK · 80/20 E/I · ${neuroRate().toFixed(1)} HZ · ×1/${NEURO_SLOW} SPEED</span>` : "");
     const p = n && P.get(n.id);
     $(".vg-hud-tele").innerHTML = n ? `<b>TARGET ▸ ${esc(n.name.toUpperCase())}</b>` +
       `<span>LOBE ${esc(clusterName(n.cluster).toUpperCase())}</span>` +

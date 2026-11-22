@@ -84,6 +84,12 @@ async function install(version, vaultDir) {
   const onDisk = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8")).version;
   if (onDisk !== man.version) return { ok: false, lines: [`FAIL - ${dir} says ${onDisk} after writing ${man.version}`] };
   lines.push(`Installed ${man.version} in ${path.relative(vault, dir)}`, reload(vault, man.id, man.version));
+  if (version) {   // an older release: Update automatically would replace it with the latest at its next check
+    let latest = null, auto = true;
+    try { latest = (await (await get(`https://api.github.com/repos/${slug}/releases/latest`)).json()).tag_name; } catch (e) { /* offline: no warning rather than a guess */ }
+    try { auto = JSON.parse(fs.readFileSync(path.join(dir, "data.json"), "utf8")).autoUpdate !== false; } catch (e) { /* no settings yet: the default is on */ }
+    const note = VGRelease.rollbackNote(man.version, latest, auto); if (note) lines.push(note);
+  }
   return { ok: true, version: man.version, lines };
 }
 

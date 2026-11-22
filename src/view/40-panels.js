@@ -140,7 +140,7 @@
     }).sort((a, b) => b.miss - a.miss);
     const unmapped = DATA.clusters.filter(c => !mocOf[c.id] && c.size >= 6);
     return card("Maps", "how much of each topic its map lists · click to light up what it misses",
-      rows.map(({ m, size, miss, pct }) => `${VGParts.item({ cls: "vg-maprow", attrs: `data-moc="${esc(m.id)}"`, lead: `<span class="vg-hex" style="--c:${colorOf(m.clusters[0])}"></span>`, title: `<span><b>${esc(m.title)}</b></span>`, mid: `<span class="vg-bar"><i style="width:${Math.max(3, pct)}%;background:${colorOf(m.clusters[0])}"></i></span>`, sub: `${pct}% of ${size} · ${miss ? `${miss} missing` : "complete"}${m.clusters.length > 1 ? ` · ${m.clusters.length} topics` : ""}` })}`).join("") +
+      rows.map(({ m, size, miss, pct }) => `${VGParts.item({ cls: "vg-maprow", attrs: `data-moc="${esc(m.id)}"`, lead: `<span class="vg-hex" style="--c:${colorOf(m.clusters[0])}"></span>`, title: `<span><b>${esc(m.title)}</b></span>`, mid: `<span class="vg-bar"><i style="width:${Math.max(3, pct)}%;background:${colorOf(m.clusters[0])}"></i></span>`, sub: `${pct}% of ${size} listed · ${miss ? `${miss} missing` : "complete"}${m.clusters.length > 1 ? ` · ${m.clusters.length} topics` : ""}` })}`).join("") +
       (unmapped.length ? VGParts.section({ title: "No map yet", count: unmapped.length, body: sideList(unmapped.map(c => `${VGParts.item({ cls: "vg-unmapped", attrs: `data-c="${c.id}"`, lead: `<span class="vg-dot" style="background:${colorOf(c.id)}"></span>`, title: `<span>${esc(c.name)}</span>`, sub: `${plural(c.size, "note")}${opts.writeNote ? " · make one from its row under Topics" : ""}` })}`), "topics") }) : ""));
   }
   function showMocMissing(id) {
@@ -149,7 +149,7 @@
     if (byId[id] && !baseVisible(byId[id])) setLayer("mocs", true);
     focusClusters(m.clusters);
     setHighlight(new Set([...miss, id]), `${m.title} · ${miss.size} not in the map`);
-    select(id);
+    select(id); st.highlightTied = id;   // one gesture made both, so one Escape undoes both
   }
   function renderInsights() {
     const { linked, unlinked: iso } = VGRules.noteCounts(nodes);
@@ -268,7 +268,13 @@
     b.onclick = () => { const nid = nextNoteId(id); if (nid) select(nid); else { b.disabled = true; b.textContent = VGRules.NEXT_NOTE.empty; } };
     head.insertBefore(b, head.querySelector(".vg-ins-close"));
   }
-  function select(id) { if (!id) st.nextSeen = null; const r = selectNow(id); addNextControl(id); carryFocus(id); return r; }
+  // the notes opened one from another, so Escape and the back gesture step back through them (goBack pops it) instead of closing the inspector from any depth
+  const noteTrail = [];
+  function select(id, fromBack) {
+    if (!id) st.nextSeen = null;
+    if (!fromBack) { if (!id) noteTrail.length = 0; else if (st.selected && st.selected !== id && byId[st.selected] && noteTrail[noteTrail.length - 1] !== st.selected) { noteTrail.push(st.selected); if (noteTrail.length > 50) noteTrail.shift(); } }
+    const r = selectNow(id); addNextControl(id); carryFocus(id); return r; }
+  const stepBackNote = () => { const prev = noteTrail.pop(); if (!prev) return false; select(prev, true); return true; };
   // a note opening from a control (a sidebar row, a search result) takes focus into its panel; closing returns it to that control
   function carryFocus(id) {
     const box = $(".vg-inspector"), a = document.activeElement, seen = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.right > 0 && r.bottom > 0; };
@@ -640,7 +646,7 @@
     el.querySelectorAll("[data-open]").forEach(d => d.onclick = e => { e.stopPropagation(); if (opts.openNote) opts.openNote(d.dataset.open, e.ctrlKey || e.metaKey); });
   }
   function setHighlight(set, labelText) { st.highlight = set; st.highlightLabel = labelText; if (isCosmos() && set && !st.paused) setPaused(true, true); renderStatus(); dirty = true; kick(); }
-  function clearHighlight() { if (st.autoPaused && !st.selected) setPaused(false); st.highlight = null; st.highlightLabel = null; markLists(); renderStatus(); dirty = true; kick(); }
+  function clearHighlight() { st.highlightTied = null; if (st.autoPaused && !st.selected) setPaused(false); st.highlight = null; st.highlightLabel = null; markLists(); renderStatus(); dirty = true; kick(); }
   function focusClusters(ids) {
     ids.forEach(c => st.hiddenClusters.delete(c));
     closeDrawer();

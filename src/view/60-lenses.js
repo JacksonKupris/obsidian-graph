@@ -5,7 +5,8 @@
   // is always there.
   // a vault with no analysis file (DATA.engine) hasn't got this yet: say that, not something untrue about its notes
   const needsAnalysis = name => (DATA.engine ? emptyNext(`${name} needs the analysis, which this vault doesn't have yet.`, "search") : null);
-  function emptyNext(text, ...steps) {
+  // the next-step buttons under an empty list; with no steps given, a search
+  function nextButtons(steps) {
     const btn = s => { const [k, arg] = s.split(":");
       if (k === "lens") return LENSES[arg] ? `<button class="vg-btn vg-btn-sm" data-relens="${arg}">${esc(LENSES[arg].name)}</button>` : "";
       if (k === "draftmap") return opts.writeNote && clusterById[arg] ? `<button class="vg-btn vg-btn-sm" data-draftmap="${arg}">${icon("plus", 12)} Draft a map for ${esc(shortName(+arg))}</button>` : "";
@@ -15,8 +16,9 @@
       return `<button class="vg-btn vg-btn-sm" data-next="${k === "search" ? esc(s) : "search"}">${icon("search", 12)} Search notes</button>`; };   // "search:<words>" opens on them
     const bs = steps.map(btn).filter(Boolean);
     if (!bs.length) bs.push(btn("search"));
-    return `<div class="vg-empty">${text}</div><div class="vg-ins-actions vg-empty-next">${bs.join("")}</div>`;
+    return `<div class="vg-ins-actions vg-empty-next">${bs.join("")}</div>`;
   }
+  function emptyNext(text, ...steps) { return `<div class="vg-empty">${text}</div>${nextButtons(steps)}`; }
   // the buttons emptyNext draws (a lens, a new note, search), working wherever it was drawn
   function wireNext(el) {
     el.querySelectorAll("[data-relens]").forEach(d => d.onclick = e => { e.stopPropagation(); openLens(d.dataset.relens); });
@@ -54,7 +56,7 @@
     drift: { menu: "notes", name: "Version drift", icon: "ripple", hint: "Notes and doc links that name a version other than the one you run", render: () => "", load: loadDrift },
     guide: { menu: "notes", name: "Guide scan", icon: "search", field: "Gene editing", hint: "One tag, word or line everywhere it occurs, with look-alikes kept apart", render: lensGuide },
     dupes: { menu: "notes", name: "Duplicates", icon: "copy", hint: "Likely duplicate notes side by side, with the links each one has", render: lensDupes },
-    blind: { menu: "notes", name: "Blind spots", icon: "eye", hint: "What you name but never link, topics gone quiet, islands and dead ends", render: lensBlind },
+    blind: { menu: "notes", name: "Blind spots", icon: "eye", hint: "What you name but never link, topics gone quiet, islands and notes only reached by accident", render: lensBlind },
     write: { menu: "notes", name: "Write these next", icon: "file", hint: "Links to notes that don't exist yet, and short notes many others rely on", render: lensWrite },
     missing: { menu: "notes", name: "Missing from dailies", icon: "gap", hint: "Notes no standup or journal mentions, most-linked first", render: lensMissing },
     blast: { menu: "notes", name: "Blast radius", icon: "target", field: "Epidemiology", hint: "If a note is wrong, how far does the mistake travel, and where's the tipping point?", render: lensBlast },
@@ -558,7 +560,7 @@
         n => { const r = cost.get(n.id); return row(n, r ? `${Math.round(r.cost)} note-years · ${r.direct} link to it directly, ${r.reach} through others · ${(r.age / 365).toFixed(1)} years since an edit` : `${n.inlinks} links in · ${n.age}d since edit`, open(n) + ok(n)); }, 100, `${debt.known ? "Other notes rest on these through links written into them, most costly first" : "Four or more notes link here"}, so an out-of-date version misleads them. Still current records a review date and doesn't edit the note.`) +
       sec("2 · Holding open tasks", tasks, "Old tasks rot faster than notes. Tick what's done; cancel the rest with [-] in the note.",
         n => row(n, `${plural(n.tasks, "open task")}${n.taskAge != null ? ` · oldest ${n.taskAge}d` : ""} · ${n.age}d since edit`, (opts.readTasks ? `<button class="vg-btn vg-btn-sm" data-sttasks="${esc(n.id)}">Tasks</button>` : "") + open(n), `<div class="vg-st-tasks"></div>`), 100) +
-      sec("3 · Unconnected", islands, "Nothing links in or out. Archive what's finished; link the rest from its map or a related note.",
+      sec("3 · Stale and unconnected", islands, "Nothing links in or out. Archive what's finished; link the rest from its map or a related note.",
         n => row(n, `${n.words || 0} words · ${n.age}d since edit`, open(n) + (opts.moveNote ? actBtn("data-archive", n.id, "Archive") : "")), 100) +
       sec("4 · Everything else", rest, "Connected but not heavily relied on. Fine to leave; review when you're in the area.",
         n => row(n, `${n.inlinks} links in · ${n.age}d since edit`, open(n) + ok(n)), 100) +
@@ -566,10 +568,10 @@
   }
 
   // Blind spots: things the vault knows that you don't see — named but never linked, topics gone quiet, unmapped topics,
-  // islands (written but connected to nothing) and dead ends (link out, nothing links in)
+  // islands (written but connected to nothing) and hard-to-find notes (they link out, nothing links in)
   function lensBlind() {
     const ns = nodes.filter(n => !special(n) && !n.ghost);
-    const said = (DATA.said_unlinked || []).filter(([id]) => byId[id]).slice(0, 12);
+    const said = saidUnlinked;   // the same list the Insights card shows
     const quiet = DATA.clusters.map(c => { const mem = ns.filter(n => n.cluster === c.id);
       return { c, size: mem.length, recent: mem.reduce((s, n) => s + (n.recent || 0), 0), age: Math.min(...mem.map(n => n.age || 0)) }; })
       .filter(x => x.size >= 5 && !x.recent).sort((a, b) => b.size - a.size);
@@ -585,7 +587,7 @@
         unmapped.map(c => topicLine(c.id, `${c.size} notes`, opts.writeNote ? `<button class="vg-btn vg-btn-sm" data-draftmap="${c.id}">${icon("plus", 12)} Draft a map</button>` : "")), "Every sizeable topic has a map.") +
       sec("Islands", islands.length, "Notes with no links in or out, longest first: written once, never found again. Hierarchy suggests a parent for each.",
         islands.slice(0, 100).map(n => `<div class="vg-sugg">${noteRow(n.id, `${n.words} words${n.words < Q.stub_words ? " (short)" : ""} · ${n.age}d since edit`)}${fixSlot(n.id, "orphan")}</div>`), "No unconnected notes.") +
-      sec("Dead ends", deadEnds.length, "Notes that point at others but nothing points back at them: you can only arrive here by accident.",
+      sec("Hard to find", deadEnds.length, "Notes that point at others but nothing points back at them: you can only arrive here by accident.",
         deadEnds.slice(0, 100).map(n => `<div class="vg-sugg">${noteRow(n.id, `${n.outlinks} links out · 0 in`)}${fixSlot(n.id, "orphan")}</div>`), "Everything that links out is linked to.");
   }
 

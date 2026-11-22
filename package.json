@@ -15,6 +15,7 @@
     "audit:nodes:vault": "node tests/audit_nodes.js --vault --per 3 --gate --out .out/node-audit-real.md",
     "release": "node scripts/release.js",
     "sample": "node fixtures/make_sample.js",
+    "release:check": "node scripts/ci_release.js --plan",
     "install-release": "node scripts/install_release.js",
     "sync": "node scripts/sync.js",
     "queue": "node scripts/queue.js",
