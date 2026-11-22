@@ -16,6 +16,15 @@
   const TODAY_GAP = 8;
   function todayRoom() { const bar = $(".vg-today"), app = $(".vg-app"); if (bar && app && !bar.hidden && bar.offsetHeight) app.style.setProperty("--vg-today-h", bar.offsetHeight + TODAY_GAP + "px"); }
   if ($(".vg-today") && typeof ResizeObserver === "function") new ResizeObserver(todayRoom).observe($(".vg-today"));
+  // chart text is drawn in the chart's own units and scaled with the drawing, so each chart gets the unit size that comes out at 11 px on screen
+  const CHART_PX = 11.5;
+  function fitChartText() {
+    for (const s of root.querySelectorAll("svg.vg-rv, svg.vg-st, svg.vg-sci-chart, svg.vg-rg")) {
+      const w = s.getBoundingClientRect().width, vb = s.viewBox.baseVal;
+      if (w > 20 && vb && vb.width) s.style.setProperty("--chart-fs", (CHART_PX * vb.width / w).toFixed(1) + "px");
+    }
+  }
+  if (typeof MutationObserver === "function") { let q = 0; const again = () => { cancelAnimationFrame(q); q = requestAnimationFrame(fitChartText); }; new MutationObserver(again).observe(root, { childList: true, subtree: true }); if (typeof ResizeObserver === "function") new ResizeObserver(again).observe(root); }
   $(".vg-today-x").onclick = () => { todayHidden.add(st.view); renderToday(); };
 
   // ---------------------------------------------------------------- save the current view in one click
