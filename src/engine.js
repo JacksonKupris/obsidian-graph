@@ -832,9 +832,15 @@ what when where which while who how why each other same see set use used using w
     for (const [r, targets] of Object.entries(bridgeNotes || {})) bridges[r] = targets.map(x => byStem.get(VGShared.baseOf(String(x).replace(/^\[\[|\]\]$|\|.*$/g, "")).toLowerCase())).filter(Boolean);
     const detail = { mocs: mocs.map(m => ({ path: m.path, title: m.title, nav: m.nav, members: [...m.members], fixed: m.fixed, per: Object.fromEntries(m.per) })), owner: Object.fromEntries([...owner].map(([c, m]) => [c, m.path])) };
     const labels = {}, wordsIn = t => new Set(t.toLowerCase().match(/[\p{L}\p{N}\p{M}_]+/gu) || []);
+    // one map claiming several topics labels each "Map · word"; the word is the first one the map's title lacks, and no two
+    // topics share a label (a repeat takes its next unused word, then a number), because the lists and search show only the label
+    const taken = new Set([...owner].filter(([c, m]) => claim.get(m.path).length === 1).map(([, m]) => m.title));
     owner.forEach((m, c) => { if (claim.get(m.path).length === 1) { labels[c] = m.title; return; }
       const i = ids.indexOf(c), own = names[i].split(" · ")[0], title = wordsIn(m.title), words = (keywords[i] || names[i]).split(" · ");
-      const tag = ![...wordsIn(own)].some(w => title.has(w)) ? own : (words.find(w => !title.has(w.toLowerCase())) || words[0]); labels[c] = `${m.title} · ${tag}`; });
+      const first = ![...wordsIn(own)].some(w => title.has(w)) ? own : (words.find(w => !title.has(w.toLowerCase())) || words[0]);
+      const options = [first, ...words, ...names[i].split(" · ")].filter((w, k, all) => w && all.indexOf(w) === k).map(w => `${m.title} · ${w}`);
+      let label = options.find(o => !taken.has(o)); for (let n = 2; !label; n++) { const o = `${options[0]} ${n}`; if (!taken.has(o)) label = o; }
+      taken.add(label); labels[c] = label; });
     return { mocs: out, bridges, labels, detail };
   }
   function topicParts({ T, N, graph, adj, tags, quiet, raw, dailies, terms, dismissed, today, maps, mapRules, bridgeNotes, knowledge, hubDegree, personLinks }) {

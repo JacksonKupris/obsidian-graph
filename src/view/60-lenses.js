@@ -517,7 +517,7 @@
       const only = mine.filter(x => !theirs.has(x));
       return `<div class="vg-dp-side"><button class="vg-item" data-id="${esc(id)}"><span class="vg-item-main"><span>${esc(n.name)}</span><span class="vg-item-sub">${esc(n.folder || "/")} · ${n.words || 0} words · ${n.age}d since edit · ${n.inlinks} links in</span></span></button>
         <div class="vg-item-sub">${other ? `${plural(only.length, "link")} the other doesn't have` : plural(mine.length, "link")}${only.length ? ": " + only.slice(0, 6).map(x => esc(byId[x].name)).join(", ") + (only.length > 6 ? "…" : "") : ""}</div></div>`; };
-    return `<p class="vg-muted vg-lens-note">Pairs that look like the same note. Each side lists the links only it has, so nothing is lost when you merge. Merging is up to you — this only shows them side by side.</p>
+    return `<p class="vg-muted vg-lens-note">Pairs that look like the same note. Each side lists the links only it has, so you can see what a merge would need to carry over. This only shows them side by side.</p>
       ${VGParts.list(pairs.map(p => `<div class="vg-dp"><div class="vg-dp-why">${esc(p.why)}</div><div class="vg-dp-pair">${side(p.a, p.b)}${p.b ? side(p.b, p.a) : ""}</div>
         <div class="vg-sugg-acts">${opts.openNote && p.b ? `<button class="vg-btn vg-btn-sm" data-openboth="${esc(p.a)}|${esc(p.b)}">${icon("open", 12)} Open both</button>` : ""}
         ${opts.dismissPair && p.b ? `<button class="vg-btn vg-btn-sm" data-notdup="${esc(p.a)}|${esc(p.b)}">Not duplicates</button>` : ""}</div></div>`), { first: 5, word: "pairs" })}`;
@@ -577,7 +577,7 @@
     const deadEnds = ns.filter(n => !n.inlinks && (n.outlinks || 0) >= 3).sort((a, b) => b.outlinks - a.outlinks);
     const sec = (title, n, hint, rows, empty) => lensSec(title, rows, { count: n, hint, empty, word: "more" });
     return sec("Named, never linked", said.length, "Your dailies mention these by name without a link, so the graph can't see the connection.",
-        said.map(([id, k]) => `<div class="vg-sugg">${noteRow(id, `named ${plural(k, "time")} without a link`)}${fixSlot(id, "unlinked-mentions")}</div>`), DATA.engine ? "This needs the analysis, which this vault doesn't have yet." : "Every mention is linked.") +
+        said.map(([id, k]) => `<div class="vg-sugg">${noteRow(id, `named in ${plural(k, "daily note")}, never linked`)}${fixSlot(id, "unlinked-mentions")}</div>`), DATA.engine ? "This needs the analysis, which this vault doesn't have yet." : "Every mention is linked.") +
       sec("Topics gone quiet", quiet.length, `Topics of 5+ notes your dailies haven't touched in ${DATA.recent_days} days. Finished, or forgotten?`,
         quiet.map(x => topicLine(x.c.id, `${x.size} notes · newest edit ${x.age}d ago`)), "Every topic came up recently.") +
       sec("Topics no map covers", unmapped.length, "Without a map, these are only reachable by search or by luck.",

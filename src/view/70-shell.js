@@ -123,7 +123,8 @@
     if (palMode && palMode.pickFor && it.kind === "note") { const b = cos.bodies.find(x => x.id === palMode.pickFor); palMode = null; if (b) { b.target = it.id; cosmosCapture(); persistSoon(); alpha = Math.max(alpha, 0.5); selectBody(b.id); } return; }
     if (palMode && it.kind === "note") { findPath(palMode.pathFrom, it.id); palMode = null; return; }
     if (it.kind === "saved") applySaved(savedViews[it.i]);
-    else if (it.kind === "cluster") focusClusters([it.c]); else reveal(it.id);
+    else if (it.kind === "cluster") focusClusters([it.c]);
+    else { reveal(it.id); const box = $(".vg-inspector"); if (!box.hidden) { st.opener = cv; box.tabIndex = -1; box.focus({ preventScroll: true }); } }   // chosen from the keyboard: focus goes into the panel and back to the graph on close (carryFocus)
   }
 
   // ---------------------------------------------------------------- path finder
@@ -558,7 +559,9 @@
   updateGameSoon();
   setTimeout(() => { if (!destroyed) { renderToday(); } }, 400);
   const viewAtOpen = st.view;
-  if (!opts.compact && opts.store && !tourSeen) setTimeout(() => { if (!destroyed && W && !lastInteract && st.view === viewAtOpen && $(".vg-lens").hidden) startTour(); }, 1800);   // not over something the person already began   // once, on first open
+  let began = false;   // a click or key anywhere in the viewer (a card, a panel, search) is the person starting; the tour stays out of the way
+  ["pointerdown", "keydown"].forEach(t => root.addEventListener(t, () => { began = true; }, true));
+  if (!opts.compact && opts.store && !tourSeen) setTimeout(() => { if (!destroyed && W && !began && !lastInteract && st.view === viewAtOpen && $(".vg-lens").hidden && $(".vg-palette").hidden) startTour(); }, 1800);   // not over something the person already began   // once, on first open
   if (opts.sharedStore && !opts.compact) opts.sharedStore.load().then(sh => {   // the vault copy wins: it's what other devices wrote
     if (!sh || sh.v !== 1 || destroyed) return;
     if (Array.isArray(sh.saved)) savedViews = sh.saved;

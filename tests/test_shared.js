@@ -28,6 +28,7 @@ assert.strictEqual(S.shortDate(""), ""); assert.strictEqual(S.shortDate("not a d
 // a gap between two topics, in words: "only" only when links really are fewer than the co-mentions (persona pass: "0 co-mentions, only 21 links" read as a gap for the best-linked pair)
 assert.strictEqual(S.gapWhy({ comentions: 12, links: 3 }), "12 co-mentions in your dailies, only 3 links");
 assert.strictEqual(S.gapWhy({ comentions: 4, links: 1 }), "4 co-mentions in your dailies, only 1 link");
+assert.strictEqual(S.gapWhy({ comentions: 12, links: 0 }), "12 co-mentions in your dailies, no links between them yet");
 assert.strictEqual(S.gapWhy({ comentions: 5, links: 40 }), "5 co-mentions in your dailies, 40 links");
 assert.strictEqual(S.gapWhy({ comentions: 0, links: 21 }), "related by shared tags, 21 links");
 assert.strictEqual(S.plural(1, "note"), "1 note"); assert.strictEqual(S.plural(2, "note"), "2 notes"); assert.strictEqual(S.plural(2, "person", "people"), "2 people");

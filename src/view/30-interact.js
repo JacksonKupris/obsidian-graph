@@ -344,6 +344,7 @@
     else if (!$(".vg-picker").hidden) { closeMenu(); $(".vg-displaysel").focus(); }
     else if (!$(".vg-lens").hidden) closeLens();
     else if (typingIn) { typingIn.blur(); return 2; }
+    else if (replay) stopTime();
     else if (st.lasso) setLassoMode(false);
     else if (st.placing) { st.placing = null; root.classList.remove("is-placing"); $$(".vg-dockbtn").forEach(x => x.setAttribute("aria-pressed", "false")); dirty = true; }
     else if (st.body) { st.body = null; $(".vg-inspector").hidden = true; root.classList.remove("has-inspector"); dirty = true; }
@@ -380,7 +381,7 @@
     { keys: ["Enter"], label: "Open the selected note (Ctrl+Enter: in a new tab)", match: e => e.key === "Enter", when: () => st.selected && opts.openNote && !special(byId[st.selected]), run: e => opts.openNote(st.selected, e.ctrlKey || e.metaKey) },
     { keys: ["F"], label: "Focus on the selected note and its neighbours", when: () => st.selected, run: () => enterFocus(st.selected) },
     { keys: ["Arrows"], label: "Move to the linked note in that direction (nothing selected: pan)", prevent: true, match: e => e.key.startsWith("Arrow") && !(st.ship && isCosmos()), run: e => walk(e.key) },
-    { keys: ["Tab", "Shift Tab"], label: "Next or previous linked note", prevent: true, match: e => e.key === "Tab", when: () => st.selected, run: e => cycleNeighbour(e.shiftKey ? -1 : 1) },
+    { keys: ["Tab", "Shift Tab"], label: "Next or previous linked note", prevent: true, match: e => e.key === "Tab" && (e.target === cv || e.target === root || e.target === document.body), when: () => st.selected, run: e => cycleNeighbour(e.shiftKey ? -1 : 1) },
     { keys: ["+", "−"], label: "Zoom in or out", match: e => "+=-_".includes(e.key) && e.key.length === 1, run: e => zoomBy("+=".includes(e.key) ? 1.25 : 0.8) },
     { keys: ["0"], label: "Fit everything on screen", run: () => fit(neural() ? n => !special(n) : null) },
     { keys: ["M"], label: "Choose a view", prevent: true, run: () => { const v = $(".vg-viewsel"); v.focus(); if (v.showPicker) try { v.showPicker(); } catch (e) {} } },
@@ -484,10 +485,18 @@
 
   // ---------------------------------------------------------------- confirm dialog + discovery log
   // Every action that writes to the vault asks here first (an in-app dialog: works the same on phones).
+  // Tab stays inside an open dialog: from the last control it goes to the first, and back
+  function trapTab(box, e) {
+    if (e.key !== "Tab") return;
+    const f = [...box.querySelectorAll("button, input, select, textarea, [tabindex]")].filter(x => !x.disabled && x.tabIndex >= 0);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey ? document.activeElement === first || !box.contains(document.activeElement) : document.activeElement === last || !box.contains(document.activeElement)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+  }
   function confirmBox(title, body, okLabel, input, o = {}) {   // o.only: one button (a sheet to read, nothing to cancel)
     return new Promise(resolve => {
       const box = document.createElement("div"); box.className = "vg-confirm";
-      box.innerHTML = `<div class="vg-confirm-box" role="dialog" aria-modal="true"><b class="vg-confirm-title">${esc(title)}</b>
+      box.innerHTML = `<div class="vg-confirm-box" role="dialog" aria-modal="true" aria-label="${esc(title)}"><b class="vg-confirm-title">${esc(title)}</b>
         <div class="vg-confirm-body">${body}</div>${input ? `<textarea class="vg-input vg-confirm-input" rows="3" placeholder="${esc(input)}"></textarea>` : ""}
         <div class="vg-confirm-acts">${o.only ? "" : `<button class="vg-btn vg-btn-ghost" data-c="no">Cancel</button>`}<button class="vg-btn vg-btn-primary" data-c="ok">${esc(okLabel || "Do it")}</button></div></div>`;
       root.appendChild(box);
@@ -495,7 +504,7 @@
       if (!o.only) box.querySelector('[data-c="no"]').onclick = () => done(false);
       box.querySelector('[data-c="ok"]').onclick = () => { const ta = box.querySelector("textarea"); if (ta && !ta.value.trim()) { ta.focus(); return; } done(ta ? ta.value.trim() : true); };
       box.onclick = e => { if (e.target === box) done(false); };
-      box.onkeydown = e => { if (e.key === "Escape") { e.stopPropagation(); done(false); } };
+      box.onkeydown = e => { trapTab(box, e); if (e.key === "Escape") { e.stopPropagation(); done(false); } };
       (box.querySelector("textarea") || box.querySelector('[data-c="ok"]')).focus({ preventScroll: true });   // a long body opens at its top
     });
   }
@@ -506,7 +515,7 @@
       const ctl = f => f.type === "select" ? `<select class="vg-input" data-k="${f.k}">${f.options.map(o => { const [v, t] = [].concat(o); return `<option value="${esc(v)}"${v === f.value ? " selected" : ""}>${esc(t || v)}</option>`; }).join("")}</select>`
         : `<input class="vg-input" data-k="${f.k}" type="${f.type === "color" ? "color" : "text"}" value="${esc(f.value || "")}"${f.hint ? ` placeholder="${esc(f.hint)}"` : ""}${f.required ? " required" : ""}>`;
       const box = document.createElement("div"); box.className = "vg-confirm";
-      box.innerHTML = `<div class="vg-confirm-box vg-form" role="dialog" aria-modal="true"><b class="vg-confirm-title">${esc(title)}</b>
+      box.innerHTML = `<div class="vg-confirm-box vg-form" role="dialog" aria-modal="true" aria-label="${esc(title)}"><b class="vg-confirm-title">${esc(title)}</b>
         ${rows.map(r => `<div class="vg-form-row">${r.map(f => `<label class="vg-form-f${f.type === "color" ? " is-colour" : ""}"><span>${esc(f.label)}</span>${ctl(f)}</label>`).join("")}</div>`).join("")}
         <div class="vg-form-err" hidden></div>
         <div class="vg-confirm-acts"><button class="vg-btn vg-btn-ghost" data-c="no">Cancel</button><button class="vg-btn vg-btn-primary" data-c="ok">${esc(okLabel || "Save")}</button></div></div>`;
@@ -517,7 +526,7 @@
         const empty = [...box.querySelectorAll("[required]")].find(x => !x.value.trim()); if (empty) { empty.focus(); return; }
         done(Object.fromEntries([...box.querySelectorAll("[data-k]")].map(x => [x.dataset.k, x.value.trim()]))); };
       box.onclick = e => { if (e.target === box) done(null); };
-      box.onkeydown = e => { if (e.key === "Escape") { e.stopPropagation(); done(null); } if (e.key === "Enter" && e.target.tagName === "INPUT") box.querySelector('[data-c="ok"]').click(); };
+      box.onkeydown = e => { trapTab(box, e); if (e.key === "Escape") { e.stopPropagation(); done(null); } if (e.key === "Enter" && e.target.tagName === "INPUT") box.querySelector('[data-c="ok"]').click(); };
       box.querySelector("input, select").focus();
     });
   }
