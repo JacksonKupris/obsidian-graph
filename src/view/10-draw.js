@@ -176,7 +176,7 @@
         y += dy;
         ctx.globalAlpha = litSet && !g.lit ? 0.15 : 0.9;
         ctx.lineWidth = 4; ctx.strokeStyle = bg; ctx.strokeText(name, x, y);
-        ctx.fillStyle = colorOf(+c); ctx.fillText(name, x, y);
+        ctx.fillStyle = VGShared.inkOn(colorOf(+c), bg); ctx.fillText(name, x, y);
       }
       ctx.globalAlpha = 1;
     }

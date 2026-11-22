@@ -577,10 +577,18 @@
   }
 
   // ---------------------------------------------------------------- legend + status + HUD + toasts
+  // a glyph's colour is picked for the scene it names, not for the page behind the legend: each one is moved only as far as it takes to read there
+  function inkLegend() {
+    const lg = $(".vg-legend"); let bg = null;
+    for (let e = lg; e && !bg; e = e.parentElement) { const c = getComputedStyle(e).backgroundColor, m = c.match(/[0-9.]+/g); if (m && m.length >= 3 && (m[3] === undefined || +m[3] > 0.6)) bg = c; }
+    bg = bg || css("--vg-bg") || "#ffffff";
+    lg.querySelectorAll("b, span, i").forEach(e => { if (e.style.color && e.textContent.trim()) e.style.color = VGShared.inkOn(getComputedStyle(e).color, bg); });
+  }
   function renderLegend() {
     if (mapView()) {
       const item = (sw, t) => `<span class="vg-lg-item">${sw}${t}</span>`;
       $(".vg-legend").innerHTML = (SCENES[st.view].legend ? SCENES[st.view].legend(item) : "") + (SCENES[st.view].lib ? "" : attentionLegend());
+      inkLegend();
       return;
     }
     const sizeWord = { bc: "routes through it", recent: "daily mentions" }[st.sizeBy];
