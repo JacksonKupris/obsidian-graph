@@ -18,5 +18,11 @@ Made-up users work through the real graph page and report where they were blocke
 ## Personas
 `.claude/agents/persona-*.md`: first-timer, phone user, power user at scale, keyboard and screen-reader user, careful skeptic, new vault owner.
 
+## Coverage
+`node scripts/persona_plan.js` reads the page's own view list (scenes, lenses, views) and writes who looks at which view to `.out/persona-plan.md`. Every view goes to the phone and keyboard personas, plus others by kind, so a view added later is covered without editing a list. `tests/test_persona_plan.js` fails if a view has fewer than three personas or a named persona has no agent file. `tests/audit_views.js` runs the same list mechanically.
+
+## Whole-plugin and release personas
+`persona-integration` follows one note, number or action across every view, panel and sidebar and reports where the pieces disagree or lose state. `persona-release` installs, upgrades and rolls back from a GitHub release on a clean computer and ends with a ranked list of how the release path could improve. Run both before a release, with the user personas.
+
 ## Design personas
 Four personas look at the work as designers rather than as users: `persona-design-hierarchy` (what the eye sees first, spacing, alignment, consistency), `persona-design-type-color` (type scale, contrast, colour meaning, both themes), `persona-design-motion-feel` (feedback, transitions, states, stacking) and `persona-design-first-impression` (does it look finished and its own). They measure with getComputedStyle and screenshots rather than opinion, so each finding can become a test (a contrast ratio, a size scale, a count of variants, an alignment tolerance). Run them with the user personas before a release that changes what people see.
