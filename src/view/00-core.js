@@ -33,10 +33,10 @@
 function mountVaultGraph(root, DATA, opts) {
   opts = opts || {};
   // Flexoki, its two strengths of each hue: readable on both of its backgrounds, and at home in the vault's theme
-  const PALETTE = ["#4385BE", "#879A39", "#DA702C", "#8B7EC8", "#3AA99F", "#D14D41", "#D0A215", "#CE5D97",
-                   "#205EA6", "#66800B", "#BC5215", "#5E409D", "#24837B", "#AF3029", "#AD8301", "#A02F6F"];
-  const NEON = ["#38bdf8", "#4ade80", "#fb923c", "#c084fc", "#22d3ee", "#f87171", "#facc15", "#f472b6",
-                "#818cf8", "#34d399", "#fbbf24", "#a78bfa", "#2dd4bf", "#fb7185", "#a3e635", "#e879f9"];
+  const PALETTE = ["#4385BE", "#879A39", "#DA702C", "#8B7EC8", "#3AA99F", "#9A7B4F", "#D0A215", "#CE5D97",
+                   "#205EA6", "#66800B", "#BC5215", "#5E409D", "#24837B", "#6B7F8C", "#AD8301", "#A02F6F"];
+  const NEON = ["#38bdf8", "#4ade80", "#fb923c", "#c084fc", "#22d3ee", "#d4a574", "#facc15", "#f472b6",
+                "#818cf8", "#34d399", "#fbbf24", "#a78bfa", "#2dd4bf", "#8fb8a0", "#a3e635", "#e879f9"];
   // One settings object for what the renderer's views, scenes and panels share: colours that carry a meaning, timings
   // and sizes. A part reads these instead of its own literal, so a change (the selection colour, how long a toast
   // stays) is made once. Topic colours are PALETTE / NEON above.
