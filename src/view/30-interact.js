@@ -80,6 +80,7 @@
     cv.width = Math.max(1, Math.round(W * dpr)); cv.height = Math.max(1, Math.round(H * dpr));
     cv.style.width = W + "px"; cv.style.height = H + "px";
     if (fitted && !cam.userMoved) fit(lastFit, 0);   // keep the framing until the user pans/zooms
+    if (W && fitted) { draw(performance.now()); dirty = false; }   // a resize clears the canvas: drawn again before the browser paints, or one empty frame shows
     dirty = true; kick();
   };
   const ro = new ResizeObserver(sizeCanvas);
