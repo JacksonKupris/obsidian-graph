@@ -583,6 +583,8 @@
     for (let e = lg; e && !bg; e = e.parentElement) { const c = getComputedStyle(e).backgroundColor, m = c.match(/[0-9.]+/g); if (m && m.length >= 3 && (m[3] === undefined || +m[3] > 0.6)) bg = c; }
     bg = bg || css("--vg-bg") || "#ffffff";
     lg.querySelectorAll("b, span, i").forEach(e => { if (e.style.color && e.textContent.trim()) e.style.color = VGShared.inkOn(getComputedStyle(e).color, bg); });
+    // a filled dot is a shape, not text: it needs 3:1
+    lg.querySelectorAll("i[style*=background]").forEach(e => { e.style.background = VGShared.inkOn(getComputedStyle(e).backgroundColor, bg, 3); });
   }
   function renderLegend() {
     if (mapView()) {
