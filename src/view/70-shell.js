@@ -558,7 +558,9 @@
   updateGameSoon();
   setTimeout(() => { if (!destroyed) { renderToday(); } }, 400);
   const viewAtOpen = st.view;
-  if (!opts.compact && opts.store && !tourSeen) setTimeout(() => { if (!destroyed && W && !lastInteract && st.view === viewAtOpen && $(".vg-lens").hidden) startTour(); }, 1800);   // not over something the person already began   // once, on first open
+  let began = false;   // a click or key anywhere in the viewer (a card, a panel, search) is the person starting; the tour stays out of the way
+  ["pointerdown", "keydown"].forEach(t => root.addEventListener(t, () => { began = true; }, true));
+  if (!opts.compact && opts.store && !tourSeen) setTimeout(() => { if (!destroyed && W && !began && !lastInteract && st.view === viewAtOpen && $(".vg-lens").hidden && $(".vg-palette").hidden) startTour(); }, 1800);   // not over something the person already began   // once, on first open
   if (opts.sharedStore && !opts.compact) opts.sharedStore.load().then(sh => {   // the vault copy wins: it's what other devices wrote
     if (!sh || sh.v !== 1 || destroyed) return;
     if (Array.isArray(sh.saved)) savedViews = sh.saved;
