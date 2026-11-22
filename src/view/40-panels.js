@@ -149,7 +149,7 @@
     if (byId[id] && !baseVisible(byId[id])) setLayer("mocs", true);
     focusClusters(m.clusters);
     setHighlight(new Set([...miss, id]), `${m.title} · ${miss.size} not in the map`);
-    select(id);
+    select(id); st.highlightTied = id;   // one gesture made both, so one Escape undoes both
   }
   function renderInsights() {
     const { linked, unlinked: iso } = VGRules.noteCounts(nodes);
@@ -646,7 +646,7 @@
     el.querySelectorAll("[data-open]").forEach(d => d.onclick = e => { e.stopPropagation(); if (opts.openNote) opts.openNote(d.dataset.open, e.ctrlKey || e.metaKey); });
   }
   function setHighlight(set, labelText) { st.highlight = set; st.highlightLabel = labelText; if (isCosmos() && set && !st.paused) setPaused(true, true); renderStatus(); dirty = true; kick(); }
-  function clearHighlight() { if (st.autoPaused && !st.selected) setPaused(false); st.highlight = null; st.highlightLabel = null; markLists(); renderStatus(); dirty = true; kick(); }
+  function clearHighlight() { st.highlightTied = null; if (st.autoPaused && !st.selected) setPaused(false); st.highlight = null; st.highlightLabel = null; markLists(); renderStatus(); dirty = true; kick(); }
   function focusClusters(ids) {
     ids.forEach(c => st.hiddenClusters.delete(c));
     closeDrawer();
