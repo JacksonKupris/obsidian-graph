@@ -12,6 +12,9 @@ const VGSharedMake = () => {
   const baseOf = p => String(p == null ? "" : p).split("/").pop();
   const nameOf = p => baseOf(p).replace(/\.md$/i, "");
   const plural = (n, word, words) => `${n} ${n === 1 ? word : words || word + "s"}`;
+  // why two topics are a gap, in words (one rule for the bar, the sidebar, the matrix and the reports). "only" when the links really are fewer than
+  // the co-mentions; a pair with no co-mentions is there for its shared tags and says so, never "only".
+  const gapWhy = g => g.comentions ? `${g.comentions} co-mentions in your dailies, ${g.links < g.comentions ? "only " : ""}${plural(g.links, "link")}` : `related by shared tags, ${plural(g.links, "link")}`;
   // note text with each [[link|alias]] as its alias and each [[link]] as its name, and without its frontmatter
   const plainLinks = s => String(s).replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1");
   const stripFrontmatter = s => String(s).replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
@@ -49,6 +52,6 @@ const VGSharedMake = () => {
   const scopeOf = s => ({ folder: String((s && s.folder) || "").trim().replace(/^\/+|\/+$/g, ""), tag: String((s && s.tag) || "").trim().replace(/^#/, "").toLowerCase(), path: String((s && s.path) || "").trim() });
   const scopeHas = (scope, path, tags) => { const { folder, tag, path: only } = scopeOf(scope);   // path: exactly one note
     return (!only || path === only) && (!folder || path.startsWith(folder + "/")) && (!tag || (tags || []).map(t => String(t).replace(/^#/, "").toLowerCase()).some(t => t === tag || t.startsWith(tag + "/"))); };
-  return { scopeOf, scopeHas, escapeHtml, escapeRegex, baseOf, nameOf, plural, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, shortDate, canUseWorker, inWorker, offThread };
+  return { scopeOf, scopeHas, escapeHtml, escapeRegex, baseOf, nameOf, plural, gapWhy, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, shortDate, canUseWorker, inWorker, offThread };
 };
 const VGShared = VGSharedMake();

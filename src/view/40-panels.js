@@ -23,7 +23,7 @@
   const groupHtml = (c, ms, open) => VGParts.more({ cls: "vg-group", open, head: `<span class="vg-dot" style="background:${colorOf(+c)}"></span>${esc(clusterName(+c))}`, count: ms.length, body: ms.map(m => noteRow(m)).join("") });
   const sideList = (rows, word = "notes") => VGParts.list(rows, { first: 5, word });
   const card = (title, hint, body) => `<div class="vg-card"><div class="vg-card-h"><span>${title}</span>${hint ? `<span class="vg-muted vg-card-hint">${hint}</span>` : ""}</div>${body}</div>`;
-  const gapRow = g => `<div class="vg-gaprow">${VGParts.item({ cls: "vg-gap", attrs: `data-a="${g.a}" data-b="${g.b}"`, lead: `<span class="vg-dots"><span class="vg-dot" style="background:${colorOf(g.a)}"></span><span class="vg-dot" style="background:${colorOf(g.b)}"></span></span>`, title: `<span>${esc(clusterName(g.a))} <span class="vg-muted">↔</span> ${esc(clusterName(g.b))}</span>`, sub: `${g.comentions} co-mentions · only ${plural(g.links, "link")}` })}
+  const gapRow = g => `<div class="vg-gaprow">${VGParts.item({ cls: "vg-gap", attrs: `data-a="${g.a}" data-b="${g.b}"`, lead: `<span class="vg-dots"><span class="vg-dot" style="background:${colorOf(g.a)}"></span><span class="vg-dot" style="background:${colorOf(g.b)}"></span></span>`, title: `<span>${esc(clusterName(g.a))} <span class="vg-muted">↔</span> ${esc(clusterName(g.b))}</span>`, sub: VGShared.gapWhy(g) })}
       ${opts.writeNote ? `<button class="vg-ibtn vg-bridgebtn" data-a="${g.a}" data-b="${g.b}" title="Draft a bridge note for this gap" aria-label="Draft bridge note">${icon("bridge", 15)}</button>` : ""}</div>`;
   const wordFor = (n, one, many) => plural(n, one, many).replace(/^\S+ /, "");   // the word alone, for when the number sits apart from it
   function renderChanges() {
@@ -178,8 +178,7 @@
       all: () => fit(),
       topics: () => (setTab("clusters"), true),   // true: what it opens is in this panel, so a phone's drawer stays open
       gaps: () => openLens("matrix"),
-      unlinked: () => { const ids = new Set(nodes.filter(n => n.isolated && !special(n)).map(n => n.id)); if (!ids.size) return;
-        st.isolated = true; $(".vg-isolated").checked = true; rebuild(true); setHighlight(ids, plural(ids.size, "unlinked note")); fit(n => ids.has(n.id), 400); },
+      unlinked: () => openLens("blind"),   // the list, each with its fix; Islands is every note with no links
     };
     panel.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { if (!STAT_GO[b.dataset.stat]()) closeDrawer(); });
     panel.querySelectorAll(".vg-maprow").forEach(e => e.onclick = () => showMocMissing(e.dataset.moc));
