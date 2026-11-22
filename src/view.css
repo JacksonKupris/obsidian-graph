@@ -1014,15 +1014,8 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-root.is-mobile .vg-sel { height: 44px; font-size: var(--ds-fs-lg); }
 .vg-picker .vg-picker-q { display: none; }
 .vg-root.is-mobile .vg-sels { gap: 4px; }
-.vg-root.is-mobile .vg-viewsel { max-width: 70px; }
-.vg-root.is-mobile .vg-displaysel { max-width: 56px; }
-.vg-root.is-mobile .vg-toolsel { max-width: 46px; }
 .vg-root.is-mobile .vg-sel { padding: 0 2px; font-size: var(--ds-fs-md); }
 .vg-root.is-mobile .vg-displaysel { display: none; }
-.vg-root.is-mobile .vg-viewsel { max-width: 96px; }
-.vg-root.is-mobile .vg-toolsel { max-width: 62px; }
-.vg-root.is-mobile .vg-viewsel { max-width: 72px; }
-.vg-root.is-mobile .vg-toolsel { max-width: 52px; }
 @container vg (max-width: 760px) { .vg-displaysel { display: none; } }
-.vg-root.is-mobile .vg-viewsel { max-width: 64px; }
+.vg-root.is-mobile .vg-viewsel { max-width: 112px; }   /* wide enough for the longest view name ("Topic river") */
 .vg-root.is-mobile .vg-toolsel { max-width: 36px; text-align: center; }
