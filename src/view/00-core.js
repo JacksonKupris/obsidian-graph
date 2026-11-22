@@ -375,6 +375,7 @@ function mountVaultGraph(root, DATA, opts) {
       </section>
       <div class="vg-tip" role="tooltip"></div>
       <div class="vg-legend" aria-label="Legend"></div>
+      <button class="vg-btn vg-btn-sm vg-legend-key" aria-expanded="false" title="What the colours and shapes mean">Key</button>
       <div class="vg-status" aria-live="polite"></div>
       <div class="vg-toasts" aria-live="polite"></div>
     </main>

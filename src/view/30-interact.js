@@ -334,6 +334,8 @@
   root.ownerDocument.addEventListener("visibilitychange", onHidden);   // all three removed in destroy()
   holdKeys({ up: k => { const d = SCENES[st.view]; if (d && d.key) d.key(k, false); },
     all: () => Object.values(SCENES).forEach(d => d.release && d.release()) });
+  function setLegendOpen(on) { root.classList.toggle("legend-open", on); $(".vg-legend-key").setAttribute("aria-expanded", String(on)); }
+  $(".vg-legend-key").onclick = () => setLegendOpen(!root.classList.contains("legend-open"));
   // One step back: closes the topmost layer. Escape runs it, and so does a phone's back gesture (handle.back). Returns 1 when
   // it closed something, 2 when it only left a text field (the key goes on to the host), 0 when there was nothing to close.
   function goBack(typingIn) {
@@ -342,6 +344,7 @@
     if (dialog) { (dialog.querySelector('[data-c="no"]') || dialog.querySelector('[data-c="ok"]')).click(); return 1; }
     if ($(".vg-lens").hidden && SCENES[st.view] && SCENES[st.view].escape && SCENES[st.view].escape()) return 1;
     if (tour) endTour();
+    else if (root.classList.contains("legend-open")) setLegendOpen(false);
     else if (!$(".vg-palette").hidden) { closePalette(); }
     else if (!$(".vg-picker").hidden) { closeMenu(); $(".vg-displaysel").focus(); }
     else if (!$(".vg-lens").hidden) closeLens();
