@@ -635,7 +635,7 @@
   }
   // undo (optional): an Undo button on the toast, which then stays up longer
   function toast(msg, kind, undo) {
-    if (opts.compact && !kind) return;   // explanatory toasts are noise in a card or embed; results and warnings still show
+    if ((opts.compact || tour) && !kind) return;   // explanatory toasts are noise in a card or embed, and sit on the tour card; results and warnings still show
     const el = document.createElement("div");
     el.className = `vg-toast ${kind ? "is-" + kind : ""}`; el.textContent = msg;
     if (undo) {
