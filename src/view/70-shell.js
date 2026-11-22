@@ -238,6 +238,8 @@
   $(".vg-displaysel").onchange = e => { const v = e.target.value; e.target.value = ""; chooseDisplay(v); syncSelects(); };
   $(".vg-toolsel").onchange = e => { const v = e.target.value; e.target.value = ""; if (v === "hprev" || v === "hundo" || v === "hredo") { const b = document.createElement("button"); b.setAttribute("data-" + v, ""); VGActions.history.press(b, showDecided); } else if (/^(preset|panel):/.test(v)) chooseDisplay(v); else if (v) runTool(v); syncSelects(); };
   const sheetMode = () => MOBILE || root.clientWidth < 760;
+  // the Tools select holds Display below 760px (the Display select is hidden there), so it is rebuilt when the width crosses that line
+  { let was = sheetMode(); if (typeof ResizeObserver === "function") new ResizeObserver(() => { const now = sheetMode(); if (now !== was) { was = now; syncSelects(); } }).observe(root); }
   let pickTab = null;
   function pickItems() {
     const out = [];
