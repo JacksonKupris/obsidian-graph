@@ -16,14 +16,19 @@ const VGRelease = (() => {
   const missing = release => FILES.filter(f => !assetUrls(release)[f]);
   // what is wrong with a release's downloaded files, or null when they are what the release says: all three present, the
   // manifest the tag's version and (when ownId is given) this plugin's, and a main.js that is code rather than an error page
-  const problem = (release, files, ownId) => {
+  // appVersion (the Obsidian running, when known) is held to the release's minAppVersion, so no path installs a release the app can't load
+  const problem = (release, files, ownId, appVersion) => {
     const gone = FILES.filter(f => typeof (files || {})[f] !== "string" || !files[f].trim());
     if (gone.length) return `release ${release.tag_name} has no ${gone.join(", ")}`;
     let man; try { man = JSON.parse(files["manifest.json"]); } catch (e) { return `release ${release.tag_name}'s manifest.json isn't JSON`; }
     if (man.version !== release.tag_name) return `release ${release.tag_name} carries manifest ${man.version}`;
     if (ownId && man.id !== ownId) return `release ${release.tag_name} is plugin "${man.id}", not "${ownId}"`;
     if (!/module\.exports/.test(files["main.js"])) return `release ${release.tag_name}'s main.js isn't a plugin`;
+    if (appVersion && man.minAppVersion && newer(man.minAppVersion, appVersion)) return `release ${release.tag_name} needs Obsidian ${man.minAppVersion} (this is ${appVersion})`;
     return null;
   };
-  return { REPO, FILES, newer, assetUrls, missing, problem };
+  // installing an older release while Update automatically is on: the plugin installs the latest again at its next check
+  const rollbackNote = (installed, latest, autoUpdate) => latest && autoUpdate && newer(latest, installed)
+    ? `${latest} is the latest release, and Update automatically will install it again: turn that off in Settings > Vault Graph to stay on ${installed}` : null;
+  return { REPO, FILES, newer, assetUrls, missing, problem, rollbackNote };
 })();

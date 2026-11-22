@@ -17,7 +17,7 @@ class VaultGraphUpdater {
     if (gone.length) throw new Error(`release ${rel.tag_name} has no ${gone.join(", ")}`);
     const files = {};
     for (const f of VGRelease.FILES) files[f] = (await requestUrl({ url: urls[f] })).text;
-    const bad = VGRelease.problem(rel, files, this.plugin.manifest.id);
+    const bad = VGRelease.problem(rel, files, this.plugin.manifest.id, apiVersion);   // apiVersion: the Obsidian running; a release that needs a newer one is refused
     if (bad) throw new Error(bad);
     const ad = this.plugin.app.vault.adapter, dir = this.plugin.manifest.dir;
     for (const f of VGRelease.FILES) await ad.write(`${dir}/${f}.new`, files[f]);
