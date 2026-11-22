@@ -6,7 +6,7 @@ const fs = require("fs"), path = require("path");
 const { openPage } = require("../tests/kit"), env = require("../tests/env");
 
 // Every view: the two personas who test what every view must do. Then by kind, who adds a different angle.
-const ALL = ["persona-phone", "persona-keyboard"];
+const ALL = ["persona-phone", "persona-keyboard", "persona-bewildered"];
 const BY_KIND = {
   scene: ["persona-first-timer", "persona-design-motion-feel", "persona-design-first-impression"],
   lens: ["persona-skeptic", "persona-findability", "persona-architect", "persona-power-user", "persona-design-hierarchy"],

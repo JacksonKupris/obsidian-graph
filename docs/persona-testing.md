@@ -16,7 +16,7 @@ Made-up users work through the real graph page and report where they were blocke
 - After a result or an empty state, there is a next step.
 
 ## Personas
-`.claude/agents/persona-*.md`: first-timer, phone user, power user at scale, keyboard and screen-reader user, careful skeptic, new vault owner, information architect (`persona-architect`: names, grouping, one way to do each thing) and vault administrator (`persona-admin`: bulk work, trusted numbers, undo, upgrades).
+`.claude/agents/persona-*.md`: first-timer, phone user, power user at scale, keyboard and screen-reader user, careful skeptic, new vault owner, information architect (`persona-architect`: names, grouping, one way to do each thing), the bewildered newcomer (`persona-bewildered`: what is this screen, why is this item here, what do I do; run on every view) and vault administrator (`persona-admin`: bulk work, trusted numbers, undo, upgrades).
 
 ## Coverage
 `node scripts/persona_plan.js` reads the page's own view list (scenes, lenses, views) and writes who looks at which view to `.out/persona-plan.md`. Every view goes to the phone and keyboard personas, plus others by kind, so a view added later is covered without editing a list. `tests/test_persona_plan.js` fails if a view has fewer than three personas or a named persona has no agent file. `tests/audit_views.js` runs the same list mechanically.
