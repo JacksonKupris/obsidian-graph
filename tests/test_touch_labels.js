@@ -13,6 +13,11 @@ const { fails, ok: check } = checks();
       return bs.map(b => { const a = getComputedStyle(b, "::after"), box = b.getBoundingClientRect(); return Math.round(box.height + Math.abs(parseFloat(a.top) || 0) * 0 + (a.content !== "none" ? parseFloat(a.height) || 0 : 0)); }); })()`);
     check(r && r.length > 0, "the reactor has tappable labels to measure");
     check(r && r.every(h => h >= 40), "each label's tap area should reach 40 px (got " + JSON.stringify(r && [...new Set(r)]) + ")");
+    for (const v of ["lens:code", "lens:maptree"]) {
+      await ev(`window.vaultGraph._debug.openView("${v}")`); await sleep(1200);
+      const rows = await ev(`[...document.querySelectorAll(".vg-lens .vg-item")].filter(b => b.getBoundingClientRect().height > 0).map(b => Math.round(b.getBoundingClientRect().height))`);
+      check(rows.length > 0 && rows.every(h => h >= 40), `${v}: list rows should be at least 40 px on a phone (got ${JSON.stringify([...new Set(rows)])})`);
+    }
   } catch (e) { fails.push("crashed: " + e.message); }
   await tab.close(); finish(fails, "Scene labels have a 40 px tap area on a phone");
 })();
