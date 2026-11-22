@@ -1046,4 +1046,4 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
   .vg-toolsel { max-width: 36px; text-align: center; }
 }
 /* chart labels: the unit size fitChartText sets per chart keeps them at 11 px on screen */
-.vg-root :is(.vg-rv, .vg-st, .vg-sci-chart, .vg-rg) text { font-size: var(--chart-fs, 10px); }
+.vg-root :is(.vg-rv, .vg-st, .vg-sci-chart, .vg-rg) text { font-size: var(--chart-fs, var(--ds-fs-xs)); }
