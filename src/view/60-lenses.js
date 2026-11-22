@@ -571,7 +571,7 @@
   // islands (written but connected to nothing) and dead ends (link out, nothing links in)
   function lensBlind() {
     const ns = nodes.filter(n => !special(n) && !n.ghost);
-    const said = (DATA.said_unlinked || []).filter(([id]) => byId[id]).slice(0, 12);
+    const said = saidUnlinked;   // the same list the Insights card shows
     const quiet = DATA.clusters.map(c => { const mem = ns.filter(n => n.cluster === c.id);
       return { c, size: mem.length, recent: mem.reduce((s, n) => s + (n.recent || 0), 0), age: Math.min(...mem.map(n => n.age || 0)) }; })
       .filter(x => x.size >= 5 && !x.recent).sort((a, b) => b.size - a.size);
