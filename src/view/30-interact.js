@@ -380,7 +380,7 @@
     { keys: ["Tab", "Shift Tab"], label: "Next or previous linked note", prevent: true, match: e => e.key === "Tab", when: () => st.selected, run: e => cycleNeighbour(e.shiftKey ? -1 : 1) },
     { keys: ["+", "−"], label: "Zoom in or out", match: e => "+=-_".includes(e.key) && e.key.length === 1, run: e => zoomBy("+=".includes(e.key) ? 1.25 : 0.8) },
     { keys: ["0"], label: "Fit everything on screen", run: () => fit(neural() ? n => !special(n) : null) },
-    { keys: ["M"], label: "Choose a view", run: () => { const v = $(".vg-viewsel"); v.focus(); if (v.showPicker) try { v.showPicker(); } catch (e) {} } },
+    { keys: ["M"], label: "Choose a view", prevent: true, run: () => { const v = $(".vg-viewsel"); v.focus(); if (v.showPicker) try { v.showPicker(); } catch (e) {} } },
     { keys: ["3"], label: "Switch 2D and 3D", run: () => setDim(dimOf() === "3d" ? "2d" : "3d") },
     { keys: ["N"], label: "Neural view", run: () => setView(neural() ? "3d" : "neural") },
     { keys: ["C"], label: "Cosmos view", run: () => setView(isCosmos() ? "2d" : "cosmos") },

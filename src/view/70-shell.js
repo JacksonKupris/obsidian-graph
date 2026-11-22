@@ -195,7 +195,7 @@
   // One button, one panel (a popover under the button on wide panes, a bottom sheet on phones): tabs, big tiles, a filter
   // Everything you open is a view, grouped by what you want to know, and every one is defined once in VIEWS (20-maps.js). A view draws
   // on the canvas or opens a report beside it; that's how it's built, not something to choose between. openView is the one way to open one.
-  const openView = k => { const v = VIEWS[k]; if (!v) return; if (v.kind === "lens") openLens(v.lens); else setView(k); };
+  const openView = k => { const v = VIEWS[k]; if (!v) return; if (v.kind === "lens") openLens(v.lens); else { if (lensKey) closeLens(); setView(k); } };
   // Display = style presets + node size/colour,
   // layers, saved views; Health = the overlays
   const PICK_TABS = [["style", "Display"], ["health", "Health"]];   // the views themselves are the View select in the toolbar
