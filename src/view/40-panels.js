@@ -167,20 +167,20 @@
         sideList(saidUnlinked.slice(0, 30).map(([id, n]) => noteRow(id, `${n} daily notes`)))) : "") +
       (ghosts.length ? card("Notes to write", "linked from your notes but never created",
         sideList(ghosts.slice(0, 30).map(g => noteRow(g.id, `linked from ${plural(g.from.length, "note")}`)))) : "") +
-      (coolingHubs.length ? card("Cooling hubs", "influential, not mentioned lately",
-        sideList(coolingHubs.slice(0, 30).map(n => noteRow(n.id, `#${rankOf[n.id]} most connecting · quiet ${DATA.recent_days}+ days`)))) : "") +
+      (coolingHubs.length ? card("Cooling hubs", "well connected, not named in a daily note lately",
+        sideList(coolingHubs.slice(0, 30).map(n => noteRow(n.id, `#${rankOf[n.id]} most connecting · not in a daily note for ${DATA.recent_days} days`)))) : "") +
       `<p class="vg-muted vg-foot">Data from ${esc(DATA.date)} · ${DATA.dailies_used || "?"} daily notes since ${esc(DATA.since || "the start")}</p>`;
     const panel = $('[data-panel="insights"]');
     panel.innerHTML = html;
     wire(panel); wireNext(panel);
     panel.querySelectorAll(".vg-gap").forEach(e => e.onclick = () => focusClusters([+e.dataset.a, +e.dataset.b]));
     const STAT_GO = {
-      all: () => fit(),
+      all: () => (openPalette(), true),   // the notes themselves, most connected first
       topics: () => (setTab("clusters"), true),   // true: what it opens is in this panel, so a phone's drawer stays open
       gaps: () => openLens("matrix"),
       unlinked: () => openLens("blind"),   // the list, each with its fix; Islands is every note with no links
     };
-    panel.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { if (!STAT_GO[b.dataset.stat]()) closeDrawer(); });
+    panel.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { if (!STAT_GO[b.dataset.stat]()) closeDrawer(true); });
     panel.querySelectorAll(".vg-maprow").forEach(e => e.onclick = () => showMocMissing(e.dataset.moc));
     
     panel.querySelectorAll(".vg-unmapped").forEach(e => e.onclick = () => focusClusters([+e.dataset.c]));
@@ -268,7 +268,17 @@
     b.onclick = () => { const nid = nextNoteId(id); if (nid) select(nid); else { b.disabled = true; b.textContent = VGRules.NEXT_NOTE.empty; } };
     head.insertBefore(b, head.querySelector(".vg-ins-close"));
   }
-  function select(id) { if (!id) st.nextSeen = null; const r = selectNow(id); addNextControl(id); return r; }
+  function select(id) { if (!id) st.nextSeen = null; const r = selectNow(id); addNextControl(id); carryFocus(id); return r; }
+  // a note opening from a control (a sidebar row, a search result) takes focus into its panel; closing returns it to that control
+  function carryFocus(id) {
+    const box = $(".vg-inspector"), a = document.activeElement, seen = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.right > 0 && r.bottom > 0; };
+    if (id && !box.hidden) {
+      if (a && a !== root && a !== cv && root.contains(a) && !box.contains(a)) { st.opener = a; box.tabIndex = -1; try { box.focus({ preventScroll: true }); } catch (x) {} }
+    } else if (!id && st.opener) {
+      const o = st.opener; st.opener = null;
+      if (o.isConnected && seen(o)) { try { o.focus({ preventScroll: true }); } catch (x) {} } else { try { cv.focus({ preventScroll: true }); } catch (x) {} }
+    }
+  }
   function selectNow(id) {
     if (id && id !== st.selected) startWave(id);
     st.selected = id; dirty = true; kick();
@@ -622,7 +632,7 @@
       if (n.person) setLayer("people", true);
     }
     if (st.focusDist && !st.focusDist.has(id)) { st.focus = null; st.focusDist = null; $(".vg-focusbar:not(.vg-pathbar)").hidden = true; if (!neural()) cam.cx = cam.cy = cam.cz = 0; }
-    closeDrawer();
+    closeDrawer(true);
     rebuild(false); select(id); setTimeout(() => centreOn(id, neural() ? 1.8 : 2.5), 30);
   }
   function wire(el) {

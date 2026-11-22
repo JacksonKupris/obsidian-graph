@@ -515,7 +515,11 @@
 .vg-guide-cut del { color: var(--vg-warn); text-decoration: line-through; }
 .vg-guide-cut ins { color: var(--vg-ok); text-decoration: none; }
 .has-lens .vg-legend, .has-lens .vg-focusbar, .has-lens .vg-pathbar { display: none; }
-.is-neural .vg-lens { background: rgba(4, 14, 32, .9); color: var(--vg-hud-text); border-color: color-mix(in srgb, var(--vg-hud) 30%, transparent); }
+.is-neural .vg-lens { background: rgba(4, 14, 32, .9); color: var(--vg-hud-text); border-color: color-mix(in srgb, var(--vg-hud) 30%, transparent);
+  /* the panel is dark in either theme, so everything inside takes the dark palette (one set, not the page's) */
+  --ds-bg: #0b1424; --ds-surface: #111d33; --ds-line: rgba(125, 211, 252, .22); --ds-text: var(--vg-hud-text); --ds-muted: #a9bdd4; --ds-faint: #8ea3bd; --ds-hover: rgba(214, 236, 255, .08);
+  --ds-accent-text: var(--vg-hud-sky); --ds-accent-soft: rgba(56, 189, 248, .16);
+  --vg-raised: var(--ds-bg); --vg-panel: var(--ds-surface); --vg-fg: var(--ds-text); --vg-muted: var(--ds-muted); --vg-faint: var(--ds-faint); --vg-line: var(--ds-line); --vg-border: var(--ds-line); --vg-hover: var(--ds-hover); --vg-accent-text: var(--ds-accent-text); }
 /* matrix */
 .vg-mx-wrap { overflow: auto; }
 .vg-mx { border-collapse: separate; border-spacing: 2px; font-size: var(--vg-fs-xs); }
@@ -1010,15 +1014,9 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-root.is-mobile .vg-sel { height: 44px; font-size: var(--ds-fs-lg); }
 .vg-picker .vg-picker-q { display: none; }
 .vg-root.is-mobile .vg-sels { gap: 4px; }
-.vg-root.is-mobile .vg-viewsel { max-width: 70px; }
-.vg-root.is-mobile .vg-displaysel { max-width: 56px; }
-.vg-root.is-mobile .vg-toolsel { max-width: 46px; }
 .vg-root.is-mobile .vg-sel { padding: 0 2px; font-size: var(--ds-fs-md); }
 .vg-root.is-mobile .vg-displaysel { display: none; }
-.vg-root.is-mobile .vg-viewsel { max-width: 96px; }
-.vg-root.is-mobile .vg-toolsel { max-width: 62px; }
-.vg-root.is-mobile .vg-viewsel { max-width: 72px; }
-.vg-root.is-mobile .vg-toolsel { max-width: 52px; }
 @container vg (max-width: 760px) { .vg-displaysel { display: none; } }
-.vg-root.is-mobile .vg-viewsel { max-width: 64px; }
+.vg-root.is-mobile .vg-viewsel { max-width: 17cqw; field-sizing: content; flex: 0 1 auto; min-width: 48px; font-size: var(--ds-fs-sm); }
+.vg-root.is-mobile.has-lens .vg-viewsel { max-width: 112px; }   /* a report names itself in full: the toolbar has room while it is open */   /* wide enough for the longest view name ("Topic river") */
 .vg-root.is-mobile .vg-toolsel { max-width: 36px; text-align: center; }

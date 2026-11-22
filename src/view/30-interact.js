@@ -99,7 +99,9 @@
   // in a narrow pane the side panel is a drawer over the toolbar: anything that opens a panel or acts on the graph closes it
   // the sidebar slides over the graph on a narrow pane, and where an open note would leave the graph too little room (view.css: the same width)
   const drawerMode = () => narrow() || (root.classList.contains("has-inspector") && root.clientWidth < 1320);
-  const closeDrawer = () => { if (drawerMode()) root.classList.remove("vg-side-open"); };
+  // closeDrawer(true) is for a detail opened from the panel: Back (goBack) then brings the panel back; tapping the graph does not
+  let drawerBack = false;
+  const closeDrawer = back => { const was = root.classList.contains("vg-side-open"); if (!back) drawerBack = false; else if (was && drawerMode()) drawerBack = true; if (drawerMode()) root.classList.remove("vg-side-open"); };
 
   // ---------------------------------------------------------------- pointer (mouse, pen, touch)
   // the notes a pointer can reach: what's drawn (map views also draw unlinked notes, through mapShown)
@@ -352,6 +354,7 @@
     else if (st.highlight) clearHighlight();
     else if (root.classList.contains("vg-side-open")) root.classList.remove("vg-side-open");
     else return 0;
+    if (drawerBack) { drawerBack = false; if (drawerMode()) root.classList.add("vg-side-open"); }
     return 1;
   }
   // closing a panel, dialog or the tour removes the element that had focus, so focus falls to the page and every shortcut stops; it goes back to the graph
@@ -380,7 +383,7 @@
     { keys: ["Tab", "Shift Tab"], label: "Next or previous linked note", prevent: true, match: e => e.key === "Tab", when: () => st.selected, run: e => cycleNeighbour(e.shiftKey ? -1 : 1) },
     { keys: ["+", "−"], label: "Zoom in or out", match: e => "+=-_".includes(e.key) && e.key.length === 1, run: e => zoomBy("+=".includes(e.key) ? 1.25 : 0.8) },
     { keys: ["0"], label: "Fit everything on screen", run: () => fit(neural() ? n => !special(n) : null) },
-    { keys: ["M"], label: "Choose a view", run: () => { const v = $(".vg-viewsel"); v.focus(); if (v.showPicker) try { v.showPicker(); } catch (e) {} } },
+    { keys: ["M"], label: "Choose a view", prevent: true, run: () => { const v = $(".vg-viewsel"); v.focus(); if (v.showPicker) try { v.showPicker(); } catch (e) {} } },
     { keys: ["3"], label: "Switch 2D and 3D", run: () => setDim(dimOf() === "3d" ? "2d" : "3d") },
     { keys: ["N"], label: "Neural view", run: () => setView(neural() ? "3d" : "neural") },
     { keys: ["C"], label: "Cosmos view", run: () => setView(isCosmos() ? "2d" : "cosmos") },
@@ -468,10 +471,10 @@
   // ---------------------------------------------------------------- first-run tour
   // one short sentence per step, each about the control it points at
   const TOUR = [
-    { sel: ".vg-toolhist", title: "Previous, Undo and Redo", text: "Go back to the note of your last decision, reverse the last change, or do it again. The same history as in Vault HQ." },
     { sel: ".vg-nextbtn", title: "The next step", text: "The one thing to do now. It opens Vault HQ at that step." },
     { sel: ".vg-viewsel", title: "Views", text: "Every way of looking at the vault, grouped by what you want to know: the map, your tasks, notes that need you, topics. Some draw a picture, some open a report beside it." },
     { sel: ".vg-searchbtn", title: "Search", text: "Jump to any note, topic or saved view. Press / or Ctrl K." },
+    { sel: ".vg-toolhist", title: "Previous, Undo and Redo", text: "Go back to the note of your last decision, reverse the last change, or do it again. The same history as in Vault HQ." },
     { sel: ".vg-toggle", title: "Insights", text: "What changed since the last analysis, your topics and the gaps between them. Tap a count to see those notes." },
     { sel: ".vg-cv", ring: false, title: "Tap a note", text: "Its panel lists what it needs, each with the button that fixes it." },
   ];

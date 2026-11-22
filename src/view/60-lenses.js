@@ -80,7 +80,7 @@
   VGParts.wire($(".vg-lens-body"), { details: () => lensCards, onOpen: panel => wireLens(panel), openNote: (p, e) => { if (opts.openNote) opts.openNote(p, e.ctrlKey || e.metaKey); } });
   const LENS_MOVED = { triage: "stale", debt: "stale" };   // "triage" was this lens before the game took the word; debt merged into it
   function openLens(k, keep) {
-    k = LENS_MOVED[k] || k; lensKey = k; lensCards = {}; closeDrawer(); const box = $(".vg-lens"), l = LENSES[k];
+    k = LENS_MOVED[k] || k; lensKey = k; lensCards = {}; closeDrawer(true); const box = $(".vg-lens"), l = LENSES[k];
     box.hidden = false; box.dataset.lens = k; root.classList.add("has-lens"); syncSelects();
     $(".vg-lens-title").textContent = l.name; $(".vg-lens-sub").textContent = l.hint;
     const body = $(".vg-lens-body"), none = !nodes.some(n => !special(n) && !n.ghost);
@@ -184,6 +184,7 @@
   const cellBg = (col, a) => `background:color-mix(in srgb, ${col} ${Math.round(a * 100)}%, transparent)`;
 
   // matrix columns and their key: numbered by position, matching the numbers in front of the row names (were "C" + the topic id, which meant nothing to read)
+  const tipped = t => `title="${esc(t)}" aria-label="${esc(t)}"`;   // a cell's text is a number; its name says what the number is
   const mxCols = cs => cs.map((c, i) => `<th class="vg-mx-col" title="${esc(clusterName(c.id))}"><span style="color:${colorOf(c.id)}">${i + 1}</span></th>`).join("");
   const mxKey = cs => cs.map((c, i) => `${i + 1} ${esc(shortName(c.id))}`).join(" · ");
   function lensMatrix() {
@@ -197,7 +198,7 @@
         const [l, m] = pair[a.id + "|" + b.id] || [0, 0];
         const gap = m / maxM * (1 / (1 + l * 0.6));   // talked about together, barely linked
         const style = gap > 0.08 ? cellBg("var(--vg-gap)", Math.min(0.85, 0.15 + gap * 1.6)) : l ? cellBg("var(--vg-ok)", Math.min(0.6, 0.1 + Math.log1p(l) / Math.log1p(maxL) * 0.5)) : "";
-        return `<td><button class="vg-mx-cell" style="${style}" data-cell="${a.id},${b.id}" title="${esc(clusterName(a.id))} ↔ ${esc(clusterName(b.id))}: ${plural(l, "link")}, ${m} co-mentions">${l || m ? `${l}<small>/${m}</small>` : ""}</button></td>`;
+        return `<td><button class="vg-mx-cell" style="${style}" data-cell="${a.id},${b.id}" ${tipped(`${clusterName(a.id)} ↔ ${clusterName(b.id)}: ${plural(l, "link")}, ${m} co-mentions`)}>${l || m ? `${l}<small>/${m}</small>` : ""}</button></td>`;
       }).join("") + `</tr>`).join("");
     const worst = (DATA.pairs || []).filter(([a, b]) => clusterById[a] && clusterById[b]).map(([a, b, l, m]) => ({ a, b, l, m, s: m / (1 + l * 0.6) })).filter(g => g.m > 0)   // a gap is talked about together; no co-mentions, no gap
       .sort((x, y) => y.s - x.s).slice(0, 6);
@@ -280,7 +281,7 @@
     return `<div class="vg-mx-wrap"><table class="vg-mx"><tr><th></th>${mxCols(cs)}</tr>
       ${ppl.filter(p => per[p.id]).sort((a, b) => b.outlinks - a.outlinks).map(p => `<tr><th class="vg-mx-row"><button class="vg-mx-name" data-id="${esc(p.id)}"><i class="vg-lg-diamond"></i>${esc(p.name)}</button></th>${cs.map(c => {
         const k = (per[p.id] || {})[c.id] || 0;
-        return `<td><button class="vg-mx-cell" style="${k ? cellBg("var(--vg-person)", 0.15 + 0.8 * k / mx) : ""}" data-cl="${c.id}" title="${esc(p.name)} · ${esc(clusterName(c.id))}: ${k}">${k || ""}</button></td>`; }).join("")}</tr>`).join("")}</table></div>
+        return `<td><button class="vg-mx-cell" style="${k ? cellBg("var(--vg-person)", 0.15 + 0.8 * k / mx) : ""}" data-cl="${c.id}" ${tipped(`${p.name} · ${clusterName(c.id)}: ${k}`)}>${k || ""}</button></td>`; }).join("")}</tr>`).join("")}</table></div>
       ${sciRead(`Notes linking each person, by topic (from people notes and the notes that link them). Click a name to see them in the graph; columns: ${mxKey(cs)}.`)}`;
   }
 

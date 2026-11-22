@@ -33,11 +33,12 @@ function runTour(host, steps, o = {}) {
       const r = target.getBoundingClientRect(), R = host.getBoundingClientRect(), x = r.left - R.left, y = r.top - R.top, below = y + r.height + 170 < R.height;
       // a step about the whole pane gets no ring and a card in the middle
       const card = step.ring === false ? `left:${Math.max(10, (R.width - 290) / 2)}px;top:${Math.max(60, R.height / 2 - 80)}px` : `left:${Math.max(10, Math.min(R.width - 300, x))}px;${below ? `top:${y + r.height + 12}px` : `bottom:${R.height - y + 12}px`}`;
+      const showing = x => !!(x.before || (find(x.sel) && find(x.sel).offsetParent !== null)), shown = steps.filter(showing), pos = shown.indexOf(steps[at]) + 1;   // numbered over the cards that appear
       const last = !steps.slice(at + 1).some(s => { if (s.before) return true; const e = find(s.sel); return e && e.offsetParent !== null; });
       box.setAttribute("aria-label", step.title);
       box.innerHTML = `${step.ring === false ? "" : `<div class="vg-tour-ring" style="left:${x - 4}px;top:${y - 4}px;width:${r.width + 8}px;height:${r.height + 8}px"></div>`}
         <div class="vg-tour-card" style="${card}">
-          <span class="vg-tour-count ${cls.muted || ""}">${at + 1} / ${steps.length}</span><b>${esc(step.title)}</b><p>${esc(step.text)}</p>
+          <span class="vg-tour-count ${cls.muted || ""}">${pos} / ${shown.length}</span><b>${esc(step.title)}</b><p>${esc(step.text)}</p>
           <div class="vg-tour-acts ${cls.acts || ""}"><button class="${cls.btn || ""} ${cls.ghost || ""}" data-t="skip">Skip</button><button class="${cls.btn || ""} ${cls.primary || ""}" data-t="next">${last ? "Done" : "Next"}</button></div></div>`;
       if (!box.isConnected) host.appendChild(box);
       box.querySelector('[data-t="next"]').focus();
