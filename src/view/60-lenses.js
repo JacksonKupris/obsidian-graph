@@ -81,7 +81,8 @@
   $(".vg-lens-close").onclick = () => closeLens();
   VGParts.wire($(".vg-lens-body"), { details: () => lensCards, onOpen: panel => wireLens(panel), openNote: (p, e) => { if (opts.openNote) opts.openNote(p, e.ctrlKey || e.metaKey); } });
   const LENS_MOVED = { triage: "stale", debt: "stale" };   // "triage" was this lens before the game took the word; debt merged into it
-  function openLens(k, keep) {
+  // at: the title of a section to land on, for a count that stands for one section of a report (the unlinked-notes tile lands on Islands)
+  function openLens(k, keep, at) {
     const sc = SCENES[st.view]; if (sc && sc.game && !(sc.state && sc.state.state === "play")) setView("2d");   // a game on its title screen is left when a report opens (its text would show beside the report); a game in play keeps running under it
     k = LENS_MOVED[k] || k; lensKey = k; lensCards = {}; closeDrawer(true); const box = $(".vg-lens"), l = LENSES[k];
     box.hidden = false; box.dataset.lens = k; root.classList.add("has-lens"); syncSelects();
@@ -91,6 +92,7 @@
     body.querySelectorAll("[data-id]").forEach(d => d.onclick = () => { if (!lensBeside()) closeLens(); reveal(d.dataset.id); });
     body.querySelectorAll("[data-cl]").forEach(d => d.onclick = () => { if (!lensBeside()) closeLens(); focusClusters(d.dataset.cl.split(",").map(Number)); });
     wireLens(body); if (keep) VGParts.reopen(body, keep);
+    if (at) { const s = [...body.querySelectorAll("[data-sec]")].find(x => x.dataset.sec === at); if (s) { s.classList.add("is-landed"); body.scrollTop = s.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop; } }
     if (l.load && !none) { body.innerHTML = emptyNext(esc(`Loading ${l.name}…`), "back"); wireNext(body); l.load().then(html => { if (lensKey === k) { body.innerHTML = html; wireLens(body); if (keep) { VGParts.reopen(body, keep); body.scrollTop = keep.y || 0; } } }).catch(err => { console.error(`Vault Graph: ${l.name} didn't load`, err); if (lensKey === k) { body.innerHTML = emptyNext(esc(`${l.name} didn't load: ${(err && err.message) || err}.`), "lens:" + k); wireNext(body); } }); }
   }
   function wireLens(body) {
