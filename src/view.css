@@ -421,7 +421,7 @@
 .vg-root :is(.vg-mx-name, .vg-tl-label, .vg-rv-chip, .vg-visbtn, button.vg-fd-name, .vg-rp-pick, .vg-fd-bar) { min-height: var(--vg-hit-min); }
 .vg-root.is-mobile :is(.vg-btn, .vg-btn-sm, .vg-mx-cell, .vg-mx-name, .vg-tl-label, .vg-rv-chip, .vg-sandel, .vg-autobtn, .vg-dockbtn, .vg-visbtn, .vg-chip, .vg-linkish, .vg-fd-bar) { min-height: var(--vg-tap); }
 .vg-root.is-mobile :is(.vg-ibtn, .vg-tab, .vg-searchbtn) { min-width: var(--vg-tap); min-height: var(--vg-tap); }
-.vg-root.is-mobile :is(.vg-viewhelp, .vg-visbtn, .vg-ms-head, .vg-rp-pick, .vg-side .vg-input, .vg-mx-cell) { min-width: var(--vg-tap); min-height: var(--vg-tap); }
+.vg-root.is-mobile :is(.vg-viewhelp, .vg-visbtn, .vg-rp-pick, .vg-side .vg-input, .vg-mx-cell) { min-width: var(--vg-tap); min-height: var(--vg-tap); }
 .vg-root.is-mobile .vg-linkbtn { display: inline-flex; align-items: center; min-height: var(--vg-tap); }   /* a link-style button in a sentence */
 .vg-root.is-mobile .vg-autobtn, .vg-root.is-mobile .vg-dockbtn, .vg-root.is-mobile .vg-btn-sm { min-width: var(--vg-tap); }
 .vg-dock > * { flex-shrink: 0; }
@@ -515,7 +515,11 @@
 .vg-guide-cut del { color: var(--vg-warn); text-decoration: line-through; }
 .vg-guide-cut ins { color: var(--vg-ok); text-decoration: none; }
 .has-lens .vg-legend, .has-lens .vg-focusbar, .has-lens .vg-pathbar { display: none; }
-.is-neural .vg-lens { background: rgba(4, 14, 32, .9); color: var(--vg-hud-text); border-color: color-mix(in srgb, var(--vg-hud) 30%, transparent); }
+.is-neural .vg-lens { background: rgba(4, 14, 32, .9); color: var(--vg-hud-text); border-color: color-mix(in srgb, var(--vg-hud) 30%, transparent);
+  /* the panel is dark in either theme, so everything inside takes the dark palette (one set, not the page's) */
+  --ds-bg: #0b1424; --ds-surface: #111d33; --ds-line: rgba(125, 211, 252, .22); --ds-text: var(--vg-hud-text); --ds-muted: #a9bdd4; --ds-faint: #8ea3bd; --ds-hover: rgba(214, 236, 255, .08);
+  --ds-accent-text: var(--vg-hud-sky); --ds-accent-soft: rgba(56, 189, 248, .16);
+  --vg-raised: var(--ds-bg); --vg-panel: var(--ds-surface); --vg-fg: var(--ds-text); --vg-muted: var(--ds-muted); --vg-faint: var(--ds-faint); --vg-line: var(--ds-line); --vg-border: var(--ds-line); --vg-hover: var(--ds-hover); --vg-accent-text: var(--ds-accent-text); }
 /* matrix */
 .vg-mx-wrap { overflow: auto; }
 .vg-mx { border-collapse: separate; border-spacing: 2px; font-size: var(--vg-fs-xs); }
@@ -659,7 +663,7 @@
 .vg-savedform .vg-input { flex: 1; min-width: 0; }
 
 /* ---------- cosmos ---------- */
-.vg-dock, .vg-missions { display: none; }
+.vg-dock { display: none; }
 .is-cosmos .vg-canvas { background: var(--vg-hud-night); }
 .is-cosmos .vg-legend { display: none; }
 .is-cosmos .vg-dock { display: flex; position: absolute; z-index: 3; left: 50%; transform: translateX(-50%); bottom: calc(12px + var(--vg-bottom, 0px));
@@ -675,34 +679,16 @@
 .vg-root .vg-autobtn { padding: 5px 8px; font: 600 var(--ds-fs-2xs)/1.2 var(--vg-mono); color: rgba(207, 233, 255, .55); border-radius: var(--ds-r-md); white-space: nowrap; display: inline-flex; }
 .vg-root .vg-autobtn[aria-pressed="true"] { color: var(--vg-hud-text); background: rgba(125, 211, 252, .14); }
 .is-placing .vg-cv { cursor: crosshair !important; }
-/* always the dark HUD, in either theme: what sits in it (shared parts, buttons) reads these */
-.show-missions .vg-missions { display: block; position: absolute; z-index: 3; right: 10px; top: 88px; width: min(300px, calc(100% - 20px)); color: var(--vg-hud-text);
-  --ds-text: var(--vg-hud-text); --vg-fg: var(--vg-hud-text); --ds-muted: #a9c3da; --vg-muted: #a9c3da; --ds-faint: #a9c3da; --vg-faint: #a9c3da; --ds-line: var(--vg-hud-line); --vg-line: var(--vg-hud-line); --ds-hover: rgba(125, 211, 252, .14); --vg-hover: rgba(125, 211, 252, .14); --vg-raised: transparent; --ds-bg: transparent;
-  font: 500 var(--ds-fs-xs)/1.45 var(--vg-mono); background: var(--vg-hud-panel-solid); border: 1px solid var(--vg-hud-line); border-radius: var(--ds-r-md);
-  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); max-height: calc(100% - 190px); overflow: auto; }
-.vg-root .vg-ms-head { display: flex; width: 100%; justify-content: space-between; padding: 8px 10px; color: var(--vg-hud-gold); letter-spacing: .1em; font: inherit; }
-.vg-ms-head span { color: var(--vg-hud-text); opacity: .8; }
-.vg-missions.is-collapsed .vg-ms-body { display: none; }
-.vg-ms-body { padding: 0 10px 10px; display: grid; gap: 10px; }
-.vg-ms-t { font-weight: 700; } .vg-ms-xp { color: var(--vg-hud-gold); }
-.vg-ms-how { color: var(--vg-muted); font-size: var(--ds-fs-xs); }
-.vg-ms-bar { height: 4px; background: rgba(255, 255, 255, .1); border-radius: var(--ds-r-2xs); margin: 5px 0 3px; overflow: hidden; }
-.vg-ms-bar i { display: block; height: 100%; background: linear-gradient(90deg, #38bdf8, var(--vg-hud-go)); }
-.vg-root .vg-ms-show { padding: 1px 6px; font: 600 var(--ds-fs-2xs) var(--vg-mono); color: var(--vg-hud-sky); border: 1px solid rgba(125, 211, 252, .3); border-radius: var(--ds-r-xs); }
-.vg-ms-ach { display: flex; flex-wrap: wrap; gap: 4px; border-top: 1px solid rgba(125, 211, 252, .15); padding-top: 8px; }
-.vg-ach { font-size: var(--ds-fs-2xs); padding: 1px 6px; border-radius: var(--ds-r-pill); border: 1px solid rgba(255, 255, 255, .15); color: var(--vg-hud-text); opacity: .72; }
-.vg-ach.is-on { opacity: 1; border-color: var(--vg-hud-gold); color: var(--vg-hud-gold); }
 .vg-root.is-cosmos .vg-toolbar > .vg-ibtn, .is-cosmos .vg-seg, .vg-root.is-cosmos .vg-searchbtn, .vg-root.is-cosmos .vg-menuwrap > .vg-ibtn, .is-cosmos .vg-status {
   background: rgba(6, 12, 30, .65); border-color: var(--vg-hud-line); color: var(--vg-hud-text); }
 .is-cosmos .vg-presetname { color: var(--vg-hud-text); }
 .vg-root.is-cosmos .vg-segbtn { color: var(--vg-hud-text); }
 .vg-root.is-cosmos .vg-segbtn[aria-pressed="true"] { background: var(--vg-hud-gold); color: var(--vg-hud-gold-ink); }
 @container vg (max-width: 760px) {
-  .show-missions .vg-missions { top: auto; bottom: calc(76px + var(--vg-bottom, 0px)); max-height: 40%; }
   .vg-root .vg-dockbtn { min-width: 44px; padding: 4px 6px; }
-  .show-missions.has-inspector .vg-missions, .is-cosmos.has-inspector .vg-dock { display: none; }
+  .is-cosmos.has-inspector .vg-dock { display: none; }
 }
-.is-compact .vg-lensbtn, .is-compact [data-view="cosmos"], .is-compact .vg-dock, .is-compact .vg-missions, .is-compact .vg-lens { display: none !important; }
+.is-compact .vg-lensbtn, .is-compact [data-view="cosmos"], .is-compact .vg-dock, .is-compact .vg-lens { display: none !important; }
 
 
 /* phones: compact dock, collapsed missions above it */
@@ -710,10 +696,7 @@
   .vg-root .vg-dockbtn { min-width: 40px; padding: 4px 5px; font-size: 0; gap: 0; }
   .vg-dockbtn span { font-size: var(--ds-fs-xl); }
   .vg-root .vg-autobtn { padding: 5px 6px; font-size: var(--ds-fs-2xs); }
-  .show-missions .vg-missions { left: 10px; right: 10px; width: auto; }
-  .vg-missions.is-collapsed { width: auto; }
 }
-.vg-missions.is-collapsed { max-height: none; }
 
 /* ---------- confirm dialog + action buttons ---------- */
 .vg-confirm { position: absolute; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, .45); animation: vg-fade var(--ds-base); }
@@ -725,8 +708,6 @@
 .vg-confirm-acts { display: flex; justify-content: flex-end; gap: 8px; }
 .vg-confirm-input { resize: vertical; font: inherit; }
 .vg-move-prev { display: flex; flex-direction: column; gap: 2px; padding: 8px; margin-bottom: 8px; border-radius: var(--vg-r-sm); background: var(--vg-hover); font-family: var(--vg-mono); font-size: var(--ds-fs-xs); }
-.vg-ms-acts { display: flex; gap: 6px; }
-.vg-root .vg-ms-do { background: var(--vg-hud-gold); color: var(--vg-hud-gold-ink); border-color: var(--vg-hud-gold); }
 .vg-root .vg-mx-cell.is-on { outline: 2px solid var(--vg-accent); }
 .vg-mx-detail { margin-top: 10px; }
 .vg-root .vg-pb-card { padding: 0; gap: 0; }
@@ -744,10 +725,6 @@
 .vg-tl-row:has(.vg-tl-pin) { grid-template-columns: minmax(140px, 32%) 1fr auto; }
 .vg-bh-row { display: flex; flex-direction: column; }
 .vg-bh-acts { display: flex; gap: 4px; padding: 0 8px 6px 25px; }
-.vg-root .vg-gamebtn { position: relative; }
-.vg-gamecount { position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: var(--ds-r-md); background: var(--vg-accent); color: var(--vg-accent-fg);
-  font: 700 var(--ds-fs-2xs)/17px var(--vg-font); text-align: center; }
-.show-missions.has-inspector .vg-missions .vg-ms-body { display: none; }   /* details panel open: missions fold to their header */
 
 /* deeper cosmos */
 .vg-timebar { display: none; }
@@ -756,10 +733,6 @@
   background: var(--vg-hud-panel); border: 1px solid rgba(251, 191, 36, .3); border-radius: var(--ds-r-lg); backdrop-filter: blur(10px); }
 .vg-timebar input { flex: 1; accent-color: var(--vg-hud-gold); }
 .vg-root .vg-time-play { color: var(--vg-hud-gold-soft); width: 24px; justify-content: center; }
-.vg-ms-steps { margin: 4px 0 0; padding-left: 18px; font-size: var(--ds-fs-xs); }
-.vg-ms-steps li.is-done { color: var(--vg-hud-go); text-decoration: line-through; }
-.vg-ms-log summary { cursor: pointer; color: var(--vg-hud-sky); font-size: var(--ds-fs-xs); letter-spacing: .08em; }
-.vg-ms-log div { font-size: var(--ds-fs-xs); opacity: .8; padding: 2px 0; } .vg-ms-log span { color: var(--vg-hud-gold); }
 .vg-nova { background: color-mix(in srgb, #fb923c 14%, transparent); }
 .vg-nova > span:first-child { color: #fb923c; }
 .vg-ins-h .vg-taskload { margin-left: auto; text-transform: none; letter-spacing: 0; }
@@ -767,21 +740,6 @@
 
 
 /* game layer */
-.vg-ms-rank { height: 3px; margin: -2px 10px 6px; background: rgba(255, 255, 255, .08); border-radius: var(--ds-r-2xs); overflow: hidden; }
-.vg-ms-rank i { display: block; height: 100%; background: linear-gradient(90deg, var(--vg-hud-gold), #f472b6); }
-.vg-missions.is-collapsed .vg-ms-rank { margin-bottom: 8px; }
-.vg-ms-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: var(--ds-fs-2xs); opacity: .85; }
-.vg-ms-stats b { display: block; font-size: var(--ds-fs-base); color: var(--vg-hud-gold-soft); }
-.vg-ms-sec { font-size: var(--ds-fs-2xs); letter-spacing: .12em; color: var(--vg-hud-sky); margin-top: 4px; }
-.vg-root .vg-ms-quest { display: flex; gap: 8px; align-items: flex-start; width: 100%; text-align: left; padding: 3px 4px; font: 500 var(--ds-fs-xs)/1.4 var(--vg-mono); color: var(--vg-hud-text); border-radius: var(--ds-r-xs); }
-.vg-root .vg-ms-quest:hover { background: rgba(125, 211, 252, .1); }
-.vg-ms-quest span { color: var(--vg-hud-gold); flex: none; }
-.vg-ms-quest.is-done { opacity: .55; text-decoration: line-through; }
-.vg-ms-themes { display: flex; flex-wrap: wrap; gap: 4px; }
-.vg-root .vg-ms-theme { display: inline-flex; gap: 5px; align-items: center; padding: 2px 7px; font: 600 var(--ds-fs-2xs) var(--vg-mono); color: var(--vg-hud-text); border: 1px solid rgba(255, 255, 255, .15); border-radius: var(--ds-r-pill); }
-.vg-ms-theme i { width: 9px; height: 9px; border-radius: 50%; background: linear-gradient(135deg, var(--a), var(--b)); }
-.vg-root .vg-ms-theme.is-on { border-color: var(--vg-hud-gold); color: var(--vg-hud-gold-soft); }
-.vg-root .vg-ms-theme:disabled { opacity: .4; cursor: default; }
 
 /* physics controls */
 .vg-pausepill { display: none; }
@@ -955,7 +913,6 @@
 .vg-st-records > summary { cursor: pointer; list-style: revert; }
 
 /* tasks under a quest or mission (same task list as the inspector) */
-.vg-ms-tasks:not(:empty) { margin: 4px 0 8px; padding: 4px 6px; border-left: 2px solid var(--vg-line); }
 
 /* the sidebar's former View and Health panels, inside the Views picker */
 .vg-ppanel { display: flex; flex-direction: column; gap: 12px; padding-top: 4px; }
@@ -973,12 +930,6 @@
 .vg-root .vg-more { min-width: 28px; padding-inline: 6px; letter-spacing: .05em; }
 
 /* outside the cosmos the missions panel sits under the status pill, and leaves out the cosmos-only theme picker */
-.vg-root.show-missions:not(.is-cosmos) .vg-missions { top: 92px; max-height: calc(100% - 160px); overflow: auto; }
-.vg-root:not(.is-cosmos) .vg-ms-themes, .vg-root:not(.is-cosmos) .vg-ms-sec.is-theme { display: none; }
-.vg-root .vg-gamebtn[aria-pressed="true"] { color: var(--vg-accent-text); }
-.is-compact .vg-gamebtn { display: none !important; }
-.vg-root .vg-ms-qacts { display: flex; gap: 6px; padding: 0 4px 4px 22px; }
-.vg-root .vg-ms-show.vg-more { min-width: 0; padding: 1px 8px; }
 
 .vg-root .vg-sandel { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: var(--ds-r-sm); font-size: var(--vg-fs-xs); background: transparent; box-shadow: none; border: 1px solid transparent; color: var(--vg-fg); }
 .vg-root .vg-sandel[aria-pressed="true"] { border-color: var(--vg-accent); background: color-mix(in srgb, var(--vg-accent) 18%, transparent); }
@@ -987,7 +938,6 @@
 .vg-root .vg-sandsize input { width: 70px; }
 /* a narrow pane's inspector is a bottom sheet: the palette moves up under the toolbar so both stay usable */
 /* a lens drawer and the missions panel share the right side: the panel steps aside while a lens is open */
-.vg-root.has-lens .vg-missions { display: none !important; }
 /* Panels that are flex columns with a height cap (the picker, the lens drawer): their header, tab and tool rows keep
    their height, and only the body scrolls. A row left to shrink clipped its own text (the picker's tabs on phones). */
 .vg-picker > header, .vg-picker-h, .vg-picker-tabs, .vg-picker-tools, .vg-sheet-grip, .vg-lens-h { flex: none; }
@@ -1000,7 +950,7 @@
 
 /* Dungeon: the game takes the whole pane while it is being played; the graph's controls come back on pause */
 .vg-root[data-map="dungeon"] .vg-cv { cursor: crosshair; }
-.vg-root.is-playing .vg-toast, .vg-root.is-playing .vg-side, .vg-root.is-playing .vg-toolbar, .vg-root.is-playing .vg-today, .vg-root.is-playing .vg-missions, .vg-root.is-playing .vg-legend, .vg-root.is-playing .vg-status, .vg-root.is-playing .vg-hud, .vg-root.is-playing .vg-inspector { display: none !important; }
+.vg-root.is-playing .vg-toast, .vg-root.is-playing .vg-side, .vg-root.is-playing .vg-toolbar, .vg-root.is-playing .vg-today, .vg-root.is-playing .vg-legend, .vg-root.is-playing .vg-status, .vg-root.is-playing .vg-hud, .vg-root.is-playing .vg-inspector { display: none !important; }
 .vg-root.is-playing .vg-cv { cursor: none; }
 body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-root.is-playing .vg-app { grid-template-columns: minmax(0, 1fr) !important; }
@@ -1056,3 +1006,17 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-lib[hidden] { display: none; }
 .vg-lg-attn-set .vg-lg-dots { gap: 5px; margin-right: 4px; } .vg-lg-attn-set .vg-lg-dots i { margin-right: 0; width: 10px; height: 10px; box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 45%, transparent); }
 .vg-item-tag { display: inline-block; margin: 0 0 2px; padding: 0 6px; border: 1px solid var(--vg-line, currentColor); border-radius: var(--ds-r-pill); font-style: normal; font-size: 0.72em; opacity: 0.8; }
+
+/* toolbar select boxes: View, Display, Tools */
+.vg-sels { display: inline-flex; gap: 6px; min-width: 0; }
+.vg-sel { height: 32px; max-width: 150px; min-width: 0; padding: 0 8px; border-radius: var(--ds-r-md); border: 1px solid var(--vg-line, var(--background-modifier-border)); background: var(--background-secondary); color: var(--text-normal); font: inherit; font-size: var(--ds-fs-sm, 13px); cursor: pointer; }
+.vg-sel:hover { background: var(--background-modifier-hover); }
+.vg-root.is-mobile .vg-sel { height: 44px; font-size: var(--ds-fs-lg); }
+.vg-picker .vg-picker-q { display: none; }
+.vg-root.is-mobile .vg-sels { gap: 4px; }
+.vg-root.is-mobile .vg-sel { padding: 0 2px; font-size: var(--ds-fs-md); }
+.vg-root.is-mobile .vg-displaysel { display: none; }
+@container vg (max-width: 760px) { .vg-displaysel { display: none; } }
+.vg-root.is-mobile .vg-viewsel { max-width: 17cqw; field-sizing: content; flex: 0 1 auto; min-width: 48px; font-size: var(--ds-fs-sm); }
+.vg-root.is-mobile.has-lens .vg-viewsel { max-width: 112px; }   /* a report names itself in full: the toolbar has room while it is open */   /* wide enough for the longest view name ("Topic river") */
+.vg-root.is-mobile .vg-toolsel { max-width: 36px; text-align: center; }

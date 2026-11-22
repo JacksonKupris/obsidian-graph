@@ -24,12 +24,12 @@
       <div class="vg-hq-global-tools"><label class="vg-hq-global-searchlabel"><input class="vg-hq-global-search vg-hq-project-search" type="search" value="${esc(globalQuery)}"
         placeholder="Search projects, tasks, and notes  ( / )" aria-label="Search all HQ and vault notes"></label>
         ${globalQuery ? '<button class="vg-hq-btn vg-hq-btn-sm vg-hq-global-clear" data-clear-global aria-label="Clear HQ search">Clear</button>' : ""}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-keysbtn" data-keys aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</button></div>
-      <span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}${(() => { const d = VGRules.doneToday(DATA, STATE.review, day()).length, m = VGRules.sessionMinutes(STATE.review, day()); return d || m ? ` · ${d} done${m ? ` · ${VGRules.minutesWords(m)}` : ""}` : ""; })()}</span></span></header>` +
+      ${layoutSelect()}<span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}${(() => { const d = VGRules.doneToday(DATA, STATE.review, day()).length, m = VGRules.sessionMinutes(STATE.review, day()); return d || m ? ` · ${d} done${m ? ` · ${VGRules.minutesWords(m)}` : ""}` : ""; })()}</span></span></header>` +
       strip() + `<main class="vg-hq-main" tabindex="-1"><div class="vg-hq-cols"><div class="vg-hq-col">${globalQuery.trim() ? searchScreen() : ({ home, session: sessionScreen, calendar: calendarScreen, threads: threadsScreen, review: reviewScreen, wrap: wrapScreen, today: todayScreen, needs: needsScreen, people: peopleScreen, projects: projectsScreen, automations: automationsScreen, sweep: sweepScreen, changes: changesScreen, rows: rowsScreen })[cur]()}</div>${railAside()}</div></main>` + dock() + bulkBar() + peekHtml();
     if (fromHost && html === drawn && el.querySelector(".vg-hq-main")) return;
     drawn = html; el.innerHTML = html;
     el.appendChild(toastEl); el.appendChild(sayEl); overlays.forEach(o => el.appendChild(o)); markNext();
-    const main = el.querySelector(".vg-hq-main"); if (main) { main.scrollTop = scroll; el.style.setProperty("--hq-panel-top", `${main.offsetTop}px`); }
+    const main = el.querySelector(".vg-hq-main"); if (main) { main.scrollTop = scroll; foldTop(); el.style.setProperty("--hq-panel-top", `${main.offsetTop}px`); }
     if (restoreSearch !== null) { const next = el.querySelector(".vg-hq-global-search"); if (next) { next.focus(); next.setSelectionRange(...restoreSearch); } }
     if (focusedFilter) { const next = el.querySelector(`[data-project-filter="${focusedFilter}"]`); if (next) next.focus(); }
     if (onRow) focusRow(onRow);
@@ -58,7 +58,12 @@
   const sayEl = document.createElement("div"); sayEl.className = "vg-hq-sr"; sayEl.setAttribute("role", "status");
   // one listener for every button (the screen is redrawn whole)
   el.addEventListener("click", e => {
-    const txt = e.target.closest(".vg-hq-item[data-key] .vg-hq-txt"); if (txt && !e.target.closest("button, a") && !String(window.getSelection && window.getSelection()).length) { const k = txt.closest(".vg-hq-item").dataset.key; if (railOn()) selectItem(k); else if (api.searchNotes) toggleContext(k); return; }
+    const rowHit = e.target.closest(".vg-hq-item[data-key]"); if (rowHit && !e.target.closest("button, a, input, select, textarea, label, [data-drop] .vg-hq-movesel, .vg-hq-ctx") && !String(window.getSelection && window.getSelection()).length) { const k = rowHit.dataset.key; if (railOn()) selectItem(k); else if (api.searchNotes) toggleContext(k); return; }
+    const tri = e.target.closest("[data-triage]"); if (tri) { triageDo(tri.dataset.triage); return; }
+    const thr = e.target.closest("[data-thread]"); if (thr) { thrSel = thr.dataset.thread; render(); return; }
+    if (cur === "today" && layoutNow() === "table" && tableDo(e)) return;
+    const pickL = e.target.closest("[data-layoutpick]"); if (pickL) { setLayout(pickL.dataset.layoutpick); return; }
+    const lens = e.target.closest("[data-benchlens]"); if (lens) { pickLens(lens.dataset.benchlens); return; }
     const box = e.target.closest("[data-pick]"); if (box) { togglePick(box.dataset.pick, e.shiftKey); return; }
     const b = e.target.closest("button, [data-closedrawer], [data-peekclose]"); if (!b || !el.contains(b) || b.disabled) return;
     const d = b.dataset;
@@ -136,6 +141,9 @@
   });
   // the board's drag: one path at a time, dropped on a column
   let dragging = null;
+  // on a phone the header rows and the week strip take half the screen; once the list is scrolled they fold away (the CSS only acts in a narrow pane)
+  function foldTop() { const m = el.querySelector(".vg-hq-main"); if (!m) return; const on = el.classList.contains("is-scrolled"); if (!on && m.scrollTop > 60) el.classList.add("is-scrolled"); else if (on && m.scrollTop < 8) el.classList.remove("is-scrolled"); }
+  el.addEventListener("scroll", e => { if (e.target.classList && e.target.classList.contains("vg-hq-main")) foldTop(); }, true);
   el.addEventListener("dragstart", e => { const c = e.target.closest && e.target.closest("[data-card]"); if (!c) return; dragging = c.dataset.card; c.classList.add("is-dragging"); if (e.dataTransfer) { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", dragging); } });
   el.addEventListener("dragend", () => { dragging = null; el.querySelectorAll(".is-dragging, .is-drop").forEach(x => x.classList.remove("is-dragging", "is-drop")); });
   el.addEventListener("dragover", e => { const col = dragging && e.target.closest && e.target.closest("[data-column]"); if (!col || col.dataset.column === "other") return; e.preventDefault(); el.querySelectorAll(".is-drop").forEach(x => x !== col && x.classList.remove("is-drop")); col.classList.add("is-drop"); });
@@ -144,6 +152,9 @@
   el.addEventListener("input", e => { if (e.target.matches(".vg-hq-global-search")) { const had = !!globalQuery; globalQuery = e.target.value; drawer = null; searchNotes(globalQuery); clearTimeout(typeTimer);
     if (!had !== !globalQuery) render(); else typeTimer = setTimeout(renderResults, SEARCH_PAUSE); } });
   el.addEventListener("change", e => {
+    if (e.target.matches("[data-layout]")) { setLayout(e.target.value); return; }
+    if (e.target.matches("[data-move]")) { moveTo(e.target.dataset.move, e.target.value); return; }
+    if (e.target.matches("[data-tkind]") && tableFilter(e)) return;
     const key = e.target.dataset.projectFilter;
     if (!key) return;
     if (key === "kind") kindFilter = e.target.value;
@@ -171,6 +182,7 @@
       else if (e.key === "Escape") { e.target.blur(); } return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); e.stopPropagation(); openPalette(); return; }
     if (e.target.matches("input, select, textarea") || e.ctrlKey || e.metaKey || e.altKey || el.querySelector(".vg-hq-dialog")) return;
+    if (layoutKey(e)) return;
     const k = e.key, go = d => { const list = rows(); if (!list.length) return; const i = list.findIndex(r => r.dataset.key === cursorKey), next = list[Math.max(0, Math.min(list.length - 1, i < 0 ? 0 : i + d))]; cursorKey = next.dataset.key; focusRow(cursorKey); if (railOn()) selectItem(cursorKey); };
     const onRow = () => { const r = e.target.closest && e.target.closest(".vg-hq-item[data-key]"); return (r && r.dataset.key) || cursorKey; };
     if (k === "j" || k === "ArrowDown" && e.target.matches(".vg-hq-item")) { e.preventDefault(); go(1); }
@@ -192,7 +204,12 @@
     else if (/^[1-6]$/.test(k) && SCREENS[+k - 1]) { e.preventDefault(); setScreen(SCREENS[+k - 1][0]); }
     else if (k === "?") { e.preventDefault(); keySheet(); }
   });
-  el.addEventListener("input", e => { if (e.target.matches(".vg-hq-captureinput")) captureText = e.target.value; });
+  el.addEventListener("input", e => { if (e.target.matches(".vg-hq-captureinput")) captureText = e.target.value; else if (e.target.matches("[data-tq]")) tableFilter(e); });
+  // dragging an item onto a column or a day: the same move the Move select makes
+  el.addEventListener("dragstart", e => { const c = e.target.closest && e.target.closest("[data-dragkey]"); if (!c || !e.dataTransfer) return; e.dataTransfer.setData("text/plain", c.dataset.dragkey); e.dataTransfer.effectAllowed = "move"; c.classList.add("is-dragging"); });
+  el.addEventListener("dragend", () => { el.querySelectorAll(".is-dragging, .is-over").forEach(x => x.classList.remove("is-dragging", "is-over")); });
+  el.addEventListener("dragover", e => { const z = e.target.closest && e.target.closest("[data-drop]"); if (!z) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = "move"; el.querySelectorAll(".is-over").forEach(x => { if (x !== z) x.classList.remove("is-over"); }); z.classList.add("is-over"); });
+  el.addEventListener("drop", e => { const z = e.target.closest && e.target.closest("[data-drop]"); if (!z) return; e.preventDefault(); const key = e.dataTransfer && e.dataTransfer.getData("text/plain"); z.classList.remove("is-over"); if (key) dropOn(key, z.dataset.drop); });
   el.addEventListener("keydown", e => {
     if (e.key === "Escape" && !e.vgHandled && !peek && !drawer && !e.target.matches("input, textarea, select") && !el.querySelector(".vg-hq-dialog, .vg-hq-palette") && !(picked.size) && goBack()) { e.preventDefault(); return; }
     if (e.key === "Escape" && peek) { e.preventDefault(); peek = null; render(); return; }

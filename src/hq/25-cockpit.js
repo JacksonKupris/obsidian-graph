@@ -3,7 +3,7 @@
   let selKey = null;
   const NO_RAIL = new Set(["projects", "automations", "sweep", "rows", "review", "wrap", "session", "calendar"]);
   const HAS_HERO = new Set(["home", "today"]);   // these screens already show Do next in full
-  const railOn = () => el.clientWidth >= RAIL_WIDTH && !NO_RAIL.has(cur) && !globalQuery.trim() && !(cur === "needs" && needsWalk);   // one at a time shows the same things itself
+  const railOn = () => el.clientWidth >= RAIL_WIDTH && !NO_RAIL.has(cur) && !(cur === "today" && LAYOUT_NO_RAIL.has(layoutNow())) && !globalQuery.trim() && !(cur === "needs" && needsWalk);   // one at a time shows the same things itself
   const RAIL_WIDTH = 1100;
   // what the rail shows: the item you picked, or else the first thing on this screen. Nothing unrelated to the screen.
   const selected = () => BY_KEY.get(selKey) || (cur === "needs" ? ofGroup("needs")[0] : null) || (HAS_HERO.has(cur) ? doNext() : null);

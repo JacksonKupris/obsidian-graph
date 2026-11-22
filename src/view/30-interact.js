@@ -99,7 +99,9 @@
   // in a narrow pane the side panel is a drawer over the toolbar: anything that opens a panel or acts on the graph closes it
   // the sidebar slides over the graph on a narrow pane, and where an open note would leave the graph too little room (view.css: the same width)
   const drawerMode = () => narrow() || (root.classList.contains("has-inspector") && root.clientWidth < 1320);
-  const closeDrawer = () => { if (drawerMode()) root.classList.remove("vg-side-open"); };
+  // closeDrawer(true) is for a detail opened from the panel: Back (goBack) then brings the panel back; tapping the graph does not
+  let drawerBack = false;
+  const closeDrawer = back => { const was = root.classList.contains("vg-side-open"); if (!back) drawerBack = false; else if (was && drawerMode()) drawerBack = true; if (drawerMode()) root.classList.remove("vg-side-open"); };
 
   // ---------------------------------------------------------------- pointer (mouse, pen, touch)
   // the notes a pointer can reach: what's drawn (map views also draw unlinked notes, through mapShown)
@@ -295,7 +297,7 @@
     if (!ids.length) return;
     st.multi = new Set(ids); select(null); showMulti(); dirty = true; kick();
   }
-  function setLassoMode(on) { st.lasso = on; $(".vg-lassobtn").setAttribute("aria-pressed", on); syncToolsBtn(); root.classList.toggle("is-lasso", on); if (on) toast("Drag a box around the notes to select"); }
+  function setLassoMode(on) { st.lasso = on; $(".vg-lassobtn").setAttribute("aria-pressed", on); syncSelects(); root.classList.toggle("is-lasso", on); if (on) toast("Drag a box around the notes to select"); }
   $(".vg-lassobtn").onclick = () => setLassoMode(!st.lasso);
   function clearMulti() { if (!st.multi) return; st.multi = null; const box = $(".vg-inspector"); box.hidden = true; root.classList.remove("has-inspector"); dirty = true; kick(); }
   function showMulti() {
@@ -338,11 +340,11 @@
     // the topmost layer goes first: an open report sits over the scene, so it closes before the scene (a game in play) does
     if ($(".vg-lens").hidden && SCENES[st.view] && SCENES[st.view].escape && SCENES[st.view].escape()) return 1;
     if (tour) endTour();
-    else if (closeTools()) { $(".vg-toolsbtn").focus(); }
     else if (!$(".vg-palette").hidden) { closePalette(); }
-    else if (!$(".vg-picker").hidden) { closeMenu(); $(".vg-pickbtn").focus(); }
+    else if (!$(".vg-picker").hidden) { closeMenu(); $(".vg-displaysel").focus(); }
     else if (!$(".vg-lens").hidden) closeLens();
     else if (typingIn) { typingIn.blur(); return 2; }
+    else if (replay) stopTime();
     else if (st.lasso) setLassoMode(false);
     else if (st.placing) { st.placing = null; root.classList.remove("is-placing"); $$(".vg-dockbtn").forEach(x => x.setAttribute("aria-pressed", "false")); dirty = true; }
     else if (st.body) { st.body = null; $(".vg-inspector").hidden = true; root.classList.remove("has-inspector"); dirty = true; }
@@ -353,8 +355,11 @@
     else if (st.highlight) clearHighlight();
     else if (root.classList.contains("vg-side-open")) root.classList.remove("vg-side-open");
     else return 0;
+    if (drawerBack) { drawerBack = false; if (drawerMode()) root.classList.add("vg-side-open"); }
     return 1;
   }
+  // closing a panel, dialog or the tour removes the element that had focus, so focus falls to the page and every shortcut stops; it goes back to the graph
+  root.addEventListener("focusout", e => { if (e.relatedTarget) return; setTimeout(() => { if (!destroyed && root.isConnected && (!document.activeElement || document.activeElement === document.body) && root.getClientRects().length > 0) { try { cv.focus({ preventScroll: true }); } catch (x) { /* not focusable here */ } } }, 0); });
   root.addEventListener("keydown", e => {
     const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName);
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
@@ -376,15 +381,14 @@
     { keys: ["Enter"], label: "Open the selected note (Ctrl+Enter: in a new tab)", match: e => e.key === "Enter", when: () => st.selected && opts.openNote && !special(byId[st.selected]), run: e => opts.openNote(st.selected, e.ctrlKey || e.metaKey) },
     { keys: ["F"], label: "Focus on the selected note and its neighbours", when: () => st.selected, run: () => enterFocus(st.selected) },
     { keys: ["Arrows"], label: "Move to the linked note in that direction (nothing selected: pan)", prevent: true, match: e => e.key.startsWith("Arrow") && !(st.ship && isCosmos()), run: e => walk(e.key) },
-    { keys: ["Tab", "Shift Tab"], label: "Next or previous linked note", prevent: true, match: e => e.key === "Tab", when: () => st.selected, run: e => cycleNeighbour(e.shiftKey ? -1 : 1) },
+    { keys: ["Tab", "Shift Tab"], label: "Next or previous linked note", prevent: true, match: e => e.key === "Tab" && (e.target === cv || e.target === root || e.target === document.body), when: () => st.selected, run: e => cycleNeighbour(e.shiftKey ? -1 : 1) },
     { keys: ["+", "−"], label: "Zoom in or out", match: e => "+=-_".includes(e.key) && e.key.length === 1, run: e => zoomBy("+=".includes(e.key) ? 1.25 : 0.8) },
     { keys: ["0"], label: "Fit everything on screen", run: () => fit(neural() ? n => !special(n) : null) },
-    { keys: ["M"], label: "Choose a view", run: () => openPicker() },
+    { keys: ["M"], label: "Choose a view", prevent: true, run: () => { const v = $(".vg-viewsel"); v.focus(); if (v.showPicker) try { v.showPicker(); } catch (e) {} } },
     { keys: ["3"], label: "Switch 2D and 3D", run: () => setDim(dimOf() === "3d" ? "2d" : "3d") },
     { keys: ["N"], label: "Neural view", run: () => setView(neural() ? "3d" : "neural") },
     { keys: ["C"], label: "Cosmos view", run: () => setView(isCosmos() ? "2d" : "cosmos") },
     { keys: ["T"], label: "Time-lapse: the vault as it grew", run: () => toggleTime() },
-    { keys: ["G"], label: "Upkeep", when: () => !opts.compact, run: () => setMissionsShown(!root.classList.contains("show-missions"), true) },
     { keys: ["Space"], label: "Pause or play (Cosmos)", prevent: true, match: e => e.key === " ", when: () => isCosmos(), run: () => setPaused(!st.paused) },
     { keys: ["?"], label: "This list", match: e => e.key === "?", run: () => showKeys() },
   ];
@@ -468,11 +472,10 @@
   // ---------------------------------------------------------------- first-run tour
   // one short sentence per step, each about the control it points at
   const TOUR = [
-    { sel: ".vg-toolhist", title: "Previous, Undo and Redo", text: "Go back to the note of your last decision, reverse the last change, or do it again. The same history as in Vault HQ." },
     { sel: ".vg-nextbtn", title: "The next step", text: "The one thing to do now. It opens Vault HQ at that step." },
-    { sel: ".vg-pickbtn", title: "Views", text: "Every way of looking at the vault, grouped by what you want to know: the map, your tasks, notes that need you, topics. Some draw a picture, some open a report beside it." },
+    { sel: ".vg-viewsel", title: "Views", text: "Every way of looking at the vault, grouped by what you want to know: the map, your tasks, notes that need you, topics. Some draw a picture, some open a report beside it." },
     { sel: ".vg-searchbtn", title: "Search", text: "Jump to any note, topic or saved view. Press / or Ctrl K." },
-    { sel: ".vg-gamebtn", title: "Upkeep", text: "One small improvement at a time: a link to add, a note to put on its map, a note to write." },
+    { sel: ".vg-toolhist", title: "Previous, Undo and Redo", text: "Go back to the note of your last decision, reverse the last change, or do it again. The same history as in Vault HQ." },
     { sel: ".vg-toggle", title: "Insights", text: "What changed since the last analysis, your topics and the gaps between them. Tap a count to see those notes." },
     { sel: ".vg-cv", ring: false, title: "Tap a note", text: "Its panel lists what it needs, each with the button that fixes it." },
   ];
@@ -482,10 +485,18 @@
 
   // ---------------------------------------------------------------- confirm dialog + discovery log
   // Every action that writes to the vault asks here first (an in-app dialog: works the same on phones).
+  // Tab stays inside an open dialog: from the last control it goes to the first, and back
+  function trapTab(box, e) {
+    if (e.key !== "Tab") return;
+    const f = [...box.querySelectorAll("button, input, select, textarea, [tabindex]")].filter(x => !x.disabled && x.tabIndex >= 0);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey ? document.activeElement === first || !box.contains(document.activeElement) : document.activeElement === last || !box.contains(document.activeElement)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+  }
   function confirmBox(title, body, okLabel, input, o = {}) {   // o.only: one button (a sheet to read, nothing to cancel)
     return new Promise(resolve => {
       const box = document.createElement("div"); box.className = "vg-confirm";
-      box.innerHTML = `<div class="vg-confirm-box" role="dialog" aria-modal="true"><b class="vg-confirm-title">${esc(title)}</b>
+      box.innerHTML = `<div class="vg-confirm-box" role="dialog" aria-modal="true" aria-label="${esc(title)}"><b class="vg-confirm-title">${esc(title)}</b>
         <div class="vg-confirm-body">${body}</div>${input ? `<textarea class="vg-input vg-confirm-input" rows="3" placeholder="${esc(input)}"></textarea>` : ""}
         <div class="vg-confirm-acts">${o.only ? "" : `<button class="vg-btn vg-btn-ghost" data-c="no">Cancel</button>`}<button class="vg-btn vg-btn-primary" data-c="ok">${esc(okLabel || "Do it")}</button></div></div>`;
       root.appendChild(box);
@@ -493,7 +504,7 @@
       if (!o.only) box.querySelector('[data-c="no"]').onclick = () => done(false);
       box.querySelector('[data-c="ok"]').onclick = () => { const ta = box.querySelector("textarea"); if (ta && !ta.value.trim()) { ta.focus(); return; } done(ta ? ta.value.trim() : true); };
       box.onclick = e => { if (e.target === box) done(false); };
-      box.onkeydown = e => { if (e.key === "Escape") { e.stopPropagation(); done(false); } };
+      box.onkeydown = e => { trapTab(box, e); if (e.key === "Escape") { e.stopPropagation(); done(false); } };
       (box.querySelector("textarea") || box.querySelector('[data-c="ok"]')).focus({ preventScroll: true });   // a long body opens at its top
     });
   }
@@ -504,7 +515,7 @@
       const ctl = f => f.type === "select" ? `<select class="vg-input" data-k="${f.k}">${f.options.map(o => { const [v, t] = [].concat(o); return `<option value="${esc(v)}"${v === f.value ? " selected" : ""}>${esc(t || v)}</option>`; }).join("")}</select>`
         : `<input class="vg-input" data-k="${f.k}" type="${f.type === "color" ? "color" : "text"}" value="${esc(f.value || "")}"${f.hint ? ` placeholder="${esc(f.hint)}"` : ""}${f.required ? " required" : ""}>`;
       const box = document.createElement("div"); box.className = "vg-confirm";
-      box.innerHTML = `<div class="vg-confirm-box vg-form" role="dialog" aria-modal="true"><b class="vg-confirm-title">${esc(title)}</b>
+      box.innerHTML = `<div class="vg-confirm-box vg-form" role="dialog" aria-modal="true" aria-label="${esc(title)}"><b class="vg-confirm-title">${esc(title)}</b>
         ${rows.map(r => `<div class="vg-form-row">${r.map(f => `<label class="vg-form-f${f.type === "color" ? " is-colour" : ""}"><span>${esc(f.label)}</span>${ctl(f)}</label>`).join("")}</div>`).join("")}
         <div class="vg-form-err" hidden></div>
         <div class="vg-confirm-acts"><button class="vg-btn vg-btn-ghost" data-c="no">Cancel</button><button class="vg-btn vg-btn-primary" data-c="ok">${esc(okLabel || "Save")}</button></div></div>`;
@@ -515,7 +526,7 @@
         const empty = [...box.querySelectorAll("[required]")].find(x => !x.value.trim()); if (empty) { empty.focus(); return; }
         done(Object.fromEntries([...box.querySelectorAll("[data-k]")].map(x => [x.dataset.k, x.value.trim()]))); };
       box.onclick = e => { if (e.target === box) done(null); };
-      box.onkeydown = e => { if (e.key === "Escape") { e.stopPropagation(); done(null); } if (e.key === "Enter" && e.target.tagName === "INPUT") box.querySelector('[data-c="ok"]').click(); };
+      box.onkeydown = e => { trapTab(box, e); if (e.key === "Escape") { e.stopPropagation(); done(null); } if (e.key === "Enter" && e.target.tagName === "INPUT") box.querySelector('[data-c="ok"]').click(); };
       box.querySelector("input, select").focus();
     });
   }
@@ -556,7 +567,7 @@
     cos.log.unshift({ date: today(), text }); cos.log = cos.log.slice(0, 200);
     const rule = XP_FOR.find(([re]) => re.test(text)); if (rule) awardXp(rule[1], text);
     if (typeof updateDaily === "function") updateDaily(true);
-    persistSoon(); if (typeof renderMissions === "function") renderMissions();
+    persistSoon();
   }
 
   // ---------------------------------------------------------------- legend + status + HUD + toasts
@@ -630,7 +641,9 @@
       b.onclick = e => { e.stopPropagation(); el.remove(); undo(); };
       el.append(" ", b); el.classList.add("has-undo");
     }
-    $(".vg-toasts").appendChild(el);
+    const stack = $(".vg-toasts"); [...stack.children].filter(t => t.textContent === el.textContent).forEach(t => t.remove());   // the same message twice is one
+    while (stack.children.length >= 2) stack.firstChild.remove();   // at most two at once: a pile of them covers the graph
+    stack.appendChild(el);
     // text is the background colour, which a see-through host (Hearth cards) makes invisible: pick black or white instead
     const tbg = getComputedStyle(el).color.match(/[\d.]+/g) || [], tfg = (getComputedStyle(el).backgroundColor.match(/[\d.]+/g) || [0, 0, 0]).map(Number);
     if (tbg.length === 4 && +tbg[3] < 0.5) el.style.color = 0.299 * tfg[0] + 0.587 * tfg[1] + 0.114 * tfg[2] > 140 ? "#111" : "#fff";

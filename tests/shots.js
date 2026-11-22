@@ -29,7 +29,7 @@ const html = env.pageWith(`${MOBILE ? "mobile: true, " : ""}recall: async () => 
   for (const k of lenses) { if (!want(k)) continue; await tab.ev(`${D}.openLens(${JSON.stringify(k)})`); await sleep(700); await shot("lens-" + k); n++; }
   await tab.ev("(() => { const c = document.querySelector('.vg-lens:not([hidden]) .vg-lens-close'); if (c) c.click(); })()");
   for (const t of ["views", "style", "health"]) { if (!want("picker-" + t)) continue;
-    await tab.ev(`(() => { const p = document.querySelector('.vg-picker'); if (p.hidden) document.querySelector('.vg-pickbtn').click(); const b = document.querySelector('.vg-picker-tab[data-tab="${t}"]'); if (b) b.click(); })()`);
+    await tab.ev(`(() => { const p = document.querySelector('.vg-picker'); if (p.hidden) (s=>{s.value="panel:style";s.dispatchEvent(new Event("change"))})(document.querySelector(".vg-displaysel")); const b = document.querySelector('.vg-picker-tab[data-tab="${t}"]'); if (b) b.click(); })()`);
     await sleep(500); await shot("picker-" + t); n++; }
   if (want("palette")) { await tab.ev("(() => { const x = document.querySelector('.vg-picker-x'); if (x) x.click(); document.querySelector('.vg-searchbtn').click(); })()");
     await sleep(300);

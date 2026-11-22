@@ -100,7 +100,7 @@ const PROBE = probeOf(".vg-root");
     if (!ONLY) {
       await tab.ev(`${D}.setView("2d")`); await sleep(600); await calm();
       const MENUS = [
-        { name: "Views picker", open: `document.querySelector(".vg-pickbtn").click()`, items: `[...document.querySelectorAll(".vg-picker .vg-tile, .vg-picker [role=menuitem], .vg-sheet .vg-tile")]`, shown: `!!document.querySelector(".vg-picker:not([hidden]), .vg-sheet:not([hidden])")` },
+        { name: "Views picker", open: `(s=>{s.value="panel:style";s.dispatchEvent(new Event("change"))})(document.querySelector(".vg-displaysel"))`, items: `[...document.querySelectorAll(".vg-picker .vg-tile, .vg-picker [role=menuitem], .vg-sheet .vg-tile")]`, shown: `!!document.querySelector(".vg-picker:not([hidden]), .vg-sheet:not([hidden])")` },
         { name: "Tools menu", open: `document.querySelector(".vg-toolsbtn").click()`, items: `[...document.querySelectorAll(".vg-toolsmenu [role=menuitem]")]`, shown: `!!document.querySelector(".vg-toolsmenu:not([hidden])")` },
       ];
       for (const m of MENUS) {

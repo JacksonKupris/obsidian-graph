@@ -87,6 +87,7 @@ function mountVaultGraph(root, DATA, opts) {
     code: '<path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/>',
     image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 17-5-5-9 8"/>',
     grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+    atom: '<circle cx="12" cy="12" r="1.6" fill="currentColor"/><ellipse cx="12" cy="12" rx="10" ry="4"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/>',
     orbit: '<circle cx="12" cy="12" r="3"/><ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(-25 12 12)"/><circle cx="20" cy="8" r="1.3" fill="currentColor"/>',
     play: '<path d="M7 4v16l13-8Z"/>',
     stop: '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
@@ -257,7 +258,7 @@ function mountVaultGraph(root, DATA, opts) {
     </aside>
     <main class="vg-canvas">
       <span class="vg-sr" id="vg-cv-label-${vgId}">Graph of ${VGRules.noteCounts(nodes).notes} notes in ${plural(DATA.clusters.length, "topic")}.</span>
-      <canvas class="vg-cv" role="img" aria-labelledby="vg-cv-label-${vgId}"></canvas>
+      <canvas class="vg-cv" role="img" tabindex="0" aria-labelledby="vg-cv-label-${vgId}"></canvas>
       <div class="vg-hud" aria-hidden="true"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
         <div class="vg-hud-title"></div><div class="vg-hud-tele"></div><div class="vg-scan"></div></div>
       <button class="vg-viewhelp" hidden aria-expanded="false">How to read this</button>
@@ -289,24 +290,19 @@ function mountVaultGraph(root, DATA, opts) {
       </div>
       <button class="vg-pausepill" hidden>❚❚ PAUSED · RESUME</button>
       <div class="vg-timebar" hidden><button class="vg-time-play" aria-label="Play">▶</button><input type="range" min="0" value="0" step="1" aria-label="Date"><b class="vg-time-label">Now</b><button class="vg-ibtn vg-time-close" aria-label="Close time-lapse" title="Back to now">✕</button></div>
-      <div class="vg-missions" role="region" aria-label="Upkeep"></div>
       <div class="vg-toolbar" role="toolbar" aria-label="Graph controls">
         <button class="vg-ibtn vg-toggle" aria-label="Toggle panels" title="Toggle panels">${icon("menu")}</button>
         <button class="vg-searchbtn" aria-label="Search notes" title="Search (/ or Ctrl K)">${icon("search", 14)}<span>Search notes</span><kbd>/</kbd></button>
-        <div class="vg-menuwrap">
-          <button class="vg-ibtn vg-pickbtn" aria-haspopup="dialog" aria-expanded="false" title="Views and display (M)"><span class="vg-pickicon">${icon("hub", 16)}</span><span class="vg-pickname">Views</span><span class="vg-caret" aria-hidden="true">▾</span></button>
-        </div>
+        <span class="vg-sels" role="group" aria-label="View, display and tools"><select class="vg-sel vg-viewsel" aria-label="View (M)" title="View (M)"></select><select class="vg-sel vg-displaysel" aria-label="Display" title="Display: styles, size, colour and layers"></select></span>
         <div class="vg-seg vg-dimseg" role="group" aria-label="2D or 3D"><button class="vg-segbtn" data-dim="2d" aria-pressed="true" title="2D (3)">2D</button><button class="vg-segbtn" data-dim="3d" aria-pressed="false" title="3D (3)">3D</button></div>
         <button class="vg-nextbtn" hidden title="Go to it in Vault HQ"><i class="vg-nextdot" aria-hidden="true"></i><small>Next</small><b></b></button>
         <span class="vg-toolhist"></span>
-        <div class="vg-menuwrap"><button class="vg-ibtn vg-toolsbtn" aria-haspopup="menu" aria-expanded="false" aria-pressed="false" title="Select, save, time-lapse">${icon("layers")}<span class="vg-tlabel">Tools</span><span class="vg-caret" aria-hidden="true">▾</span></button>
-          <div class="vg-menu vg-toolsmenu" role="menu" hidden></div></div>
+        <select class="vg-sel vg-toolsel" aria-label="Tools" title="Undo, select, save, time-lapse, layout"></select>
         <span class="vg-toolsrc" hidden>   <!-- the tools themselves: the Tools menu and the phone's picker sheet press these -->
           <button class="vg-ibtn vg-lassobtn" aria-pressed="false" title="Lasso: drag a box to select notes (or Alt-drag)">${icon("lasso")}<span class="vg-tlabel">Select</span></button>
           <button class="vg-ibtn vg-savebtn" title="Save this view (it appears under Saved, and as a constellation in Cosmos)">${icon("star")}<span class="vg-tlabel">Save view</span></button>
           <button class="vg-ibtn vg-timebtn vg-maptime" aria-pressed="false" title="Time-lapse: the vault as it was, note by note (T)">${icon("clock")}<span class="vg-tlabel">Time-lapse</span></button>
         </span>
-        <button class="vg-ibtn vg-gamebtn" aria-pressed="false" title="Upkeep (G)" aria-label="Upkeep">${icon("flag")}<span class="vg-tlabel">Upkeep</span><span class="vg-gamecount" hidden>0</span></button>
         <span class="vg-spacer"></span>
         <div class="vg-seg vg-depthseg vg-compact-only" role="group" aria-label="Local depth">
           <button class="vg-segbtn" data-depth="1" aria-pressed="true">1</button><button class="vg-segbtn" data-depth="2" aria-pressed="false">2</button>
@@ -325,9 +321,9 @@ function mountVaultGraph(root, DATA, opts) {
       <section class="vg-lens" hidden aria-label="View"><header class="vg-lens-h"><b class="vg-lens-title"></b><span class="vg-muted vg-lens-sub"></span>
         <button class="vg-ibtn vg-lens-close" aria-label="Close" title="Close (Esc)">${icon("close")}</button></header><div class="vg-lens-body"></div></section>
       <div class="vg-picker-scrim" hidden></div>
-      <section class="vg-picker" role="dialog" aria-label="Views" hidden>
+      <section class="vg-picker" role="dialog" aria-label="Display settings" hidden>
         <div class="vg-sheet-grip" aria-hidden="true"></div>
-        <header class="vg-picker-h"><input class="vg-picker-q" type="search" placeholder="Find a view…" aria-label="Find a view" autocomplete="off"><button class="vg-ibtn vg-picker-x" aria-label="Close">${icon("close")}</button></header>
+        <header class="vg-picker-h"><input class="vg-picker-q" type="search" hidden placeholder="Find a view…" aria-label="Find a view" autocomplete="off"><button class="vg-ibtn vg-picker-x" aria-label="Close">${icon("close")}</button></header>
         <div class="vg-picker-tabs" role="tablist" aria-label="Kinds of view"></div>
         <div class="vg-picker-body"><div class="vg-picker-tiles"></div>
         <section class="vg-ppanel" data-ppanel="health" hidden>
@@ -732,7 +728,7 @@ function mountVaultGraph(root, DATA, opts) {
       return;
     }
     // what sits over the canvas is off limits too: the Cosmos dock along the bottom, the Today panel down the side
-    const padB = isCosmos() && !opts.compact ? 96 : pad, padR = root.classList.contains("show-missions") && W >= 760 ? 330 : pad;
+    const padB = isCosmos() && !opts.compact ? 96 : pad, padR = pad;
     const k = Math.min(opts.compact ? 1.8 : 4, Math.max(0.05, Math.min((W - pad - padR) / Math.max(x1 - x0, 1), (H - padTop - padB) / Math.max(y1 - y0, 1))));
     animateTo({ k, tx: -((x0 + x1) / 2 - W / 2) * k - (padR - pad) / 2, ty: -((y0 + y1) / 2 - H / 2) * k + (padTop - padB) / 2, ...(pivot || {}), d: homeD }, ms == null ? 500 : ms);
   }

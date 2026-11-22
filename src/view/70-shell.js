@@ -73,7 +73,8 @@
       : it.kind === "cluster"
       ? `<div class="vg-pitem" role="option" data-i="${i}"><span class="vg-dot" style="background:${colorOf(it.c)}"></span><span class="vg-item-main"><b>${esc(clusterName(it.c))}</b><span class="vg-item-sub">Topic · ${plural(clusterById[it.c].size, "note")}</span></span></div>`
       : `<div class="vg-pitem" role="option" data-i="${i}"><span class="vg-dot ${byId[it.id].ghost ? "is-ghost" : ""}" style="background:${dotOf(it.id)}"></span><span class="vg-item-main">${label(it.id)}<span class="vg-item-sub">${esc(byId[it.id].folder || "/")}</span></span></div>`).join("")
-      || `<div class="vg-empty">No note or topic names match.</div>`;
+      || emptyNext("No note or topic names match.", "new:note", "lens:write", "lens:blind");
+    wireNext(list); list.querySelectorAll(".vg-empty-next button").forEach(b => b.addEventListener("click", () => closePalette()));   // a next step leaves the search
     list.querySelectorAll(".vg-pitem").forEach(el => {
       el.onmousemove = () => movePal(+el.dataset.i);
       el.onclick = () => choosePal(+el.dataset.i, false);
@@ -122,7 +123,8 @@
     if (palMode && palMode.pickFor && it.kind === "note") { const b = cos.bodies.find(x => x.id === palMode.pickFor); palMode = null; if (b) { b.target = it.id; cosmosCapture(); persistSoon(); alpha = Math.max(alpha, 0.5); selectBody(b.id); } return; }
     if (palMode && it.kind === "note") { findPath(palMode.pathFrom, it.id); palMode = null; return; }
     if (it.kind === "saved") applySaved(savedViews[it.i]);
-    else if (it.kind === "cluster") focusClusters([it.c]); else reveal(it.id);
+    else if (it.kind === "cluster") focusClusters([it.c]);
+    else { reveal(it.id); const box = $(".vg-inspector"); if (!box.hidden) { st.opener = cv; box.tabIndex = -1; box.focus({ preventScroll: true }); } }   // chosen from the keyboard: focus goes into the panel and back to the graph on close (carryFocus)
   }
 
   // ---------------------------------------------------------------- path finder
@@ -195,39 +197,45 @@
   // One button, one panel (a popover under the button on wide panes, a bottom sheet on phones): tabs, big tiles, a filter
   // Everything you open is a view, grouped by what you want to know, and every one is defined once in VIEWS (20-maps.js). A view draws
   // on the canvas or opens a report beside it; that's how it's built, not something to choose between. openView is the one way to open one.
-  const openView = k => { const v = VIEWS[k]; if (!v) return; if (v.kind === "lens") openLens(v.lens); else setView(k); };
+  const openView = k => { const v = VIEWS[k]; if (!v) return; if (v.kind === "lens") openLens(v.lens); else { if (lensKey) closeLens(); setView(k); } };
   // Display = style presets + node size/colour,
   // layers, saved views; Health = the overlays
-  const PICK_TABS = [["views", "Views"], ["style", "Display"], ["health", "Health"]];
+  const PICK_TABS = [["style", "Display"], ["health", "Health"]];   // the views themselves are the View select in the toolbar
   const PANEL_TABS = new Set(["style", "health"]);
-  const PICK_TOOLS = [["vg-lassobtn", "lasso", "Lasso"], ["vg-savebtn", "star", "Save view"], ["vg-timebtn", "clock", "Time-lapse"],
+  // the one A–Z rule for every menu, picker tab and group: by name, numbers in order, capitals ignored
+  const byName = (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+  const PICK_TOOLS =[["vg-lassobtn", "lasso", "Lasso"], ["vg-savebtn", "star", "Save view"], ["vg-timebtn", "clock", "Time-lapse"],
     ["randomize", "sparkles", "Randomize layout"], ["resetlayout", "refresh", "Reset layout"]];
   // the tools, wherever they're offered (the Tools menu, the phone's picker sheet): which apply now, and one way to run one
-  const tools = () => PICK_TOOLS.filter(([c]) => (c !== "randomize" || !isGame()) && (c !== "resetlayout" || canReset()));
+  const tools = () => PICK_TOOLS.filter(([c]) => (c !== "randomize" || !isGame()) && (c !== "resetlayout" || canReset())).sort((a, b) => byName({ name: a[2] }, { name: b[2] }));   // A–Z, like the views
   const runTool = c => ({ randomize: randomizeLayout, resetlayout: resetLayout }[c] || (() => $("." + c).click()))();
   const toolOn = c => { const b = c.startsWith("vg-") && $("." + c); return !!b && b.getAttribute("aria-pressed") === "true"; };
-  function syncToolsBtn() { const b = $(".vg-toolsbtn"); if (b) b.setAttribute("aria-pressed", PICK_TOOLS.some(([c]) => toolOn(c))); }
-  function closeTools() { const m = $(".vg-toolsmenu"); if (!m || m.hidden) return false; m.hidden = true; $(".vg-toolsbtn").setAttribute("aria-expanded", "false"); return true; }
-  function openTools() {
-    const m = $(".vg-toolsmenu"); closeMenu();
-    m.innerHTML = tools().map(([c, ic, name]) => { const src = c.startsWith("vg-") ? $("." + c) : null;
-      return `<button class="vg-mitem" role="menuitem" data-tool="${c}"${src && src.hasAttribute("aria-pressed") ? ` aria-checked="${toolOn(c)}"` : ""}><b>${icon(ic, 14)} ${esc(name)}</b>${src && src.title ? `<span class="vg-muted">${esc(src.title.replace(/^[^:(]*:\s*/, "").replace(/^./, ch => ch.toUpperCase()))}</span>` : ""}</button>`; }).join("");
-    // Undo and Redo first: the toolbar pair is hidden when the pane is narrow, so the menu always has them
-    const hs = VGActions.history.state(), hm = (key, ic, name, on, msg) => `<button class="vg-mitem" role="menuitem" data-${key}${on ? "" : " disabled"}><b>${icon(ic, 14)} ${name}</b><span class="vg-muted">${esc(on ? msg : "Nothing to " + name.toLowerCase())}</span></button>`;
-    m.insertAdjacentHTML("afterbegin", hm("hprev", "prev", "Previous", hs.canPrevious, hs.previous).replace("Nothing to previous", "No earlier decision") + hm("hundo", "undo", "Undo", hs.canUndo, hs.past[hs.past.length - 1]) + hm("hredo", "redo", "Redo", hs.canRedo, hs.future[hs.future.length - 1]));
-    m.querySelectorAll("[data-hprev], [data-hundo], [data-hredo]").forEach(x => x.onclick = () => { closeTools(); VGActions.history.press(x, showDecided); });
-    m.querySelectorAll("[data-tool]").forEach(x => x.onclick = () => { closeTools(); runTool(x.dataset.tool); });
-    m.hidden = false; $(".vg-toolsbtn").setAttribute("aria-expanded", "true"); m.querySelector("[data-tool]").focus({ preventScroll: true });
+  // The toolbar's select boxes: View, Display and Tools, built from the same lists the picker used (pickItems, PRESETS, tools).
+  const opt = (v, label, extra = "") => `<option value="${esc(v)}"${extra}>${esc(label)}</option>`;
+  function syncSelects() {
+    const vs = $(".vg-viewsel"), ds = $(".vg-displaysel"), ts = $(".vg-toolsel"); if (!vs) return;
+    const items = pickItems().filter(i => i.tab === "views"), cur = items.find(i => i.on);
+    vs.innerHTML = (cur ? "" : opt("", "View", " hidden disabled")) + viewGroups(items).map(([name, xs]) => `<optgroup label="${esc(name)}">${xs.map(i => opt(i.k, i.name)).join("")}</optgroup>`).join("");
+    vs.value = cur ? cur.k : "";
+    const displayOpts = `<optgroup label="Styles">${Object.entries(PRESETS).sort((a, b) => byName(a[1], b[1])).map(([k, p]) => opt("preset:" + k, (st.preset === k ? "✓ " : "") + p.name)).join("")}</optgroup><optgroup label="Settings">${opt("panel:style", "Size, colour and layers…")}${opt("panel:health", "Health overlays…")}</optgroup>`;
+    ds.innerHTML = opt("", "Display", " hidden disabled") + displayOpts;
+    ds.value = "";
+    const hs = VGActions.history.state(), h = (v, name, on) => opt(v, name, on ? "" : " disabled");
+    ts.innerHTML = opt("", sheetMode() ? "⋯" : "Tools", " hidden disabled") + `<optgroup label="History">${h("hprev", "Previous", hs.canPrevious)}${h("hundo", "Undo", hs.canUndo)}${h("hredo", "Redo", hs.canRedo)}</optgroup><optgroup label="Tools">${tools().map(([c, ic, name]) => opt(c, (toolOn(c) ? "✓ " : "") + name)).join("")}</optgroup>` + (sheetMode() ? displayOpts : "");   // on a phone the Display select is folded into this one
+    ts.value = "";
   }
-  $(".vg-toolsbtn").onclick = e => { e.stopPropagation(); if (!closeTools()) openTools(); };
+  $(".vg-viewsel").onchange = e => { const it = pickItems().find(i => i.tab === "views" && i.k === e.target.value); if (it) it.run(); syncSelects(); };
+  const chooseDisplay = v => { const [kind, k] = v.split(":"); if (kind === "preset") applyPreset(k); else if (kind === "panel") openPicker(k); };
+  $(".vg-displaysel").onchange = e => { const v = e.target.value; e.target.value = ""; chooseDisplay(v); syncSelects(); };
+  $(".vg-toolsel").onchange = e => { const v = e.target.value; e.target.value = ""; if (v === "hprev" || v === "hundo" || v === "hredo") { const b = document.createElement("button"); b.setAttribute("data-" + v, ""); VGActions.history.press(b, showDecided); } else if (/^(preset|panel):/.test(v)) chooseDisplay(v); else if (v) runTool(v); syncSelects(); };
   const sheetMode = () => MOBILE || root.clientWidth < 760;
   let pickTab = null;
   function pickItems() {
     const out = [];
     Object.entries(VIEWS).forEach(([k, v]) => { if (v.hidden || (opts.compact && (v.kind === "lens" || k === "cosmos"))) return;   // hidden: reachable by key, listed in no picker
-      out.push({ tab: "views", k, ic: v.icon, name: v.name, hint: v.hint, field: v.field, on: v.kind === "lens" ? lensKey === v.lens : st.view === k, run: () => openView(k) }); });
+      out.push({ tab: "views", k, ic: v.icon, name: v.name, hint: v.hint, field: v.field, on: v.kind === "lens" ? lensKey === v.lens : st.view === k && !lensKey, run: () => openView(k) }); });
     Object.entries(PRESETS).forEach(([k, p]) => out.push({ tab: "style", k, ic: "sparkles", name: p.name, hint: p.hint, on: st.preset === k, run: () => applyPreset(k) }));
-    out.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));   // A–Z within every tab
+    out.sort(byName);   // A–Z within every tab
     if (opts.writeNote && !opts.compact) out.push({ tab: "views", k: "newscene", ic: "plus", name: "New view", hint: "Your own view, written in a note", on: false, run: () => newScene() });
     return out;
   }
@@ -237,12 +245,12 @@
     const take = (name, keys) => { const g = keys.map(k => by.get(k)).filter(Boolean); g.forEach(i => used.add(i.k)); if (g.length) out.push([name, g]); };
     const recent = (st.recent || []).filter(k => k !== st.view && by.has(k)).slice(0, 3);
     if (recent.length) out.push(["Recent", recent.map(k => by.get(k))]);
-    VIEW_MENUS.forEach(([id, name]) => take(name, [...Object.keys(VIEWS).filter(k => VIEWS[k].menu === id), ...(id === "own" ? ["newscene"] : [])]));
+    VIEW_MENUS.forEach(([id, name]) => take(name, xs.filter(i => i.k === "newscene" ? id === "own" : (VIEWS[i.k] || {}).menu === id).sort(byName).map(i => i.k)));   // A–Z inside every group
     take("More", xs.filter(i => !used.has(i.k)).map(i => i.k));
     return out;
   }
   function renderPicker() {
-    const items = pickItems(), q = $(".vg-picker-q").value.trim().toLowerCase();
+    const items = pickItems().filter(i => PANEL_TABS.has(i.tab)), q = "";
     const tabs = PICK_TABS.filter(([t]) => PANEL_TABS.has(t) || items.some(i => i.tab === t));
     if (!tabs.some(([t]) => t === pickTab)) pickTab = tabs[0][0];
     $(".vg-picker-tabs").innerHTML = tabs.map(([t, name]) => { const n = items.filter(i => i.tab === t).length;
@@ -259,13 +267,11 @@
     $$(".vg-picker-body .vg-tile").forEach(b => b.onclick = () => { const it = items.find(i => i.tab === b.dataset.tab && i.k === b.dataset.k); pickTab = it.tab; closeMenu(); it.run(); });
   }
   function openPicker(tab) {
-    const p = $(".vg-picker"), b = $(".vg-pickbtn");
-    pickTab = PANEL_TABS.has(tab) ? tab : "views";
+    const p = $(".vg-picker"), b = $(".vg-displaysel");
+    pickTab = PANEL_TABS.has(tab) ? tab : "style";
     $(".vg-picker-q").value = ""; renderPicker();
-    $(".vg-picker-tools").innerHTML = tools().map(([c, ic, name]) => `<button class="vg-btn" data-tool="${c}">${icon(ic, 14)} ${name}</button>`).join("");
-    $$(".vg-picker-tools [data-tool]").forEach(x => x.onclick = () => { closeMenu(); runTool(x.dataset.tool); });
     root.classList.toggle("vg-pick-sheet", sheetMode());
-    p.hidden = false; $(".vg-picker-scrim").hidden = false; b.setAttribute("aria-expanded", "true");
+    p.hidden = false; $(".vg-picker-scrim").hidden = false; 
     if (sheetMode()) { p.style.left = ""; p.style.top = ""; }
     else { const r = b.getBoundingClientRect(), op = (p.offsetParent || root).getBoundingClientRect();   // under the button, kept inside the pane
       p.style.left = Math.max(8, Math.min(r.left - op.left, op.width - p.offsetWidth - 8)) + "px"; p.style.top = (r.bottom - op.top + 6) + "px"; }
@@ -276,22 +282,20 @@
   // Undo and Redo in the toolbar: the one history (VGActions.history) every surface reads
   // Previous: the note the decision was made on, selected in the graph
   function showDecided(at) { if (at.path && byId[at.path]) select(at.path); }
-  const syncHistory = () => { const h = $(".vg-toolhist"); if (h && !destroyed) h.innerHTML = VGParts.historyButtons(VGActions.history.state(), icon, "vg-ibtn"); };
+  const syncHistory = () => { const h = $(".vg-toolhist"); if (selectsReady && !destroyed) syncSelects(); if (h && !destroyed) h.innerHTML = VGParts.historyButtons(VGActions.history.state(), icon, "vg-ibtn"); };
+  let selectsReady = false;   // set after the first build, so history changes before it do not draw the selects early
   const unHistory = VGActions.history.subscribe(syncHistory);
   root.addEventListener("click", e => { const b = e.target.closest && e.target.closest(".vg-toolhist .vg-historybtn"); if (b) VGActions.history.press(b, showDecided); });
   syncHistory();
   function syncMapsBtn(view) {   // the Views button shows where you are
     syncNextBtn();
     syncDim();
-    const d = VIEWS[view]; if (!$(".vg-pickbtn")) return;
-    $(".vg-pickname").textContent = view === "2d" || view === "3d" ? "Views" /* the 2D/3D switch beside it says which */ : d ? d.name : view;
-    $(".vg-pickicon").innerHTML = icon(d ? d.icon : "layers", 16);
+    syncSelects();
   }
   function closeMenu() {
     const p = $(".vg-picker"); if (!p || p.hidden) return;
-    p.hidden = true; $(".vg-picker-scrim").hidden = true; $(".vg-pickbtn").setAttribute("aria-expanded", "false");
+    p.hidden = true; $(".vg-picker-scrim").hidden = true; 
   }
-  $(".vg-pickbtn").onclick = e => { e.stopPropagation(); const open = $(".vg-picker").hidden; closeMenu(); if (open) openPicker(); };
   $(".vg-picker-x").onclick = () => closeMenu();
   $(".vg-picker-scrim").onclick = () => closeMenu();
   $(".vg-picker-q").oninput = () => renderPicker();
@@ -305,7 +309,7 @@
     if (step && i >= 0) { tiles[(i + step + tiles.length) % tiles.length].focus(); e.preventDefault(); e.stopPropagation(); }
   };
   $(".vg-picker").addEventListener("click", e => e.stopPropagation());   // tabs re-render under the click: it must not read as "outside"
-  root.addEventListener("click", e => { if (!e.target.closest(".vg-menuwrap")) { closeMenu(); closeTools(); } });
+  root.addEventListener("click", e => { if (!e.target.closest(".vg-sels")) closeMenu(); });
 
   // ---------------------------------------------------------------- views + controls
   // a view explains itself the first time on this device; after that its legend is enough
@@ -327,7 +331,6 @@
     syncMapsBtn(view); syncLayoutBtns(); syncDim();
     root.classList.toggle("is-neural", view === "neural");
     root.classList.toggle("is-cosmos", view === "cosmos");
-    setMissionsShown(missionsPref != null ? missionsPref : view === "cosmos");   // the cosmos opens with them; elsewhere on request
     if (view !== "cosmos" && st.paused) setPaused(false);
     if (view !== "cosmos") { st.placing = null; root.classList.remove("is-placing"); if (st.body) { st.body = null; $(".vg-inspector").hidden = true; root.classList.remove("has-inspector"); } }
     root.dataset.vision = view === "neural" ? st.vision : "";
@@ -523,7 +526,6 @@
     if (view === "cosmos") { st.three = false; root.classList.add("is-cosmos"); }
     // the same markers setView sets: map-only controls (time bar, floors, legend) key off them
     root.classList.toggle("is-map", !!SCENES[view]); root.dataset.map = SCENES[view] ? view : "";
-    setMissionsShown(view === "cosmos");
     return ok;
   }
 
@@ -537,9 +539,10 @@
   if (iv === "neural") { st.view = "neural"; st.three = true; root.classList.add("is-neural"); root.dataset.vision = st.vision; }
   else if (iv && SCENES[iv]) { st.view = iv; Object.assign(cam, enterSpace(iv)); root.classList.add("is-map"); root.dataset.map = iv; }
   else if (iv === "3d") { st.view = "3d"; st.three = true; cv.style.cursor = "grab"; }
-  if (iv) syncMapsBtn(st.view);
+  if (iv) syncMapsBtn(st.view); else syncSelects();
+  selectsReady = true;
   const restored = opts.compact ? (neural() ? false : seeded()) : restoreSaved();
-  renderClusters(""); renderSaved(); renderTodayList(); renderToday();
+  renderClusters(""); renderSaved(); renderToday();
   rebuild(true);
   if (mapView()) alpha = 0;   // rebuild() above laid it out
   else if (neural()) { brainLayout(false); if (st.angles.neural === "flat") st.three = false; alpha = 0; }
@@ -555,7 +558,10 @@
   }
   updateGameSoon();
   setTimeout(() => { if (!destroyed) { renderToday(); } }, 400);
-  if (!opts.compact && opts.store && !tourSeen) setTimeout(() => { if (!destroyed && W) startTour(); }, 1800);   // once, on first open
+  const viewAtOpen = st.view;
+  let began = false;   // a click or key anywhere in the viewer (a card, a panel, search) is the person starting; the tour stays out of the way
+  ["pointerdown", "keydown"].forEach(t => root.addEventListener(t, () => { began = true; }, true));
+  if (!opts.compact && opts.store && !tourSeen) setTimeout(() => { if (!destroyed && W && !began && !lastInteract && st.view === viewAtOpen && $(".vg-lens").hidden && $(".vg-palette").hidden) startTour(); }, 1800);   // not over something the person already began   // once, on first open
   if (opts.sharedStore && !opts.compact) opts.sharedStore.load().then(sh => {   // the vault copy wins: it's what other devices wrote
     if (!sh || sh.v !== 1 || destroyed) return;
     if (Array.isArray(sh.saved)) savedViews = sh.saved;
@@ -563,7 +569,7 @@
     if (sh.cosmos && Array.isArray(sh.cosmos.bodies)) cos = { ...cos, ...sh.cosmos, auto: { ...cos.auto, ...(sh.cosmos.auto || {}) } };
     (sh.pending || []).forEach(text => logDiscovery(text));   // actions from the sidebar: award them now
     if ((sh.pending || []).length) persistNow();
-    renderSaved(); renderTodayList(); if (isCosmos()) cosmosCapture(); updateGameSoon(); dirty = true; kick();
+    renderSaved(); if (isCosmos()) cosmosCapture(); updateGameSoon(); dirty = true; kick();
   });
 
   return {
@@ -613,7 +619,7 @@
       ringMarks: () => ringMarks, ringBadges: () => ringBadges.map(b => ({ ids: b.ids, x: b.x, y: b.y, r: b.r, reasons: b.reasons })),
       attention: () => [...attentionOf()].map(([id, k]) => ({ id, k, why: reasonsOf(id), at: P.get(id) ? { x: P.get(id).x, y: P.get(id).y, r: P.get(id).r || 6 } : null })),
       lensDefs: () => LENSES,   // the test swaps a lens's load() to make it fail
-      views: () => Object.keys(VIEWS).filter(canvasView), allViews: () => Object.entries(VIEWS).map(([key, v]) => ({ key, kind: v.kind, name: v.name, menu: v.menu, hint: v.hint, icon: v.icon, field: v.field || "", scale: VGRules.viewScale(key), hidden: !!v.hidden })), openView, lenses: () => Object.keys(LENSES), clusters: () => DATA.clusters, links: () => links, screen: id => { const p = P.get(id); return p ? { x: p.x, y: p.y, r: p.r, a: p.a } : null; },
+      toast, views: () => Object.keys(VIEWS).filter(canvasView), allViews: () => Object.entries(VIEWS).map(([key, v]) => ({ key, kind: v.kind, name: v.name, menu: v.menu, hint: v.hint, icon: v.icon, field: v.field || "", scale: VGRules.viewScale(key), hidden: !!v.hidden })), openView, lenses: () => Object.keys(LENSES), clusters: () => DATA.clusters, links: () => links, screen: id => { const p = P.get(id); return p ? { x: p.x, y: p.y, r: p.r, a: p.a } : null; },
       radarScope() { const A = mapCache.radar; if (!A) return null; const R = rot(), k = cam.k, o = scr(0, 0, R), r = A.RMAX * k, under = parseFloat(getComputedStyle(wrap).getPropertyValue("--vg-under-bar")) || 0;
         const held = nodes.find(n => !special(n) && n.tasks > 0 && P.get(n.id) && Math.hypot(P.get(n.id).x - o.x, P.get(n.id).y - o.y) < A.hold * k * 0.9);
         return { cx: o.x, cy: o.y, top: o.y - r, bottom: o.y + r, left: o.x - r, right: o.x + r, W, H, under, held: held ? held.id : null }; },

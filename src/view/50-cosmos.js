@@ -831,40 +831,7 @@
     if (cos.daily && cos.daily.quests) cos.daily.quests = cos.daily.quests.filter(q => q.done || stillValid(q));
     updateDaily(announce);
     ACH.forEach(a => { if (!cos.ach[a.id] && a.test()) { cos.ach[a.id] = today(); if (announce) { toast(`Achievement unlocked: ${a.name}`, "ok"); celebrate(a.name); } } });
-    renderTodayList(); persistSoon();
-  }
-  // The Upkeep panel is the same in every view: the cosmos shows it by default, the toolbar flag (G) shows or hides
-  // it anywhere, and that choice sticks for this pane
-  let missionsPref = null;
-  function setMissionsShown(on, byHand) {
-    if (byHand) { missionsPref = on; if (on) $(".vg-missions").classList.remove("is-collapsed"); }   // the button opens the list itself, on a phone too
-    if (on) closeDrawer();
-    root.classList.toggle("show-missions", !!on);
-    const b = $(".vg-gamebtn"); if (b) b.setAttribute("aria-pressed", String(!!on));
-    if (on) renderMissions();
-  }
-  $(".vg-gamebtn").onclick = () => setMissionsShown(!root.classList.contains("show-missions"), true);
-  let missionsInit = false;
-  function renderMissions() {
-    const box = $(".vg-missions"); if (!box) return;
-    if (!missionsInit) { missionsInit = true; if (narrow()) box.classList.add("is-collapsed"); }
-    ensureDaily();
-    const next = RANKS.find(r => r[0] > cos.xp), prev = RANKS.filter(r => r[0] <= cos.xp).pop(), pct = next ? Math.round(100 * (cos.xp - prev[0]) / (next[0] - prev[0])) : 100;
-    const sk = streak(), wk = weeklyCount();
-    box.innerHTML = `<button class="vg-ms-head" aria-expanded="${!box.classList.contains("is-collapsed")}"><b>UPKEEP</b><span>${sk ? `🔥${sk} · ` : ""}${rankOfXp(cos.xp).toUpperCase()} · ${cos.xp} XP</span></button>
-      <div class="vg-ms-rank"><i style="width:${pct}%"></i></div>
-      <div class="vg-ms-body">
-        <div class="vg-ms-stats"><span title="0 to 100: 40% from notes that link to something, 35% from topics covered by a map, 25% from notes edited recently."><b>${vaultHealth()}</b> vault health</span><span><b>${sk}</b> day streak</span><span>${next ? `<b>${next[0] - cos.xp}</b> XP to ${next[1]}` : "<b>MAX</b> rank"}</span></div>
-        <div class="vg-ms-sec">${cos.daily.bonus ? "✓ +25 BONUS" : "+8 EACH · +25 FOR ALL THREE"}</div>
-        <div class="vg-ms-today">${todayHtml(5)}</div>
-        <div class="vg-ms-sec">WEEKLY · LINK 10 NOTES ${cos.weekly && cos.weekly.claimed ? "· ✓ +50" : "· +50"}</div>
-        <div class="vg-ms-bar"><i style="width:${Math.min(100, wk * 10)}%"></i></div><div class="vg-ms-how">${Math.min(wk, 10)} / 10 this week</div>
-        ${VGParts.more({ cls: "vg-ms-log", label: `DISCOVERY LOG · ${(cos.log || []).length}`, body: (cos.log || []).slice(0, 25).map(e => `<div><span>${esc(e.date.slice(5))}</span> ${esc(e.text)}</div>`).join("") || "<div>Nothing yet — act on a suggestion.</div>" })}
-        <div class="vg-ms-sec is-theme">COSMOS THEME</div><div class="vg-ms-themes">${Object.entries(THEMES).map(([k, th]) => `<button class="vg-ms-theme ${theme() === th ? "is-on" : ""}" data-theme="${k}" ${cos.xp < th.xp ? "disabled" : ""} title="${cos.xp < th.xp ? `Unlocks at ${RANKS.find(r => r[0] === th.xp)[1]} (${th.xp} XP)` : th.name}" style="--a:rgb(${th.star[1]});--b:rgb(${th.star[2]})"><i></i>${esc(th.name)}${cos.xp < th.xp ? " 🔒" : ""}</button>`).join("")}</div>
-        <div class="vg-ms-ach">${ACH.map(a => `<span class="vg-ach ${cos.ach[a.id] ? "is-on" : ""}" title="${esc(a.name)} — ${esc(a.hint)}${cos.ach[a.id] ? " (unlocked " + cos.ach[a.id] + ")" : ""}">${esc(a.name)}</span>`).join("")}</div></div>`;
-    box.querySelector(".vg-ms-head").onclick = () => { box.classList.toggle("is-collapsed"); renderMissions(); };
-    wireToday(box); wireMore(box);
-    box.querySelectorAll("[data-theme]").forEach(b => b.onclick = () => { cos.theme = b.dataset.theme; persistSoon(); renderMissions(); dirty = true; kick(); });
+    persistSoon();
   }
   $$(".vg-dockbtn").forEach(b => b.onclick = () => {
     const on = st.placing !== b.dataset.body; st.placing = on ? b.dataset.body : null;
@@ -912,7 +879,7 @@
     else if (!isCosmos() && !mapView()) alpha = 0;   // hold the map still: notes appear where they live
     fit(neural() ? n => !special(n) : mapView() ? mapFitPred() : null, 400);
     replay = { order, shown: new Set(), k: 0, playing: false, t0: 0, k0: 0, dur: Math.max(6000, Math.min(20000, order.length * 25)), built: 0, laid: 0 };
-    const r = $(".vg-timebar input"); r.max = order.length; $(".vg-timebar").hidden = false; $$(".vg-timebtn").forEach(x => x.setAttribute("aria-pressed", "true")); syncToolsBtn();
+    const r = $(".vg-timebar input"); r.max = order.length; $(".vg-timebar").hidden = false; $$(".vg-timebtn").forEach(x => x.setAttribute("aria-pressed", "true")); syncSelects();
     playTime(true); dirty = true; kick();
   }
   // Move to the point where the first k notes exist. From a play it pops the new ones in; a jump back rebuilds the set.
@@ -945,7 +912,7 @@
   function stopTime() {
     if (!replay) return;
     replay = null; st.timeAt = null; popAt.clear();
-    $(".vg-timebar").hidden = true; $$(".vg-timebtn").forEach(x => x.setAttribute("aria-pressed", "false")); syncToolsBtn();
+    $(".vg-timebar").hidden = true; $$(".vg-timebtn").forEach(x => x.setAttribute("aria-pressed", "false")); syncSelects();
     rebuild(false); renderToday(); dirty = true; kick();
   }
   const toggleTime = () => { if (replay) stopTime(); else startTime(); };

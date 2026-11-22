@@ -23,7 +23,7 @@
   const groupHtml = (c, ms, open) => VGParts.more({ cls: "vg-group", open, head: `<span class="vg-dot" style="background:${colorOf(+c)}"></span>${esc(clusterName(+c))}`, count: ms.length, body: ms.map(m => noteRow(m)).join("") });
   const sideList = (rows, word = "notes") => VGParts.list(rows, { first: 5, word });
   const card = (title, hint, body) => `<div class="vg-card"><div class="vg-card-h"><span>${title}</span>${hint ? `<span class="vg-muted vg-card-hint">${hint}</span>` : ""}</div>${body}</div>`;
-  const gapRow = g => `<div class="vg-gaprow">${VGParts.item({ cls: "vg-gap", attrs: `data-a="${g.a}" data-b="${g.b}"`, lead: `<span class="vg-dots"><span class="vg-dot" style="background:${colorOf(g.a)}"></span><span class="vg-dot" style="background:${colorOf(g.b)}"></span></span>`, title: `<span>${esc(clusterName(g.a))} <span class="vg-muted">↔</span> ${esc(clusterName(g.b))}</span>`, sub: `${g.comentions} co-mentions · only ${plural(g.links, "link")}` })}
+  const gapRow = g => `<div class="vg-gaprow">${VGParts.item({ cls: "vg-gap", attrs: `data-a="${g.a}" data-b="${g.b}"`, lead: `<span class="vg-dots"><span class="vg-dot" style="background:${colorOf(g.a)}"></span><span class="vg-dot" style="background:${colorOf(g.b)}"></span></span>`, title: `<span>${esc(clusterName(g.a))} <span class="vg-muted">↔</span> ${esc(clusterName(g.b))}</span>`, sub: VGShared.gapWhy(g) })}
       ${opts.writeNote ? `<button class="vg-ibtn vg-bridgebtn" data-a="${g.a}" data-b="${g.b}" title="Draft a bridge note for this gap" aria-label="Draft bridge note">${icon("bridge", 15)}</button>` : ""}</div>`;
   const wordFor = (n, one, many) => plural(n, one, many).replace(/^\S+ /, "");   // the word alone, for when the number sits apart from it
   function renderChanges() {
@@ -47,7 +47,7 @@
   let review = { skipped: {} };
   const todayData = () => ({ ...DATA, links, mocs, wanted: ghosts.filter(g => !g.created).map(g => ({ id: g.id, name: g.name, refs: g.from, creatable: g.creatable })) });
   const todayItems = () => VGRules.todayList(todayData(), { review, hidden: cos.hidden, today: today(), skipDays: UI.time.skipDays, groups: ["upkeep"] });
-  function pinReview(id) { review.pinned = [...new Set([...(review.pinned || []), id])]; persistSoon(); renderTodayList(); toast(`${byId[id].name} added to Upkeep`, "ok"); }
+  function pinReview(id) { review.pinned = [...new Set([...(review.pinned || []), id])]; persistSoon(); toast(`${byId[id].name} added to Upkeep`, "ok"); }
   function todayRow(it, pick) {
     const done = !!(pick && pick.done), can = !done && VGActions.todayWhen(it, actionCtx());
     return `<div class="vg-td ${done ? "is-done" : ""}" data-tkey="${esc(it.key)}"><div class="vg-td-main"><b class="vg-rv-title">${pick ? (done ? "✓ " : "○ ") : ""}${esc(it.title)}</b>${it.why && !done ? `<span class="vg-item-sub">${esc(VGRules.whyWords(it.why))}</span>` : ""}</div>` +
@@ -78,7 +78,7 @@
     review.skipped[it.key] = today();
     if (it.key.startsWith("pin|")) review.pinned = (review.pinned || []).filter(x => x !== it.id);
     if (cos.daily.quests.some(q => q.key === it.key)) { cos.daily.quests = cos.daily.quests.filter(q => q.key !== it.key); const next = nextPick(); if (next) cos.daily.quests.push(next); }
-    persistSoon(); renderTodayList();
+    persistSoon(); 
   }
   function wireToday(box) {
     const find = k => cos.daily.quests.find(q => q.key === k) || todayItems().find(it => it.key === k);
@@ -90,11 +90,6 @@
       if (q("[data-tskip]")) q("[data-tskip]").onclick = e => { e.stopPropagation(); skipToday(it); };
     });
     wireNext(box);
-  }
-  // the count on the Upkeep button, and the panel when it's open: the one place the graph lists these
-  function renderTodayList() {
-    const badge = $(".vg-gamecount"); if (badge) { const n = cos.daily ? cos.daily.quests.filter(q => !q.done).length : 0; badge.textContent = n; badge.hidden = !n; }
-    if (root.classList.contains("show-missions")) renderMissions();
   }
 
   // ---------------------------------------------------------------- saved views
@@ -172,23 +167,22 @@
         sideList(saidUnlinked.slice(0, 30).map(([id, n]) => noteRow(id, `${n} daily notes`)))) : "") +
       (ghosts.length ? card("Notes to write", "linked from your notes but never created",
         sideList(ghosts.slice(0, 30).map(g => noteRow(g.id, `linked from ${plural(g.from.length, "note")}`)))) : "") +
-      (coolingHubs.length ? card("Cooling hubs", "influential, not mentioned lately",
-        sideList(coolingHubs.slice(0, 30).map(n => noteRow(n.id, `#${rankOf[n.id]} most connecting · quiet ${DATA.recent_days}+ days`)))) : "") +
+      (coolingHubs.length ? card("Cooling hubs", "well connected, not named in a daily note lately",
+        sideList(coolingHubs.slice(0, 30).map(n => noteRow(n.id, `#${rankOf[n.id]} most connecting · not in a daily note for ${DATA.recent_days} days`)))) : "") +
       `<p class="vg-muted vg-foot">Data from ${esc(DATA.date)} · ${DATA.dailies_used || "?"} daily notes since ${esc(DATA.since || "the start")}</p>`;
     const panel = $('[data-panel="insights"]');
     panel.innerHTML = html;
     wire(panel); wireNext(panel);
     panel.querySelectorAll(".vg-gap").forEach(e => e.onclick = () => focusClusters([+e.dataset.a, +e.dataset.b]));
     const STAT_GO = {
-      all: () => fit(),
+      all: () => (openPalette(), true),   // the notes themselves, most connected first
       topics: () => (setTab("clusters"), true),   // true: what it opens is in this panel, so a phone's drawer stays open
       gaps: () => openLens("matrix"),
-      unlinked: () => { const ids = new Set(nodes.filter(n => n.isolated && !special(n)).map(n => n.id)); if (!ids.size) return;
-        st.isolated = true; $(".vg-isolated").checked = true; rebuild(true); setHighlight(ids, plural(ids.size, "unlinked note")); fit(n => ids.has(n.id), 400); },
+      unlinked: () => openLens("blind"),   // the list, each with its fix; Islands is every note with no links
     };
-    panel.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { if (!STAT_GO[b.dataset.stat]()) closeDrawer(); });
+    panel.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { if (!STAT_GO[b.dataset.stat]()) closeDrawer(true); });
     panel.querySelectorAll(".vg-maprow").forEach(e => e.onclick = () => showMocMissing(e.dataset.moc));
-    renderTodayList();
+    
     panel.querySelectorAll(".vg-unmapped").forEach(e => e.onclick = () => focusClusters([+e.dataset.c]));
     panel.querySelectorAll(".vg-bridgebtn").forEach(e => e.onclick = ev => { ev.stopPropagation(); writeBridge(+e.dataset.a, +e.dataset.b); });
   }
@@ -274,7 +268,17 @@
     b.onclick = () => { const nid = nextNoteId(id); if (nid) select(nid); else { b.disabled = true; b.textContent = VGRules.NEXT_NOTE.empty; } };
     head.insertBefore(b, head.querySelector(".vg-ins-close"));
   }
-  function select(id) { if (!id) st.nextSeen = null; const r = selectNow(id); addNextControl(id); return r; }
+  function select(id) { if (!id) st.nextSeen = null; const r = selectNow(id); addNextControl(id); carryFocus(id); return r; }
+  // a note opening from a control (a sidebar row, a search result) takes focus into its panel; closing returns it to that control
+  function carryFocus(id) {
+    const box = $(".vg-inspector"), a = document.activeElement, seen = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.right > 0 && r.bottom > 0; };
+    if (id && !box.hidden) {
+      if (a && a !== root && a !== cv && root.contains(a) && !box.contains(a)) { st.opener = a; box.tabIndex = -1; try { box.focus({ preventScroll: true }); } catch (x) {} }
+    } else if (!id && st.opener) {
+      const o = st.opener; st.opener = null;
+      if (o.isConnected && seen(o)) { try { o.focus({ preventScroll: true }); } catch (x) {} } else { try { cv.focus({ preventScroll: true }); } catch (x) {} }
+    }
+  }
   function selectNow(id) {
     if (id && id !== st.selected) startWave(id);
     st.selected = id; dirty = true; kick();
@@ -628,7 +632,7 @@
       if (n.person) setLayer("people", true);
     }
     if (st.focusDist && !st.focusDist.has(id)) { st.focus = null; st.focusDist = null; $(".vg-focusbar:not(.vg-pathbar)").hidden = true; if (!neural()) cam.cx = cam.cy = cam.cz = 0; }
-    closeDrawer();
+    closeDrawer(true);
     rebuild(false); select(id); setTimeout(() => centreOn(id, neural() ? 1.8 : 2.5), 30);
   }
   function wire(el) {

@@ -44,8 +44,7 @@ const SCAN = `(names => { const old = new RegExp(${JSON.stringify(OLD)}, "i"), r
     await ev(`document.querySelector('.vg-tab[data-tab="clusters"]').click()`); await sleep(200);
     check(await ev(`document.querySelector('.vg-tab[data-tab="clusters"]').textContent.trim()`) === "Topics", "the tab should say Topics");
     await scan("Topics"); await ev(`document.querySelector('.vg-tab[data-tab="insights"]').click()`);
-    await ev(`document.querySelector(".vg-gamebtn").click()`); await sleep(300); await scan("Upkeep"); await ev(`document.querySelector(".vg-gamebtn").click()`);
-    for (const t of ["views", "style", "health"]) { await ev(`(() => { const p = document.querySelector(".vg-picker"); if (p.hidden) document.querySelector(".vg-pickbtn").click(); document.querySelector('.vg-picker-tab[data-tab="${t}"]').click(); })()`); await sleep(200); await scan(`picker ${t}`); }
+    for (const t of ["style", "health"]) { await ev(`(() => { const p = document.querySelector(".vg-picker"); if (p.hidden) (s=>{s.value="panel:style";s.dispatchEvent(new Event("change"))})(document.querySelector(".vg-displaysel")); document.querySelector('.vg-picker-tab[data-tab="${t}"]').click(); })()`); await sleep(200); await scan(`picker ${t}`); }
     await ev(`document.querySelector(".vg-picker-x").click()`);
     for (const pick of ["!n.ghost && !n.person && !n.moc", "n.moc"]) {
       const id = await ev(`(() => { const n = ${D}.nodes.filter(n => ${pick})[0]; if (n) window.vaultGraph.focusNote(n.id); return n ? n.id : null; })()`);

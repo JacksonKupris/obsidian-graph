@@ -3,6 +3,8 @@
 // screenshot and says what it found. For checking a change (npm run deploy -- --plugin puts the local build in first).
 //   npm run look                              every library view
 //   npm run look -- "Load paths" "Cas9"       only these (the names in the picker)
+//   npm run look -- --3d "City"           switch the 2D/3D toggle to 3D first (a 3D view opens flat by default)
+//   npm run look -- "key:genome-lib"      a view by its internal key, for one the picker does not list (a library view not yet in the menu)
 //   npm run look -- --out some/folder         where the screenshots go (default: ./look-shots)
 // Needs Obsidian running with this vault open and its command line on (Settings > General > Advanced). The CLI is
 // `obsidian` on the PATH, or set OBSIDIAN_CLI to its file (Windows: the Obsidian.com next to Obsidian.exe).
@@ -11,7 +13,9 @@
 // photographs is what the window would show. The screenshot and the check use the same drawn page.
 const fs = require("fs"), path = require("path"), { spawnSync } = require("child_process");
 
-const args = process.argv.slice(2), outAt = args.indexOf("--out");
+const args = process.argv.slice(2), want3d = args.includes("--3d");
+if (want3d) args.splice(args.indexOf("--3d"), 1);
+const outAt = args.indexOf("--out");
 const out = path.resolve(outAt >= 0 ? args.splice(outAt, 2)[1] : "look-shots");
 const views = args.length ? args : ["Light cones", "Load paths", "Slime mould", "Normal modes", "Genome fold", "Cas9"];
 const WIN_DEFAULT = "D:\\Obsidian\\Obsidian.com";
@@ -31,7 +35,8 @@ const STATE = `(()=>{const p=document.querySelector('.vg-pickbtn'),L=[...documen
 const state = () => JSON.parse(ev(STATE));
 // the window's own paint, asked for now: dev:screenshot hands back the last frame a hidden window painted, one view behind
 const capture = file => ev(`(async()=>{const w=window.require('electron').remote.getCurrentWindow();const i=await w.webContents.capturePage();window.require('fs').writeFileSync(${JSON.stringify(file)},i.toPNG());return 1})()`);
-const pick = name => ev(`(()=>{const b=document.querySelector('.vg-pickbtn');if(!b)return 'no picker';if(!document.querySelector('.vg-tile'))b.click();const t=[...document.querySelectorAll('.vg-tile')].find(x=>x.textContent.startsWith(${JSON.stringify(name)}));if(!t)return 'no view called that';t.click();return 'ok'})()`);
+const byKey = name => name.startsWith("key:");
+const pick = name => byKey(name) ? ev(`(()=>{let d=null;app.workspace.iterateAllLeaves(l=>{if(!d&&l.view&&l.view.handle&&l.view.handle._debug&&l.view.handle._debug.setView)d=l.view.handle._debug});if(!d||!d.scenes()[${JSON.stringify(name.slice(4))}])return 'no view with that key';d.setView(${JSON.stringify(name.slice(4))});return 'ok'})()`) : ev(`(()=>{const b=document.querySelector('.vg-pickbtn');if(!b)return 'no picker';if(!document.querySelector('.vg-tile'))b.click();const t=[...document.querySelectorAll('.vg-tile')].find(x=>x.textContent.startsWith(${JSON.stringify(name)}));if(!t)return 'no view called that';t.click();return 'ok'})()`);
 
 if (!/^=>|^\{|\w/.test(cli("version"))) fail("Obsidian did not answer. Open the vault in Obsidian first.");
 if (state().pill === null) { cli("command", "id=jk-vault-graph:open"); sleep(3000); }
@@ -44,12 +49,13 @@ let bad = 0;
 for (const name of views) {
   const got = pick(name);
   if (got !== "ok") { console.log(`FAIL ${name}: ${got}`); bad++; continue; }
+  if (want3d) { ev(`(()=>{const b=[...document.querySelectorAll('button,div,span')].find(x=>x.children.length===0&&x.textContent.trim()==='3D');if(b)b.click();return 1})()`); sleep(4000); }
   let s = null;
-  for (let i = 0; i < 25; i++) { sleep(400); s = state(); if (s.pill === name && s.unplaced === 0 && s.w > 0) break; }
-  const shot = path.join(out, name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".png");
+  for (let i = 0; i < 25; i++) { sleep(400); s = state(); if ((byKey(name) || s.pill === name) && s.unplaced === 0 && s.w > 0) break; }
+  const shot = path.join(out, name.replace(/^key:/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".png");
   sleep(700); capture(shot);   // a hidden window hands back the paint before the latest, so the first capture is thrown away
   sleep(300); capture(shot);
-  const good = s && s.pill === name && s.unplaced === 0 && s.w > 0 && fs.existsSync(shot);
+  const good = s && (byKey(name) || s.pill === name) && s.unplaced === 0 && s.w > 0 && fs.existsSync(shot);
   if (!good) bad++;
   console.log(`${good ? "ok  " : "FAIL"} ${name}: ${s ? `${s.labels} labels, ${s.unplaced} unplaced, canvas ${s.w}px, window ${s.vis}` : "no state"} -> ${shot}`);
 }
