@@ -832,9 +832,15 @@ what when where which while who how why each other same see set use used using w
     for (const [r, targets] of Object.entries(bridgeNotes || {})) bridges[r] = targets.map(x => byStem.get(VGShared.baseOf(String(x).replace(/^\[\[|\]\]$|\|.*$/g, "")).toLowerCase())).filter(Boolean);
     const detail = { mocs: mocs.map(m => ({ path: m.path, title: m.title, nav: m.nav, members: [...m.members], fixed: m.fixed, per: Object.fromEntries(m.per) })), owner: Object.fromEntries([...owner].map(([c, m]) => [c, m.path])) };
     const labels = {}, wordsIn = t => new Set(t.toLowerCase().match(/[\p{L}\p{N}\p{M}_]+/gu) || []);
+    // one map claiming several topics labels each "Map · word"; the word is the first one the map's title lacks, and no two
+    // topics share a label (a repeat takes its next unused word, then a number), because the lists and search show only the label
+    const taken = new Set([...owner].filter(([c, m]) => claim.get(m.path).length === 1).map(([, m]) => m.title));
     owner.forEach((m, c) => { if (claim.get(m.path).length === 1) { labels[c] = m.title; return; }
       const i = ids.indexOf(c), own = names[i].split(" · ")[0], title = wordsIn(m.title), words = (keywords[i] || names[i]).split(" · ");
-      const tag = ![...wordsIn(own)].some(w => title.has(w)) ? own : (words.find(w => !title.has(w.toLowerCase())) || words[0]); labels[c] = `${m.title} · ${tag}`; });
+      const first = ![...wordsIn(own)].some(w => title.has(w)) ? own : (words.find(w => !title.has(w.toLowerCase())) || words[0]);
+      const options = [first, ...words, ...names[i].split(" · ")].filter((w, k, all) => w && all.indexOf(w) === k).map(w => `${m.title} · ${w}`);
+      let label = options.find(o => !taken.has(o)); for (let n = 2; !label; n++) { const o = `${options[0]} ${n}`; if (!taken.has(o)) label = o; }
+      taken.add(label); labels[c] = label; });
     return { mocs: out, bridges, labels, detail };
   }
   function topicParts({ T, N, graph, adj, tags, quiet, raw, dailies, terms, dismissed, today, maps, mapRules, bridgeNotes, knowledge, hubDegree, personLinks }) {
@@ -1063,7 +1069,7 @@ what when where which while who how why each other same see set use used using w
     const rh = d.rhythm || {}; if (Object.keys(rh).length) { const tot = new Array(7).fill(0); Object.values(rh).forEach(v => v.wd.forEach((x, i) => { tot[i] += x; }));
       L.push("## Heat clock: when you work on what", "", `Busiest day: **${WD_NAMES[tot.indexOf(Math.max(...tot))]}**.`, "");
       WD_NAMES.slice(0, 5).forEach((day, i) => { const tops = Object.entries(rh).filter(([c, v]) => cname.has(+c) && v.wd.reduce((a, b) => a + b, 0) >= 5).map(([c, v]) => [v.wd[i] / Math.max(1, v.wd.reduce((a, b) => a + b, 0)), +c]).sort(desc).slice(0, 2); if (tops.length) L.push(`- ${day}: ${tops.map(([, c]) => cname.get(c)).join(", ")}`); }); L.push(""); }
-    if ((d.gaps || []).length) { L.push("## Gaps: topics that belong together but barely link", ""); d.gaps.slice(0, 3).forEach(g => L.push(`- ${cname.get(g.a) ?? g.a} ↔ ${cname.get(g.b) ?? g.b} · ${g.comentions ? `${g.comentions} co-mentions in your dailies` : "related by shared tags"}, ${g.links} links`)); L.push(""); }
+    if ((d.gaps || []).length) { L.push("## Gaps: topics that belong together but barely link", ""); d.gaps.slice(0, 3).forEach(g => L.push(`- ${cname.get(g.a) ?? g.a} ↔ ${cname.get(g.b) ?? g.b} · ${VGShared.gapWhy(g)}`)); L.push(""); }
     const ch = d.changes; if (ch && Object.keys(ch).length) { const plus = n => (n >= 0 ? `+${n}` : String(n)); L.push(`## Since ${ch.since === undefined ? "last run" : ch.since === null ? "None" : ch.since}`, "", `- ${plus(ch.linked_delta || 0)} linked notes · ${(ch.new_notes || []).length} new notes · ${(ch.gaps_closed || []).length} gaps closed · ${(ch.acted || []).length} suggestions acted on`, ""); }
     L.push("## Maps", "", "_Run **Vault Graph: Add map snapshots to the latest State of the vault note** in Obsidian to add pictures here._", "");
     return L.join("\n");

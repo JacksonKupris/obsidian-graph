@@ -73,7 +73,8 @@
       : it.kind === "cluster"
       ? `<div class="vg-pitem" role="option" data-i="${i}"><span class="vg-dot" style="background:${colorOf(it.c)}"></span><span class="vg-item-main"><b>${esc(clusterName(it.c))}</b><span class="vg-item-sub">Topic · ${plural(clusterById[it.c].size, "note")}</span></span></div>`
       : `<div class="vg-pitem" role="option" data-i="${i}"><span class="vg-dot ${byId[it.id].ghost ? "is-ghost" : ""}" style="background:${dotOf(it.id)}"></span><span class="vg-item-main">${label(it.id)}<span class="vg-item-sub">${esc(byId[it.id].folder || "/")}</span></span></div>`).join("")
-      || `<div class="vg-empty">No note or topic names match.</div>`;
+      || emptyNext("No note or topic names match.", "new:note", "lens:write", "lens:blind");
+    wireNext(list); list.querySelectorAll(".vg-empty-next button").forEach(b => b.addEventListener("click", () => closePalette()));   // a next step leaves the search
     list.querySelectorAll(".vg-pitem").forEach(el => {
       el.onmousemove = () => movePal(+el.dataset.i);
       el.onclick = () => choosePal(+el.dataset.i, false);
@@ -122,7 +123,8 @@
     if (palMode && palMode.pickFor && it.kind === "note") { const b = cos.bodies.find(x => x.id === palMode.pickFor); palMode = null; if (b) { b.target = it.id; cosmosCapture(); persistSoon(); alpha = Math.max(alpha, 0.5); selectBody(b.id); } return; }
     if (palMode && it.kind === "note") { findPath(palMode.pathFrom, it.id); palMode = null; return; }
     if (it.kind === "saved") applySaved(savedViews[it.i]);
-    else if (it.kind === "cluster") focusClusters([it.c]); else reveal(it.id);
+    else if (it.kind === "cluster") focusClusters([it.c]);
+    else { reveal(it.id); const box = $(".vg-inspector"); if (!box.hidden) { st.opener = cv; box.tabIndex = -1; box.focus({ preventScroll: true }); } }   // chosen from the keyboard: focus goes into the panel and back to the graph on close (carryFocus)
   }
 
   // ---------------------------------------------------------------- path finder
@@ -195,7 +197,7 @@
   // One button, one panel (a popover under the button on wide panes, a bottom sheet on phones): tabs, big tiles, a filter
   // Everything you open is a view, grouped by what you want to know, and every one is defined once in VIEWS (20-maps.js). A view draws
   // on the canvas or opens a report beside it; that's how it's built, not something to choose between. openView is the one way to open one.
-  const openView = k => { const v = VIEWS[k]; if (!v) return; if (v.kind === "lens") openLens(v.lens); else setView(k); };
+  const openView = k => { const v = VIEWS[k]; if (!v) return; if (v.kind === "lens") openLens(v.lens); else { if (lensKey) closeLens(); setView(k); } };
   // Display = style presets + node size/colour,
   // layers, saved views; Health = the overlays
   const PICK_TABS = [["style", "Display"], ["health", "Health"]];   // the views themselves are the View select in the toolbar
@@ -231,7 +233,7 @@
   function pickItems() {
     const out = [];
     Object.entries(VIEWS).forEach(([k, v]) => { if (v.hidden || (opts.compact && (v.kind === "lens" || k === "cosmos"))) return;   // hidden: reachable by key, listed in no picker
-      out.push({ tab: "views", k, ic: v.icon, name: v.name, hint: v.hint, field: v.field, on: v.kind === "lens" ? lensKey === v.lens : st.view === k, run: () => openView(k) }); });
+      out.push({ tab: "views", k, ic: v.icon, name: v.name, hint: v.hint, field: v.field, on: v.kind === "lens" ? lensKey === v.lens : st.view === k && !lensKey, run: () => openView(k) }); });
     Object.entries(PRESETS).forEach(([k, p]) => out.push({ tab: "style", k, ic: "sparkles", name: p.name, hint: p.hint, on: st.preset === k, run: () => applyPreset(k) }));
     out.sort(byName);   // A–Z within every tab
     if (opts.writeNote && !opts.compact) out.push({ tab: "views", k: "newscene", ic: "plus", name: "New view", hint: "Your own view, written in a note", on: false, run: () => newScene() });
@@ -556,7 +558,10 @@
   }
   updateGameSoon();
   setTimeout(() => { if (!destroyed) { renderToday(); } }, 400);
-  if (!opts.compact && opts.store && !tourSeen) setTimeout(() => { if (!destroyed && W) startTour(); }, 1800);   // once, on first open
+  const viewAtOpen = st.view;
+  let began = false;   // a click or key anywhere in the viewer (a card, a panel, search) is the person starting; the tour stays out of the way
+  ["pointerdown", "keydown"].forEach(t => root.addEventListener(t, () => { began = true; }, true));
+  if (!opts.compact && opts.store && !tourSeen) setTimeout(() => { if (!destroyed && W && !began && !lastInteract && st.view === viewAtOpen && $(".vg-lens").hidden && $(".vg-palette").hidden) startTour(); }, 1800);   // not over something the person already began   // once, on first open
   if (opts.sharedStore && !opts.compact) opts.sharedStore.load().then(sh => {   // the vault copy wins: it's what other devices wrote
     if (!sh || sh.v !== 1 || destroyed) return;
     if (Array.isArray(sh.saved)) savedViews = sh.saved;
@@ -614,7 +619,7 @@
       ringMarks: () => ringMarks, ringBadges: () => ringBadges.map(b => ({ ids: b.ids, x: b.x, y: b.y, r: b.r, reasons: b.reasons })),
       attention: () => [...attentionOf()].map(([id, k]) => ({ id, k, why: reasonsOf(id), at: P.get(id) ? { x: P.get(id).x, y: P.get(id).y, r: P.get(id).r || 6 } : null })),
       lensDefs: () => LENSES,   // the test swaps a lens's load() to make it fail
-      views: () => Object.keys(VIEWS).filter(canvasView), allViews: () => Object.entries(VIEWS).map(([key, v]) => ({ key, kind: v.kind, name: v.name, menu: v.menu, hint: v.hint, icon: v.icon, field: v.field || "", scale: VGRules.viewScale(key), hidden: !!v.hidden })), openView, lenses: () => Object.keys(LENSES), clusters: () => DATA.clusters, links: () => links, screen: id => { const p = P.get(id); return p ? { x: p.x, y: p.y, r: p.r, a: p.a } : null; },
+      toast, views: () => Object.keys(VIEWS).filter(canvasView), allViews: () => Object.entries(VIEWS).map(([key, v]) => ({ key, kind: v.kind, name: v.name, menu: v.menu, hint: v.hint, icon: v.icon, field: v.field || "", scale: VGRules.viewScale(key), hidden: !!v.hidden })), openView, lenses: () => Object.keys(LENSES), clusters: () => DATA.clusters, links: () => links, screen: id => { const p = P.get(id); return p ? { x: p.x, y: p.y, r: p.r, a: p.a } : null; },
       radarScope() { const A = mapCache.radar; if (!A) return null; const R = rot(), k = cam.k, o = scr(0, 0, R), r = A.RMAX * k, under = parseFloat(getComputedStyle(wrap).getPropertyValue("--vg-under-bar")) || 0;
         const held = nodes.find(n => !special(n) && n.tasks > 0 && P.get(n.id) && Math.hypot(P.get(n.id).x - o.x, P.get(n.id).y - o.y) < A.hold * k * 0.9);
         return { cx: o.x, cy: o.y, top: o.y - r, bottom: o.y + r, left: o.x - r, right: o.x + r, W, H, under, held: held ? held.id : null }; },

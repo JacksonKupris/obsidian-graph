@@ -80,6 +80,9 @@
   // ---- Task survival: how long a task stays open, the way a trial follows patients. A task still open is censored, not ignored.
   // every journal's tasks: read from the vault by the plugin, else the history the page was built with (the phone app), else the carry-over window
   const taskJournals = async () => opts.taskHistory ? opts.taskHistory() : (DATA.journalHistory || (DATA.hq || {}).journals || []);
+  // a page with no journals at all (built outside Obsidian without them) is different from a vault with few tasks, and says so
+  const noTaskSource = () => !opts.taskHistory && !DATA.journalHistory && !((DATA.hq || {}).journals || []).length;
+  const fewTasks = what => noTaskSource() ? "There are no journal tasks in this page." : `${what} needs journals with at least a few tasks.`;
   let survivalSplit = "person", survivalLives = null, lensCards = {};   // lensCards: what's behind the open lens's cards (VGParts.wire)
   const taskSplits = {
     person: ["names someone", r => VGRules.hqPeople(DATA, [{ kind: "task", text: r.text, title: r.text }]).some(p => p.items.length)],
@@ -97,7 +100,7 @@
   }
   function renderSurvival() {
     const { rows, skipped } = survivalLives || { rows: [], skipped: {} };
-    if (rows.length < 5) return emptyNext("Task survival needs journals with at least a few tasks.", "daily", "search");
+    if (rows.length < 5) return emptyNext(fewTasks("Task survival"), "daily", "search");
     const S = VGScience, km = S.kaplanMeier(rows), events = km.events, median = S.medianOf(km), last = km.steps[km.steps.length - 1].t, horizon = Math.max(14, Math.min(last, 365));
     const [word, test] = taskSplits[survivalSplit], a = rows.filter(test), b = rows.filter(r => !test(r)), kmA = a.length ? S.kaplanMeier(a) : null, kmB = b.length ? S.kaplanMeier(b) : null;
     // every split is tested, so the bar for calling one real is corrected for how many were tried (Bonferroni)
@@ -178,7 +181,7 @@
   let flowDays = 90;
   async function loadFlow() { if (!survivalLives) { const journals = await taskJournals(); survivalLives = VGScience.taskLives(journals, DATA.date || today()); } return renderFlow(); }
   function renderFlow() {
-    const rows = (survivalLives || { rows: [] }).rows.map(r => ({ born: r.born, done: r.event ? r.done : null })); if (rows.length < 5) return emptyNext("Flow needs journals with at least a few tasks.", "daily", "search");
+    const rows = (survivalLives || { rows: [] }).rows.map(r => ({ born: r.born, done: r.event ? r.done : null })); if (rows.length < 5) return emptyNext(fewTasks("Flow"), "daily", "search");
     const F = VGScience.flow(rows, DATA.date || today(), flowDays), top = Math.max(1, F.cumIn[F.days], F.cumOut[F.days]), span = Math.ceil(top / 10) * 10 || 10, line = a => a.map((v, i) => [i, v]);
     const growing = F.net > 0, weeks = F.throughput > 0 ? F.openNow / F.throughput / 7 : null, lives = (survivalLives || { rows: [] }).rows, end = VGShared.utcNoon(DATA.date || today()), inWindow = d => d && end - VGShared.utcNoon(d) <= F.days * VGShared.DAY_MS;
     lensCards = { open: () => ({ title: "Open now", body: taskList(lives.filter(r => !r.event).sort((a, b) => b.t - a.t)) }), came: () => ({ title: `Written down in the last ${F.days} days`, body: taskList(lives.filter(r => inWindow(r.born)).sort((a, b) => b.born.localeCompare(a.born))) }), done: () => ({ title: `Finished in the last ${F.days} days`, body: taskList(lives.filter(r => r.event && inWindow(r.done)).sort((a, b) => b.done.localeCompare(a.done))) }) };
