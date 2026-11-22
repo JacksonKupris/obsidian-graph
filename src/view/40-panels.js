@@ -163,7 +163,7 @@
         DATA.gaps.length ? sideList(DATA.gaps.slice(0, 30).map(gapRow), "gaps") : `<div class="vg-empty">No gaps found.</div>`) +
       card("Bridge notes", "hold topics together — keep them current",
         sideList(ranked.slice(0, 30).map(id => noteRow(id, `#${rankOf[id]} influence · ${esc(clusterName(byId[id].cluster))}`)))) +
-      (saidUnlinked.length ? card("Talked about, never linked", "named in dailies without a link",
+      (saidUnlinked.length ? card(VGRules.LINK_WORDS.named, "named in dailies without a link",
         sideList(saidUnlinked.slice(0, 30).map(([id, n]) => noteRow(id, `${n} daily notes`)))) : "") +
       (ghosts.length ? card("Notes to write", "linked from your notes but never created",
         sideList(ghosts.slice(0, 30).map(g => noteRow(g.id, `linked from ${plural(g.from.length, "note")}`)))) : "") +
@@ -178,7 +178,7 @@
       all: () => (openPalette(), true),   // the notes themselves, most connected first
       topics: () => (setTab("clusters"), true),   // true: what it opens is in this panel, so a phone's drawer stays open
       gaps: () => openLens("matrix"),
-      unlinked: () => openLens("blind", null, "Islands"),   // the list, each with its fix: Islands is every note with no links, the number on the tile
+      unlinked: () => openLens("blind", null, VGRules.LINK_WORDS.unlinked),   // the list, each with its fix: Islands is every note with no links, the number on the tile
     };
     panel.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { if (!STAT_GO[b.dataset.stat]()) closeDrawer(true); });
     panel.querySelectorAll(".vg-maprow").forEach(e => e.onclick = () => showMocMissing(e.dataset.moc));

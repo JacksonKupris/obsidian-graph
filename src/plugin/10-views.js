@@ -275,8 +275,8 @@ class VaultGraphSuggestView extends ItemView {
       const said = (data.said_unlinked || []).find(([id]) => id === n.id);
       // same rule as appendSection's "Already in…"
       const inMap = moc ? VGRules.onMap(moc, n.id) : null;
-      if (said && moc && !inMap) items.push({ icon: "sun", title: `Named in ${said[1]} daily notes but never linked`, sub: `Add it to ${moc.title} so its topic map links it`, btn: "Add to map", run: () => run("map") });
-      else if (said) items.push({ icon: "sun", title: `Named in ${said[1]} daily notes but never linked`, sub: "Turn the first plain mention in each into a link", btn: "Link mentions", run: () => run("mentions") });
+      if (said && moc && !inMap) items.push({ icon: "sun", title: VGRules.LINK_WORDS.namedIn(said[1]), sub: `Add it to ${moc.title} so its topic map links it`, btn: "Add to map", run: () => run("map") });
+      else if (said) items.push({ icon: "sun", title: VGRules.LINK_WORDS.namedIn(said[1]), sub: "Turn the first plain mention in each into a link", btn: "Link mentions", run: () => run("mentions") });
       if (moc && inMap === false && !(said && moc)) items.push({ icon: "hexagon", title: `Not listed in its topic's map`, sub: moc.title, btn: "Add to map", run: () => run("map") });
       data.links.filter(l => VGRules.isSuggestion(l) && (l.source === n.id || l.target === n.id)).forEach(l => {
         const other = byId.get(l.source === n.id ? l.target : l.source); if (!other) return;
