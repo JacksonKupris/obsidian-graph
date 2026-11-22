@@ -73,7 +73,8 @@
       : it.kind === "cluster"
       ? `<div class="vg-pitem" role="option" data-i="${i}"><span class="vg-dot" style="background:${colorOf(it.c)}"></span><span class="vg-item-main"><b>${esc(clusterName(it.c))}</b><span class="vg-item-sub">Topic · ${plural(clusterById[it.c].size, "note")}</span></span></div>`
       : `<div class="vg-pitem" role="option" data-i="${i}"><span class="vg-dot ${byId[it.id].ghost ? "is-ghost" : ""}" style="background:${dotOf(it.id)}"></span><span class="vg-item-main">${label(it.id)}<span class="vg-item-sub">${esc(byId[it.id].folder || "/")}</span></span></div>`).join("")
-      || `<div class="vg-empty">No note or topic names match.</div>`;
+      || emptyNext("No note or topic names match.", "new:note", "lens:write", "lens:blind");
+    wireNext(list); list.querySelectorAll(".vg-empty-next button").forEach(b => b.addEventListener("click", () => closePalette()));   // a next step leaves the search
     list.querySelectorAll(".vg-pitem").forEach(el => {
       el.onmousemove = () => movePal(+el.dataset.i);
       el.onclick = () => choosePal(+el.dataset.i, false);

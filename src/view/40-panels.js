@@ -175,7 +175,7 @@
     wire(panel); wireNext(panel);
     panel.querySelectorAll(".vg-gap").forEach(e => e.onclick = () => focusClusters([+e.dataset.a, +e.dataset.b]));
     const STAT_GO = {
-      all: () => fit(),
+      all: () => (openPalette(), true),   // the notes themselves, most connected first
       topics: () => (setTab("clusters"), true),   // true: what it opens is in this panel, so a phone's drawer stays open
       gaps: () => openLens("matrix"),
       unlinked: () => openLens("blind"),   // the list, each with its fix; Islands is every note with no links
