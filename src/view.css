@@ -419,6 +419,9 @@
 .vg-root { --vg-tap: 40px; --vg-hit-min: 24px; }
 /* the floor on a desktop: the row buttons and chips the lenses draw (audit:views reads the same 24px) */
 .vg-root :is(.vg-mx-name, .vg-tl-label, .vg-rv-chip, .vg-visbtn, button.vg-fd-name, .vg-rp-pick, .vg-fd-bar) { min-height: var(--vg-hit-min); }
+/* every slider is 36 px tall on a phone, and a checkbox's label is its tap area */
+.vg-root.is-mobile input[type=range] { min-height: 36px; }
+.vg-root.is-mobile label:has(> input[type=checkbox]) { min-height: 36px; display: inline-flex; align-items: center; }
 /* list rows (.vg-item) are one shared piece: 40 px tall on a phone */
 .vg-root.is-mobile .vg-lens .vg-item { min-height: 40px; }
 /* the library scenes draw tappable labels 24 px tall: the tap area grows to 40 px, the look stays */
