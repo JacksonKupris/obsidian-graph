@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// A home count tile opens the list it counts, scrolled to it: "N unlinked notes" lands on the Islands section (N rows), not on
+// A home count tile opens the list it counts, scrolled to it: "N unlinked notes" lands on the Unlinked notes section (N rows), not on
 // "Named, never linked" at the top of Blind spots, whose count is a different number. The persona run read 2 on the tile and 20 on the first heading.
 const { sleep, checks, finish, openPage } = require("./kit"), env = require("./env");
 const { fails, ok: check } = checks();
@@ -19,7 +19,7 @@ const { fails, ok: check } = checks();
       return { landed: L, secs: secs.map(s => s.title), view: B.height }; })()`);
     check(r && r.landed, "the list must open on a marked section: " + JSON.stringify(r));
     if (r && r.landed) {
-      check(r.landed.title === "Islands", `the tile counts ${tile} unlinked notes but the list lands on "${r.landed.title}" (${r.landed.count})`);
+      check(r.landed.title === "Unlinked notes", `the tile counts ${tile} unlinked notes but the list lands on "${r.landed.title}" (${r.landed.count})`);
       check(r.landed.count === tile, `the tile says ${tile}, the section it lands on says ${r.landed.count}`);
       check(r.landed.top >= 0 && r.landed.top < r.view, `the section must be on screen: top ${r.landed.top} in a list ${r.view} tall`);
     }

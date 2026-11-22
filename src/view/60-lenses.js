@@ -56,7 +56,7 @@
     drift: { menu: "notes", name: "Version drift", icon: "ripple", hint: "Notes and doc links that name a version other than the one you run", render: () => "", load: loadDrift },
     guide: { menu: "notes", name: "Guide scan", icon: "search", field: "Gene editing", hint: "One tag, word or line everywhere it occurs, with look-alikes kept apart", render: lensGuide },
     dupes: { menu: "notes", name: "Duplicates", icon: "copy", hint: "Likely duplicate notes side by side, with the links each one has", render: lensDupes },
-    blind: { menu: "notes", name: "Blind spots", icon: "eye", hint: "What you name but never link, topics gone quiet, islands and notes only reached by accident", render: lensBlind },
+    blind: { menu: "notes", name: "Blind spots", icon: "eye", hint: "Notes you name but do not link, topics gone quiet, unlinked notes and notes only reached by accident", render: lensBlind },
     write: { menu: "notes", name: "Write these next", icon: "file", hint: "Links to notes that don't exist yet, and short notes many others rely on", render: lensWrite },
     missing: { menu: "notes", name: "Missing from dailies", icon: "gap", hint: "Notes no standup or journal mentions, most-linked first", render: lensMissing },
     blast: { menu: "notes", name: "Blast radius", icon: "target", field: "Epidemiology", hint: "If a note is wrong, how far does the mistake travel, and where's the tipping point?", render: lensBlast },
@@ -581,13 +581,13 @@
     const islands = ns.filter(n => n.isolated).sort((a, b) => b.words - a.words);
     const deadEnds = ns.filter(n => !n.inlinks && (n.outlinks || 0) >= 3).sort((a, b) => b.outlinks - a.outlinks);
     const sec = (title, n, hint, rows, empty) => lensSec(title, rows, { count: n, hint, empty, word: "more" });
-    return sec("Named, never linked", said.length, "Your dailies mention these by name without a link, so the graph can't see the connection.",
-        said.map(([id, k]) => `<div class="vg-sugg">${noteRow(id, `named in ${plural(k, "daily note")}, never linked`)}${fixSlot(id, "unlinked-mentions")}</div>`), DATA.engine ? "This needs the analysis, which this vault doesn't have yet." : "Every mention is linked.") +
+    return sec(VGRules.LINK_WORDS.named, said.length, "Your dailies mention these by name without a link, so the graph can't see the connection.",
+        said.map(([id, k]) => `<div class="vg-sugg">${noteRow(id, VGRules.LINK_WORDS.namedIn(k))}${fixSlot(id, "unlinked-mentions")}</div>`), DATA.engine ? "This needs the analysis, which this vault doesn't have yet." : "Every mention is linked.") +
       sec("Topics gone quiet", quiet.length, `Topics of 5+ notes your dailies haven't touched in ${DATA.recent_days} days. Finished, or forgotten?`,
         quiet.map(x => topicLine(x.c.id, `${x.size} notes · newest edit ${x.age}d ago`)), "Every topic came up recently.") +
       sec("Topics no map covers", unmapped.length, "Without a map, these are only reachable by search or by luck.",
         unmapped.map(c => topicLine(c.id, `${c.size} notes`, opts.writeNote ? `<button class="vg-btn vg-btn-sm" data-draftmap="${c.id}">${icon("plus", 12)} Draft a map</button>` : "")), "Every sizeable topic has a map.") +
-      sec("Islands", islands.length, "Notes with no links in or out, longest first: written once, never found again. Hierarchy suggests a parent for each.",
+      sec(VGRules.LINK_WORDS.unlinked, islands.length, "Notes with no links in or out, longest first: written once, never found again. Hierarchy suggests a parent for each.",
         islands.slice(0, 100).map(n => `<div class="vg-sugg">${noteRow(n.id, `${n.words} words${n.words < Q.stub_words ? " (short)" : ""} · ${n.age}d since edit`)}${fixSlot(n.id, "orphan")}</div>`), "No unconnected notes.") +
       sec("Hard to find", deadEnds.length, "Notes that point at others but nothing points back at them: you can only arrive here by accident.",
         deadEnds.slice(0, 100).map(n => `<div class="vg-sugg">${noteRow(n.id, `${n.outlinks} links out · 0 in`)}${fixSlot(n.id, "orphan")}</div>`), "Everything that links out is linked to.");
