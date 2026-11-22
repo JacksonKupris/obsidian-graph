@@ -33,6 +33,14 @@ const NAMED = `(el) => !!((el.getAttribute("aria-label") || el.getAttribute("ari
     const cells = await tab.ev(`[...document.querySelectorAll(".vg-lens .vg-mx-cell")].map(c => c.getAttribute("aria-label") || "")`);
     check(cells.length > 0, "the matrix has cells (the test can't fail without them)");
     check(cells.every(t => t.length > 8), "matrix cells need a name saying which topics: " + JSON.stringify(cells.filter(t => t.length <= 8).slice(0, 3)));
+    // opening a note from a control moves focus into the note's panel; closing it puts focus back where it was (persona round 2)
+    await tab.ev(`${D}.openView("2d")`); await sleep(300); await tab.ev(`document.querySelectorAll(".vg-lens-close").forEach(b => b.click())`);
+    const opener = await tab.ev(`(() => { const b = document.querySelector(".vg-side [data-id], .vg-sidebar [data-id], .vg-root [data-id]"); if (!b) return ""; b.id = b.id || "vg-test-opener"; b.focus(); b.click(); return b.id; })()`); await sleep(500);
+    check(!!opener, "a control that opens a note exists (the test can't fail without it)");
+    check(await tab.ev(`!!document.activeElement.closest(".vg-inspector")`), "after a note opens, focus should be inside its panel");
+    await tab.ev(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`); await sleep(400);
+    const back = await tab.ev(`(() => { const e = document.activeElement, r = e.getBoundingClientRect(); return { id: e.id, tag: e.tagName, onScreen: r.right > 0 && r.bottom > 0 && r.width > 0 }; })()`);
+    check(back.tag !== "BODY" && back.onScreen, "after Escape focus should land on something visible: " + JSON.stringify(back));
   } catch (e) { fails.push("crashed: " + e.message); }
   await tab.close(); finish(fails, "controls and dialogs have names");
 })();

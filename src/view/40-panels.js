@@ -268,7 +268,17 @@
     b.onclick = () => { const nid = nextNoteId(id); if (nid) select(nid); else { b.disabled = true; b.textContent = VGRules.NEXT_NOTE.empty; } };
     head.insertBefore(b, head.querySelector(".vg-ins-close"));
   }
-  function select(id) { if (!id) st.nextSeen = null; const r = selectNow(id); addNextControl(id); return r; }
+  function select(id) { if (!id) st.nextSeen = null; const r = selectNow(id); addNextControl(id); carryFocus(id); return r; }
+  // a note opening from a control (a sidebar row, a search result) takes focus into its panel; closing returns it to that control
+  function carryFocus(id) {
+    const box = $(".vg-inspector"), a = document.activeElement, seen = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.right > 0 && r.bottom > 0; };
+    if (id && !box.hidden) {
+      if (a && a !== root && a !== cv && root.contains(a) && !box.contains(a)) { st.opener = a; box.tabIndex = -1; try { box.focus({ preventScroll: true }); } catch (x) {} }
+    } else if (!id && st.opener) {
+      const o = st.opener; st.opener = null;
+      if (o.isConnected && seen(o)) { try { o.focus({ preventScroll: true }); } catch (x) {} } else { try { cv.focus({ preventScroll: true }); } catch (x) {} }
+    }
+  }
   function selectNow(id) {
     if (id && id !== st.selected) startWave(id);
     st.selected = id; dirty = true; kick();
