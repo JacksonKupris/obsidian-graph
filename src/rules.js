@@ -618,7 +618,7 @@ const VGRules = (() => {
   const titleOf = (text, path) => { const m = bodyOf(text).match(/^#\s+(.+)$/m); return plainTask(m ? m[1] : stemCase(path)); };
   // The words for the two link problems, so every screen says the same thing: an UNLINKED note has no links in or out (a count, a list, a tile);
   // a NAMED note is spelled out in daily notes without a link (a count, a list, a fix). tests/test_link_words.js fails when a screen words them differently.
-  const LINK_WORDS = { unlinked: "Unlinked notes", named: "Named, not linked", namedIn: n => `Named in ${n} daily note${n === 1 ? "" : "s"}, not linked` };
+  const LINK_WORDS = { unlinked: "Unlinked notes", named: "Named, not linked", namedIn: n => `Named in ${VGShared.plural(n, "daily note")}, not linked` };
   // What a list of graph nodes is made of. The one definition of a note: not a person, a map or a note still to write. Every count
   // on screen comes from here, so they add up: linked + unlinked = notes, and notes + maps + people + wanted = every node.
   function noteCounts(list) {
