@@ -380,7 +380,7 @@
     { keys: ["Enter"], label: "Open the selected note (Ctrl+Enter: in a new tab)", match: e => e.key === "Enter", when: () => st.selected && opts.openNote && !special(byId[st.selected]), run: e => opts.openNote(st.selected, e.ctrlKey || e.metaKey) },
     { keys: ["F"], label: "Focus on the selected note and its neighbours", when: () => st.selected, run: () => enterFocus(st.selected) },
     { keys: ["Arrows"], label: "Move to the linked note in that direction (nothing selected: pan)", prevent: true, match: e => e.key.startsWith("Arrow") && !(st.ship && isCosmos()), run: e => walk(e.key) },
-    { keys: ["Tab", "Shift Tab"], label: "Next or previous linked note", prevent: true, match: e => e.key === "Tab", when: () => st.selected, run: e => cycleNeighbour(e.shiftKey ? -1 : 1) },
+    { keys: ["Tab", "Shift Tab"], label: "Next or previous linked note", prevent: true, match: e => e.key === "Tab" && (e.target === cv || e.target === root || e.target === document.body), when: () => st.selected, run: e => cycleNeighbour(e.shiftKey ? -1 : 1) },
     { keys: ["+", "−"], label: "Zoom in or out", match: e => "+=-_".includes(e.key) && e.key.length === 1, run: e => zoomBy("+=".includes(e.key) ? 1.25 : 0.8) },
     { keys: ["0"], label: "Fit everything on screen", run: () => fit(neural() ? n => !special(n) : null) },
     { keys: ["M"], label: "Choose a view", prevent: true, run: () => { const v = $(".vg-viewsel"); v.focus(); if (v.showPicker) try { v.showPicker(); } catch (e) {} } },
