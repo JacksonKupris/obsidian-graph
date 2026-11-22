@@ -257,7 +257,7 @@ function mountVaultGraph(root, DATA, opts) {
       </div>
     </aside>
     <main class="vg-canvas">
-      <span class="vg-sr" id="vg-cv-label-${vgId}">Graph of ${VGRules.noteCounts(nodes).notes} notes in ${plural(DATA.clusters.length, "topic")}.</span>
+      <span class="vg-sr vg-cv-name" id="vg-cv-label-${vgId}"></span>
       <canvas class="vg-cv" role="img" tabindex="0" aria-labelledby="vg-cv-label-${vgId}"></canvas>
       <div class="vg-hud" aria-hidden="true"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
         <div class="vg-hud-title"></div><div class="vg-hud-tele"></div><div class="vg-scan"></div></div>

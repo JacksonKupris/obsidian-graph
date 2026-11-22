@@ -629,13 +629,14 @@
     if (st.multi) parts.push(`${st.multi.size} selected`);
     if (st.hiddenClusters.size) parts.push(`${plural(st.hiddenClusters.size, "topic")} hidden`);
     if (st.hidden.size) parts.push(`top ${st.hidden.size} hidden`);
+    $(".vg-cv-name").textContent = `Graph of ${plural(VGRules.noteCounts(active).notes, "note")} in ${plural(DATA.clusters.length, "topic")}.`;
     $(".vg-status").innerHTML = `${settling ? '<span class="vg-spin" aria-hidden="true"></span>Laying out · ' : ""}${parts.map(esc).join(" · ")}`;
   }
   function renderHud() {
     if (!neural()) return;
     const n = st.selected && byId[st.selected];
     $(".vg-hud-title").innerHTML = `<b>VAULT // NEURAL MAP</b><span>${esc(DATA.vault || "").toUpperCase()} · ${esc(DATA.date)} · ${st.vision.toUpperCase()}</span>` +
-      `<span>NODES ${active.length} · LINKS ${visLinks.filter(l => l.kind === "link").length} · LOBES ${DATA.clusters.length} · MAPS ${mocs.length} · BRIDGES ${nodes.filter(n => n.bridge).length}</span>` + (st.three && glOn() ? `<span>LIF NETWORK · 80/20 E/I · ${neuroRate().toFixed(1)} HZ · ×1/${NEURO_SLOW} SPEED</span>` : "");
+      `<span>NOTES ${VGRules.noteCounts(active).notes} · LINKS ${visLinks.filter(l => l.kind === "link").length} · LOBES ${DATA.clusters.length} · MAPS ${mocs.length} · BRIDGES ${nodes.filter(n => n.bridge).length}</span>` + (st.three && glOn() ? `<span>LIF NETWORK · 80/20 E/I · ${neuroRate().toFixed(1)} HZ · ×1/${NEURO_SLOW} SPEED</span>` : "");
     const p = n && P.get(n.id);
     $(".vg-hud-tele").innerHTML = n ? `<b>TARGET ▸ ${esc(n.name.toUpperCase())}</b>` +
       `<span>LOBE ${esc(clusterName(n.cluster).toUpperCase())}</span>` +
