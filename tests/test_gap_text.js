@@ -15,9 +15,9 @@ const D = "window.vaultGraph._debug";
     check(rows.length > 0, "the matrix should list at least one gap on this data (the check can't fail without one)");
     for (const t of rows) {
       check(!/^0 co-mentions/.test(t), `a gap needs co-mentions, got "${t}"`);
-      const m = /^(\d+) co-mentions in your dailies, (only )?(\d+) links?$/.exec(t);
+      const m = /^(\d+) co-mentions in your dailies, (only )?(?:(\d+) links?|no links between them yet)$/.exec(t);
       check(!!m, `gap text should come from one rule (got "${t}")`);
-      if (m) check(!!m[2] === (Number(m[3]) < Number(m[1])), `"only" belongs with fewer links than co-mentions (got "${t}")`);
+      if (m && m[3] !== undefined) check(!!m[2] === (Number(m[3]) < Number(m[1])), `"only" belongs with fewer links than co-mentions (got "${t}")`);
     }
     // matrix columns are numbered like the rows, never "C<id>" (persona pass: columns read C0..C8)
     const cols = await tab.ev(`[...document.querySelectorAll(".vg-mx-col")].map(x => x.textContent)`), rowsN = await tab.ev(`[...document.querySelectorAll(".vg-mx-name")].map(x => x.textContent)`);
