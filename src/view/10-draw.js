@@ -174,7 +174,7 @@
         const x = Math.min(W - w / 2 - 6, Math.max(w / 2 + 6, g.x / g.c)); let y = Math.min(H - 12, Math.max(56, g.y / g.c));
         const dy = [0, -18, 18].find(d => freeSpot(x - w / 2, y + d - 9, w, 18)); if (dy == null) continue;   // reserves the spot (or one a line up or down); node labels steer around it
         y += dy;
-        ctx.globalAlpha = litSet && !g.lit ? 0.15 : 0.9;
+        ctx.globalAlpha = litSet && !g.lit ? 0.15 : 1;   // full strength: the ink is already picked to read on the page (inkOn), and any transparency takes that back
         ctx.lineWidth = 4; ctx.strokeStyle = bg; ctx.strokeText(name, x, y);
         ctx.fillStyle = VGShared.inkOn(colorOf(+c), bg); ctx.fillText(name, x, y);
       }
