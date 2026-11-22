@@ -231,7 +231,7 @@
   function pickItems() {
     const out = [];
     Object.entries(VIEWS).forEach(([k, v]) => { if (v.hidden || (opts.compact && (v.kind === "lens" || k === "cosmos"))) return;   // hidden: reachable by key, listed in no picker
-      out.push({ tab: "views", k, ic: v.icon, name: v.name, hint: v.hint, field: v.field, on: v.kind === "lens" ? lensKey === v.lens : st.view === k, run: () => openView(k) }); });
+      out.push({ tab: "views", k, ic: v.icon, name: v.name, hint: v.hint, field: v.field, on: v.kind === "lens" ? lensKey === v.lens : st.view === k && !lensKey, run: () => openView(k) }); });
     Object.entries(PRESETS).forEach(([k, p]) => out.push({ tab: "style", k, ic: "sparkles", name: p.name, hint: p.hint, on: st.preset === k, run: () => applyPreset(k) }));
     out.sort(byName);   // A–Z within every tab
     if (opts.writeNote && !opts.compact) out.push({ tab: "views", k: "newscene", ic: "plus", name: "New view", hint: "Your own view, written in a note", on: false, run: () => newScene() });
@@ -556,7 +556,8 @@
   }
   updateGameSoon();
   setTimeout(() => { if (!destroyed) { renderToday(); } }, 400);
-  if (!opts.compact && opts.store && !tourSeen) setTimeout(() => { if (!destroyed && W) startTour(); }, 1800);   // once, on first open
+  const viewAtOpen = st.view;
+  if (!opts.compact && opts.store && !tourSeen) setTimeout(() => { if (!destroyed && W && !lastInteract && st.view === viewAtOpen && $(".vg-lens").hidden) startTour(); }, 1800);   // not over something the person already began   // once, on first open
   if (opts.sharedStore && !opts.compact) opts.sharedStore.load().then(sh => {   // the vault copy wins: it's what other devices wrote
     if (!sh || sh.v !== 1 || destroyed) return;
     if (Array.isArray(sh.saved)) savedViews = sh.saved;
