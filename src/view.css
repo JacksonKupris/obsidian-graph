@@ -1017,5 +1017,6 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-root.is-mobile .vg-sel { padding: 0 2px; font-size: var(--ds-fs-md); }
 .vg-root.is-mobile .vg-displaysel { display: none; }
 @container vg (max-width: 760px) { .vg-displaysel { display: none; } }
-.vg-root.is-mobile .vg-viewsel { max-width: 112px; }   /* wide enough for the longest view name ("Topic river") */
+.vg-root.is-mobile .vg-viewsel { max-width: 17cqw; field-sizing: content; flex: 0 1 auto; min-width: 48px; font-size: var(--ds-fs-sm); }
+.vg-root.is-mobile.has-lens .vg-viewsel { max-width: 112px; }   /* a report names itself in full: the toolbar has room while it is open */   /* wide enough for the longest view name ("Topic river") */
 .vg-root.is-mobile .vg-toolsel { max-width: 36px; text-align: center; }
