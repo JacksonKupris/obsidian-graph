@@ -419,6 +419,14 @@
 .vg-root { --vg-tap: 40px; --vg-hit-min: 24px; }
 /* the floor on a desktop: the row buttons and chips the lenses draw (audit:views reads the same 24px) */
 .vg-root :is(.vg-mx-name, .vg-tl-label, .vg-rv-chip, .vg-visbtn, button.vg-fd-name, .vg-rp-pick, .vg-fd-bar) { min-height: var(--vg-hit-min); }
+/* every slider is 36 px tall on a phone, and a checkbox's label is its tap area */
+.vg-root.is-mobile input[type=range] { min-height: 36px; }
+.vg-root.is-mobile label:has(> input[type=checkbox]) { min-height: 36px; display: inline-flex; align-items: center; }
+/* list rows (.vg-item) are one shared piece: 40 px tall on a phone */
+.vg-root.is-mobile .vg-lens .vg-item { min-height: 40px; }
+/* the library scenes draw tappable labels 24 px tall: the tap area grows to 40 px, the look stays */
+.vg-root.is-mobile .vgv-labels button { position: relative; }
+.vg-root.is-mobile .vgv-labels button::after { content: ""; position: absolute; left: -4px; right: -4px; top: 50%; height: 40px; transform: translateY(-50%); }
 .vg-root.is-mobile :is(.vg-btn, .vg-btn-sm, .vg-mx-cell, .vg-mx-name, .vg-tl-label, .vg-rv-chip, .vg-sandel, .vg-autobtn, .vg-dockbtn, .vg-visbtn, .vg-chip, .vg-linkish, .vg-fd-bar) { min-height: var(--vg-tap); }
 .vg-root.is-mobile :is(.vg-ibtn, .vg-tab, .vg-searchbtn) { min-width: var(--vg-tap); min-height: var(--vg-tap); }
 .vg-root.is-mobile :is(.vg-viewhelp, .vg-visbtn, .vg-rp-pick, .vg-side .vg-input, .vg-mx-cell) { min-width: var(--vg-tap); min-height: var(--vg-tap); }
@@ -521,7 +529,10 @@
   --ds-accent-text: var(--vg-hud-sky); --ds-accent-soft: rgba(56, 189, 248, .16);
   --vg-raised: var(--ds-bg); --vg-panel: var(--ds-surface); --vg-fg: var(--ds-text); --vg-muted: var(--ds-muted); --vg-faint: var(--ds-faint); --vg-line: var(--ds-line); --vg-border: var(--ds-line); --vg-hover: var(--ds-hover); --vg-accent-text: var(--ds-accent-text); }
 /* matrix */
-.vg-mx-wrap { overflow: auto; }
+/* the row names stay while the columns scroll; a soft edge on the side that has more shows there is more to scroll to */
+.vg-mx-wrap { overflow: auto; background: linear-gradient(to right, var(--vg-panel) 30%, transparent) left / 28px 100% no-repeat local, linear-gradient(to left, var(--vg-panel) 30%, transparent) right / 28px 100% no-repeat local, linear-gradient(to right, rgba(0,0,0,.28), transparent) left / 12px 100% no-repeat scroll, linear-gradient(to left, rgba(0,0,0,.28), transparent) right / 12px 100% no-repeat scroll; }
+.vg-mx-row { position: sticky; left: 0; z-index: 1; background: var(--vg-panel); }
+.vg-root.is-mobile .vg-mx-name { max-width: 120px; }
 .vg-mx { border-collapse: separate; border-spacing: 2px; font-size: var(--vg-fs-xs); }
 .vg-mx th { font-weight: 600; white-space: nowrap; }
 .vg-mx-col { padding: 0 2px; } .vg-mx-row { text-align: left; }
