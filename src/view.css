@@ -419,6 +419,9 @@
 .vg-root { --vg-tap: 40px; --vg-hit-min: 24px; }
 /* the floor on a desktop: the row buttons and chips the lenses draw (audit:views reads the same 24px) */
 .vg-root :is(.vg-mx-name, .vg-tl-label, .vg-rv-chip, .vg-visbtn, button.vg-fd-name, .vg-rp-pick, .vg-fd-bar) { min-height: var(--vg-hit-min); }
+/* the library scenes draw tappable labels 24 px tall: the tap area grows to 40 px, the look stays */
+.vg-root.is-mobile .vgv-labels button { position: relative; }
+.vg-root.is-mobile .vgv-labels button::after { content: ""; position: absolute; left: -4px; right: -4px; top: 50%; height: 40px; transform: translateY(-50%); }
 .vg-root.is-mobile :is(.vg-btn, .vg-btn-sm, .vg-mx-cell, .vg-mx-name, .vg-tl-label, .vg-rv-chip, .vg-sandel, .vg-autobtn, .vg-dockbtn, .vg-visbtn, .vg-chip, .vg-linkish, .vg-fd-bar) { min-height: var(--vg-tap); }
 .vg-root.is-mobile :is(.vg-ibtn, .vg-tab, .vg-searchbtn) { min-width: var(--vg-tap); min-height: var(--vg-tap); }
 .vg-root.is-mobile :is(.vg-viewhelp, .vg-visbtn, .vg-rp-pick, .vg-side .vg-input, .vg-mx-cell) { min-width: var(--vg-tap); min-height: var(--vg-tap); }
