@@ -183,12 +183,15 @@
   const shortName = c => clusterById[c] ? clusterById[c].name.split(" · ").slice(0, 2).join(" · ") : "—";
   const cellBg = (col, a) => `background:color-mix(in srgb, ${col} ${Math.round(a * 100)}%, transparent)`;
 
+  // matrix columns and their key: numbered by position, matching the numbers in front of the row names (were "C" + the topic id, which meant nothing to read)
+  const mxCols = cs => cs.map((c, i) => `<th class="vg-mx-col" title="${esc(clusterName(c.id))}"><span style="color:${colorOf(c.id)}">${i + 1}</span></th>`).join("");
+  const mxKey = cs => cs.map((c, i) => `${i + 1} ${esc(shortName(c.id))}`).join(" · ");
   function lensMatrix() {
     const cs = DATA.clusters.filter(c => c.size >= 5).sort((a, b) => b.size - a.size), pair = {};
     (DATA.pairs || []).forEach(([a, b, l, m]) => { pair[a + "|" + b] = pair[b + "|" + a] = [l, m]; });
     const maxM = Math.max(1, ...(DATA.pairs || []).map(x => x[3])), maxL = Math.max(1, ...(DATA.pairs || []).map(x => x[2]));
-    const head = `<tr><th></th>${cs.map(c => `<th class="vg-mx-col" title="${esc(clusterName(c.id))}"><span style="color:${colorOf(c.id)}">C${c.id}</span></th>`).join("")}</tr>`;
-    const rows = cs.map(a => `<tr><th class="vg-mx-row"><button class="vg-mx-name" data-cl="${a.id}"><span class="vg-dot" style="background:${colorOf(a.id)}"></span>${esc(shortName(a.id))}</button></th>` +
+    const head = `<tr><th></th>${mxCols(cs)}</tr>`;
+    const rows = cs.map(a => `<tr><th class="vg-mx-row"><button class="vg-mx-name" data-cl="${a.id}"><span class="vg-dot" style="background:${colorOf(a.id)}"></span>${cs.indexOf(a) + 1} ${esc(shortName(a.id))}</button></th>` +
       cs.map(b => {
         if (a.id === b.id) return `<td class="vg-mx-self" title="${a.size} notes">${a.size}</td>`;
         const [l, m] = pair[a.id + "|" + b.id] || [0, 0];
@@ -199,7 +202,7 @@
     const worst = (DATA.pairs || []).filter(([a, b]) => clusterById[a] && clusterById[b]).map(([a, b, l, m]) => ({ a, b, l, m, s: m / (1 + l * 0.6) })).filter(g => g.m > 0)   // a gap is talked about together; no co-mentions, no gap
       .sort((x, y) => y.s - x.s).slice(0, 6);
     return `<div class="vg-mx-wrap"><table class="vg-mx">${head}${rows}</table></div><div class="vg-mx-detail"></div>
-      ${DATA.engine ? `<p class="vg-muted vg-lens-note">Co-mentions need the analysis, which this vault doesn't have yet.</p>` : ""}<p class="vg-muted vg-lens-note">Cell = <b>links</b>/<small>co-mentions</small>. Green: well linked. Red: discussed together in your dailies but barely linked. Click a cell for what to do about it.</p>
+      ${DATA.engine ? `<p class="vg-muted vg-lens-note">Co-mentions need the analysis, which this vault doesn't have yet.</p>` : ""}<p class="vg-muted vg-lens-note">Cell = <b>links</b>/<small>co-mentions</small>. Green: well linked. Red: discussed together in your dailies but barely linked. Click a cell for what to do about it.</p>${VGParts.more({ label: "Column key", body: `<p>${mxKey(cs)}</p>` })}
       ${lensSec("Biggest gaps", worst.map(g => `<div class="vg-gaprow"><button class="vg-item" data-cl="${g.a},${g.b}"><span class="vg-dots"><span class="vg-dot" style="background:${colorOf(g.a)}"></span><span class="vg-dot" style="background:${colorOf(g.b)}"></span></span>
         <span class="vg-item-main"><span>${esc(clusterName(g.a))} ↔ ${esc(clusterName(g.b))}</span><span class="vg-item-sub">${VGShared.gapWhy({ comentions: g.m, links: g.l })}</span></span></button>
         ${opts.writeNote ? `<button class="vg-ibtn" data-bridge="${g.a},${g.b}" title="Draft a bridge note">${icon("bridge", 15)}</button>` : ""}</div>`), { count: null, first: 6 })}`;
@@ -274,11 +277,11 @@
     const per = {}; links.filter(l => l.kind === "person").forEach(l => { const c = l.t.cluster; if (c < 0) return; (per[l.s.id] = per[l.s.id] || {})[c] = (per[l.s.id][c] || 0) + 1; });
     const cs = DATA.clusters.filter(c => ppl.some(p => (per[p.id] || {})[c.id])).sort((a, b) => b.size - a.size).slice(0, 12);
     const mx = Math.max(1, ...Object.values(per).flatMap(o => Object.values(o)));
-    return `<div class="vg-mx-wrap"><table class="vg-mx"><tr><th></th>${cs.map(c => `<th class="vg-mx-col" title="${esc(clusterName(c.id))}"><span style="color:${colorOf(c.id)}">C${c.id}</span></th>`).join("")}</tr>
+    return `<div class="vg-mx-wrap"><table class="vg-mx"><tr><th></th>${mxCols(cs)}</tr>
       ${ppl.filter(p => per[p.id]).sort((a, b) => b.outlinks - a.outlinks).map(p => `<tr><th class="vg-mx-row"><button class="vg-mx-name" data-id="${esc(p.id)}"><i class="vg-lg-diamond"></i>${esc(p.name)}</button></th>${cs.map(c => {
         const k = (per[p.id] || {})[c.id] || 0;
         return `<td><button class="vg-mx-cell" style="${k ? cellBg("var(--vg-person)", 0.15 + 0.8 * k / mx) : ""}" data-cl="${c.id}" title="${esc(p.name)} · ${esc(clusterName(c.id))}: ${k}">${k || ""}</button></td>`; }).join("")}</tr>`).join("")}</table></div>
-      ${sciRead(`Notes linking each person, by topic (from people notes and the notes that link them). Click a name to see them in the graph; columns: ${cs.map(c => `C${c.id} ${esc(shortName(c.id))}`).join(" · ")}.`)}`;
+      ${sciRead(`Notes linking each person, by topic (from people notes and the notes that link them). Click a name to see them in the graph; columns: ${mxKey(cs)}.`)}`;
   }
 
   // Topic river: what your dailies talked about over time, as a stream (one band per topic, thickness =

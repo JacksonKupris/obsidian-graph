@@ -19,6 +19,10 @@ const D = "window.vaultGraph._debug";
       check(!!m, `gap text should come from one rule (got "${t}")`);
       if (m) check(!!m[2] === (Number(m[3]) < Number(m[1])), `"only" belongs with fewer links than co-mentions (got "${t}")`);
     }
+    // matrix columns are numbered like the rows, never "C<id>" (persona pass: columns read C0..C8)
+    const cols = await tab.ev(`[...document.querySelectorAll(".vg-mx-col")].map(x => x.textContent)`), rowsN = await tab.ev(`[...document.querySelectorAll(".vg-mx-name")].map(x => x.textContent)`);
+    check(cols.length > 1 && cols.every((c, i) => c === String(i + 1)), "matrix columns should be numbered 1, 2, 3: " + cols);
+    check(rowsN.every((r, i) => r.startsWith(String(i + 1) + " ")), "each row name starts with its number: " + rowsN);
   } catch (e) { fails.push("crashed: " + e.message); }
   await tab.close(); finish(fails, "gap text follows one rule and the matrix lists only talked-about pairs");
 })();

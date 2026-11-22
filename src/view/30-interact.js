@@ -354,6 +354,8 @@
     else return 0;
     return 1;
   }
+  // closing a panel, dialog or the tour removes the element that had focus, so focus falls to the page and every shortcut stops; it goes back to the graph
+  root.addEventListener("focusout", e => { if (e.relatedTarget) return; setTimeout(() => { if (!destroyed && root.isConnected && (!document.activeElement || document.activeElement === document.body) && root.getClientRects().length > 0) { try { cv.focus({ preventScroll: true }); } catch (x) { /* not focusable here */ } } }, 0); });
   root.addEventListener("keydown", e => {
     const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName);
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
@@ -627,7 +629,9 @@
       b.onclick = e => { e.stopPropagation(); el.remove(); undo(); };
       el.append(" ", b); el.classList.add("has-undo");
     }
-    $(".vg-toasts").appendChild(el);
+    const stack = $(".vg-toasts"); [...stack.children].filter(t => t.textContent === el.textContent).forEach(t => t.remove());   // the same message twice is one
+    while (stack.children.length >= 2) stack.firstChild.remove();   // at most two at once: a pile of them covers the graph
+    stack.appendChild(el);
     // text is the background colour, which a see-through host (Hearth cards) makes invisible: pick black or white instead
     const tbg = getComputedStyle(el).color.match(/[\d.]+/g) || [], tfg = (getComputedStyle(el).backgroundColor.match(/[\d.]+/g) || [0, 0, 0]).map(Number);
     if (tbg.length === 4 && +tbg[3] < 0.5) el.style.color = 0.299 * tfg[0] + 0.587 * tfg[1] + 0.114 * tfg[2] > 140 ? "#111" : "#fff";
