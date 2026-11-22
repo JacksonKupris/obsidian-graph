@@ -604,7 +604,7 @@
     setView, openLens,
     hasView: v => canvasView(v),   // a scene from a note exists once its block is in the state
     async snapshot() { const blob = await new Promise(res => cv.toBlob(res, "image/png")); return blob.arrayBuffer(); },   // the canvas as PNG (State of the vault)
-    _debug: { gl: {
+    _debug: { select: id => select(id), gl: {
         info: () => GL.info(),
         // two spheres at one spot, in both drawing orders: the depth buffer decides, so the near (red) one must show either way. Pixels are read in the same task, before the page composites.
         depthCheck() { if (!GL.ok()) return null; const put = (a, b) => { GL.begin([0, 0, 0], 1); glSn = 0; for (const [d, c] of [a, b]) putSprite(W / 2, H / 2, d, 60, c, 1, 0, 0); GL.sprites("lit", glS, glSn, { light: [0, 0, -1], dark: true }); glSn = 0; return GL.pixel(W / 2, H / 2); }, near = [0.3, [1, 0, 0]], far = [0.35, [0, 0, 1]], out = { nearLast: put(far, near), nearFirst: put(near, far) }; dirty = true; kick(); return out; },

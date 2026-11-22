@@ -356,7 +356,7 @@
     else if (st.path) clearPath();
     else if (st.focus && !st.quietFocus) exitFocus();
     else if (st.multi) clearMulti();
-    else if (st.selected) select(null);
+    else if (st.selected) { if (!stepBackNote()) select(null); }
     else if (st.highlight) clearHighlight();
     else if (root.classList.contains("vg-side-open")) root.classList.remove("vg-side-open");
     else return 0;

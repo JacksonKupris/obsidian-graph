@@ -268,7 +268,13 @@
     b.onclick = () => { const nid = nextNoteId(id); if (nid) select(nid); else { b.disabled = true; b.textContent = VGRules.NEXT_NOTE.empty; } };
     head.insertBefore(b, head.querySelector(".vg-ins-close"));
   }
-  function select(id) { if (!id) st.nextSeen = null; const r = selectNow(id); addNextControl(id); carryFocus(id); return r; }
+  // the notes opened one from another, so Escape and the back gesture step back through them (goBack pops it) instead of closing the inspector from any depth
+  const noteTrail = [];
+  function select(id, fromBack) {
+    if (!id) st.nextSeen = null;
+    if (!fromBack) { if (!id) noteTrail.length = 0; else if (st.selected && st.selected !== id && byId[st.selected] && noteTrail[noteTrail.length - 1] !== st.selected) { noteTrail.push(st.selected); if (noteTrail.length > 50) noteTrail.shift(); } }
+    const r = selectNow(id); addNextControl(id); carryFocus(id); return r; }
+  const stepBackNote = () => { const prev = noteTrail.pop(); if (!prev) return false; select(prev, true); return true; };
   // a note opening from a control (a sidebar row, a search result) takes focus into its panel; closing returns it to that control
   function carryFocus(id) {
     const box = $(".vg-inspector"), a = document.activeElement, seen = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.right > 0 && r.bottom > 0; };
