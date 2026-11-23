@@ -14,7 +14,7 @@ try {
     check(/every day|daily|every 24 hours|each day/i.test(late.why), `late says how often it should run: "${late.why}"`);
     const failed = VGRules.jobWords({ name: "backup", state: "failed", last: "2026-11-21T09:00:00", summary: "disk full" }, now);
     check(/backup/i.test(failed.title) && /failed/i.test(failed.title) && !/: failed$/.test(failed.title), `failed title: "${failed.title}"`);
-    check(/disk full/.test(failed.why) && /Nov|11-21|yesterday|1 day/i.test(failed.why), `failed says what happened and when: "${failed.why}"`);
+    check(/disk full/i.test(failed.why) && /Nov|11-21|yesterday|1 day/i.test(failed.why), `failed says what happened and when: "${failed.why}"`);
     const hours = VGRules.jobWords({ name: "sync", state: "late", last: "2026-11-22T00:00:00", every_hours: 2, summary: "" }, now);
     check(/every 2 hours/.test(hours.why), `an every-2-hours job says so: "${hours.why}"`);
   }
