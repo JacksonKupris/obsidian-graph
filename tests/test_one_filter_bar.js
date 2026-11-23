@@ -16,6 +16,7 @@ const env = require("./env");
     await show("projects");
     const projects = await bar("Project status");
     check(projects && projects.length === 6 && projects.every(t => /\d$/.test(t)), `Projects status should be a pill bar with counts: ${JSON.stringify(projects)}`);
+    check(/^All\b/.test(needs[0]) && /^All\b/.test(projects[0]), `"All" comes first on both bars: ${needs[0]} / ${projects[0]}`);
     check(await tab.ev(`!document.querySelector('select[data-project-filter="status"]')`), "Projects status should not also be a dropdown");
     check(await tab.ev(`!![...document.querySelectorAll('.vg-hq-filters[aria-label="Project status"] button')].find(b => b.getAttribute("aria-pressed") === "true")`), "the active status pill is marked pressed");
     await tab.ev(`[...document.querySelectorAll('.vg-hq-filters[aria-label="Project status"] button')].find(b => /^All/.test(b.textContent)).click()`); await sleep(200);
