@@ -1035,6 +1035,7 @@ const VGRules = (() => {
     const name = id => (byId.get(id) || {}).name || stemCase(id);
     const ranked = nodes.filter(n => plain(n) && !n.isolated).sort((a, b) => (b.bc || 0) - (a.bc || 0)).map(n => n.id);
     const rank = new Map(ranked.map((id, i) => [id, i + 1]));
+    const touching = new Map(); (data.links || []).forEach(l => [l.source, l.target].forEach(e => { const id = (e && e.id) || e; touching.set(id, (touching.get(id) || 0) + 1); }));
     const groupName = c => { const g = (data.clusters || []).find(x => x.id === c); return (g && (g.label || g.name)) || "the same subject"; };
     const review = o.review || {}, day = o.today || localDay(new Date()), skipDays = o.skipDays || 14;
     const skipped = k => !!(review.skipped && review.skipped[k]) && (Date.parse(day) - Date.parse(review.skipped[k])) / VGShared.DAY_MS < skipDays;
@@ -1049,12 +1050,12 @@ const VGRules = (() => {
     });
     mocs.forEach(m => (m.clusters || []).forEach(c => ((m.missing || {})[c] || []).slice(0, 3).forEach(id => { if (!byId.get(id)) return;
       const r = rank.get(id);
-      add({ key: `map|${m.id}|${id}`, kind: "map", m: m.id, mapTitle: m.title, id, name: name(id), ids: [id, m.id], title: `Add ${name(id)} to ${m.title}`, why: `Not on the ${m.title} map yet, though it's one of the ${groupName(c)} notes${r ? `; #${r} of your notes by number of links` : ""}`, score: 2 + (r ? 30 / r : 0) }); })));
+      add({ key: `map|${m.id}|${id}`, kind: "map", m: m.id, mapTitle: m.title, id, name: name(id), ids: [id, m.id], title: `Add ${name(id)} to ${m.title}`, why: `Not on the ${m.title} map yet, though it's one of the ${groupName(c)} notes${touching.get(id) ? `; ${VGShared.plural(touching.get(id), "note")} link to or from it` : ""}`, score: 2 + (r ? 30 / r : 0) }); })));
     (data.wanted || []).filter(w => w.creatable && (w.refs || []).length >= 3).forEach(w =>
       add({ key: `write|${w.id}`, kind: "write", id: w.id, name: w.name, refs: w.refs, ids: [w.id], title: `Write “${w.name}”`, why: `${w.refs.length} notes link to it, but it doesn't exist`, score: 1 + w.refs.length / 3 }));
     (review.pinned || []).filter(id => byId.get(id)).forEach(id => add({ key: `pin|${id}`, kind: "hub", id, name: name(id), ids: [id], title: `Review ${name(id)}`, why: "You asked to review this", score: 9 }));
     ranked.slice(0, 60).map(id => byId.get(id)).filter(n => n.recent === 0).slice(0, 8).forEach(n =>
-      add({ key: `review|${n.id}`, kind: "hub", id: n.id, name: n.name, ids: [n.id], title: `Review ${n.name}`, why: `#${rank.get(n.id)} most connecting note, quiet for ${data.recent_days || 30}+ days`, score: 1.5 }));
+      add({ key: `review|${n.id}`, kind: "hub", id: n.id, name: n.name, ids: [n.id], title: `Review ${n.name}`, why: `${VGShared.plural(touching.get(n.id) || 0, "note")} link to or from it, and it has been quiet for ${data.recent_days || 30}+ days`, score: 1.5 }));
     (data.clusters || []).filter(c => c.size >= 6 && !mapForCluster(mocs, c.id)).slice(0, 3).forEach(c =>
       add({ key: `chart|${c.id}`, kind: "chart", c: c.id, name: c.label || c.name, ids: nodes.filter(n => n.cluster === c.id).map(n => n.id), title: `Give ${c.label || c.name} a map`, why: `${c.size} notes, and no map lists them`, score: 2.5 }));
     // a map the plugin made (Create map) whose name no longer says anything about its topic: rename it to the topic's

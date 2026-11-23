@@ -13,6 +13,9 @@ const env = require("./env");
     const text = await tab.ev(`document.querySelector(".vg-hq").innerText`);
     check(!/by links through it|lists notes about|isn't listed/.test(text), "an upkeep reason reads as machinery");
     check(/Add .+ to .+/.test(text), "Home has upkeep rows to check");
+    // the reason names something a colleague can count, not a rank from a measure only the plugin knows
+    check(!/#\d+ (of your notes|most connecting)/.test(text), "an upkeep reason still gives a rank nobody can check");
+    check(/\d+ notes? link(s)? to or from it/.test(text) || !/Not on the .+ map yet/.test(text), "an upkeep reason about a map should say how many notes link to or from the note");
     const dock = await tab.ev(`(() => { const b = document.querySelector('.vg-hq-dockbtn[data-go="needs"]'); const s = b && b.querySelector(".vg-hq-badge"); return b && s ? { label: b.getAttribute("aria-label"), count: s.textContent.trim(), hidden: s.getAttribute("aria-hidden") } : null; })()`);
     check(!!dock, "the Needs you dock button shows a count badge");
     if (dock) {
