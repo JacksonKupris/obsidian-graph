@@ -706,7 +706,8 @@ const VGRules = (() => {
     });
   }
   // one way to write when something ran: "Sat, Nov 21, 02:00"; and where it runs without the scheduler's name
-  const whenWords = iso => iso ? new Date(iso).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }) : "";
+  // a run time in the one short date style the rest of HQ uses ("Nov 21"), then the time as people say it
+  const whenWords = iso => iso ? new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
   const placeWords = where => String(where || "").replace(/\s*\((?:cron|launchd|task scheduler)\)/gi, "").trim();
   // An automation that is late or failed, as sentences: the title and the reason. Every surface that lists one uses this.
   function jobWords(j, now) {

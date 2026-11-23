@@ -9,7 +9,7 @@ try {
   const R = new Function(`${build.rulesSource(env.rules)}; return VGRules;`)();
   check(typeof R.whenWords === "function", "VGRules.whenWords should be the one place a run time is written");
   if (R.whenWords) {
-    check(R.whenWords("2026-11-21T02:00:00") === "Sat, Nov 21, 02:00", `whenWords: "${R.whenWords("2026-11-21T02:00:00")}"`);
+    check(R.whenWords("2026-11-21T02:00:00") === "Nov 21, 2:00 AM", `whenWords: "${R.whenWords("2026-11-21T02:00:00")}"`);
     check(R.whenWords("") === "", "no time gives an empty string");
     const w = R.jobWords({ name: "n", state: "failed", last: "2026-11-21T02:00:00", summary: "x" }, new Date("2026-11-22T09:00:00"));
     check(w.why.includes(R.whenWords("2026-11-21T02:00:00")), `jobWords uses whenWords: "${w.why}"`);
