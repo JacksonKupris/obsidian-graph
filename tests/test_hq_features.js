@@ -110,7 +110,7 @@ assert.strictEqual(R.statusForGroup("nowhere"), null);
     await screen("projects");
     check(await tab.ev(`!!document.querySelector("[data-board]")`), "no Board control"); await click("[data-board]"); await sleep(50);
     check(await tab.ev(`document.querySelectorAll("[data-column]").length`) >= 4, "the board has no columns");
-    check(!(await tab.ev(`!!document.querySelector('[data-project-filter="status"]')`)), "the board shouldn't filter by status: its columns are the statuses");
+    check(!(await tab.ev(`!!document.querySelector('.vg-hq-filters[aria-label="Project status"]')`)), "the board shouldn't filter by status: its columns are the statuses");
     const total = await tab.ev(`window.__t = [...document.querySelectorAll("[data-column] h3 span")].reduce((a, s) => a + +s.textContent, 0)`), every = await tab.ev(`DATA.hq.projects.length`); check(total === every, `the board holds ${total} of ${every} projects`); await shot("board");
     if (await tab.ev(`!!document.querySelector("[data-pmove]")`)) {
       const arrow = await tab.ev(`(() => { const b = document.querySelector('[data-pmove]'); return { path: b.dataset.path, to: b.dataset.pmove }; })()`);
