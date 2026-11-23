@@ -15,15 +15,14 @@
       (out || empty(hq() ? "No open tasks in your journals or the plan." : "No journal or standup notes found for HQ.", nextSteps())) + putOffHtml() + planDoneHtml();
   }
 
-  // ---- Needs you: decisions only you can make
+  // ---- Needs you: what waits on you. A failed automation can stop everything after it, so it leads; the inbox is tidying, so it comes last.
+  const NEED_ORDER = [["job", "Automations needing attention"], ["approval", "Waiting on approval"], ["review", "Drafts to review"], ["report", "Reports to review"], ["backlog", "Vault decisions"], ["inbox", "Inbox to file"]];
   function needsScreen() {
     const items = ofGroup("needs"), filters = [["all", "All"], ["approval", "Approvals"], ["review", "Drafts"], ["inbox", "Inbox"], ["job", "Automations"], ["report", "Reports"], ["backlog", "Vault decisions"]];
-    const allBacklog = ofKind("backlog"), shown = needFilter === "all" ? items : needFilter === "backlog" ? allBacklog : items.filter(i => i.kind === needFilter);
+    const allBacklog = ofKind("backlog"), shown = (needFilter === "all" ? items : needFilter === "backlog" ? allBacklog : items.filter(i => i.kind === needFilter)).slice().sort((a, b) => NEED_ORDER.findIndex(n => n[0] === a.kind) - NEED_ORDER.findIndex(n => n[0] === b.kind));   // the screen and the one-at-a-time walk share this order
     const chips = filters.map(([k, label]) => `<button class="vg-hq-filter${needFilter === k ? " is-on" : ""}" data-needfilter="${k}" aria-pressed="${needFilter === k}">${label} <span>${k === "all" ? items.length : k === "backlog" ? allBacklog.length : items.filter(i => i.kind === k).length}</span></button>`).join("");
-    const out = section("Waiting on approval", shown.filter(i => i.kind === "approval")) + section("Drafts to review", shown.filter(i => i.kind === "review")) +
-      section("Automations needing attention", shown.filter(i => i.kind === "job")) + section("Reports to review", shown.filter(i => i.kind === "report")) +
-      section("Inbox to file", shown.filter(i => i.kind === "inbox")) + section("Vault decisions", shown.filter(i => i.kind === "backlog"), needFilter === "all" && allBacklog.length > 1 ? `<div class="vg-hq-row"><button class="vg-hq-btn" data-needfilter="backlog">All ${allBacklog.length}</button></div>` : "", allBacklog.length);
-    const head = `<h1 class="vg-hq-h1">Needs you</h1><p class="vg-hq-lede">${items.length ? `Decisions only you can make, ${items.length} in all.` : "Nothing waiting on you."}</p><div class="vg-hq-filters" role="group" aria-label="Filter Needs you">${chips}</div>`;
+    const out = NEED_ORDER.map(([kind, title]) => section(title, shown.filter(i => i.kind === kind), kind === "backlog" && needFilter === "all" && allBacklog.length > 1 ? `<div class="vg-hq-row"><button class="vg-hq-btn" data-needfilter="backlog">All ${allBacklog.length}</button></div>` : "", kind === "backlog" ? allBacklog.length : undefined)).join("");
+    const head = `<h1 class="vg-hq-h1">Needs you</h1><p class="vg-hq-lede">${items.length ? `${items.length} waiting on you.` : "Nothing waiting on you."}</p><div class="vg-hq-filters" role="group" aria-label="Filter Needs you">${chips}</div>`;
     if (needsWalk && shown.length) return head + walkHtml(shown);
     const tools = shown.length > 1 ? `<div class="vg-hq-row vg-hq-needtools"><button class="vg-hq-btn vg-hq-btn-sm" data-walk="on">One at a time</button>${api.hqMark ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-pickall>Select all ${shown.length}</button>` : ""}</div>` : "";
     return head + tools +
