@@ -702,7 +702,7 @@ const VGRules = (() => {
   // An automation that is late or failed, as sentences: the title and the reason. Every surface that lists one uses this.
   function jobWords(j, now) {
     now = now || new Date();
-    const days = j.last ? Math.max(0, Math.floor((now - new Date(j.last)) / 864e5)) : null;
+    const days = j.last ? Math.max(0, Math.floor((now - new Date(j.last)) / VGShared.DAY_MS)) : null;
     const ago = days === null ? "" : days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
     const h = j.every_hours || 24, often = h === 24 ? "every day" : h % 24 === 0 ? `every ${h / 24} days` : `every ${VGShared.plural(h, "hour")}`;
     const name = j.name.charAt(0).toUpperCase() + j.name.slice(1);
