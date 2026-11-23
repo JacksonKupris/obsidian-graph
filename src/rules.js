@@ -675,7 +675,7 @@ const VGRules = (() => {
     hq.reports = Object.values(newestReport);
     // an inbox note that a decision links to, or that is marked finished, is settled: it is not waiting on the person
     const decidedNames = new Set(hq.decisions.flatMap(d => d.links || []));
-    hq.inbox.forEach(n => { n.settled = SETTLED_STATUS.has(n.status) || decidedNames.has(n.name.toLowerCase()) || decidedNames.has(String(n.path).split("/").pop().replace(/\.md$/, "").toLowerCase()); });
+    hq.inbox.forEach(n => { n.settled = SETTLED_STATUS.has(n.status) || decidedNames.has(n.name.toLowerCase()) || decidedNames.has(VGShared.nameOf(n.path).toLowerCase()); });
     hq.journalDuplicates = [...new Set(hq.journals.map(j => j.date).filter(Boolean))].map(date => {
       const paths = hq.journals.filter(j => j.date === date).map(j => j.path);
       return paths.length > 1 ? { date, canonical: canonicalJournalPath(paths, date), paths: paths.sort() } : null;
