@@ -699,6 +699,16 @@ const VGRules = (() => {
         state: !last ? "never" : ok === false ? "failed" : late ? "late" : ok === true ? "ok" : "unknown" };
     });
   }
+  // An automation that is late or failed, as sentences: the title and the reason. Every surface that lists one uses this.
+  function jobWords(j, now) {
+    now = now || new Date();
+    const days = j.last ? Math.max(0, Math.floor((now - new Date(j.last)) / 864e5)) : null;
+    const ago = days === null ? "" : days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
+    const h = j.every_hours || 24, often = h === 24 ? "every day" : h % 24 === 0 ? `every ${h / 24} days` : `every ${VGShared.plural(h, "hour")}`;
+    const name = j.name.charAt(0).toUpperCase() + j.name.slice(1);
+    if (j.state === "failed") return { title: `${name} failed`, why: `${j.summary ? j.summary + ". " : ""}Last run ${ago || "unknown"}.` };
+    return { title: days === null ? `${name} has not run` : `${name} hasn't run for ${VGShared.plural(days, "day")}`, why: `It should run ${often}.${j.summary ? " Last result: " + j.summary + "." : ""}` };
+  }
   // The projects (scopes of work, project notes, user stories): kind, status group, summary, estimate, the days the
   // dailies named it, active decisions
   function hqProjects(data) {
@@ -769,7 +779,7 @@ const VGRules = (() => {
     hq.reviews.filter(r => r.status === "waiting" || r.reviewOnly && ["pending", "proposed"].includes(r.status)).forEach(r => put({ key: `review|${r.path}`, kind: "review", path: r.path, ids: [r.path], title: r.reviewOnly ? (reportNames.get(reportTitle(r.name)) > 1 ? reportTitleTimed(r.name) : reportTitle(r.name)) : r.title,
       why: r.reviewOnly ? "Review only · no rows applied" : r.task ? `Draft for: ${r.task}` : "Draft waiting", reviewOnly: !!r.reviewOnly, score: 11.5 }));
     hqJobs(hq, o.now).filter(j => j.state === "failed" || j.state === "late").forEach(j => put({ key: `job|${j.name}|${j.last}`, kind: "job", path: H.automations_note, name: j.name, ids: [],
-      title: `${j.name}: ${j.state === "failed" ? "failed" : "late"}`, why: j.summary || j.when, score: j.state === "failed" ? 13 : 10 }));
+      title: jobWords(j, o.now).title, why: jobWords(j, o.now).why, score: j.state === "failed" ? 13 : 10 }));
     [...new Set(hq.journals.map(j => j.date).filter(d => d < day))].map(d => canonicalJournal(hq, d)).filter(Boolean).forEach(j => { const age = daysBetween(j.date, day);
       j.tasks.filter(t => t.mark === " ").forEach(t => put({ key: `carried|${j.path}|${t.text}`, kind: "carried", path: j.path, line: t.line, text: t.text, date: j.date, age, ...fieldsOf(t.text), ids: [j.path], section: t.section, subs: t.subs, under: t.under, underDone: t.underDone,
         title: label(t.text), why: `From ${j.date} · ${age} day${age === 1 ? "" : "s"} ago${t.under ? ` · under ${t.under}` : ""}`, score: Math.max(1, 9 - age * 0.25) })); });
@@ -1542,7 +1552,7 @@ const VGRules = (() => {
     const kept = all.filter(p => p[1] / total >= floor), rest = all.filter(p => p[1] / total < floor);
     return rest.length === 1 ? { kept: all, rest: [] } : { kept, rest };
   };
-  return { hqBriefLines, ringClusters, ringBudget, foldSmall, errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, mocNode, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, unmentioned, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, relatedNotes, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, LINK_WORDS, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { jobWords, hqBriefLines, ringClusters, ringBudget, foldSmall, errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, mocNode, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, unmentioned, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, relatedNotes, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, LINK_WORDS, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, NEXT_NOTE, nextView, nextItem, SCALES, VIEW_SCALES, viewScale, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, GUIDE_LOG_KEEP, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
