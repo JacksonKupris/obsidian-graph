@@ -21,7 +21,8 @@
       ? [search.selectionStart, search.selectionEnd] : null;
     const focusedFilter = document.activeElement && document.activeElement.dataset.projectFilter;
     const onRow = document.activeElement && document.activeElement.matches && document.activeElement.matches(".vg-hq-item[data-key]") ? document.activeElement.dataset.key : null;
-    const html = `<header class="vg-hq-top">${canGoBack() ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-backbtn" data-back aria-label="Back" title="Back (Esc)">${icon("left", 14)} Back</button>` : ""}<span class="vg-hq-crumb"><b>Vault HQ</b> / ${esc(label)}</span>${VGParts.historyButtons(VGActions.history.state(), icon)}${nextChip()}
+    // Home has no Next pill: its Do next tile is the next step
+    const html = `<header class="vg-hq-top">${canGoBack() ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-backbtn" data-back aria-label="Back" title="Back (Esc)">${icon("left", 14)} Back</button>` : ""}<span class="vg-hq-crumb"><b>Vault HQ</b> / ${esc(label)}</span>${VGParts.historyButtons(VGActions.history.state(), icon)}${cur === "home" ? "" : nextChip()}
       <div class="vg-hq-global-tools"><label class="vg-hq-global-searchlabel"><input class="vg-hq-global-search vg-hq-project-search" type="search" value="${esc(globalQuery)}"
         placeholder="Search projects, tasks, and notes  ( / )" aria-label="Search all HQ and vault notes"></label>
         ${globalQuery ? '<button class="vg-hq-btn vg-hq-btn-sm vg-hq-global-clear" data-clear-global aria-label="Clear HQ search">Clear</button>' : ""}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-keysbtn" data-keys aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</button></div>
