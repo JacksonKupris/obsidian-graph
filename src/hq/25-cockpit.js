@@ -2,7 +2,7 @@
   // made visible: pick anything and it shows what the vault knows about it, without leaving the list you're working through.
   let selKey = null;
   const NO_RAIL = new Set(["projects", "automations", "sweep", "rows", "review", "wrap", "session", "calendar"]);
-  const HAS_HERO = new Set(["home", "today"]);   // these screens already show Do next in full
+  const HAS_HERO = new Set(["today"]);   // Today shows Do next in full; Home has its own tile, so its panel waits for a pick
   const railOn = () => el.clientWidth >= RAIL_WIDTH && !NO_RAIL.has(cur) && !(cur === "today" && LAYOUT_NO_RAIL.has(layoutNow())) && !globalQuery.trim() && !(cur === "needs" && needsWalk);   // one at a time shows the same things itself
   const RAIL_WIDTH = 1100;
   // what the rail shows: the item you picked, or else the first thing on this screen. Nothing unrelated to the screen.
