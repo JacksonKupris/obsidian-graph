@@ -15,6 +15,7 @@ const env = require("./env");
       return { text: e.querySelector(".vg-empty") ? e.querySelector(".vg-empty").textContent : "", buttons: [...e.querySelectorAll(".vg-empty-next button")].map(b => b.dataset.relens || b.dataset.next) }; })()`);
     assert.ok(card, "the Since last run card must be there");
     assert.ok(!/snapshot saved today/i.test(card.text) && card.text.length > 0, "the empty state says what is missing: " + card.text);
+    assert.ok(!/snapshot/i.test(card.text) && /next analysis/i.test(card.text), "the first-run state says when the list fills, in plain words: " + card.text);
     assert.ok(card.buttons.includes("timeline"), "the empty state offers the Timeline: " + JSON.stringify(card.buttons));
     await tab.ev(`document.querySelector('.vg-panel[data-panel="insights"] .vg-empty-next [data-relens="timeline"]').click()`); await sleep(600);
     assert.ok(await tab.ev(`!!document.querySelector(".vg-lens:not([hidden])")`), "the button must open the Timeline lens");
