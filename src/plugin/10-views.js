@@ -374,7 +374,7 @@ class VaultGraphSuggestView extends ItemView {
       if (VGActions.todayWhen(it, ctx)) actions.push([VGActions.todayLabel(it), async () => { if (await VGActions.runToday(it, ctx) && pick) await this.plugin.markQuestDone(it.key); }]);
       if (it.kind === "link") actions.push(["Not related", () => this.act("Dismiss", () => this.plugin.dismiss(it.a, it.b, "gap"), `Dismissed ${it.names[0]} ↔ ${it.names[1]}`)]);
       // an HQ item (a task, a draft...): the same Later, Reject, Delegate and Open as in Vault HQ
-      VGActions.todayMore(it, ctx).filter(m => !(m.key === "open" && VGActions.todayLabel(it) === "Open")).forEach(m => actions.push([m.label, () => VGActions.runMore(m, it, ctx)]));
+      VGActions.todayMore(it, ctx).filter(m => !(m.key === "open" && VGActions.todayOpens(it))).forEach(m => actions.push([m.label, () => VGActions.runMore(m, it, ctx)]));
       if (tn && !VGRules.TODAY_GROUP[it.kind]) actions.push(openNote(noteId));
       if (tn && tn.tasks > 0) actions.push(taskAll(noteId, "x"), taskAll(noteId, "-"));   // the item's note has open tasks
       actions.forEach(([label, fn], i) => { const btn = acts.createEl("button", { text: label, cls: i === 0 ? "mod-cta" : "" }); btn.onclick = () => fn(); });
