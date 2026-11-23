@@ -210,6 +210,8 @@
 }
 /* narrow panes and phones */
 @container (max-width: 760px) {
+  .vg-hq .vg-hq-tricard { padding: 12px; gap: 8px; }
+  .vg-hq .vg-hq-tricard .vg-hq-tritext { font-size: var(--ds-fs-md); }
   .vg-hq .vg-hq-top { padding: 10px 16px 8px; flex-wrap: wrap; align-items: center; } .vg-hq .vg-hq-clock span { display: none; }
   .vg-hq .vg-hq-global-tools { order: 3; flex-basis: 100%; max-width: none; }
   .vg-hq .vg-hq-strip { flex-direction: column; align-items: stretch; margin: 8px 16px 0; } .vg-hq .vg-hq-week { grid-template-columns: repeat(7, minmax(0, 1fr)); } .vg-hq .vg-hq-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
