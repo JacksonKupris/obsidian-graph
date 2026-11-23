@@ -44,7 +44,7 @@ assert.deepStrictEqual(VGRules.hqBrief({}, [], {}, "2026-10-28", []), [], "an em
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     const mount = (data = "DATA") => tab.ev(`(() => { window.__calls = []; window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), ${data}, { now: new Date("2026-10-28T12:00:00"), ask: async () => true, openGraph: () => window.__calls.push(["graph"]),
       api: { capture: async (t, k) => window.__calls.push(["capture", t, k]), hqMark: async () => {}, hqFocus: async () => {}, hqHome: async h => window.__calls.push(["home", h]), openNote: p => window.__calls.push(["open", p]), openDaily: async d => window.__calls.push(["daily", d]), openStandup: async d => window.__calls.push(["standup", d]), setTaskStatus: async () => {}, logWork: async () => false,
-        searchNotes: async q => [{ path: "Old fix.md", heading: "How it was solved", snippet: "We did this before" }], searchMeaning: async q => [{ path: "Close in meaning.md", heading: "" }] } }); })()`);
+        searchNotes: async q => [{ path: "Old fix.md", heading: "How it was solved", snippet: "We did this before: " + q }], searchMeaning: async q => [{ path: "Close in meaning.md", heading: "" }] } }); })()`);
     await mount(); await sleep(120);
     await tab.send("Emulation.setDeviceMetricsOverride", { width: 1500, height: 900, deviceScaleFactor: 1, mobile: false }); await tab.ev(`window.vaultHQ.setScreen("today")`); await sleep(120);
     // the rail

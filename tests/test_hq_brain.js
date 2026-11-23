@@ -33,7 +33,7 @@ assert.strictEqual(VGRules.hqKind(`${VGRules.folders.inbox}/Idea.md`, {}, day0),
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     await tab.ev(`(() => { window.__calls = []; window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { now: new Date("2026-10-28T12:00:00"), ask: async () => true,
       api: { capture: async (t, k) => { window.__calls.push(["capture", t, k]); return "Inbox/x.md"; }, hqMark: async (...a) => window.__calls.push(["mark", ...a]), openNote: p => window.__calls.push(["open", p]), hqFocus: async k => window.__calls.push(["focus", k]), planLine: async t => { window.__calls.push(["plan", t]); return true; }, setTaskStatus: async (...a) => window.__calls.push(["status", ...a]), completeTask: async (...a) => window.__calls.push(["done", ...a]), logWork: async () => false,
-        searchNotes: async q => { window.__calls.push(["search", q]); return [{ path: "Old fix.md", heading: "How it was solved", snippet: "We did this before" }]; } } }); })()`);
+        searchNotes: async q => { window.__calls.push(["search", q]); return [{ path: "Old fix.md", heading: "How it was solved", snippet: "We did this before: " + q }]; } } }); })()`);
     await sleep(100);
     // capture
     check(await tab.ev(`!!document.querySelector(".vg-hq-captureinput")`), "no capture box on Home");

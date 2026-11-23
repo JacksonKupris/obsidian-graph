@@ -102,13 +102,13 @@
   const ctxButton = it => api.searchNotes ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-ctxbtn" data-ctx="${esc(it.key)}" aria-expanded="${ctxOpen === it.key}" title="What your notes know about this (Enter)" aria-label="What your notes know about this">${icon("down", 14)}</button>` : "";
   function loadContext(it) {
     if (!api.searchNotes || ctxCache.has(it.key)) return; ctxCache.set(it.key, null);
-    Promise.resolve(api.searchNotes(ctxQuery(it), 8)).then(hits => { const own = it.path; ctxCache.set(it.key, (Array.isArray(hits) ? hits : []).filter(h => h.path !== own && !String(h.path).startsWith(`${VGRules.folders.system}/`)).filter((h, i, a) => a.findIndex(x => x.path === h.path) === i).slice(0, 4)); if (railOn()) updateRail(); else render(); }, () => { ctxCache.set(it.key, []); if (railOn()) updateRail(); else render(); });
+    Promise.resolve(api.searchNotes(ctxQuery(it), 8)).then(hits => { const own = it.path; ctxCache.set(it.key, VGRules.relatedNotes(Array.isArray(hits) ? hits : [], ctxQuery(it)).filter(h => h.path !== own && !String(h.path).startsWith(`${VGRules.folders.system}/`)).filter((h, i, a) => a.findIndex(x => x.path === h.path) === i).slice(0, 4)); if (railOn()) updateRail(); else render(); }, () => { ctxCache.set(it.key, []); if (railOn()) updateRail(); else render(); });
   }
   function contextPanel(it, always) {
     if (!api.searchNotes || (!always && ctxOpen !== it.key)) return "";
     loadContext(it); const hits = ctxCache.get(it.key);
     const body = hits === null ? `<p class="vg-hq-ctx-none">Looking in your notes…</p>` : !hits || !hits.length ? `<p class="vg-hq-ctx-none">Nothing related in your notes.</p>`
-      : hits.map(h => `<button class="vg-hq-ctxhit" ${api.readNote ? "data-peek" : "data-open"}="${esc(h.path)}"><b>${esc(nameOf(h.path))}</b>${h.heading && h.heading !== nameOf(h.path) ? `<small>${esc(h.heading)}</small>` : ""}${h.snippet ? `<span>${esc(VGRules.plainSnippet(h.snippet))}</span>` : ""}</button>`).join("");
+      : hits.map(h => `<button class="vg-hq-ctxhit" ${api.readNote ? "data-peek" : "data-open"}="${esc(h.path)}"><b>${esc(nameOf(h.path))}</b>${h.heading && h.heading !== nameOf(h.path) ? `<small>${esc(h.heading)}</small>` : ""}${h.snippet ? `<span>${esc(VGRules.plainSnippet(h.snippet))}</span>` : ""}${h.reason ? `<small class="vg-hq-ctxwhy">${esc(h.reason)}</small>` : ""}</button>`).join("");
     return `<div class="vg-hq-ctx"><div class="vg-hq-eyebrow">From your notes</div><div class="vg-hq-ctxhits">${body}</div></div>`;
   }
   // More / Less like this: on every item when the host can keep them
