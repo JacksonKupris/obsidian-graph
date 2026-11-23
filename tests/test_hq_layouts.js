@@ -11,7 +11,7 @@ const env = require("./env");
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     await tab.send("Emulation.setDeviceMetricsOverride", { width: 1500, height: 900, deviceScaleFactor: 1, mobile: false });
     await tab.ev(`(() => { window.__layouts = []; window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { now: new Date("2026-10-28T12:00:00"), layout: "bench", onLayout: l => window.__layouts.push(l), api: {} }); window.vaultHQ.setScreen("today"); })()`); await sleep(150);
-    const sel = `document.querySelector(".vg-hq-layoutsel")`;
+    const sel = `document.querySelector("select[data-layout]")`;
     check(await tab.ev(`!!${sel}`), "no layout select in the header");
     check(await tab.ev(`${sel} && ${sel}.options.length >= 8`), "the layout select should offer all 8 layouts");
     check(await tab.ev(`!!document.querySelector(".vg-hq-bench")`), "the remembered layout (Workbench) didn't open");
@@ -36,7 +36,7 @@ const env = require("./env");
     check(n === (await tab.ev(`window.vaultHQ.items().filter(i => i.group === "needs").length`)), "the Needs you lens shows " + n + " rows, not the Needs you list");
     check(await tab.ev(`!!document.querySelector(".vg-hq-rail") || document.querySelectorAll(".vg-hq-benchlist .vg-hq-item").length === 0`), "no rail beside the Workbench list");
     // every layout draws the same open items, each as something that can be picked, and says something on an empty vault
-    const ids = await tab.ev(`[...document.querySelector(".vg-hq-layoutsel").options].map(o => o.value)`);
+    const ids = await tab.ev(`[...document.querySelector("select[data-layout]").options].map(o => o.value)`);
     const open = await tab.ev(`window.vaultHQ.items().filter(i => i.group === "needs" || i.group === "today").length`);
     for (const v of ids) { await set(v); await sleep(80);
       const n = await tab.ev(`document.querySelectorAll(".vg-hq-main .vg-hq-item[data-key]").length`);
