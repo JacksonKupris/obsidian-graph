@@ -931,7 +931,11 @@ const VGRules = (() => {
     // the notes a person is linked from (the graph's person links), the ones you come back to most first
     for (const l of data.links || []) { if (l.kind !== "person") continue; const p = end(l.source), t = byId.get(end(l.target)); if (!t) continue; if (!linked.has(p)) linked.set(p, []); linked.get(p).push(t); }
     const notesOf = id => (linked.get(id) || []).slice().sort((a, b) => (b.recent || 0) - (a.recent || 0) || (b.mentions || 0) - (a.mentions || 0) || a.name.localeCompare(b.name)).map(t => ({ id: t.id, name: t.name }));
-    return (data.nodes || []).filter(n => n.person).map(n => { const plain = !ambiguous.has(n.name.toLowerCase()) && n.name.length > 2 ? new RegExp(`\\b${esc(n.name)}\\b`) : null, link = `[[${n.name}`;
+    const folks = (data.nodes || []).filter(n => n.person), firstOf = n => n.name.split(/\s+/)[0].toLowerCase(), firstCount = new Map();
+    for (const n of folks) firstCount.set(firstOf(n), (firstCount.get(firstOf(n)) || 0) + 1);
+    // a first name alone ("with Ana") names someone only when no one else shares it and it isn't on the ambiguous list
+    const nameRx = n => { const ok = s => s.length > 2 && !ambiguous.has(s.toLowerCase()), first = n.name.split(/\s+/)[0], alts = []; if (ok(n.name)) alts.push(esc(n.name)); if (first !== n.name && ok(first) && firstCount.get(firstOf(n)) === 1) alts.push(esc(first)); return alts.length ? new RegExp(`\\b(?:${alts.join("|")})\\b`) : null; };
+    return folks.map(n => { const plain = nameRx(n), link = `[[${n.name}`;
       const items = list.filter(it => { if (!PEOPLE_KINDS.has(it.kind)) return false; const t = `${it.text || ""} ${it.title || ""}`; return t.includes(link) || (plain && plain.test(t)); });
       const decisions = ((data.hq && data.hq.decisions) || []).filter(d => (d.by || "").includes(n.name)).slice(0, 3);
       return { id: n.id, name: n.name, items, decisions, notes: notesOf(n.id), mentions: n.mentions || 0, recent: n.recent || 0 }; })
