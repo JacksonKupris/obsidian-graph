@@ -24,7 +24,7 @@
       cards.push({ id: "week", eyebrow: "This week's standups", title: top.length ? top.map(([p, n]) => `${p} ${n}d`).join(" · ") : plural(ups.length, "standup"),
         sub: `${plural(ups.length, "standup")} · ${dev} hour${dev === 1 ? "" : "s"} off plan`, open: ups[0].path }); }
     if ((h.runlog || []).length) { const last = h.runlog[h.runlog.length - 1], parts = last.split(" · ");
-      cards.push({ id: "runlog", eyebrow: "Latest agent run", title: parts[3] || last, sub: parts.slice(0, 3).join(" · "), go: ["See all runs", 'data-go="automations"'] }); }
+      cards.push({ id: "runlog", eyebrow: "Latest agent run", title: parts[3] || last, sub: [shortDate(parts[0]), ...parts.slice(1, 3)].join(" · "), go: ["See all runs", 'data-go="automations"'] }); }
     return cards;
   }
   // ---- Vitals: what the numbers say, each with what to do about it and whether it's moving
