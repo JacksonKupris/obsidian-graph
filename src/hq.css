@@ -53,6 +53,7 @@
 .vg-hq .vg-hq-chips { display: flex; gap: 6px; }
 .vg-hq .vg-hq-chip { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid transparent; border-radius: var(--ds-r-pill); background: var(--hq-surface); text-align: left; white-space: nowrap; font-size: var(--ds-fs-md); transition: background var(--ds-base); }
 .vg-hq .vg-hq-chip:hover { background: var(--hq-hover); }
+.vg-hq .vg-hq-chipn { display: none; font-style: normal; color: var(--hq-muted); margin-left: 4px; font-variant-numeric: tabular-nums; }
 .vg-hq .vg-hq-chip span { display: flex; flex-direction: column; position: relative; } .vg-hq .vg-hq-chip b { font-weight: 600; } .vg-hq .vg-hq-chip small { color: var(--hq-muted); font-size: var(--ds-fs-xs); }
 .vg-hq .vg-hq-dot { position: absolute; top: 2px; right: -9px; width: 6px; height: 6px; border-radius: 50%; background: var(--hq-accent); }
 
@@ -93,7 +94,7 @@
 .vg-hq .vg-hq-dots button.is-on::before { width: 18px; background: var(--hq-accent); }
 
 /* tiles */
-.vg-hq-tiles { display: grid; grid-template-columns: 1fr 2fr; gap: var(--hq-gap); margin: 12px 0; }
+.vg-hq-tiles { display: grid; grid-template-columns: 1fr; gap: var(--hq-gap); margin: 12px 0; }
 .vg-hq .vg-hq-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 16px; min-height: 0; border: 1px solid var(--hq-line); border-radius: var(--hq-r); background: var(--hq-surface); text-align: left; }
 .vg-hq button.vg-hq-tile:hover { border-color: var(--hq-accent); }
 .vg-hq .vg-hq-tile b { font-size: var(--ds-fs-lg); } .vg-hq .vg-hq-tile small { color: var(--hq-muted); }
@@ -221,7 +222,7 @@
   .vg-hq .vg-hq-chip .vg-hq-ic { display: none; }   /* the words need the room */
   .vg-hq .vg-hq-feedcard { padding: 16px; min-height: 150px; } .vg-hq .vg-hq-feedtxt { max-width: 100%; } .vg-hq .vg-hq-art { width: 100%; height: 90px; opacity: .5; } .vg-hq .vg-hq-feedcard h2 { font-size: var(--ds-fs-xl); }
   .vg-hq .vg-hq-feednav { display: none; }
-  .vg-hq .vg-hq-tiles { grid-template-columns: 1fr; } .vg-hq .vg-hq-tiles .ds-cards { grid-template-columns: 1fr 1fr; } .vg-hq .vg-hq-tile { min-height: 0; }
+  .vg-hq .vg-hq-tiles { grid-template-columns: 1fr; } .vg-hq .vg-hq-tile { min-height: 0; }
   .vg-hq .vg-hq-grid.is-compact .vg-hq-projbody { grid-template-columns: minmax(90px, .6fr) minmax(120px, 1fr); }
   .vg-hq .vg-hq-grid.is-compact .vg-hq-sum { grid-column: 1 / -1; }
   .vg-hq .vg-hq-grid.is-compact .vg-hq-projfoot { grid-column: 1 / -1; }
@@ -427,7 +428,7 @@
   .vg-hq .vg-hq-capture { flex-wrap: wrap; } .vg-hq .vg-hq-captureinput { flex: 1 0 100%; }
   .vg-hq .vg-hq-dock { gap: 2px; max-width: calc(100% - 12px); } .vg-hq .vg-hq-dockbtn { width: 42px; } .vg-hq .vg-hq-sep { margin: 0 2px; }
   .vg-hq .vg-hq-nextchip { order: 4; flex: 1 1 100%; max-width: none; min-height: 44px; }
-  .vg-hq .vg-hq-chip small { display: none; }   /* the count is on the dock; the height is for the work */
+  .vg-hq .vg-hq-chip small { display: none; } .vg-hq .vg-hq-chip .vg-hq-chipn { display: inline; }   /* the count is on the dock; the height is for the work */
 }
 
 /* momentum */
@@ -468,12 +469,6 @@
 .vg-hq .vg-hq-newsrow:hover, .vg-hq .vg-hq-newsrow:focus-visible { background: color-mix(in srgb, var(--hq-accent) 12%, transparent); }
 
 /* the shared card on the home screen: Do next's height, and as large as the tile beside it */
-.vg-hq .vg-hq-tiles .ds-cards { margin: 0; grid-template-columns: 1fr 1fr; gap: var(--hq-gap); }
-.vg-hq .vg-hq-tiles .ds-card { padding: 16px; gap: 4px; border-radius: var(--hq-r); cursor: pointer; }
-.vg-hq .vg-hq-tiles .ds-card b { font-size: var(--ds-fs-3xl); font-weight: 700; letter-spacing: -.03em; line-height: 1; }
-.vg-hq .vg-hq-tiles .ds-card span { font-size: var(--ds-fs-sm); font-weight: 600; color: var(--hq-text); }
-.vg-hq .vg-hq-tiles .ds-card small { color: var(--hq-muted); }
-.vg-hq .vg-hq-tiles .ds-card:hover { border-color: var(--hq-accent); }
 
 /* a phone: every control is 44 px tall, one rule for every screen (the audit reads this at 390 px) */
 @container (max-width: 760px) {

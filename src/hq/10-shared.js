@@ -46,10 +46,10 @@
     }).join("");
     const { needs, projects: { active: projects } } = hqCounts(), jobs = VGRules.hqJobs(h || {}, now());
     const badJobs = jobs.filter(j => j.state === "failed" || j.state === "late").length;
-    const chip = (screen, ic, title, sub, dot) => `<button class="vg-hq-chip" data-go="${screen}">${icon(ic, 16)}<span><b>${esc(title)}</b>${dot ? '<i class="vg-hq-dot"></i>' : ""}<small>${esc(sub)}</small></span></button>`;
+    const chip = (screen, ic, title, sub, dot, n) => `<button class="vg-hq-chip" data-go="${screen}">${icon(ic, 16)}<span><b>${esc(title)}</b>${n == null ? "" : `<em class="vg-hq-chipn">${n}</em>`}${dot ? '<i class="vg-hq-dot"></i>' : ""}<small>${esc(sub)}</small></span></button>`;   // the number shows where the sub line is hidden (phone)
     return `<nav class="vg-hq-strip" aria-label="This week"><div class="vg-hq-week">${days}</div><div class="vg-hq-chips">` +
-      chip("needs", "inbox", "Needs you", plural(needs, "item"), needs > 0) + chip("projects", "folder", "Projects", `${projects} active`) +
-      (jobs.length ? chip("automations", "clock", "Automations", badJobs ? `${badJobs} need${badJobs === 1 ? "s" : ""} a look` : `${jobs.length} configured`, badJobs > 0) : "") + `</div></nav>`;
+      chip("needs", "inbox", "Needs you", plural(needs, "item"), needs > 0, needs) + chip("projects", "folder", "Projects", `${projects} active`, false, projects) +
+      (jobs.length ? chip("automations", "clock", "Automations", badJobs ? `${badJobs} need${badJobs === 1 ? "s" : ""} a look` : `${jobs.length} configured`, badJobs > 0, badJobs || jobs.length) : "") + `</div></nav>`;
   }
   // The counts Home, the week strip and the dock show: worked out in one place, so the same fact is the same number everywhere
   function hqCounts() { const ps = VGRules.hqProjects(DATA), of = g => ps.filter(p => p.group === g).length; return { needs: ofGroup("needs").length, projects: { active: of("active"), planned: of("planned"), waiting: of("waiting") } }; }
