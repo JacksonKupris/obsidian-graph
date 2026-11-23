@@ -3,7 +3,7 @@
   const LAYOUTS = [["queue", "Queue", () => todayQueue()], ["bench", "Workbench", () => benchScreen()], ["day", "Day", () => dayScreen()]];
   let layout = opts.layout || "queue", benchLens = "today";
   const layoutNow = () => LAYOUTS.some(l => l[0] === layout) ? layout : "queue";   // a remembered choice from a newer build falls back
-  const layoutSelect = () => `<label class="vg-hq-layoutlabel"><select class="vg-hq-layoutsel" data-layout aria-label="Layout" title="Layout of Today">${LAYOUTS.map(([k, name]) => `<option value="${k}"${layoutNow() === k ? " selected" : ""}>${name}</option>`).join("")}</select></label>`;
+  const layoutSelect = () => cur !== "today" ? "" : `<label class="vg-hq-layoutlabel"><select class="vg-hq-layoutsel" data-layout aria-label="Layout" title="Layout of Today">${LAYOUTS.map(([k, name]) => `<option value="${k}"${layoutNow() === k ? " selected" : ""}>${name}</option>`).join("")}</select></label>`;
   let hqPalette = opts.palette;
   const paletteNow = () => VGShared.PALETTES.some(p => p[0] === hqPalette) ? hqPalette : "obsidian";   // a choice from a newer build falls back
   const applyPalette = () => { if (paletteNow() === "obsidian") delete el.dataset.vgPalette; else el.dataset.vgPalette = paletteNow(); };
