@@ -53,7 +53,6 @@
 .vg-hq .vg-hq-chips { display: flex; gap: 6px; }
 .vg-hq .vg-hq-chip { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid transparent; border-radius: var(--ds-r-pill); background: var(--hq-surface); text-align: left; white-space: nowrap; font-size: var(--ds-fs-md); transition: background var(--ds-base); }
 .vg-hq .vg-hq-chip:hover { background: var(--hq-hover); }
-.vg-hq .vg-hq-chipn { display: none; font-style: normal; color: var(--hq-muted); margin-left: 4px; font-variant-numeric: tabular-nums; }
 .vg-hq .vg-hq-chip span { display: flex; flex-direction: column; position: relative; } .vg-hq .vg-hq-chip b { font-weight: 600; } .vg-hq .vg-hq-chip small { color: var(--hq-muted); font-size: var(--ds-fs-xs); }
 .vg-hq .vg-hq-dot { position: absolute; top: 2px; right: -9px; width: 6px; height: 6px; border-radius: 50%; background: var(--hq-accent); }
 
@@ -215,8 +214,8 @@
   .vg-hq .vg-hq-tricard .vg-hq-tritext { font-size: var(--ds-fs-md); }
   .vg-hq .vg-hq-top { padding: 10px 16px 8px; flex-wrap: wrap; align-items: center; } .vg-hq .vg-hq-clock { display: none; }   /* the phone shows its own clock; the time took a header row alone */
   .vg-hq .vg-hq-global-tools { order: 3; flex-basis: 100%; max-width: none; }
-  .vg-hq .vg-hq-strip { flex-direction: column; align-items: stretch; margin: 8px 16px 0; } .vg-hq .vg-hq-week { grid-template-columns: repeat(7, minmax(0, 1fr)); } .vg-hq .vg-hq-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
-  .vg-hq .vg-hq-chip { min-width: 0; padding: 6px 8px; gap: 6px; } .vg-hq .vg-hq-chip span { min-width: 0; } .vg-hq .vg-hq-chip b, .vg-hq .vg-hq-chip small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vg-hq .vg-hq-strip { flex-direction: column; align-items: stretch; margin: 8px 16px 0; } .vg-hq .vg-hq-week { grid-template-columns: repeat(7, minmax(0, 1fr)); } .vg-hq .vg-hq-chips { display: flex; } .vg-hq .vg-hq-chips .vg-hq-chip { flex: 1 1 auto; }
+  .vg-hq .vg-hq-chip { min-width: min-content; padding: 6px 8px; gap: 6px; } .vg-hq .vg-hq-chip span { min-width: min-content; } .vg-hq .vg-hq-chip b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .vg-hq .vg-hq-chip small { overflow-wrap: anywhere; }   /* the words wrap onto a second line instead of being cut off */
   .vg-hq .vg-hq-main { padding: 4px 16px calc(96px + var(--hq-bottom)); }
   .vg-hq .vg-hq-h1 { font-size: var(--ds-fs-xl); } .vg-hq .vg-hq-compacttoggle { margin-left: 0; }
   .vg-hq .vg-hq-chip .vg-hq-ic { display: none; }   /* the words need the room */
@@ -428,7 +427,6 @@
   .vg-hq .vg-hq-capture { flex-wrap: wrap; } .vg-hq .vg-hq-captureinput { flex: 1 0 100%; }
   .vg-hq .vg-hq-dock { gap: 2px; max-width: calc(100% - 12px); } .vg-hq .vg-hq-dockbtn { width: 42px; } .vg-hq .vg-hq-sep { margin: 0 2px; }
   .vg-hq .vg-hq-nextchip { order: 4; flex: 1 1 100%; max-width: none; min-height: 44px; }
-  .vg-hq .vg-hq-chip small { display: none; } .vg-hq .vg-hq-chip .vg-hq-chipn { display: inline; }   /* the count is on the dock; the height is for the work */
 }
 
 /* momentum */
