@@ -114,7 +114,7 @@ assert.strictEqual(R.hqNextStep({ list: [{ key: "j", group: "needs", kind: "job"
     await g.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000); await g.send("Emulation.setDeviceMetricsOverride", { width: 1500, height: 900, deviceScaleFactor: 1, mobile: false }); await sleep(1200);
     await g.ev(`document.querySelectorAll(".vg-tour").forEach(x => x.remove())`);
     check(await g.ev(`(() => { const s = getComputedStyle(document.querySelector("[data-stat]")); return s.display === "flex" && s.flexDirection === "column"; })()`), "a stat tile isn't set to stack, so Obsidian's button styles run its number into its label");
-    const words = await g.ev(`document.querySelector(".vg-status").textContent`), active = await g.ev(`window.vaultGraph._debug.active().length`), sum = (words.match(/\d+/g) || []).map(Number).reduce((s, n) => s + n, 0);
+    const words = await g.ev(`document.querySelector(".vg-status").textContent`), active = await g.ev(`window.vaultGraph._debug.active().length`), sum = (words.replace(/ of \d+ notes/, " notes").match(/\d+/g) || []).map(Number).reduce((s, n) => s + n, 0);
     check(sum === active, `the status "${words}" doesn't add up to the ${active} on screen`); check(!/persons/.test(words), `the status says "${words}"`);
     await g.close?.();
     console.log(fails.length ? fails.map(f => "  FAIL " + f).join("\n") : "ok - counts add up, the list keeps time, nothing veiled or raw");

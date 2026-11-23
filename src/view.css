@@ -254,9 +254,10 @@
   .vg-searchbtn { min-width: 0; } .vg-searchbtn span, .vg-searchbtn kbd, .vg-presetname { display: none; }
   .vg-legend { max-width: calc(100% - 20px); bottom: 42px; } .vg-status { max-width: calc(100% - 20px); }
   .has-inspector .vg-legend, .has-inspector .vg-status { display: none; }
-  /* the banner spans the pane here: the overlays pinned under the toolbar (status pill, floor bar) go under it instead of behind it */
-  .vg-root:has(.vg-today:not([hidden])) .vg-status { top: var(--vg-under-today); }
 }
+/* the banner (up to 760px, centred) and the status pill (about 150 to 250px, at the right) share one edge: under 1600px wide they would touch,
+   so the overlays pinned under the toolbar (status pill, floor bar) go under the banner instead of behind it */
+@container vg (max-width: 1599px) { .vg-root:has(.vg-today:not([hidden])) .vg-status { top: var(--vg-under-today); } }
 /* an open inspector narrows the canvas: the today banner then reaches the status pill and floor bar, so they go under it */
 .vg-root.has-inspector:has(.vg-today:not([hidden])) .vg-status { top: var(--vg-under-today); }
 @keyframes vg-sheet-in { from { opacity: 0; transform: translateY(20px); } }
