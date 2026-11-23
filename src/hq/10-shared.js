@@ -56,7 +56,7 @@
   function dock() {
     const { needs } = hqCounts();
     const nextAt = nextStep().screen, nextHome = SUB[nextAt] ? SUB[nextAt][1] : nextAt;
-    return `<nav class="vg-hq-dock" aria-label="Screens">${SCREENS.map(([k, label, ic]) => `<button class="vg-hq-dockbtn${cur === k || (SUB[cur] && SUB[cur][1] === k) ? " is-on" : ""}${nextHome === k && cur !== nextAt ? " has-next" : ""}" data-go="${k}" aria-label="${label}" ${cur === k ? 'aria-current="page"' : ""} title="${label}">${icon(ic, 20)}${k === "needs" && needs ? `<span class="vg-hq-badge">${needs}</span>` : ""}</button>`).join("")}` +
+    return `<nav class="vg-hq-dock" aria-label="Screens">${SCREENS.map(([k, label, ic]) => `<button class="vg-hq-dockbtn${cur === k || (SUB[cur] && SUB[cur][1] === k) ? " is-on" : ""}${nextHome === k && cur !== nextAt ? " has-next" : ""}" data-go="${k}" aria-label="${k === "needs" && needs ? `${label}, ${needs} waiting` : label}" ${cur === k ? 'aria-current="page"' : ""} title="${k === "needs" && needs ? `${label}, ${needs} waiting` : label}">${icon(ic, 20)}${k === "needs" && needs ? `<span class="vg-hq-badge" aria-hidden="true">${needs}</span>` : ""}</button>`).join("")}` +
       (api.openDaily ? `<span class="vg-hq-sep"></span><button class="vg-hq-dockbtn" data-daily aria-label="Open today's journal" title="Open today's journal">${icon("journal", 20)}</button>` : "") + `</nav>`;
   }
   // ---- picking several: tick rows (shift for a run of them, v on the keyboard), then one bar acts on them all. Done on old
