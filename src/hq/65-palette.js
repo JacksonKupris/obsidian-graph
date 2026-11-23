@@ -53,7 +53,7 @@
   }
   // ---- the tour: once on a first open (on every device, through the shared file), and any time from the palette or the key sheet
   const HQ_TOUR = [
-    { sel: ".vg-hq-nextchip", title: "The next step", text: "The one thing to do now. It changes as your day does. Press N to go there." },
+    { sel: ".vg-hq-nextchip, .vg-hq-tiles .vg-hq-tile", title: "The next step", text: "The one thing to do now. It changes as your day does. Press N to go there." },
     { sel: ".vg-hq-captureinput", before: () => setScreen("today"), title: "Capture", text: "Enter adds a task to today's journal. Ctrl Enter picks a project. Shift Enter saves a note." },
     { sel: ".vg-hq-next .vg-hq-star", title: "Today's focus", text: `Star up to ${VGRules.FOCUS_MAX} things for the day. Focus runs a timer on one.` },
     { sel: '.vg-hq-dockbtn[data-go="needs"]', title: "Needs you", text: "What waits on you. Tick several to put them off, or go through them one at a time." },
