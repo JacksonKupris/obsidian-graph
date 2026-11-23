@@ -26,7 +26,7 @@ assert.deepStrictEqual(AREA.map(t => [t.title, t.items.length]), [["Dispatch", 2
 assert.strictEqual(VGRules.plainSnippet("> **SES lists** are [[Note|case]] `sensitive` | ▼ x"), "SES lists are case sensitive x", "a preview shows markup");
 // the brief says only what's true
 const brief = VGRules.hqBrief({ hq: { journals: [{ path: "j", tasks: [{ mark: "x", text: "A ✅ 2026-10-27" }] }] } }, [{ kind: "approval", key: "a", title: "x" }], {}, "2026-10-28", []);
-assert(brief.some(s => s.startsWith("1 done yesterday")), "brief: " + brief); assert(brief.some(s => s.includes("1 approval")), "brief: " + brief);
+assert(brief.some(s => s.startsWith("1 done yesterday")), "brief: " + brief); assert(brief.some(s => s.startsWith("1 waiting on you")), "brief: " + brief);
 assert.deepStrictEqual(VGRules.hqBrief({}, [], {}, "2026-10-28", []), [], "an empty vault should have no brief, not invented sentences");
 // every brief sentence says where its detail is, and the sentences alone are the same brief
 { const args = [{ hq: { journals: [{ path: "j", tasks: [{ mark: "x", text: "A ✅ 2026-10-27" }] }] } }, [{ kind: "approval", key: "a", title: "x" }, { kind: "job", key: "j", title: "y" }], {}, "2026-10-28", [{ title: "Console", area: "Console", items: [1, 2] }]];
