@@ -657,7 +657,7 @@ const VGRules = (() => {
         tags, systems, tasks, chunks: recallChunks(f.text), parents: references(fm.parent || fm["Parent task"]), related: references(fm.related),
         updated: String(fm.updated || fm.modified || fm.created || "") });
       }
-      else if (kind === "inbox") hq.inbox.push({ path: f.path, name, title: titleOf(f.text, f.path) });
+      else if (kind === "inbox") hq.inbox.push({ path: f.path, name, title: titleOf(f.text, f.path), status: String(fm.status || "").toLowerCase() });
       else if (kind === "backlog") tasksIn(f.text).filter(t => t.mark === " ").forEach(t => hq.backlog.push({ path: f.path, ...t }));
       else if (kind === "report") { const prefix = reportPrefix(f.path) || automationReport(f.path).report, date = (name.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || "";
         const rows = reportRows(f.text).filter(r => r.mark === " ");
@@ -666,12 +666,16 @@ const VGRules = (() => {
       else if (kind === "review") hq.reviews.push({ path: f.path, name, title: titleOf(f.text, f.path), status: String(fm.status || "").toLowerCase(), task: plainTask(fm.task || ""), created: String(fm.created || ""),
         reviewOnly: f.path.startsWith(R.folders.reports + "/") });
       else if (kind === "decision") hq.decisions.push({ path: f.path, name, title: titleOf(f.text, f.path), date: String(fm.date || fm.created || ""), status: String(fm.status || "").toLowerCase(),
-        by: plainTask([].concat(fm.decided_by || []).join(", ")), project: plainTask([].concat(fm.project || []).join(", ")) });
+        by: plainTask([].concat(fm.decided_by || []).join(", ")), project: plainTask([].concat(fm.project || []).join(", ")),
+        links: [...String(f.text).matchAll(/\[\[([^\]|#]+)/g)].map(m => m[1].trim().toLowerCase()) });
       else if (kind === "runlog") String(f.text).split(/\r?\n/).filter(l => /^- \d{4}-\d{2}-\d{2}/.test(l)).forEach(l => hq.runlog.push(plainTask(l.slice(2))));
       // how often each project came up: the dailies in the window that name it (its file name, code name or title)
       if (kind === "journal" || kind === "standup") (hq.mentionText = hq.mentionText || []).push([dateIn(kind === "journal" ? HQ_JOURNAL : HQ_STANDUP, f.path), String(f.text).toLowerCase()]);
     }
     hq.reports = Object.values(newestReport);
+    // an inbox note that a decision links to, or that is marked finished, is settled: it is not waiting on the person
+    const decidedNames = new Set(hq.decisions.flatMap(d => d.links || []));
+    hq.inbox.forEach(n => { n.settled = SETTLED_STATUS.has(n.status) || decidedNames.has(n.name.toLowerCase()) || decidedNames.has(String(n.path).split("/").pop().replace(/\.md$/, "").toLowerCase()); });
     hq.journalDuplicates = [...new Set(hq.journals.map(j => j.date).filter(Boolean))].map(date => {
       const paths = hq.journals.filter(j => j.date === date).map(j => j.path);
       return paths.length > 1 ? { date, canonical: canonicalJournalPath(paths, date), paths: paths.sort() } : null;
@@ -736,6 +740,7 @@ const VGRules = (() => {
       .map(r => ({ ...r.p, searchHit: r.hit }));
   }
   // Which part of HQ shows an item: today (work), needs (only you can decide it) or upkeep (the vault itself)
+  const SETTLED_STATUS = new Set(["done", "shipped", "decided", "accepted", "approved", "cancelled", "superseded", "archived"]);
   const TODAY_GROUP = { task: "today", plan: "today", carried: "today", approval: "needs", review: "needs", job: "needs", backlog: "needs", report: "needs", inbox: "needs" };
   const todayGroup = kind => TODAY_GROUP[kind] || "upkeep";
   // A task's words alone, to compare two lines: "service-alarm" and "service alarm" are the same, a stamp isn't part of it
@@ -788,7 +793,7 @@ const VGRules = (() => {
     [...new Set(hq.journals.map(j => j.date).filter(d => d < day))].map(d => canonicalJournal(hq, d)).filter(Boolean).forEach(j => { const age = daysBetween(j.date, day);
       j.tasks.filter(t => t.mark === " ").forEach(t => put({ key: `carried|${j.path}|${t.text}`, kind: "carried", path: j.path, line: t.line, text: t.text, date: j.date, age, ...fieldsOf(t.text), ids: [j.path], section: t.section, subs: t.subs, under: t.under, underDone: t.underDone,
         title: label(t.text), why: `From ${VGShared.shortDate(j.date)} · ${age} day${age === 1 ? "" : "s"} ago${t.under ? ` · under ${t.under}` : ""}`, score: Math.max(1, 9 - age * 0.25) })); });
-    (hq.inbox || []).forEach(n => put({ key: `inbox|${n.path}`, kind: "inbox", path: n.path, ids: [n.path], title: n.title || n.name, why: "In the inbox", score: 3 }));
+    (hq.inbox || []).filter(n => !n.settled).forEach(n => put({ key: `inbox|${n.path}`, kind: "inbox", path: n.path, ids: [n.path], title: n.title || n.name, why: "In the inbox", score: 3 }));
     // the rules file's backlog_shown: how many vault decisions count as needing you at once. The rest wait their turn, one filter away.
     let backlogUp = 0; hq.backlog.forEach(b => put({ key: `backlog|${b.path}|${b.text}`, ...(H.backlog_shown && !skip(`backlog|${b.path}|${b.text}`) && ++backlogUp > H.backlog_shown ? { waiting: true } : {}), kind: "backlog", path: b.path, line: b.line, text: b.text, ids: [b.path], title: label(b.text), why: stemCase(b.path), score: 3 }));
     hq.reports.filter(r => r.open > 0 && !r.job).forEach(r => put({ key: `report|${r.path}`, kind: "report", path: r.path, ids: [r.path], title: `${r.name}: ${r.open} row${r.open === 1 ? "" : "s"} to tick`, why: "Tick the rows to apply", score: 2.8 }));
