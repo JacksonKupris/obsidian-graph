@@ -618,9 +618,11 @@
   let sceneStat = { view: null, text: "" };
   function setSceneStat(text) { if (sceneStat.view !== st.view || sceneStat.text !== text) { sceneStat = { view: st.view, text }; renderStatus(); } }
   // what's on screen, by kind: the sidebar's numbers count notes, and this says what else the total holds
+  // how many notes are drawn, against all of them while some are hidden (unlinked, a hidden topic): the status line and the canvas label say it the same way
+  function notesDrawn() { const n = VGRules.noteCounts(active).notes, all = VGRules.noteCounts(nodes).notes; return n < all ? `${n} of ${plural(all, "note")}` : plural(n, "note"); }
   function shownWords() {
     const c = VGRules.noteCounts(active), more = [c.maps ? plural(c.maps, "map") : "", c.people ? (c.people === 1 ? "1 person" : `${c.people} people`) : "", c.wanted ? `${c.wanted} to write` : ""].filter(Boolean);
-    return more.length ? `${plural(c.notes, "note")} · ${more.join(" · ")}` : `${plural(c.notes, "note")} shown`;
+    return more.length ? `${notesDrawn()} · ${more.join(" · ")}` : `${notesDrawn()} shown`;
   }
   function renderStatus() {
     const settling = alpha > 0.005 && !neural() && !isCosmos() && !mapView();
@@ -631,7 +633,7 @@
     if (st.multi) parts.push(`${st.multi.size} selected`);
     if (st.hiddenClusters.size) parts.push(`${plural(st.hiddenClusters.size, "topic")} hidden`);
     if (st.hidden.size) parts.push(`top ${st.hidden.size} hidden`);
-    $(".vg-cv-name").textContent = `Graph of ${plural(VGRules.noteCounts(active).notes, "note")} in ${plural(DATA.clusters.length, "topic")}.`;
+    $(".vg-cv-name").textContent = `Graph of ${notesDrawn()} in ${plural(DATA.clusters.length, "topic")}.`;
     $(".vg-status").innerHTML = `${settling ? '<span class="vg-spin" aria-hidden="true"></span>Laying out · ' : ""}${parts.map(esc).join(" · ")}`;
   }
   function renderHud() {
