@@ -921,7 +921,10 @@ const VGRules = (() => {
     const focus = hqFocusItems(list, review, day), plan = list.filter(i => i.kind === "plan" || i.kind === "task").length;
     if (focus.length) out.push({ text: `Focus: ${focus.map(i => i.title).join("; ")}.`, go: "today" }); else if (plan && hour < STANDUP_HOUR) out.push({ text: `${plan} planned for today, none picked yet.`, go: "today" });
     const top = (threads || []).find(t => t.project || t.area); if (top && top.items.length > 1) out.push({ text: `Most open work is in ${top.title} (${top.items.length}).`, ...(top.project ? { proj: top.project.path } : { go: "threads" }) });
-    const approvals = list.filter(i => i.kind === "approval"), reviews = list.filter(i => i.kind === "review"); if (approvals.length || reviews.length) out.push({ text: `${[approvals.length ? `${approvals.length} approval${approvals.length === 1 ? "" : "s"}` : "", reviews.length ? `${reviews.length} draft${reviews.length === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ")} waiting on you.`, go: "needs" });
+    // the same set the Needs you chip counts (group "needs"), split into what it is made of, so the two numbers agree
+    const needs = list.filter(i => (i.group || TODAY_GROUP[i.kind]) === "needs"), approvals = needs.filter(i => i.kind === "approval").length, reviews = needs.filter(i => i.kind === "review").length, rest = needs.length - approvals - reviews;
+    const parts = [approvals ? `${approvals} approval${approvals === 1 ? "" : "s"}` : "", reviews ? `${reviews} draft${reviews === 1 ? "" : "s"}` : "", rest ? `${rest} other` : ""].filter(Boolean);
+    if (needs.length) out.push({ text: `${needs.length} waiting on you${parts.length > 1 ? ": " + parts.join(", ") : ""}.`, go: "needs" });
     // failed automations are not a brief line: the Automations chip carries the dot and count, and Do next names the job
     const who = hqPeople(data, list).filter(p => p.items.length)[0]; if (who && who.items.length > 1) out.push({ text: `${who.name} is in ${who.items.length} open items.`, go: "people" });
     return out;
