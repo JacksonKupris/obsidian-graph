@@ -213,7 +213,7 @@
 @container (max-width: 760px) {
   .vg-hq .vg-hq-tricard { padding: 12px; gap: 8px; }
   .vg-hq .vg-hq-tricard .vg-hq-tritext { font-size: var(--ds-fs-md); }
-  .vg-hq .vg-hq-top { padding: 10px 16px 8px; flex-wrap: wrap; align-items: center; } .vg-hq .vg-hq-clock span { display: none; }
+  .vg-hq .vg-hq-top { padding: 10px 16px 8px; flex-wrap: wrap; align-items: center; } .vg-hq .vg-hq-clock { display: none; }   /* the phone shows its own clock; the time took a header row alone */
   .vg-hq .vg-hq-global-tools { order: 3; flex-basis: 100%; max-width: none; }
   .vg-hq .vg-hq-strip { flex-direction: column; align-items: stretch; margin: 8px 16px 0; } .vg-hq .vg-hq-week { grid-template-columns: repeat(7, minmax(0, 1fr)); } .vg-hq .vg-hq-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
   .vg-hq .vg-hq-chip { min-width: 0; padding: 6px 8px; gap: 6px; } .vg-hq .vg-hq-chip span { min-width: 0; } .vg-hq .vg-hq-chip b, .vg-hq .vg-hq-chip small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
