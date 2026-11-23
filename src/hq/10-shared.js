@@ -47,7 +47,7 @@
     const { needs, projects: { active: projects } } = hqCounts(), jobs = VGRules.hqJobs(h || {}, now());
     const badJobs = jobs.filter(j => j.state === "failed" || j.state === "late").length;
     const chip = (screen, ic, title, sub, dot) => `<button class="vg-hq-chip" data-go="${screen}">${icon(ic, 16)}<span><b>${esc(title)}</b>${dot ? '<i class="vg-hq-dot"></i>' : ""}<small>${esc(sub)}</small></span></button>`;
-    return `<nav class="vg-hq-strip" aria-label="This week"><div class="vg-hq-week">${days}</div><div class="vg-hq-chips">` +
+    return `<nav class="vg-hq-strip" aria-label="This week"><div class="vg-hq-weekbox"><div class="vg-hq-week">${days}</div><p class="vg-hq-weeklegend"><span class="vg-hq-marks"><i class="is-j"></i></span>Journal <span class="vg-hq-marks"><i class="is-s"></i></span>Standup</p></div><div class="vg-hq-chips">` +
       chip("needs", "inbox", "Needs you", plural(needs, "item"), needs > 0) + chip("projects", "folder", "Projects", `${projects} active`, false) +
       (jobs.length ? chip("automations", "clock", "Automations", badJobs ? `${badJobs} need${badJobs === 1 ? "s" : ""} a look` : `${jobs.length} configured`, badJobs > 0) : "") + `</div></nav>`;
   }
