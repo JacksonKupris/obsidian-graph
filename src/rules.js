@@ -922,7 +922,7 @@ const VGRules = (() => {
     if (focus.length) out.push({ text: `Focus: ${focus.map(i => i.title).join("; ")}.`, go: "today" }); else if (plan && hour < STANDUP_HOUR) out.push({ text: `${plan} planned for today, none picked yet.`, go: "today" });
     const top = (threads || []).find(t => t.project || t.area); if (top && top.items.length > 1) out.push({ text: `Most open work is in ${top.title} (${top.items.length}).`, ...(top.project ? { proj: top.project.path } : { go: "threads" }) });
     const approvals = list.filter(i => i.kind === "approval"), reviews = list.filter(i => i.kind === "review"); if (approvals.length || reviews.length) out.push({ text: `${[approvals.length ? `${approvals.length} approval${approvals.length === 1 ? "" : "s"}` : "", reviews.length ? `${reviews.length} draft${reviews.length === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ")} waiting on you.`, go: "needs" });
-    const failed = list.filter(i => i.kind === "job"); if (failed.length) out.push({ text: `${failed.length} automation${failed.length === 1 ? " needs" : "s need"} attention.`, go: "automations" });
+    // failed automations are not a brief line: the Automations chip carries the dot and count, and Do next names the job
     const who = hqPeople(data, list).filter(p => p.items.length)[0]; if (who && who.items.length > 1) out.push({ text: `${who.name} is in ${who.items.length} open items.`, go: "people" });
     return out;
   }
