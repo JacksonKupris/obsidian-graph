@@ -931,7 +931,7 @@ const VGRules = (() => {
     const parts = [...counts].sort((x, y) => (y[0] === "approval") - (x[0] === "approval") || (y[0] === "review") - (x[0] === "review") || y[1] - x[1]).map(([k, n]) => VGShared.plural(n, kindName(k).toLowerCase(), kindWords(k)));
     if (needs.length) out.push({ text: `${needs.length} waiting on you${parts.length > 1 ? ": " + parts.join(", ") : ""}.`, go: "needs" });
     // failed automations are not a brief line: the Automations chip carries the dot and count, and Do next names the job
-    const who = hqPeople(data, list).filter(p => p.items.length)[0]; if (who && who.items.length > 1) out.push({ text: `${who.name} is named in ${who.items.length} open tasks and drafts.`, go: "people" });
+    const named = hqPeople(data, list).filter(p => p.items.length), who = named[0]; if (who && who.items.length > 1) out.push({ text: `${who.name} is named in ${who.items.length} open tasks and drafts${named[1] && named[1].items.length === who.items.length ? "" : ", more than anyone else"}.`, go: "people" });
     return out;
   }
   const PEOPLE_KINDS = new Set(["task", "plan", "carried", "approval", "review"]);   // your work; a suggestion or a backlog line that names someone isn't
