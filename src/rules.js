@@ -1027,6 +1027,7 @@ const VGRules = (() => {
     const name = id => (byId.get(id) || {}).name || stemCase(id);
     const ranked = nodes.filter(n => plain(n) && !n.isolated).sort((a, b) => (b.bc || 0) - (a.bc || 0)).map(n => n.id);
     const rank = new Map(ranked.map((id, i) => [id, i + 1]));
+    const groupName = c => { const g = (data.clusters || []).find(x => x.id === c); return (g && (g.label || g.name)) || "the same subject"; };
     const review = o.review || {}, day = o.today || localDay(new Date()), skipDays = o.skipDays || 14;
     const skipped = k => !!(review.skipped && review.skipped[k]) && (Date.parse(day) - Date.parse(review.skipped[k])) / VGShared.DAY_MS < skipDays;
     const hidden = new Set(o.hidden || []), out = [], seen = new Set(), groups = o.groups ? new Set(o.groups) : null;
@@ -1040,7 +1041,7 @@ const VGRules = (() => {
     });
     mocs.forEach(m => (m.clusters || []).forEach(c => ((m.missing || {})[c] || []).slice(0, 3).forEach(id => { if (!byId.get(id)) return;
       const r = rank.get(id);
-      add({ key: `map|${m.id}|${id}`, kind: "map", m: m.id, mapTitle: m.title, id, name: name(id), ids: [id, m.id], title: `Add ${name(id)} to ${m.title}`, why: `It's in the topic this map covers${r ? ` (#${r} most connecting note)` : ""}`, score: 2 + (r ? 30 / r : 0) }); })));
+      add({ key: `map|${m.id}|${id}`, kind: "map", m: m.id, mapTitle: m.title, id, name: name(id), ids: [id, m.id], title: `Add ${name(id)} to ${m.title}`, why: `${m.title} lists notes about ${groupName(c)}; this one is in that group and isn't listed${r ? ` (#${r} of your notes by links through it)` : ""}`, score: 2 + (r ? 30 / r : 0) }); })));
     (data.wanted || []).filter(w => w.creatable && (w.refs || []).length >= 3).forEach(w =>
       add({ key: `write|${w.id}`, kind: "write", id: w.id, name: w.name, refs: w.refs, ids: [w.id], title: `Write “${w.name}”`, why: `${w.refs.length} notes link to it, but it doesn't exist`, score: 1 + w.refs.length / 3 }));
     (review.pinned || []).filter(id => byId.get(id)).forEach(id => add({ key: `pin|${id}`, kind: "hub", id, name: name(id), ids: [id], title: `Review ${name(id)}`, why: "You asked to review this", score: 9 }));
