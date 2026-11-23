@@ -341,8 +341,8 @@ function mountVaultGraph(root, DATA, opts) {
                 <option value="cluster">Topic</option>
                 <option value="recent">Daily mentions (${DATA.recent_days} days)</option></select></div>
             <div class="vg-flabel">Layers</div>
-            ${switchRow("vg-l-mocs", "Maps", `${plural(mocs.length, "map")}, drawn as hexagons on the topics they cover`, true)}
-            ${switchRow("vg-l-wanted", "Notes to write", `${ghosts.length} notes you link to that don't exist yet (hollow)`)}
+            ${switchRow("vg-l-mocs", "Maps", `${plural(VGRules.noteCounts(nodes).maps, "map")}, drawn as hexagons on the topics they cover`, true)}
+            ${switchRow("vg-l-wanted", "Notes to write", `${plural(ghosts.length, "note")} you link to that don't exist yet (hollow)`)}
             ${switchRow("vg-l-people", "People", "Who is connected to which topics (diamonds)")}
             ${switchRow("vg-l-tasks", "Open tasks", "Badge with the number of unchecked tasks")}
             ${switchRow("vg-l-attention", "Needs attention", "A ring on notes with a problem to fix, in every view (a missing reference or a short note alone does not count)", true)}
