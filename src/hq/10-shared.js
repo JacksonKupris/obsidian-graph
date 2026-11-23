@@ -191,7 +191,7 @@
     const groups = new Map();
     items.forEach(it => { const key = ["task", "carried", "plan"].includes(it.kind) ? duplicateKey(it) : it.key; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(it); });
     return [...groups.values()].map(group => group.length === 1 ? row(group[0]) :
-      VGParts.more({ cls: "vg-hq-duplicates", label: `Possible duplicate wording · ${group.length} source tasks · review separately`, body: group.map(row).join("") })).join("");
+      VGParts.more({ cls: "vg-hq-duplicates", label: `${group.length} tasks worded alike · each counted · review separately`, body: group.map(row).join("") })).join("");
   }
   const PAGE = 30, opened = new Set();   // long lists come a page at a time, whatever the vault's size
   const pageOf = (title, items) => opened.has(title) || items.length <= PAGE ? items : items.slice(0, PAGE);
