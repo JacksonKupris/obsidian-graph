@@ -703,10 +703,10 @@ const VGRules = (() => {
   function jobWords(j, now) {
     now = now || new Date();
     const days = j.last ? Math.max(0, Math.floor((now - new Date(j.last)) / VGShared.DAY_MS)) : null;
-    const ago = days === null ? "" : days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
     const h = j.every_hours || 24, often = h === 24 ? "every day" : h % 24 === 0 ? `every ${h / 24} days` : `every ${VGShared.plural(h, "hour")}`;
     const name = j.name.charAt(0).toUpperCase() + j.name.slice(1);
-    if (j.state === "failed") return { title: `${name} failed`, why: `${j.summary ? j.summary + ". " : ""}Last run ${ago || "unknown"}.` };
+    if (j.state === "failed") { const at = j.last ? new Date(j.last).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }) : "", said = String(j.summary || "").replace(/[.\s]+$/, ""), sentence = said.charAt(0).toUpperCase() + said.slice(1);
+      return { title: `${name} failed`, why: `${sentence ? sentence + ". " : ""}Last run ${at || "unknown"}.` }; }
     return { title: days === null ? `${name} has not run` : `${name} hasn't run for ${VGShared.plural(days, "day")}`, why: `It should run ${often}.${j.summary ? " Last result: " + j.summary + "." : ""}` };
   }
   // The projects (scopes of work, project notes, user stories): kind, status group, summary, estimate, the days the
