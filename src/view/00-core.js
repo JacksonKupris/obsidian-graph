@@ -131,7 +131,7 @@ function mountVaultGraph(root, DATA, opts) {
     tasks: 0, words: 0, age: 0, refs: true, isolated: false }));
   const nodes = DATA.nodes.concat(ghosts), byId = Object.fromEntries(nodes.map(n => [n.id, n]));
   const special = n => n.person || n.ghost || n.moc;
-  const byImportance = (a, b) => importance(b) - importance(a), byInfluence = (a, b) => (b.bc || 0) - (a.bc || 0);   // most relied-on / most central first
+  const byImportance = (a, b) => importance(b) - importance(a), byInfluence = (a, b) => (b.bc || 0) - (a.bc || 0) || String(a.name).localeCompare(String(b.name));   // most relied-on / most central first
   // maps of content: which MOC maps each cluster, and what it misses
   const mocs = (DATA.mocs || []).filter(m => !m.nav), mocOf = {};
   mocs.forEach(m => m.clusters.forEach(c => { if (!(c in mocOf)) mocOf[c] = VGRules.mapForCluster(mocs, c); }));   // first map wins (shared rule)
@@ -169,7 +169,8 @@ function mountVaultGraph(root, DATA, opts) {
   }
   countLeaves();
   const ranked = nodes.filter(n => !n.isolated && !special(n)).sort(byInfluence).map(n => n.id);
-  const rankOf = Object.fromEntries(ranked.map((id, i) => [id, i + 1]));
+  // equal influence shares a rank (#1, #1, #3): the list never puts one above another on equal evidence
+  const rankOf = {}; ranked.forEach((id, i) => { rankOf[id] = i && (byId[ranked[i - 1]].bc || 0) === (byId[id].bc || 0) ? rankOf[ranked[i - 1]] : i + 1; });
   const Q = DATA.quality || { stub_words: 80, stale_days: 180 };
   // Records are never "stale": shared rule, same as the plugin's sidebar and the weekly note
   const { isRecord } = VGRules, staleFor = VGRules.isStale, FOLDERS = VGRules.folders;   // this vault's folder names
