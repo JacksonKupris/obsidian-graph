@@ -926,7 +926,7 @@ const VGRules = (() => {
     const parts = [approvals ? `${approvals} approval${approvals === 1 ? "" : "s"}` : "", reviews ? `${reviews} draft${reviews === 1 ? "" : "s"}` : "", rest ? `${rest} other` : ""].filter(Boolean);
     if (needs.length) out.push({ text: `${needs.length} waiting on you${parts.length > 1 ? ": " + parts.join(", ") : ""}.`, go: "needs" });
     // failed automations are not a brief line: the Automations chip carries the dot and count, and Do next names the job
-    const who = hqPeople(data, list).filter(p => p.items.length)[0]; if (who && who.items.length > 1) out.push({ text: `${who.name} is in ${who.items.length} open items.`, go: "people" });
+    const who = hqPeople(data, list).filter(p => p.items.length)[0]; if (who && who.items.length > 1) out.push({ text: `${who.name} is named in ${who.items.length} open tasks and drafts.`, go: "people" });
     return out;
   }
   const PEOPLE_KINDS = new Set(["task", "plan", "carried", "approval", "review"]);   // your work; a suggestion or a backlog line that names someone isn't
