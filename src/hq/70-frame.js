@@ -10,6 +10,7 @@
   // the page keeps its scroll, its open parts and what you were typing, and nothing flickers.
   let drawn = null, fromHost = false;
   function render() {
+    applyPalette();
     compute(); el.classList.toggle("has-picks", picked.size > 0);
     // a data update can land under an open dialog, or while you type: the dialog stays, and the focus stays where it was.
     // Going to another screen, a control in the old one is gone with it, and the focus goes to the new screen.
@@ -24,7 +25,7 @@
       <div class="vg-hq-global-tools"><label class="vg-hq-global-searchlabel"><input class="vg-hq-global-search vg-hq-project-search" type="search" value="${esc(globalQuery)}"
         placeholder="Search projects, tasks, and notes  ( / )" aria-label="Search all HQ and vault notes"></label>
         ${globalQuery ? '<button class="vg-hq-btn vg-hq-btn-sm vg-hq-global-clear" data-clear-global aria-label="Clear HQ search">Clear</button>' : ""}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-keysbtn" data-keys aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</button></div>
-      ${layoutSelect()}<span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}${(() => { const d = VGRules.doneToday(DATA, STATE.review, day()).length, m = VGRules.sessionMinutes(STATE.review, day()); return d || m ? ` · ${d} done${m ? ` · ${VGRules.minutesWords(m)}` : ""}` : ""; })()}</span></span></header>` +
+      ${layoutSelect()}${paletteSelect()}<span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}${(() => { const d = VGRules.doneToday(DATA, STATE.review, day()).length, m = VGRules.sessionMinutes(STATE.review, day()); return d || m ? ` · ${d} done${m ? ` · ${VGRules.minutesWords(m)}` : ""}` : ""; })()}</span></span></header>` +
       strip() + `<main class="vg-hq-main" tabindex="-1"><div class="vg-hq-cols"><div class="vg-hq-col">${globalQuery.trim() ? searchScreen() : ({ home, session: sessionScreen, calendar: calendarScreen, threads: threadsScreen, review: reviewScreen, wrap: wrapScreen, today: todayScreen, needs: needsScreen, people: peopleScreen, projects: projectsScreen, automations: automationsScreen, sweep: sweepScreen, changes: changesScreen, rows: rowsScreen })[cur]()}</div>${railAside()}</div></main>` + dock() + bulkBar() + peekHtml();
     if (fromHost && html === drawn && el.querySelector(".vg-hq-main")) return;
     drawn = html; el.innerHTML = html;
@@ -153,6 +154,7 @@
     if (!had !== !globalQuery) render(); else typeTimer = setTimeout(renderResults, SEARCH_PAUSE); } });
   el.addEventListener("change", e => {
     if (e.target.matches("[data-layout]")) { setLayout(e.target.value); return; }
+    if (e.target.matches("[data-palette]")) { setPalette(e.target.value); return; }
     if (e.target.matches("[data-move]")) { moveTo(e.target.dataset.move, e.target.value); return; }
     if (e.target.matches("[data-tkind]") && tableFilter(e)) return;
     const key = e.target.dataset.projectFilter;
