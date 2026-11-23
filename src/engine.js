@@ -964,7 +964,7 @@ what when where which while who how why each other same see set use used using w
     for (const g of R.gaps) { const why = []; if (g.comentions) why.push(`${g.comentions} co-mentions in daily notes`); if (g.shared_tags.length) why.push("shared tags " + g.shared_tags.map(t => `\`${t}\``).join(", "));
       L.push(`- ${clusterLine(by.get(g.a))}`, `  ↔ ${clusterLine(by.get(g.b))}`, `  - ${why.join("; ")} · only **${g.links}** link(s) between them`);
       for (const [x, y, n] of g.suggest) L.push(`  - [ ] consider linking ${noteLink(x)} ↔ ${noteLink(y)} (${n}× together in dailies)`, ...evidenceLine(R.evidence, x, y, "    ")); }
-    L.push("", "## Bridge notes — what holds topics together", "_Highest betweenness: removing or neglecting these splits the graph. Keep them current._", "");
+    L.push("", "## Bridge notes — what holds topics together", "_Most routes between topics run through these notes: neglecting them splits the graph. Keep them current._", "");
     for (const [r, score, c] of R.bridges) L.push(`- ${noteLink(r)} — ${pyFloat(score)}${c != null ? ` (C${c})` : ""}`);
     L.push("", "## Frequently co-mentioned, never linked", "_Pairs linked from the same daily notes again and again, with no direct link between them._", "");
     for (const [x, y, n] of R.unlinked) L.push(`- [ ] ${noteLink(x)} ↔ ${noteLink(y)} — ${n}×`, ...evidenceLine(R.evidence, x, y, "  "));

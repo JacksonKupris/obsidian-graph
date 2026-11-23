@@ -160,6 +160,7 @@ const steps = [
   ["test_counts_agree.js", [path.join(__dirname, "test_counts_agree.js"), ...env.args]],
   ["test_notes_total.js", [path.join(__dirname, "test_notes_total.js"), ...env.args]],
   ["test_maps_count.js", [path.join(__dirname, "test_maps_count.js"), ...env.args]],
+  ["test_plain_influence.js", [path.join(__dirname, "test_plain_influence.js"), ...env.args]],
   ["test_topic_ink.js", [path.join(__dirname, "test_topic_ink.js"), ...env.args]],
   ["test_topic_not_red.js", [path.join(__dirname, "test_topic_not_red.js"), ...env.args]],
   ["test_related_notes.js", [path.join(__dirname, "test_related_notes.js"), ...env.args]],
