@@ -214,8 +214,8 @@
   .vg-hq .vg-hq-tricard .vg-hq-tritext { font-size: var(--ds-fs-md); }
   .vg-hq .vg-hq-top { padding: 10px 16px 8px; flex-wrap: wrap; align-items: center; } .vg-hq .vg-hq-clock { display: none; }   /* the phone shows its own clock; the time took a header row alone */
   .vg-hq .vg-hq-global-tools { order: 3; flex-basis: 100%; max-width: none; }
-  .vg-hq .vg-hq-strip { flex-direction: column; align-items: stretch; margin: 8px 16px 0; } .vg-hq .vg-hq-week { grid-template-columns: repeat(7, minmax(0, 1fr)); } .vg-hq .vg-hq-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
-  .vg-hq .vg-hq-chip { min-width: 0; padding: 6px 8px; gap: 6px; } .vg-hq .vg-hq-chip span { min-width: 0; } .vg-hq .vg-hq-chip b, .vg-hq .vg-hq-chip small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vg-hq .vg-hq-strip { flex-direction: column; align-items: stretch; margin: 8px 16px 0; } .vg-hq .vg-hq-week { grid-template-columns: repeat(7, minmax(0, 1fr)); } .vg-hq .vg-hq-chips { display: flex; } .vg-hq .vg-hq-chips .vg-hq-chip { flex: 1 1 auto; }
+  .vg-hq .vg-hq-chip { min-width: min-content; padding: 6px 8px; gap: 6px; } .vg-hq .vg-hq-chip span { min-width: min-content; } .vg-hq .vg-hq-chip b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .vg-hq .vg-hq-chip small { overflow-wrap: anywhere; }   /* the words wrap onto a second line instead of being cut off */
   .vg-hq .vg-hq-main { padding: 4px 16px calc(96px + var(--hq-bottom)); }
   .vg-hq .vg-hq-h1 { font-size: var(--ds-fs-xl); } .vg-hq .vg-hq-compacttoggle { margin-left: 0; }
   .vg-hq .vg-hq-chip .vg-hq-ic { display: none; }   /* the words need the room */
