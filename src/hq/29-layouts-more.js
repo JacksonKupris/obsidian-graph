@@ -44,10 +44,14 @@
     const cur1 = triCurrent(), total = lAll().length, left = total - triSkipped.filter(k => BY_KEY.has(k)).length;
     if (cur1) { cursorKey = cur1.key; selKey = cur1.key; }
     const bar = total ? `<div class="vg-hq-tribar" role="img" aria-label="${left} to go, ${triSkipped.length} skipped"><i style="width:${Math.round((total - left) / total * 100)}%"></i></div>` : "";
-    const keys = `<p class="vg-hq-lede vg-hq-trikeys">x done · l later · f plan · → skip · ← back</p>`;
+    // the key hint names only what this card offers, and nothing on a phone, which has no keys
+    const btns = cur1 ? buttons(cur1, true, true) : "", has = a => btns.includes(`data-act="${a}"`), starred = cur1 && starButton(cur1, true);
+    const keyless = window.matchMedia && window.matchMedia("(max-width: 700px), (pointer: coarse)").matches;
+    const hint = [has("main") || has("done") ? "x done" : "", has("later") ? "l later" : "", starred ? "f plan" : "", "→ skip", triSkipped.length ? "← back" : ""].filter(Boolean).join(" · ");
+    const keys = keyless ? "" : `<p class="vg-hq-lede vg-hq-trikeys">${hint}</p>`;
     if (!cur1) return lTitle("Triage") + (total ? `<div class="vg-hq-empty"><b>${plural(total, "item")} skipped.</b><div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-primary" data-triage="again">Go through them again</button>${lPick("queue", "Queue")}</div></div>` : lEmpty("Nothing left to triage."));
     return lTitle("Triage") + `<p class="vg-hq-lede">${plural(left, "item")} to go${triSkipped.length ? ` · ${triSkipped.length} skipped` : ""}.</p>${bar}` +
-      `<article class="vg-hq-tricard vg-hq-item" data-key="${esc(cur1.key)}" tabindex="-1"><div class="vg-hq-eyebrow">${esc(VGRules.kindWords(cur1.kind))}${lThread(cur1) ? ` · ${esc(lThread(cur1))}` : ""}${cur1.age ? ` · waiting ${plural(cur1.age, "day")}` : ""}</div><h2 class="vg-hq-tritext">${esc(cur1.title)}</h2>${cur1.why ? `<p class="vg-hq-lede">${esc(VGRules.whyWords(cur1.why))}</p>` : ""}${contextPanel(cur1, true)}<div class="vg-hq-row vg-hq-tribtns">${buttons(cur1, true, true)}${starButton(cur1, true)}<button class="vg-hq-btn" data-triage="skip">Skip</button>${triSkipped.length ? '<button class="vg-hq-btn vg-hq-btn-ghost" data-triage="back">Back</button>' : ""}</div></article>${keys}`;
+      `<article class="vg-hq-tricard vg-hq-item" data-key="${esc(cur1.key)}" tabindex="-1"><div class="vg-hq-eyebrow">${esc(VGRules.kindWords(cur1.kind))}${lThread(cur1) ? ` · ${esc(lThread(cur1))}` : ""}${cur1.age ? ` · waiting ${plural(cur1.age, "day")}` : ""}</div><h2 class="vg-hq-tritext">${esc(cur1.title)}</h2>${cur1.why ? `<p class="vg-hq-lede">${esc(VGRules.whyWords(cur1.why))}</p>` : ""}${contextPanel(cur1, true)}<div class="vg-hq-row vg-hq-tribtns">${buttons(cur1, true, true)}${starButton(cur1, true)}<button class="vg-hq-btn" data-triage="skip" title="Moves this to the end of the queue. Back brings it back.">Skip for now</button>${triSkipped.length ? '<button class="vg-hq-btn vg-hq-btn-ghost" data-triage="back">Back</button>' : ""}</div></article>${keys}`;
   }
   function triageDo(how) {
     if (how === "skip") { const c1 = triCurrent(); if (c1) triSkipped.push(c1.key); }
