@@ -49,6 +49,7 @@
 .vg-hq .vg-hq-day span:first-child { font-size: var(--ds-fs-xs); color: var(--hq-muted); } .vg-hq .vg-hq-day b { font-size: var(--ds-fs-base); font-variant-numeric: tabular-nums; }
 .vg-hq .vg-hq-day:disabled { cursor: default; opacity: .75; } .vg-hq .vg-hq-day:not(:disabled):hover { background: var(--background-modifier-hover); }
 .vg-hq .vg-hq-day.is-today { background: var(--hq-accent-soft); color: var(--hq-text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--hq-accent) 55%, transparent); opacity: 1; } .vg-hq .vg-hq-day.is-today span { color: inherit; }   /* where you are, not the screen's one loud thing */
+.vg-hq .vg-hq-weekbox { min-width: 0; } .vg-hq .vg-hq-weeklegend { display: flex; align-items: center; gap: 4px; margin: 2px 0 0; font-size: var(--ds-fs-sm); opacity: .75; flex-wrap: wrap; } .vg-hq .vg-hq-weeklegend .vg-hq-marks { height: 5px; margin-right: 1px; }
 .vg-hq .vg-hq-marks { display: flex; gap: 3px; height: 5px; } .vg-hq .vg-hq-marks i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: .55; } .vg-hq .vg-hq-marks i.is-s { opacity: .9; }
 .vg-hq .vg-hq-chips { display: flex; gap: 6px; }
 .vg-hq .vg-hq-chip { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid transparent; border-radius: var(--ds-r-pill); background: var(--hq-surface); text-align: left; white-space: nowrap; font-size: var(--ds-fs-md); transition: background var(--ds-base); }
