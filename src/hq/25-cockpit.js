@@ -10,7 +10,7 @@
   let threadsCache = null;   // worked out once per list: compute() clears it
   const threads = () => threadsCache || (threadsCache = VGRules.hqThreads(LIST.filter(it => it.group === "today"), VGRules.hqProjects(DATA)));
   // the panel is never an empty box: when the picked item adds nothing beside the Do next card, it says what a pick shows
-  function railHtml() { const h = railBody(); return h.replace(/<[^>]*>/g, "").trim() ? h : `<div class="vg-hq-railempty"><p>Pick a task to see where it came from.</p><small>Its note, its project, the people on it and what your notes say about it show here.</small></div>`; }
+  function railHtml() { const h = railBody(); return h.replace(/<[^>]*>/g, "").trim() ? h : `<div class="vg-hq-railempty"><p>Pick an item to see where it came from.</p><small>Its note, its project, the people on it and what your notes say about it show here.</small></div>`; }
   function railBody() {
     const it = selected();
     if (!it) return `<div class="vg-hq-railempty"><p>Nothing selected.</p><small>Pick an item to see what your notes know about it.</small></div>`;
