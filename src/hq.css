@@ -256,6 +256,7 @@
 .vg-hq .vg-hq-ctx-none { color: var(--hq-muted); margin: 4px 0 0; }
 /* quiet facts and inline links */
 .vg-hq .vg-hq-status { color: var(--hq-faint); font-size: var(--ds-fs-sm); margin: var(--hq-gap) 0 0; }
+.vg-hq .vg-hq-feedhint { color: var(--hq-faint); font-size: var(--ds-fs-sm); margin: 0 0 var(--hq-gap); }
 .vg-hq .vg-hq-linkbtn { display: inline; padding: 0; border: 0; background: none; color: color-mix(in srgb, var(--hq-accent-text) 80%, var(--hq-text)); font: inherit; }
 .vg-hq .vg-hq-linkbtn:hover { text-decoration: underline; }
 .vg-hq .vg-hq-person h3 .vg-hq-linkbtn { display: inline-flex; align-items: center; min-height: 24px; font-weight: 600; color: var(--hq-text); }
