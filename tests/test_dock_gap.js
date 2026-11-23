@@ -8,7 +8,7 @@ const env = require("./env");
   try {
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     await tab.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 780, deviceScaleFactor: 2, mobile: true });
-    for (const screen of ["today", "needs", "projects", "automations", "wrap"]) {
+    for (const screen of ["home", "today", "needs", "projects", "automations", "wrap"]) {
       await tab.ev(`(() => { window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { now: new Date("2026-10-28T12:00:00"), api: {} }); window.vaultHQ.setScreen(${JSON.stringify(screen)}); })()`);
       await sleep(300);
       const r = await tab.ev(`(() => { const m = document.querySelector(".vg-hq-main"), d = document.querySelector(".vg-hq-dock"); if (!m || !d) return null; m.scrollTo({ top: m.scrollHeight, behavior: "instant" }); const kids = [...m.querySelectorAll("*")].filter(e => e.getBoundingClientRect().height > 0 && !e.closest(".vg-hq-dock")); const last = Math.max(...kids.map(e => e.getBoundingClientRect().bottom)); return { last: Math.round(last), dock: Math.round(d.getBoundingClientRect().top) }; })()`);
