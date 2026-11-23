@@ -7,22 +7,22 @@
     const back = nodes.filter(near).sort((a, b) => (b.bc || 0) - (a.bc || 0));
     if (back.length) cards.push({ id: "onthisday", eyebrow: "On this day", title: back[0].name, sub: `${back[0].born.slice(0, 4)}${back.length > 1 ? ` · and ${plural(back.length - 1, "more note")}: ${back.slice(1, 3).map(n => n.name).join(" · ")}` : ""}`, open: back[0].id });
     const busy = (DATA.clusters || []).map(c => ({ c, n: nodes.filter(x => x.cluster === c.id).reduce((s, x) => s + (x.recent || 0), 0) })).filter(x => x.n > 0).sort((a, b) => b.n - a.n)[0];
-    if (busy) cards.push({ id: "weather", eyebrow: "Busiest topic", title: `${busy.c.label || busy.c.name} is busiest`, sub: `${plural(busy.n, "mention")} in the dailies over the last ${DATA.recent_days || 30} days`,
+    if (busy) cards.push({ id: "weather", eyebrow: "Busiest topic", title: `${busy.c.label || busy.c.name} is busiest`, sub: `${plural(busy.n, "mention")} in your daily notes over the last ${DATA.recent_days || 30} days`,
       go: opts.openGraph ? ["Open the graph", "data-graph"] : null, open: opts.openGraph ? null : (nodes.filter(x => x.cluster === busy.c.id).sort((a, b) => (b.recent || 0) - (a.recent || 0))[0] || {}).id });
     const keystones = nodes.filter(n => !n.isolated).sort((a, b) => (b.bc || 0) - (a.bc || 0)).slice(0, 30).filter(n => VGRules.isStale(n, (DATA.quality || {}).stale_days));
-    if (keystones.length && !vitals) cards.push({ id: "keystones", eyebrow: "Key notes going stale", title: `${plural(keystones.length, "much-linked note")} not touched lately`, sub: keystones.slice(0, 3).map(n => n.name).join(" · "), open: keystones[0].id });
+    if (keystones.length && !vitals) cards.push({ id: "keystones", eyebrow: "Key notes going stale", title: `${plural(keystones.length, "much-linked note")} untouched for over ${(DATA.quality || {}).stale_days || 60} days`, sub: keystones.slice(0, 3).map(n => n.name).join(" · "), open: keystones[0].id });
     const oldest = ofKind("carried").sort((a, b) => b.age - a.age)[0];
     if (oldest) cards.push({ id: "oldest", eyebrow: "Waiting longest", title: oldest.title, sub: oldest.why, open: oldest.path, item: oldest });
     const gap = (DATA.links || []).find(l => l.kind === "gap" && (DATA.nodes || []).some(n => n.id === l.source));
     const gapItem = gap && LIST.find(it => it.kind === "link" && it.a === gap.source && it.b === gap.target);
     if (gap) cards.push({ id: "gap", eyebrow: "A gap between notes", title: `${nameOf(gap.source)} ↔ ${nameOf(gap.target)}`, sub: gap.why || "Named together, never linked", item: gapItem, open: gap.source });
     const week = (h.decisions || []).filter(d => d.date && (Date.parse(day()) - Date.parse(d.date)) / VGShared.DAY_MS <= 7);
-    if (week.length) cards.push({ id: "decided", eyebrow: "Decided this week", title: week[0].title, sub: week.length > 1 ? `and ${plural(week.length - 1, "more decision")}: ${week.slice(1, 3).map(d => d.title).join(" · ")}` : week[0].by ? `Decided by ${week[0].by}` : "", open: week[0].path });
+    if (week.length) cards.push({ id: "decided", eyebrow: "Decided this week", title: week[0].title, sub: `Decided ${shortDate(week[0].date)}${week[0].by ? ` by ${week[0].by}` : ""}${week.length > 1 ? `; and ${plural(week.length - 1, "more decision")}: ${week.slice(1, 3).map(d => d.title).join(" · ")}` : ""}`, open: week[0].path });
     const ups = (h.standups || []).filter(s => (Date.parse(day()) - Date.parse(s.date)) / VGShared.DAY_MS < 7);
     if (ups.length) { const per = {}; ups.forEach(s => s.projects.forEach(p => (per[p] = (per[p] || 0) + 1)));
       const top = Object.entries(per).sort((a, b) => b[1] - a[1]).slice(0, 3), dev = ups.reduce((s, u) => s + (u.deviation || 0), 0);
       cards.push({ id: "week", eyebrow: "This week's standups", title: top.length ? top.map(([p, n]) => `${p} ${n}d`).join(" · ") : plural(ups.length, "standup"),
-        sub: `${plural(ups.length, "standup")} · ${dev} hour${dev === 1 ? "" : "s"} off plan`, open: ups[0].path }); }
+        sub: `${plural(ups.length, "standup")} · ${dev} hour${dev === 1 ? "" : "s"} deviation from plan`, open: ups[0].path }); }
     if ((h.runlog || []).length) { const last = h.runlog[h.runlog.length - 1], parts = last.split(" · ");
       cards.push({ id: "runlog", eyebrow: "Latest agent run", title: parts[3] || last, sub: [shortDate(parts[0]), ...parts.slice(1, 3)].join(" · "), go: ["See all runs", 'data-go="automations"'] }); }
     return cards;

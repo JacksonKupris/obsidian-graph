@@ -48,7 +48,7 @@ const text = [
   const none = new Function(`${require("../build").rulesSource({ ...env.rules, hq: { ...H, standup_skip: "" } })}; return VGRules;`)(); assert.strictEqual(none.forStandup("Vault work"), true, "no pattern, nothing left out"); }
 // the evening's brief: no asking to pick a focus
 { const list = [{ kind: "plan", group: "today", key: "p", title: "P" }], data = { nodes: [], links: [], hq: { journals: [], standups: [], projects: [], reports: [], reviews: [] } };
-  assert.ok(R.hqBrief(data, list, {}, "2026-11-02", [], 9).some(x => /none picked/.test(x)), "the morning asks"); assert.ok(!R.hqBrief(data, list, {}, "2026-11-02", [], 21).some(x => /none picked/.test(x)), "the evening doesn't"); }
+  assert.ok(R.hqBrief(data, list, {}, "2026-11-02", [], 9).some(x => /pick one to focus on/.test(x)), "the morning asks"); assert.ok(!R.hqBrief(data, list, {}, "2026-11-02", [], 21).some(x => /pick one to focus on/.test(x)), "the evening doesn't"); }
 // ---- two-way links: the numbers on a small case, and which lines can go
 { const ids = ["a", "b", "c", "d"], g = S.directedGraph(ids, [["a", "b"], ["b", "a"], ["b", "c"], ["c", "d"]]);
   assert.deepStrictEqual(S.twoWayPairs(g), [[0, 1]], "one two-way pair"); assert.ok(S.trophic(g.adj).incoherence > 0.1, "a loop is disorder"); assert.ok(S.incoherenceWithout(g, [[1, 0]]) < 0.01, `a straight chain once it's gone, got ${S.incoherenceWithout(g, [[1, 0]])}`);
