@@ -38,7 +38,8 @@
 
   // ---- Triage: one card, the rest behind it. x done, l later, f plan, → skip, ← back
   let triSkipped = [];
-  const triQueue = () => { const next = doNext(), all = lAll(), first = next ? [next].concat(all.filter(i => i.key !== next.key)) : all, skip = new Set(triSkipped); return first.filter(i => !skip.has(i.key)).concat(first.filter(i => skip.has(i.key))); };
+  // an automation alert has nothing to act on in a card, so it takes its place by score instead of leading
+  const triQueue = () => { const next = doNext(); return VGRules.triageQueue(lAll(), next && next.kind !== "job" ? next : null, triSkipped); };
   const triCurrent = () => { const q = triQueue(), skip = new Set(triSkipped), live = q.filter(i => !skip.has(i.key)); return live[0] || null; };
   function triageLayout() {
     const cur1 = triCurrent(), total = lAll().length, left = total - triSkipped.filter(k => BY_KEY.has(k)).length;
