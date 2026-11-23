@@ -12,7 +12,7 @@ const { sleep, checks, finish, openPage } = require("./kit"), env = require("./e
     const D = "window.vaultGraph._debug", S = `${D}.scenes().triage`, G = `${S}.state`, A = `${S}.api`;
     const from = await tab.ev(`(() => typeof VGRules === "undefined" || !VGRules.triageFrom ? null : VGRules.triageFrom({ kind: "carried", date: "2026-11-18", age: 4, under: "Release" }))()`);
     check(from, "VGRules.triageFrom should exist");
-    if (from) check(/2026-11-18/.test(from) && !/\bago\b|days?\b/.test(from), `the source line repeats the age: "${from}"`);
+    if (from) check(/Nov 18/.test(from) && !/\bago\b|days?\b/.test(from), `the source line repeats the age: "${from}"`);
     const task = (key, kind, age, title) => ({ key, kind, age, title, why: "x", path: `J/${key}.md`, line: 3, text: title, ids: [`J/${key}.md`], date: "2026-10-01" });
     await tab.ev(`${D}.setView("triage")`); await sleep(300);
     await tab.ev(`${A}.start(${JSON.stringify([task("a", "carried", 5, "One"), task("b", "carried", 3, "Two")])})`);

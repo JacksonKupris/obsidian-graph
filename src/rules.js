@@ -787,7 +787,7 @@ const VGRules = (() => {
       title: jobWords(j, o.now).title, why: jobWords(j, o.now).why, score: j.state === "failed" ? 13 : 10 }));
     [...new Set(hq.journals.map(j => j.date).filter(d => d < day))].map(d => canonicalJournal(hq, d)).filter(Boolean).forEach(j => { const age = daysBetween(j.date, day);
       j.tasks.filter(t => t.mark === " ").forEach(t => put({ key: `carried|${j.path}|${t.text}`, kind: "carried", path: j.path, line: t.line, text: t.text, date: j.date, age, ...fieldsOf(t.text), ids: [j.path], section: t.section, subs: t.subs, under: t.under, underDone: t.underDone,
-        title: label(t.text), why: `From ${j.date} · ${age} day${age === 1 ? "" : "s"} ago${t.under ? ` · under ${t.under}` : ""}`, score: Math.max(1, 9 - age * 0.25) })); });
+        title: label(t.text), why: `From ${VGShared.shortDate(j.date)} · ${age} day${age === 1 ? "" : "s"} ago${t.under ? ` · under ${t.under}` : ""}`, score: Math.max(1, 9 - age * 0.25) })); });
     (hq.inbox || []).forEach(n => put({ key: `inbox|${n.path}`, kind: "inbox", path: n.path, ids: [n.path], title: n.title || n.name, why: "In the inbox", score: 3 }));
     // the rules file's backlog_shown: how many vault decisions count as needing you at once. The rest wait their turn, one filter away.
     let backlogUp = 0; hq.backlog.forEach(b => put({ key: `backlog|${b.path}|${b.text}`, ...(H.backlog_shown && !skip(`backlog|${b.path}|${b.text}`) && ++backlogUp > H.backlog_shown ? { waiting: true } : {}), kind: "backlog", path: b.path, line: b.line, text: b.text, ids: [b.path], title: label(b.text), why: stemCase(b.path), score: 3 }));
@@ -1455,7 +1455,7 @@ const VGRules = (() => {
   // Triage Run: the open tasks a run deals, oldest first, and what a swipe scores. An older task is worth more; a run of
   // decisions multiplies it, up to five times.
   // the source line on a Triage Run card: the age is already shown at the top of the card, so a carried task names only its day and section
-  const triageFrom = it => it.kind === "carried" ? `From ${it.date}${it.under ? ` · under ${it.under}` : ""}` : (it.why || "");
+  const triageFrom = it => it.kind === "carried" ? `From ${VGShared.shortDate(it.date)}${it.under ? ` · under ${it.under}` : ""}` : (it.why || "");
   // The Triage queue: the chosen next step first, then every item of every kind by its one score (urgent and overdue lift it, housekeeping is 3), then what was skipped.
   const triageQueue = (list, next, skipped) => { const skip = new Set(skipped || []), seen = new Set(), ranked = (list || []).map((it, i) => [it, i]).sort((x, y) => (y[0].score || 0) - (x[0].score || 0) || x[1] - y[1]).map(x => x[0]), all = (next ? [next] : []).concat(ranked).filter(i => !seen.has(i.key) && seen.add(i.key)); return all.filter(i => !skip.has(i.key)).concat(all.filter(i => skip.has(i.key))); };
   const triageDeck = items => (items || []).filter(it => (it.kind === "task" || it.kind === "carried") && !it.delegated).sort((a, b) => (b.age || 0) - (a.age || 0));
