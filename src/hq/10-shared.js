@@ -198,6 +198,8 @@
   // total: when the list shows only part of what there is, the heading says so
   const section = (title, items, more, total) => items.length ? `<section class="vg-hq-sec"><h3>${esc(title)}<span>${total > items.length ? `${items.length} of ${total}` : items.length}</span></h3>${taskRows(pageOf(title, items))}${pageOf(title, items).length < items.length ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-page="${esc(title)}">Show ${items.length - PAGE} more</button></div>` : ""}${more || ""}</section>` : "";
   // an empty screen says what's true and where to go next
+  // one filter bar for every screen: a labelled group of pills, each with its count; attr is the data attribute the click handler reads
+  const pillBar = (label, attr, current, choices) => `<div class="vg-hq-filters" role="group" aria-label="${esc(label)}">${choices.map(([k, text, n]) => `<button class="vg-hq-filter${current === k ? " is-on" : ""}" data-${attr}="${esc(k)}" aria-pressed="${current === k}">${esc(text)} <span>${n}</span></button>`).join("")}</div>`;
   const empty = (fact, next) => `<div class="vg-hq-empty"><p>${esc(fact)}</p><div class="vg-hq-row">${next.map(([label, attr]) => `<button class="vg-hq-btn" ${attr}>${esc(label)}</button>`).join("")}</div></div>`;
   const nextSteps = () => [...(api.openDaily ? [["Open today's journal", "data-daily"]] : []), ...(opts.openGraph ? [["Open the graph", "data-graph"]] : []), ["Projects", 'data-go="projects"']];
   const journalWarning = () => DATA.hqError ? `<aside class="vg-hq-warning" role="alert"><b>Vault HQ couldn't read your notes.</b><p>${esc(DATA.hqError)}. Today and Needs you may be missing work.</p></aside>` : ((hq() || {}).journalDuplicates || []).length
