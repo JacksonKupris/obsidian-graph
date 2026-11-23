@@ -15,6 +15,7 @@ const env = require("./env");
       check(!!r, `${w}px: the week strip has a legend`);
       if (!r) continue;
       check(/journal/i.test(r.text) && /standup/i.test(r.text), `${w}px: the legend names both dots: "${r.text}"`);
+      check(/^days with/i.test(r.text), `${w}px: the legend says what a dot marks: "${r.text}"`);
       check(r.shown && !r.cut && r.right <= r.vw, `${w}px: the legend is visible and not cut off`);
     }
   } catch (e) { fails.push(e.message); }

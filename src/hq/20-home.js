@@ -25,7 +25,7 @@
       cards.push({ id: "week", eyebrow: "This week's standups", title: top.length ? top.map(([p, n]) => `${p} ${n}d`).join(" · ") : plural(ups.length, "standup"),
         sub: `${plural(ups.length, "standup")} · ${dev} hour${dev === 1 ? "" : "s"} deviation from plan`, open: ups[0].path }); }
     if ((h.runlog || []).length) { const last = h.runlog[h.runlog.length - 1], parts = last.split(" · ");
-      cards.push({ id: "runlog", eyebrow: "Latest agent run", title: parts[3] || last, sub: [shortDate(parts[0]), ...parts.slice(1, 3)].join(" · "), go: ["See all runs", 'data-go="automations"'] }); }
+      cards.push({ id: "runlog", eyebrow: "Latest agent run", title: parts[3] || last, sub: [shortDate(parts[0]), parts[1], parts[2] && `Project: ${parts[2]}`].filter(Boolean).join(" · "), go: ["See all runs", 'data-go="automations"'] }); }
     // cards with something to do come first; the rest only report. A stable sort keeps each group in its order.
     return cards.map((c, i) => ({ c, i })).sort((a, b) => (canAct(a.c) ? 0 : 1) - (canAct(b.c) ? 0 : 1) || a.i - b.i).map(x => x.c);
   }
