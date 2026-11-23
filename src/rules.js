@@ -922,8 +922,8 @@ const VGRules = (() => {
     if (focus.length) out.push({ text: `Focus: ${focus.map(i => i.title).join("; ")}.`, go: "today" }); else if (plan && hour < STANDUP_HOUR) out.push({ text: `${plan} planned for today, none picked yet.`, go: "today" });
     const top = (threads || []).find(t => t.project || t.area); if (top && top.items.length > 1) out.push({ text: `Most open work is in ${top.title} (${top.items.length}).`, ...(top.project ? { proj: top.project.path } : { go: "threads" }) });
     // the same set the Needs you chip counts (group "needs"), split into what it is made of, so the two numbers agree
-    const needs = list.filter(i => (i.group || TODAY_GROUP[i.kind]) === "needs"), approvals = needs.filter(i => i.kind === "approval").length, reviews = needs.filter(i => i.kind === "review").length, rest = needs.length - approvals - reviews;
-    const parts = [approvals ? `${approvals} approval${approvals === 1 ? "" : "s"}` : "", reviews ? `${reviews} draft${reviews === 1 ? "" : "s"}` : "", rest ? `${rest} other` : ""].filter(Boolean);
+    const needs = list.filter(i => (i.group || TODAY_GROUP[i.kind]) === "needs"), counts = new Map(); needs.forEach(i => counts.set(i.kind, (counts.get(i.kind) || 0) + 1));
+    const parts = [...counts].sort((x, y) => (y[0] === "approval") - (x[0] === "approval") || (y[0] === "review") - (x[0] === "review") || y[1] - x[1]).map(([k, n]) => `${n} ${n === 1 ? kindName(k).toLowerCase() : kindWords(k)}`);
     if (needs.length) out.push({ text: `${needs.length} waiting on you${parts.length > 1 ? ": " + parts.join(", ") : ""}.`, go: "needs" });
     // failed automations are not a brief line: the Automations chip carries the dot and count, and Do next names the job
     const who = hqPeople(data, list).filter(p => p.items.length)[0]; if (who && who.items.length > 1) out.push({ text: `${who.name} is named in ${who.items.length} open tasks and drafts.`, go: "people" });
