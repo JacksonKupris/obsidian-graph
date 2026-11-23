@@ -25,6 +25,8 @@ class VaultGraphSettings extends PluginSettingTab {
     });
     new Setting(el).setName("Plugin").setHeading();
     new Setting(el).setName("Open Vault HQ at startup").setDesc("Your home screen, when Obsidian opens").addToggle(t => t.setValue(this.plugin.settings.hqAtStart !== false).onChange(async v => { this.plugin.settings.hqAtStart = v; await this.plugin.saveSettings(); }));
+    new Setting(el).setName("Apply the theme to all of Obsidian").setDesc("Uses the colour theme chosen in Vault HQ or a graph's Display menu on every pane, not only this plugin's. Off keeps your Obsidian theme")
+      .addToggle(t => t.setValue(this.plugin.settings.themeObsidian === true).onChange(async v => { this.plugin.settings.themeObsidian = v; this.plugin.syncAppTheme(); await this.plugin.saveSettings(); }));
     new Setting(el).setName("Update automatically").setDesc(`Version ${this.plugin.manifest.version}. Installs the latest release when one is out, on start and every few hours`)
       .addToggle(t => t.setValue(this.plugin.settings.autoUpdate !== false).onChange(async v => { this.plugin.settings.autoUpdate = v; await this.plugin.saveSettings(); }))
       .addButton(b => b.setButtonText("Check now").onClick(() => this.plugin.updater.check({ manual: true })));
