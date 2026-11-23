@@ -2,7 +2,7 @@
 // showing at this width is skipped. The build puts this with the shared rules, so both surfaces use the same one.
 //   runTour(host, steps, o) -> { draw(), end(), active() }
 // steps: [{ sel, title, text, ring (false: about the whole pane, no ring), before() (get the control on screen) }]
-// o: find(selector) (default: in host) · cls { btn, primary, ghost, acts, muted } (the surface's own button classes) · onEnd()
+// o: find(selector) (default: in host) · cls { btn, primary, ghost, acts, muted } (the surface's own button classes) · onEnd() · clear() (elements a card must not cover, such as a banner: a card that would sit on one moves just below it)
 function runTour(host, steps, o = {}) {
   const cls = o.cls || {}, find = o.find || (s => host.querySelector(s)), back = document.activeElement;
   let at = 0, box = null, drawing = false;
@@ -41,6 +41,12 @@ function runTour(host, steps, o = {}) {
           <span class="vg-tour-count ${cls.muted || ""}">${pos} / ${shown.length}</span><b>${esc(step.title)}</b><p>${esc(step.text)}</p>
           <div class="vg-tour-acts ${cls.acts || ""}"><button class="${cls.btn || ""} ${cls.ghost || ""}" data-t="skip">Skip</button><button class="${cls.btn || ""} ${cls.primary || ""}" data-t="next">${last ? "Done" : "Next"}</button></div></div>`;
       if (!box.isConnected) host.appendChild(box);
+      const cardEl = box.querySelector(".vg-tour-card");
+      for (const el of (o.clear ? o.clear() : [])) {
+        if (!el || el.hidden || el.offsetParent === null) continue;
+        const a = el.getBoundingClientRect(), d = cardEl.getBoundingClientRect();
+        if (d.right > a.left && d.left < a.right && d.bottom > a.top && d.top < a.bottom) { cardEl.style.bottom = "auto"; cardEl.style.top = `${a.bottom - R.top + 8}px`; }
+      }
       box.querySelector('[data-t="next"]').focus();
     } finally { drawing = false; }
   }
