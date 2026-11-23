@@ -171,7 +171,7 @@
     const focused = VGRules.sessionMinutes(STATE.review, day());
     return `<h1 class="vg-hq-h1">Wrap up</h1>${flow()}<p class="vg-hq-lede">${plural(done.length, "thing")} done today${focused ? ` · ${VGRules.minutesWords(focused)} focused` : ""}${left.length ? ` · ${left.length} still in focus` : ""}.</p>
       <div class="vg-hq-row vg-hq-wrapacts">${standup ? `${forIt.length && api.logWork ? `<button class="vg-hq-btn vg-hq-btn-primary" data-logall>Add ${plural(forIt.length, "line")} to the standup</button>` : ""}${api.openNote ? `<button class="vg-hq-btn" data-open="${esc(standup.path)}">Open the standup</button>` : ""}` : api.openStandup && VGRules.standupsInUse(h) ? `<button class="vg-hq-btn vg-hq-btn-primary" data-makestandup>Start today's standup</button>` : ""}</div>
-      ${doneRows ? `<section class="vg-hq-sec"><h3>Done today<span>${forIt.length}</span></h3>${doneRows}</section>` : !notForIt.length ? empty("Nothing marked done today yet.", [["Today", 'data-go="today"']]) : ""}
+      ${doneRows ? `<section class="vg-hq-sec"><h3>Done today<span>${forIt.length}</span></h3>${doneRows}</section>` : !notForIt.length ? empty("Nothing done yet today. Tick a task on Today and it appears here.", [["Back to Today", 'data-go="today"']]) : ""}
       ${notForIt.length ? `<section class="vg-hq-sec"><h3>Left out of the standup<span>${notForIt.length}</span></h3>${notForIt.map(doneRow).join("")}</section>` : ""}
       ${leftRows ? `<section class="vg-hq-sec"><h3>Still in focus<span>${left.length}</span></h3>${leftRows}</section>` : ""}`;
   }
