@@ -32,7 +32,7 @@ assert.deepStrictEqual(VGRules.hqBrief({}, [], {}, "2026-10-28", []), [], "an em
 { const args = [{ hq: { journals: [{ path: "j", tasks: [{ mark: "x", text: "A ✅ 2026-10-27" }] }] } }, [{ kind: "approval", key: "a", title: "x" }, { kind: "job", key: "j", title: "y" }], {}, "2026-10-28", [{ title: "Console", area: "Console", items: [1, 2] }]];
   const lines = VGRules.hqBriefLines(...args);
   assert.ok(lines.length >= 3 && lines.every(l => l.text && (l.go || l.proj)), "a brief sentence with nowhere to open: " + JSON.stringify(lines.filter(l => !(l.go || l.proj))));
-  assert.ok(!lines.some(l => /automation/.test(l.text)), "a failed job is not a brief line: the Automations chip and Do next carry it");
+  assert.ok(!lines.some(l => l.text.includes("y") && /: y\b|\by\b/.test(l.text.replace("waiting on you", ""))), "a failed job's title is not a brief line: the Automations chip and Do next carry it (the count line may name the kind)");
   assert.deepStrictEqual(VGRules.hqBrief(...args), lines.map(l => l.text), "hqBrief is the sentences of hqBriefLines");
   // one count per fact: the strip, Home's cards and the dock read hqCounts, none counts for itself
   const fs = require("fs"), path = require("path"), dir = path.join(__dirname, "..", "src", "hq"), own = fs.readdirSync(dir).flatMap(f => fs.readFileSync(path.join(dir, f), "utf8").split("\n").filter(l => /ofGroup\("needs"\)\.length|p\.group === "active"\)\.length/.test(l) && !/function hqCounts/.test(l)).map(() => f));
