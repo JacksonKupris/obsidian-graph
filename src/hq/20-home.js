@@ -1,4 +1,5 @@
   // ---- Home: what the vault says (the feed), then Do next, Needs you and Projects, and vault upkeep
+  const canAct = c => !!(c.item || c.go);   // a card with something to do; the rest only report
   function feedCards() {
     const h = hq() || {}, nodes = (DATA.nodes || []).filter(n => !n.person && !n.ghost && !n.moc), cards = [];
     const stale = nodes.filter(n => VGRules.isStale(n, (DATA.quality || {}).stale_days));
@@ -25,7 +26,8 @@
         sub: `${plural(ups.length, "standup")} · ${dev} hour${dev === 1 ? "" : "s"} deviation from plan`, open: ups[0].path }); }
     if ((h.runlog || []).length) { const last = h.runlog[h.runlog.length - 1], parts = last.split(" · ");
       cards.push({ id: "runlog", eyebrow: "Latest agent run", title: parts[3] || last, sub: [shortDate(parts[0]), ...parts.slice(1, 3)].join(" · "), go: ["See all runs", 'data-go="automations"'] }); }
-    return cards;
+    // cards with something to do come first; the rest only report. A stable sort keeps each group in its order.
+    return cards.map((c, i) => ({ c, i })).sort((a, b) => (canAct(a.c) ? 0 : 1) - (canAct(b.c) ? 0 : 1) || a.i - b.i).map(x => x.c);
   }
   // ---- Vitals: what the numbers say, each with what to do about it and whether it's moving
   let vitals = null, vitalsBusy = false;
@@ -62,10 +64,10 @@
   }
   function home() {
     const cards = feedCards(); feedAt = Math.min(feedAt, Math.max(0, cards.length - 1));
-    const card = (c, i) => `<article class="vg-hq-feedcard" data-i="${i}" aria-roledescription="slide" aria-label="${i + 1} of ${cards.length}">${hills(c.id)}
+    const card = (c, i) => `<article class="vg-hq-feedcard" data-i="${i}" data-acts="${canAct(c) ? 1 : 0}" aria-roledescription="slide" aria-label="${i + 1} of ${cards.length}">${hills(c.id)}
       <div class="vg-hq-feedtxt"><div class="vg-hq-eyebrow">${esc(c.eyebrow)} <span>${VGShared.pad2(i + 1)} / ${VGShared.pad2(cards.length)}</span></div>
-      <h2>${esc(c.title)}</h2><p>${esc(c.sub)}</p><div class="vg-hq-row">${(() => { const own = c.item ? buttons(c.item) : ""; return `${c.open && !/>Open</.test(own) ? `<button class="vg-hq-btn" data-open="${esc(c.open)}">Open</button>` : ""}${c.go ? `<button class="vg-hq-btn" ${c.go[1]}>${esc(c.go[0])}</button>` : ""}${own}`; })()}</div></div></article>`;
-    const feed = cards.length ? `<section class="vg-hq-feed"><div class="vg-hq-feedtrack">${cards.map(card).join("")}</div>
+      <h2>${esc(c.title)}</h2><p>${esc(c.sub)}</p><div class="vg-hq-row">${(() => { const own = c.item ? buttons(c.item) : ""; return `${c.open && !/>Open</.test(own) ? `<button class="vg-hq-btn" data-open="${esc(c.open)}" aria-label="Open ${esc(c.title)}" title="Open ${esc(c.title)}">Open</button>` : ""}${c.go ? `<button class="vg-hq-btn" ${c.go[1]}>${esc(c.go[0])}</button>` : ""}${own}`; })()}</div></div></article>`;
+    const feed = cards.length ? `<section class="vg-hq-feed"><p class="vg-hq-feedhint">Cards you can act on come first.</p><div class="vg-hq-feedtrack">${cards.map(card).join("")}</div>
       ${cards.length > 1 ? `<button class="vg-hq-feednav is-prev" data-feed="-1" aria-label="Previous">${icon("left")}</button><button class="vg-hq-feednav is-next" data-feed="1" aria-label="Next">${icon("right")}</button>
       <div class="vg-hq-dots">${cards.map((_, i) => `<button class="${i === feedAt ? "is-on" : ""}" data-feedto="${i}" aria-label="Card ${i + 1}"></button>`).join("")}</div>` : ""}</section>` : "";
     const next = doNext();
