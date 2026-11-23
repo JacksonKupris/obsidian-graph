@@ -486,7 +486,7 @@
     { sel: ".vg-cv", ring: false, title: "Tap a note", text: "Its panel lists what it needs, each with the button that fixes it." },
   ];
   let tour = null, tourSeen = false;
-  function startTour() { tour = runTour(root, TOUR, { find: s => $(s), cls: { btn: "vg-btn", primary: "vg-btn-primary", ghost: "vg-btn-ghost" }, onEnd: () => { tour = null; tourSeen = true; persistSoon(); } }); tour.draw(); }
+  function startTour() { tour = runTour(root, TOUR, { find: s => $(s), clear: () => [$(".vg-today")], cls: { btn: "vg-btn", primary: "vg-btn-primary", ghost: "vg-btn-ghost" }, onEnd: () => { tour = null; tourSeen = true; persistSoon(); } }); tour.draw(); }
   function endTour() { if (tour) tour.end(); }
 
   // ---------------------------------------------------------------- confirm dialog + discovery log
