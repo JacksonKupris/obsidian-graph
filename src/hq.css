@@ -53,7 +53,6 @@
 .vg-hq .vg-hq-chips { display: flex; gap: 6px; }
 .vg-hq .vg-hq-chip { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid transparent; border-radius: var(--ds-r-pill); background: var(--hq-surface); text-align: left; white-space: nowrap; font-size: var(--ds-fs-md); transition: background var(--ds-base); }
 .vg-hq .vg-hq-chip:hover { background: var(--hq-hover); }
-.vg-hq .vg-hq-chipn { display: none; font-style: normal; color: var(--hq-muted); margin-left: 4px; font-variant-numeric: tabular-nums; }
 .vg-hq .vg-hq-chip span { display: flex; flex-direction: column; position: relative; } .vg-hq .vg-hq-chip b { font-weight: 600; } .vg-hq .vg-hq-chip small { color: var(--hq-muted); font-size: var(--ds-fs-xs); }
 .vg-hq .vg-hq-dot { position: absolute; top: 2px; right: -9px; width: 6px; height: 6px; border-radius: 50%; background: var(--hq-accent); }
 
@@ -428,7 +427,6 @@
   .vg-hq .vg-hq-capture { flex-wrap: wrap; } .vg-hq .vg-hq-captureinput { flex: 1 0 100%; }
   .vg-hq .vg-hq-dock { gap: 2px; max-width: calc(100% - 12px); } .vg-hq .vg-hq-dockbtn { width: 42px; } .vg-hq .vg-hq-sep { margin: 0 2px; }
   .vg-hq .vg-hq-nextchip { order: 4; flex: 1 1 100%; max-width: none; min-height: 44px; }
-  .vg-hq .vg-hq-chip small { display: none; } .vg-hq .vg-hq-chip .vg-hq-chipn { display: inline; }   /* the count is on the dock; the height is for the work */
 }
 
 /* momentum */
