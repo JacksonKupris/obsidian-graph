@@ -929,7 +929,9 @@ const VGRules = (() => {
     // the same set the Needs you chip counts (group "needs"), split into what it is made of, so the two numbers agree
     const needs = list.filter(i => (i.group || TODAY_GROUP[i.kind]) === "needs"), counts = new Map(); needs.forEach(i => counts.set(i.kind, (counts.get(i.kind) || 0) + 1));
     const parts = [...counts].sort((x, y) => (y[0] === "approval") - (x[0] === "approval") || (y[0] === "review") - (x[0] === "review") || y[1] - x[1]).map(([k, n]) => VGShared.plural(n, kindName(k).toLowerCase(), kindWords(k)));
-    if (needs.length) out.push({ text: `${needs.length} waiting on you${parts.length > 1 ? ": " + parts.join(", ") : ""}.`, go: "needs" });
+    // new since the last visit: only when there was a last visit to compare with (hqVisit holds the keys it showed)
+    const before = review && review.hqVisit && new Set(review.hqVisit.keys || []), fresh = before ? needs.filter(i => !before.has(i.key)).length : 0;
+    if (needs.length) out.push({ text: `${needs.length} waiting on you${parts.length > 1 ? ": " + parts.join(", ") : ""}${fresh ? ` (${fresh} new since you were last here)` : ""}.`, go: "needs" });
     // failed automations are not a brief line: the Automations chip carries the dot and count, and Do next names the job
     const who = hqPeople(data, list).filter(p => p.items.length)[0]; if (who && who.items.length > 1) out.push({ text: `${who.name} is named in ${who.items.length} open tasks and drafts.`, go: "people" });
     return out;

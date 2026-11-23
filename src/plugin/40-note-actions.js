@@ -279,6 +279,7 @@
       moveTasks: (items, to) => this.moveTasks(items, to),
       recentChanges: () => this.recentChanges(),
       version: () => this.manifest.version,
+      hqVisit: keys => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.hqVisit = { at: new Date().toISOString(), keys: keys.slice(0, 500) }; return sh; }),
       hqNewsSeen: version => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.hqNewsSeen = version; return sh; }),
       labelUndo: (id, label) => this.labelUndo(id, label),
       setParents: rows => this.setParents(rows),

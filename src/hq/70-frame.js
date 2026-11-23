@@ -232,6 +232,7 @@
   function goBack() { if (!canGoBack()) return false; const to = trail.length ? trail[trail.length - 1] : SUB[cur][1]; trail = trail.slice(0, -1); setScreen(to, true); return true; }
   function setScreen(s, back) { if (!known(s)) return; const moved = s !== cur; if (moved && !back) trail = [...trail.slice(-19), cur]; if (moved) { selKey = null; needsWalk = false; } if (s === "sweep" && cur !== "sweep") kept = new Set(); cur = s; drawer = null; peek = null; if (moved) { needsWalk = false; leaving = true; sayEl.textContent = SUB[s] ? SUB[s][0] : SCREENS.find(x => x[0] === s)[1]; } render(); const m = el.querySelector(".vg-hq-main"); if (m) { m.scrollTop = 0; if (moved) { const col = m.querySelector(".vg-hq-col"); if (col) col.classList.add("vg-hq-enter"); } } if (opts.onScreen) opts.onScreen(s); }
   render();
+  if (api.hqVisit) api.hqVisit(ofGroup("needs").map(i => i.key));
   setTimeout(() => { if (el.isConnected) loadVitals(); }, 600);   // after the first paint: it reads every journal
   // a first open: the tour, once HQ has settled. A vault with nothing in it has its own welcome instead.
   if (api.hqTourSeen && !(STATE.review || {}).hqTour && !isNewVault()) tourTimer = setTimeout(() => { if (el.isConnected && !el.querySelector(".vg-hq-dialog, .vg-hq-palette")) startHQTour(); }, 1500);
