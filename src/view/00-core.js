@@ -230,6 +230,7 @@ function mountVaultGraph(root, DATA, opts) {
   const switchRow = (cls, title, hint, on) => `<label class="vg-switch"><input type="checkbox" class="${cls}" ${on ? "checked" : ""}><span class="vg-track" aria-hidden="true"></span>
     <span><b>${title}</b><span class="vg-muted">${hint}</span></span></label>`;
   root.classList.add("vg-root");
+  let palette = VGShared.applyPalette(root, opts.palette);   // the same themes as Vault HQ
   if (opts.compact) root.classList.add("is-compact");
   if (MOBILE) root.classList.add("is-mobile");
   root.tabIndex = -1;

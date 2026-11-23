@@ -78,6 +78,7 @@ const steps = [
   ["test_layout_only_today.js", [path.join(__dirname, "test_layout_only_today.js"), ...env.args]],
   ["test_people_first_names.js", [path.join(__dirname, "test_people_first_names.js"), ...env.args]],
   ["test_palettes.js", [path.join(__dirname, "test_palettes.js"), ...env.args]],
+  ["test_graph_palette.js", [path.join(__dirname, "test_graph_palette.js"), ...env.args]],
   ["test_automations_words.js", [path.join(__dirname, "test_automations_words.js"), ...env.args]],
   ["test_dock_gap.js", [path.join(__dirname, "test_dock_gap.js"), ...env.args]],
   ["test_registry_lines.js", [path.join(__dirname, "test_registry_lines.js"), ...env.args]],

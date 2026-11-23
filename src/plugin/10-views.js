@@ -23,6 +23,7 @@ class VaultGraphView extends ItemView {
     const root = el.createDiv();
     this.handle = mountVaultGraph(root, structuredClone(data), {   // the view keeps positions on its nodes: its own copy
       ...this.plugin.viewActions(this),   // the same actions every graph surface gets
+      palette: this.plugin.settings.hqPalette, onPalette: p => this.plugin.setPalette(p),   // the one remembered theme, shared with Vault HQ
       store: {   // layout + view settings live in the plugin's data.json (Obsidian Sync carries it)
         load: () => this.plugin.settings.view || null,
         save: view => { this.plugin.settings.view = this.plugin.followSaved(view); this.plugin.saveSettings(); },   // an open graph still holds old paths after a move
@@ -175,7 +176,7 @@ class VaultHQView extends ItemView {
     this.handle = mountVaultHQ(el.createDiv({ cls: "vg-hq-root" }), d, {
       api, state, mobile: Platform.isMobile, screen: this.plugin.settings.hqScreen, onNext: () => this.plugin.nextStepSoon(), onSession: s => this.plugin.showFocus(s), notify: msg => new Notice(msg, 0),
       onScreen: s => { this.plugin.settings.hqScreen = s; this.plugin.saveSettings(); },
-      palette: this.plugin.settings.hqPalette, onPalette: p => { this.plugin.settings.hqPalette = p; this.plugin.saveSettings(); }, layout: this.plugin.settings.hqLayout, onLayout: l => { this.plugin.settings.hqLayout = l; this.plugin.saveSettings(); },
+      palette: this.plugin.settings.hqPalette, onPalette: p => this.plugin.setPalette(p), layout: this.plugin.settings.hqLayout, onLayout: l => { this.plugin.settings.hqLayout = l; this.plugin.saveSettings(); },
       ask: (title, text, ok) => confirmModal(this.app, title, text, ok),
       input: (title, text, placeholder) => inputModal(this.app, title, text, placeholder),
       onDone: msg => this.plugin.recordAction(msg),

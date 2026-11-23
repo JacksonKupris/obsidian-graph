@@ -73,6 +73,7 @@
   }
 
   async saveSettings() { await this.saveData(this.settings); }
+  setPalette(p) { if (this.settings.hqPalette === p) return; this.settings.hqPalette = p; return this.saveSettings(); }   // the one colour theme, for HQ and the graph
 
   // Notes written from the graph (hub, bridge, map, wanted). mode "create": never overwrite -- pick a
   // free name instead. mode "regen": keep the note's text above the generated marker, replace below it.
