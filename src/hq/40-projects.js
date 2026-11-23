@@ -1,6 +1,6 @@
   // ---- Projects: every project (scope of work, project note, user story) as a card; one opens in a drawer, where its
   // status is set
-  const FILTERS = [["active", "In progress"], ["planned", "Planned"], ["waiting", "Waiting"], ["closed", "Done"], ["other", "Needs classification"], ["all", "All"]];
+  const FILTERS = [["all", "All"], ["active", "In progress"], ["planned", "Planned"], ["waiting", "Waiting"], ["closed", "Done"], ["other", "Needs classification"]];
   function spark(days) {
     const set = new Set(days || []), t = Date.parse(day()), cells = [];
     if (!set.size) return "";
