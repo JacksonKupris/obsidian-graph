@@ -36,7 +36,7 @@ assert(!JSON.stringify(R.notePreview("```dataview\nopen").blocks).includes("open
   Q.configure(env.rules); assert(!today()[0].urgent, "with no pattern nothing is urgent"); }
 
 // reasons and figures in words, with the stored wording left alone (it goes in the note when a suggestion is accepted)
-assert.strictEqual(R.whyWords("similar meaning (0.812)"), "similar meaning: 81% alike"); assert.strictEqual(R.whyWords("3× together in daily notes"), "3× together in daily notes"); assert.strictEqual(R.whyWords(""), "");
+assert.strictEqual(R.whyWords("similar meaning (0.812)"), "similar meaning: 81% alike"); assert.strictEqual(R.whyWords("named together in 3 daily notes"), "named together in 3 daily notes"); assert.strictEqual(R.whyWords(""), "");
 // words
 assert.strictEqual(R.statusWords("in-progress"), "in progress"); assert.strictEqual(R.statusWords("pending-approval"), "pending approval"); assert.strictEqual(R.statusWords(""), "");
 assert.strictEqual(R.codeNameWords("JK_LiveDriveTimes"), "Live Drive Times"); assert.strictEqual(R.codeNameWords("FIX-JK_TwilioResponse"), "Twilio Response");

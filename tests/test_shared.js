@@ -26,10 +26,10 @@ assert.ok(!new RegExp(S.escapeRegex("a.b")).test("axb"), "escapeRegex left a dot
 assert.strictEqual(S.nameOf("a/b/My Note.md"), "My Note"); assert.strictEqual(S.nameOf("a/b/x.MD"), "x"); assert.strictEqual(S.nameOf("x.png"), "x.png"); assert.strictEqual(S.nameOf(null), ""); assert.strictEqual(S.baseOf("a/b.md"), "b.md");
 assert.strictEqual(S.shortDate(""), ""); assert.strictEqual(S.shortDate("not a date"), "not a date"); assert.ok(/4/.test(S.shortDate("2026-11-04")), "a date keeps its day");
 // a gap between two topics, in words: "only" only when links really are fewer than the co-mentions (persona pass: "0 co-mentions, only 21 links" read as a gap for the best-linked pair)
-assert.strictEqual(S.gapWhy({ comentions: 12, links: 3 }), "12 co-mentions in your dailies, only 3 links");
-assert.strictEqual(S.gapWhy({ comentions: 4, links: 1 }), "4 co-mentions in your dailies, only 1 link");
-assert.strictEqual(S.gapWhy({ comentions: 12, links: 0 }), "12 co-mentions in your dailies, no links between them yet");
-assert.strictEqual(S.gapWhy({ comentions: 5, links: 40 }), "5 co-mentions in your dailies, 40 links");
+assert.strictEqual(S.gapWhy({ comentions: 12, links: 3 }), "named together in 12 daily notes, only 3 links");
+assert.strictEqual(S.gapWhy({ comentions: 4, links: 1 }), "named together in 4 daily notes, only 1 link");
+assert.strictEqual(S.gapWhy({ comentions: 12, links: 0 }), "named together in 12 daily notes, no links between them yet");
+assert.strictEqual(S.gapWhy({ comentions: 5, links: 40 }), "named together in 5 daily notes, 40 links");
 assert.strictEqual(S.gapWhy({ comentions: 0, links: 21 }), "related by shared tags, 21 links");
 assert.strictEqual(S.plural(1, "note"), "1 note"); assert.strictEqual(S.plural(2, "note"), "2 notes"); assert.strictEqual(S.plural(2, "person", "people"), "2 people");
 assert.strictEqual(S.plainLinks("see [[a/b|the note]] and [[c]]"), "see the note and c"); assert.strictEqual(S.stripFrontmatter("---\na: 1\n---\nbody"), "body"); assert.strictEqual(S.stripFrontmatter("---\r\na: 1\r\n---\r\nbody"), "body"); assert.strictEqual(S.stripFrontmatter("no front"), "no front");

@@ -924,7 +924,7 @@ const VGRules = (() => {
     const out = [], yesterday = localDay(new Date(VGShared.noon(day).getTime() - VGShared.DAY_MS)), done = doneToday(data, review, yesterday).length, today = doneToday(data, review, day).length;
     if (today) out.push({ text: `${today} done so far today.`, go: "today" }); else if (done) out.push({ text: `${done} done yesterday.`, go: "changes" });
     const focus = hqFocusItems(list, review, day), plan = list.filter(i => i.kind === "plan" || i.kind === "task").length;
-    if (focus.length) out.push({ text: `Focus: ${focus.map(i => i.title).join("; ")}.`, go: "today" }); else if (plan && hour < STANDUP_HOUR) out.push({ text: `${plan} planned for today, none picked yet.`, go: "today" });
+    if (focus.length) out.push({ text: `Focus: ${focus.map(i => i.title).join("; ")}.`, go: "today" }); else if (plan && hour < STANDUP_HOUR) out.push({ text: `${plan} planned for today; pick one to focus on.`, go: "today" });
     const top = (threads || []).find(t => t.project || t.area); if (top && top.items.length > 1) out.push({ text: `Most open work is in ${top.title} (${top.items.length}).`, ...(top.project ? { proj: top.project.path } : { go: "threads" }) });
     // the same set the Needs you chip counts (group "needs"), split into what it is made of, so the two numbers agree
     const needs = list.filter(i => (i.group || TODAY_GROUP[i.kind]) === "needs"), counts = new Map(); needs.forEach(i => counts.set(i.kind, (counts.get(i.kind) || 0) + 1));

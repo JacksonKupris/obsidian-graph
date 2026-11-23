@@ -866,8 +866,8 @@ what when where which while who how why each other same see set use used using w
     // suggested links, each pair once: co-mentions, a gap's suggestions, then similar notes
     const { near, rel } = similarLinks({ ...N, skip });
     const seen = new Set(), out = [], edge = (x, y, kind, why) => { const k = x < y ? `${x}\n${y}` : `${y}\n${x}`; if (seen.has(k) || x === y) return; seen.add(k); const e = { source: x, target: y, w: 1, kind, why }, ev = evidence[`${x}|${y}`] || evidence[`${y}|${x}`]; if (ev) e.ev = ev; out.push(e); };
-    unlinked.forEach(([x, y, n]) => edge(x, y, "gap", `${n}× together in daily notes`));
-    top.forEach(g => g.suggest.forEach(([x, y, n]) => edge(x, y, "gap", `${n}× together in daily notes`)));
+    unlinked.forEach(([x, y, n]) => edge(x, y, "gap", `named together in ${VGShared.plural(n, "daily note")}`));
+    top.forEach(g => g.suggest.forEach(([x, y, n]) => edge(x, y, "gap", `named together in ${VGShared.plural(n, "daily note")}`)));
     rel.forEach(([x, y, , why]) => edge(x, y, "similar", why));
     const passages = closestPassages(out.map(l => [l.source, l.target]), raw);
     out.forEach(l => { const p = passages[`${l.source}|${l.target}`]; if (p) { l.pa = p.a; l.pb = p.b; } });
