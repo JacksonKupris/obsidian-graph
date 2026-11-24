@@ -12,10 +12,10 @@ const env = require("./env");
     for (const view of ["2d", "3d"]) {
       await tab.ev(`window.vaultGraph._debug.openView(${JSON.stringify(view)})`); await sleep(1200);
       const r = await tab.ev(`(() => { const e = document.querySelector(".vg-legend .vg-lg-attn-set"); if (!e) return null;
-        const c = e.cloneNode(true); c.querySelector(".vg-lg-attn-names").remove(); return { text: c.innerText.replace(/\\s+/g, " ").trim(), title: e.getAttribute("title") || "" }; })()`);
+        const c = e.cloneNode(true); c.querySelector(".vg-lg-attn-names").remove(); return { names: e.querySelector(".vg-lg-attn-names").textContent, text: c.innerText.replace(/\\s+/g, " ").trim(), title: e.getAttribute("title") || "" }; })()`);
       assert.ok(r, view + ": the needs-attention entry is in the legend");
-      assert.ok(/number = flagged notes/.test(r.text), view + ": the legend says the number counts flagged notes: " + r.text);
-      assert.ok(!/number = notes\b/.test(r.text), view + ": the legend no longer says 'number = notes': " + r.text);
+      assert.ok(/groups the flagged notes/.test(r.names) && /zoom/.test(r.names), view + ": the opened ring list says what a number groups: " + r.names);
+      assert.ok(r.text.length < 60, view + ": the always-visible legend row stays short, so it cannot cover the pane centre: " + r.text);
       assert.ok(/groups/.test(r.title) && /zoom/.test(r.title), view + ": the tooltip says a badge groups nearby flagged notes and zooming splits it: " + r.title);
     }
     console.log("PASS: the ring number is described as the flagged notes grouped into it");

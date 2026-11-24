@@ -266,6 +266,7 @@
 /* the ring names: folded until the needs-attention entry is clicked, then a card above the legend on a desktop and a list inside the open Key on a phone (below) */
 .vg-lg-attn-set { cursor: pointer; min-height: 24px; }
 .vg-lg-attn-names { display: none; }
+.vg-lg-attn-note { flex-basis: 100%; opacity: 0.8; }
 .vg-root.legend-open .vg-lg-attn-names { display: flex; flex-wrap: wrap; gap: 4px 12px; position: absolute; left: 0; bottom: calc(100% + 6px); width: max-content; max-width: 420px; padding: 8px 10px; border: 1px solid var(--vg-line); border-radius: var(--ds-r-md); background: var(--vg-panel); white-space: normal; cursor: default; }
 @container vg (max-width: 460px) {
   .vg-legend { display: none; }
