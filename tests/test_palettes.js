@@ -24,6 +24,9 @@ const read = f => fs.readFileSync(path.join(build.ROOT, f), "utf8");
         pair("--text-muted", "--background-primary", 4.5, "muted text on the page");
         pair("--text-muted", "--background-secondary", 4.5, "muted text on a panel");
         pair("--text-accent", "--background-primary", 4.5, "accent text on the page");
+        // a light page is a calm one: near-white glares after a dark theme (round 4: Paper at #faf6ee was "offensively bright")
+        const light = S.contrast(v["--background-primary"], "#000000") > S.contrast(v["--background-primary"], "#ffffff");
+        if (light) check(S.contrast(v["--background-primary"], "#ffffff") >= 1.25, `${key}: the page is ${S.contrast(v["--background-primary"], "#ffffff").toFixed(2)}:1 against white, needs 1.25 or more so it does not glare`);
         pair("--text-on-accent", "--interactive-accent", 4.5, "text on an accent button");
       }
     }
