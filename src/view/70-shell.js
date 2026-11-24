@@ -67,7 +67,7 @@
       const pool = palMode && palMode.filter ? nodes.filter(palNote).sort((a, b) => draft(a) - draft(b) || byImportance(a, b)).map(n => n.id) : ranked.filter(id => palNote(byId[id]));
       palItems = pool.slice(0, 8).map(id => ({ kind: "note", id, score: 0 }));
     } else {
-      const ns = nodes.filter(palNote).map(n => ({ kind: "note", id: n.id, score: Math.max(fuzzy(q, n.name), fuzzy(q, n.folder + "/" + n.name) - 2) })).filter(x => x.score >= 0);
+      const ns = nodes.filter(palNote).map(n => ({ kind: "note", id: n.id, score: Math.max(fuzzy(q, n.name), VGRules.pathScore(q, n.folder + "/" + n.name)) })).filter(x => x.score >= 0);
       const cs = palMode ? [] : DATA.clusters.map(c => ({ kind: "cluster", c: c.id, score: lift(Math.max(fuzzy(q, c.name), fuzzy(q, c.label || ""), wordHits(q, c.keywords || "") - 1), 1) })).filter(x => x.score >= 0);
       const svs = palMode ? [] : savedViews.map((v, i) => ({ kind: "saved", i, score: lift(fuzzy(q, v.name), 2) })).filter(x => x.score >= 0);
       palItems = [...svs, ...cs, ...ns].sort((a, b) => b.score - a.score).slice(0, 40);

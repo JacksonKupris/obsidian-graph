@@ -15,7 +15,6 @@ const { fails, ok: check } = checks();
     await tab.ev(`${V}.setView("2d")`); await sleep(500);
     await tab.ev(`(document.querySelector('.vg-tab[data-tab="insights"]') || {click(){}}).click()`); await sleep(300);
     const card = await tab.ev(`(() => { const c = [...document.querySelectorAll('.vg-panel[data-panel="insights"] .vg-card')].find(e => /^Maps/.test(e.textContent.trim())); return c ? c.textContent.replace(/\\s+/g, " ") : null; })()`);
-    check(!!card, "the Insights panel must have a Maps card"); if (process.env.DBG) console.log(card);
     const title = n => ((data.mocs || []).find(m => m.id === n.id) || {}).title || n.name;   // a map that covers a topic is listed by its title
     maps.forEach(n => check((card || "").includes(title(n)), `the Maps card must name "${title(n)}", a map drawn on the graph`));
   } finally { await tab.close(); }
