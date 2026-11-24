@@ -54,6 +54,7 @@ const assert = require("assert"), env = require("./env");
       assert.equal(await tab.ev(`!!document.querySelector('[data-proj="Child.md"]')`),false,"the active project filters exclude the project result");
       await tab.ev(`document.querySelector("[data-compact]").click();window.vaultHQ.update(null,null);`);
       assert(await tab.ev(`!!document.querySelector(".vg-hq-grid.is-compact")`));
+      await tab.ev(`(document.querySelector('[data-tray="search"]') || { click() {} }).click()`);   // a phone keeps the search box behind its button
       for (const query of ["prnt cons", "balances roll", "balnces"]) {
         await tab.ev(`(() => {const s=document.querySelector(".vg-hq-global-search");s.focus();s.value=${JSON.stringify(query)};s.dispatchEvent(new Event("input",{bubbles:true}));window.vaultHQ.update(null,null);})()`);
         assert(await tab.waitFor(`document.querySelectorAll(".vg-hq-search-proj").length === 1 ? 1 : 0`,5000),`global project search: ${query}`);
@@ -77,7 +78,7 @@ const assert = require("assert"), env = require("./env");
       await tab.ev(`document.querySelector(".vg-hq-proj").click()`);
       assert(await tab.ev(`document.querySelector(".vg-hq-drawer").textContent.includes("Parent: Parent.md")`));
       assert(await tab.ev(`document.querySelector(".vg-hq-drawer").textContent.includes("Source heading: Acceptance")`));
-      const point = await tab.ev(`(() => {const r=document.querySelector(".vg-hq-chips [data-go=needs]").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+      const point = await tab.ev(`(() => {const r=[...document.querySelectorAll(".vg-hq-chips [data-go=needs], .vg-hq-dock [data-go=needs]")].find(b => b.getBoundingClientRect().width).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
       await tab.send("Input.dispatchMouseEvent",{type:"mousePressed",...point,button:"left",clickCount:1});
       await tab.send("Input.dispatchMouseEvent",{type:"mouseReleased",...point,button:"left",clickCount:1});
       assert.equal(await tab.ev("window.vaultHQ.screen()"), "needs", "drawer must not block header navigation");

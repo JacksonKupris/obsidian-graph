@@ -119,7 +119,7 @@ assert(open(null, day), "the task is listed"); assert(!open("until:2026-11-09", 
     check(JSON.stringify(await hb()) === JSON.stringify({ undo: true, redo: false, title: "Undo: Archived Plan" }), "a decision turns Undo on and names it: " + JSON.stringify(await hb()));
     await click("[data-hundo]"); await sleep(120);
     check((await tab.ev(`window.__h.join("")`)) === "u" && (await hb()).redo && !(await hb()).undo, "Undo from the header reverses it and turns Redo on");
-    await size(390, true); const hbSize = await tab.ev(`Math.round(document.querySelector("[data-hredo]").getBoundingClientRect().height)`); check(hbSize >= 44, `Redo is ${hbSize}px tall on a phone`);
+    await size(390, true); await tab.ev(`(() => { const h = document.querySelector('.vg-hq'); if (!h.classList.contains('tray-open')) { const m = document.querySelector('[data-tray="menu"]'); if (m) m.click(); } })()`); await sleep(80); const hbSize = await tab.ev(`Math.round(document.querySelector("[data-hredo]").getBoundingClientRect().height)`); check(hbSize >= 44, `Redo is ${hbSize}px tall on a phone`);
     await size(1500); await click("[data-hredo]"); await sleep(120);
     check((await tab.ev(`window.__h.join("")`)) === "ur", "Redo from the header does it again");
     // Previous: off with nothing decided on an item, then it opens what the last decision was made on and changes nothing
@@ -131,7 +131,7 @@ assert(open(null, day), "the task is listed"); assert(!open("until:2026-11-09", 
     check(await tab.ev(`document.querySelector("[data-hprev]").title`) === "Previous: Done: A", "Previous names the decision it goes back to");
     await click("[data-hprev]"); await sleep(150);
     check(await tab.ev(`(() => { const s = document.querySelector(".vg-hq-item.is-sel"); return !!s && s.dataset.key === ${JSON.stringify(prevKey)}; })()`) && (await tab.ev(`window.__h.join("")`)) === "", "Previous selects the decided item and reverses nothing");
-    await size(390, true); check(await tab.ev(`document.querySelector(".vg-hq").scrollWidth <= document.querySelector(".vg-hq").clientWidth && document.querySelector("[data-hprev]").getBoundingClientRect().height >= 44`), "with Previous the header runs off a phone, or the button is under 44px"); await size(1500);
+    await size(390, true); await tab.ev(`(() => { const h = document.querySelector('.vg-hq'); if (!h.classList.contains('tray-open')) { const m = document.querySelector('[data-tray="menu"]'); if (m) m.click(); } })()`); await sleep(80); check(await tab.ev(`document.querySelector(".vg-hq").scrollWidth <= document.querySelector(".vg-hq").clientWidth && document.querySelector("[data-hprev]").getBoundingClientRect().height >= 44`), "with Previous the header runs off a phone, or the button is under 44px"); await size(1500);
     const errs = await tab.ev("window.__errs"); check(!errs.length, "page errors: " + errs.join("; "));
   } catch (e) { fails.push(e.message); } finally { await tab.close(); }
   if (fails.length) { console.log("FAIL - next step:\n  " + fails.join("\n  ")); process.exit(1); }
