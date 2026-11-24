@@ -139,8 +139,10 @@
       return { m, size, miss, pct };
     }).sort((a, b) => b.miss - a.miss);
     const unmapped = DATA.clusters.filter(c => !mocOf[c.id] && c.size >= 6);
+    const mapIds = new Set(mocs.map(m => m.id)), otherMaps = nodes.filter(n => n.moc && !mapIds.has(n.id));   // drawn as hexagons and counted by the pill, but cover no topic
     return card("Maps", "how much of each topic its map lists · click to light up what it misses",
       rows.map(({ m, size, miss, pct }) => `${VGParts.item({ cls: "vg-maprow", attrs: `data-moc="${esc(m.id)}"`, lead: `<span class="vg-hex" style="--c:${colorOf(m.clusters[0])}"></span>`, title: `<span><b>${esc(m.title)}</b></span>`, mid: `<span class="vg-bar"><i style="width:${Math.max(3, pct)}%;background:${colorOf(m.clusters[0])}"></i></span>`, sub: `${pct}% of ${size} listed · ${miss ? `${miss} missing` : "complete"}${m.clusters.length > 1 ? ` · ${m.clusters.length} topics` : ""}` })}`).join("") +
+      (otherMaps.length ? VGParts.section({ title: "Other maps", count: otherMaps.length, body: sideList(otherMaps.map(n => noteRow(n.id, "covers no topic")), "maps") }) : "") +
       (unmapped.length ? VGParts.section({ title: "No map yet", count: unmapped.length, body: sideList(unmapped.map(c => `${VGParts.item({ cls: "vg-unmapped", attrs: `data-c="${c.id}"`, lead: `<span class="vg-dot" style="background:${colorOf(c.id)}"></span>`, title: `<span>${esc(c.name)}</span>`, sub: `${plural(c.size, "note")}${opts.writeNote ? " · make one from its row under Topics" : ""}` })}`), "topics") }) : ""));
   }
   function showMocMissing(id) {
