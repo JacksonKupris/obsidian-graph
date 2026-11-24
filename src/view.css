@@ -358,6 +358,7 @@
 .vg-pass { margin: 2px 0 4px; display: grid; gap: 4px; }
 .vg-pass > div { display: flex; flex-direction: column; padding: 4px 8px; border-left: 2px solid var(--vg-sim); }
 .vg-compact-only { display: none; }
+.vg-root.vg-short-views .vg-dimseg { display: none; }
 
 /* lasso */
 .vg-lasso { position: absolute; z-index: 3; pointer-events: none; border: 1.5px dashed var(--vg-accent); border-radius: var(--ds-r-xs);
