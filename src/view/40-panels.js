@@ -159,7 +159,7 @@
     const stat = (value, label, tone, go, title) => ({ value, label, tone, title, data: { stat: go } });
     const html =
       `${VGParts.cards([stat(linked, "linked notes", "", "all", "Fit the whole graph"), stat(DATA.clusters.length, "topics", "", "topics", "List the topics"),
-        stat(DATA.gaps.length, "topic gaps", DATA.gaps.length ? "accent" : "", "gaps", "Topic pairs that barely link"), stat(iso, "unlinked notes", iso > linked * 0.25 ? "warn" : "", "unlinked", "Show the notes with no links")])}` +
+        stat(DATA.gaps.length, "topic gaps", DATA.gaps.length ? "accent" : "", "gaps", "Open the topic matrix: pairs of topics that barely link"), stat(iso, "unlinked notes", iso > linked * 0.25 ? "warn" : "", "unlinked", "Open a list of the notes with no links")])}` +
       renderChanges() + renderMaps() +
       card("Biggest gaps", (opts.writeNote ? "related topics that barely link · draft a bridge note" : "related topics that barely link") + " · " + VGShared.GAP_RANK,
         DATA.gaps.length ? sideList(DATA.gaps.slice(0, 30).map(gapRow), "gaps") : `<div class="vg-empty">No gaps found.</div>`) +
