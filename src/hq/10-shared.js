@@ -197,7 +197,7 @@
   const PAGE = 30, opened = new Set();   // long lists come a page at a time, whatever the vault's size
   const pageOf = (title, items) => opened.has(title) || items.length <= PAGE ? items : items.slice(0, PAGE);
   // total: when the list shows only part of what there is, the heading says so
-  const section = (title, items, more, total) => items.length ? `<section class="vg-hq-sec"><h3>${esc(title)}<span>${total > items.length ? `${items.length} of ${total}` : items.length}</span></h3>${taskRows(pageOf(title, items))}${pageOf(title, items).length < items.length ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-page="${esc(title)}">Show ${items.length - PAGE} more</button></div>` : ""}${more || ""}</section>` : "";
+  const section = (title, items, more, total) => items.length ? `<section class="vg-hq-sec"><h3>${esc(title)}<span>${total > items.length ? `showing ${items.length} of ${total}` : items.length}</span></h3>${taskRows(pageOf(title, items))}${pageOf(title, items).length < items.length ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-page="${esc(title)}">Show ${items.length - PAGE} more</button></div>` : ""}${more || ""}</section>` : "";
   // an empty screen says what's true and where to go next
   // one filter bar for every screen: a labelled group of pills, each with its count; attr is the data attribute the click handler reads
   const pillBar = (label, attr, current, choices) => `<div class="vg-hq-filters" role="group" aria-label="${esc(label)}">${choices.map(([k, text, n]) => `<button class="vg-hq-filter${current === k ? " is-on" : ""}" data-${attr}="${esc(k)}" aria-pressed="${current === k}">${esc(text)} <span>${n}</span></button>`).join("")}</div>`;
