@@ -17,7 +17,7 @@
   // the room kept under the strip (--vg-today-h, which the status pill and the framing read) is the strip's real height and its gap:
   // on a phone its buttons are tap size, and an opened line wraps, so a fixed number put the pill under it
   const TODAY_GAP = 8;
-  function todayRoom() { const bar = $(".vg-today"), app = $(".vg-app"); if (bar && app && !bar.hidden && bar.offsetHeight) app.style.setProperty("--vg-today-h", bar.offsetHeight + TODAY_GAP + "px"); }
+  function todayRoom() { const bar = $(".vg-today"), app = $(".vg-app"); if (!bar || !app) return; if (bar.hidden) app.style.removeProperty("--vg-today-h"); else if (bar.offsetHeight) app.style.setProperty("--vg-today-h", bar.offsetHeight + TODAY_GAP + "px"); }
   if ($(".vg-today") && typeof ResizeObserver === "function") new ResizeObserver(todayRoom).observe($(".vg-today"));
   // chart text is drawn in the chart's own units and scaled with the drawing, so each chart gets the unit size that comes out at 11 px on screen
   const CHART_PX = 11.5;
