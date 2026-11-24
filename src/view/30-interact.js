@@ -203,7 +203,7 @@
       if (n && opts.onHoverNote && !special(n)) opts.onHoverNote(n.id, e);
     }
     if (n) {
-      const sub = n.moc ? `Map of content · ${n.outlinks} notes${mocs.some(m => m.id === n.id) ? ` in ${esc(clusterName(n.cluster))}` : ""}` : n.ghost ? `Not written yet · linked from ${plural(n.from.length, "note")}` : n.person ? `Person · ${plural(n.outlinks, "linked note")}`
+      const sub = n.moc ? `Topic map · ${n.outlinks} notes${mocs.some(m => m.id === n.id) ? ` in ${esc(clusterName(n.cluster))}` : ""}` : n.ghost ? `Not written yet · linked from ${plural(n.from.length, "note")}` : n.person ? `Person · ${plural(n.outlinks, "linked note")}`
         : `${plural(nb[n.id].size, "link")} · ${esc(clusterName(n.cluster))}${n.recent ? ` · ${n.recent} recent` : ""}${n.tasks ? ` · ${plural(n.tasks, "open task")}` : ""}`;
       tip.innerHTML = `<div class="vg-tip-title"><span class="vg-dot" style="background:${fillOf(n)}"></span>${esc(n.name)}</div>` +
         `<div class="vg-muted">${esc(n.folder || "/")}</div><div class="vg-tip-meta">${sub}</div>`;
@@ -609,7 +609,7 @@
     $(".vg-legend").innerHTML = `<span class="vg-lg-item"><span class="vg-lg-size"><i></i><i></i></span>${sizeWord}</span>${colour}` +
       `<span class="vg-lg-item"><i class="vg-lg-line"></i>link</span>` +
       (neural() ? `<span class="vg-lg-item" title="Pulses fire along links of notes edited or mentioned lately; lobes glow by the same activity">✦ pulse · recent activity</span>` : "") +
-      (st.gaps ? `<span class="vg-lg-item"><i class="vg-lg-line is-gap"></i>co-mentioned</span><span class="vg-lg-item"><i class="vg-lg-line is-sim"></i>similar</span>` : "") +
+      (st.gaps ? `<span class="vg-lg-item"><i class="vg-lg-line is-gap"></i>mentioned together</span><span class="vg-lg-item"><i class="vg-lg-line is-sim"></i>similar wording</span>` : "") +
       (st.layers.mocs && mocs.length ? `<span class="vg-lg-item"><i class="vg-lg-hex"></i>map</span>` : "") +
       (st.layers.people ? `<span class="vg-lg-item"><i class="vg-lg-diamond"></i>person</span>` : "") +
       (st.layers.wanted ? `<span class="vg-lg-item"><i class="vg-lg-ghost"></i>not written</span>` : "") + attentionLegend();
