@@ -611,7 +611,7 @@
     if (!st.layers.attention || !attentionOf().size) return "";
     const seen = new Set(); for (const ks of attnWhy.values()) ks.forEach(k => seen.add(k));
     const looks = [...seen].map(k => VGActions.reasonLook(k));
-    return `<span class="vg-lg-item vg-lg-attn-set" title="A ring says why a note needs attention: ${looks.map(l => l.label).join(", ")}"><span class="vg-lg-dots">${looks.map(l => `<i class="vg-lg-attn" style="--ring:${l.color}"></i>`).join("")}</span>needs attention · number = notes</span>`;
+    return `<span class="vg-lg-item vg-lg-attn-set" title="A ring says why a note needs attention: ${looks.map(l => l.label).join(", ")}"><span class="vg-lg-dots">${looks.map(l => `<i class="vg-lg-attn" style="--ring:${l.color}"></i>`).join("")}</span>needs attention · number = notes<span class="vg-lg-attn-names">${looks.map(l => `<span class="vg-lg-attn-name" style="--ring:${l.color}">${l.label}</span>`).join("")}</span></span>`;
   };
   // A scene's own counts (alchemy's reactions, radar's tasks) go in the status pill like every other view's,
   // instead of text painted on the canvas where the banner or legend can cover it
