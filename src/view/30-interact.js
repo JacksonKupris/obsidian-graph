@@ -306,10 +306,14 @@
     const ids = [...st.multi], box = $(".vg-inspector"), groups = {};
     ids.forEach(id => (groups[byId[id].cluster] = groups[byId[id].cluster] || []).push(id));
     box.hidden = false; root.classList.add("has-inspector");
+    // the reasons behind any rings in the selection, counted by reason: a ring number opens notes, and this says why they were flagged
+    const tally = new Map(); if (st.layers.attention) ids.forEach(id => reasonsOf(id).forEach(k => tally.set(k, (tally.get(k) || 0) + 1)));
+    const why = tally.size ? `<p class="vg-ins-why">Needs attention: ${[...tally].sort((a, b) => b[1] - a[1]).map(([k, n]) => `<span class="vg-lg-attn-name" style="--ring:${VGActions.reasonLook(k).color}">${esc(VGActions.reasonLook(k).label)} · ${n}</span>`).join(" ")}</p>` : "";
     box.innerHTML = `<div class="vg-sheet-handle" aria-hidden="true"></div>
       <div class="vg-ins-head"><span class="vg-chip" style="--c:${css("--vg-accent")}">Selection</span>
         <button class="vg-ibtn vg-ins-close" aria-label="Close" title="Close (Esc)">${icon("close")}</button></div>
       <h2 class="vg-ins-title">${plural(ids.length, "note")} selected</h2>
+      ${why}
       <div class="vg-ins-actions vg-wrap">
         <button class="vg-btn" data-act="copy">${icon("copy", 14)} Copy links</button>
         ${opts.writeNote ? `<button class="vg-btn" data-act="map">${icon("file", 14)} Map note</button>` : ""}
