@@ -164,13 +164,13 @@
       card("Biggest gaps", (opts.writeNote ? "related topics that barely link · draft a bridge note" : "related topics that barely link") + " · " + VGShared.GAP_RANK,
         DATA.gaps.length ? sideList(DATA.gaps.slice(0, 30).map(gapRow), "gaps") : `<div class="vg-empty">No gaps found.</div>`) +
       card("Notes that hold topics together", "most routes between topics pass through them · keep them current",
-        sideList(ranked.slice(0, 30).map(id => noteRow(id, `#${rankOf[id]} most connecting · ${esc(clusterName(byId[id].cluster))}`)))) +
+        sideList(ranked.slice(0, 30).map(id => noteRow(id, `${rankText(id)} most connecting · ${esc(clusterName(byId[id].cluster))}`)))) +
       (saidUnlinked.length ? card(VGRules.LINK_WORDS.named, "mentioned in daily notes without a link",
         sideList(saidUnlinked.slice(0, 30).map(([id, n]) => noteRow(id, `${n} daily notes`)))) : "") +
       (ghosts.length ? card("Notes to write", "linked from your notes but never created",
         sideList(ghosts.slice(0, 30).map(g => noteRow(g.id, `linked from ${plural(g.from.length, "note")}`)))) : "") +
       (coolingHubs.length ? card("Well linked, not mentioned lately", "many notes link to them, but no daily note has mentioned them lately",
-        sideList(coolingHubs.slice(0, 30).map(n => noteRow(n.id, `#${rankOf[n.id]} most connecting · not in a daily note for ${DATA.recent_days} days`)))) : "") +
+        sideList(coolingHubs.slice(0, 30).map(n => noteRow(n.id, `${rankText(n.id)} most connecting · not in a daily note for ${DATA.recent_days} days`)))) : "") +
       `<p class="vg-muted vg-foot">${esc(sourceLine())}</p>`;
     const panel = $('[data-panel="insights"]');
     panel.innerHTML = html;
@@ -319,7 +319,7 @@
       <h2 class="vg-ins-title">${esc(n.name)}</h2>
       <div class="vg-muted vg-ins-path">${esc(n.folder || "/")}</div>
       <div class="vg-ins-actions vg-wrap vg-noteacts"></div>
-      ${VGParts.cards([stat(nb[id].size, "links", "Notes linked to this one, listed below by topic."), stat(rankOf[id] ? "#" + rankOf[id] : "—", "most connecting", "Its rank by how many routes between other notes run through it."),
+      ${VGParts.cards([stat(nb[id].size, "links", "Notes linked to this one, listed below by topic."), stat(rankText(id), "most connecting", "Its rank by how many routes between other notes run through it."),
         stat(n.mentions, wordFor(n.mentions, "daily mention"), "Daily notes that link or name it."), stat(n.recent, `last ${DATA.recent_days} days`, `Daily notes that link or name it in the last ${DATA.recent_days} days.`),
         stat(n.tasks, "open tasks", "Tasks not yet finished in this note."), stat(n.age + "d", n.edited ? `unchanged · since ${esc(VGShared.shortDate(n.edited))}` : "since edit", "Days since the note's text last changed.")], { small: true })}
       ${mapLine(id)}
@@ -480,7 +480,7 @@
         ${canAddToMap() && miss.length ? `<button class="vg-btn" data-act="addall">${icon("plus", 14)} Add top ${Math.min(10, miss.length)}</button>` : ""}</div>
       <div class="vg-ins-sec"><div class="vg-ins-h">Maps</div>${m.clusters.map(c => `<button class="vg-chip is-btn" data-c="${c}" style="--c:${colorOf(c)}">${esc(clusterById[c] ? clusterName(c) : "?")} · ${(clusterById[c] || { size: 0 }).size - (m.missing[c] || []).length}/${(clusterById[c] || { size: 0 }).size}</button>`).join(" ")}</div>
       <div class="vg-ins-sec"><div class="vg-ins-h">In the topic, not in the map <span class="vg-count">${miss.length}</span></div>
-      ${miss.slice(0, 40).map(i => `<div class="vg-sugg">${noteRow(i, `#${rankOf[i] || "—"} most connecting`)}${canAddToMap() ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-addmap="${esc(n.id)}" data-note="${esc(i)}">${icon("plus", 12)} Add</button></span>` : ""}</div>`).join("") || `<div class="vg-empty">Everything in this topic is listed.</div>`}</div>`;
+      ${miss.slice(0, 40).map(i => `<div class="vg-sugg">${noteRow(i, `${rankText(i)} most connecting`)}${canAddToMap() ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-addmap="${esc(n.id)}" data-note="${esc(i)}">${icon("plus", 12)} Add</button></span>` : ""}</div>`).join("") || `<div class="vg-empty">Everything in this topic is listed.</div>`}</div>`;
     box.querySelector(".vg-ins-close").onclick = () => select(null);
     noteActions(n, box.querySelector(".vg-noteacts"), ["open", "copy", "current", "archive"]);
     box.querySelector('[data-act="missing"]').onclick = () => showMocMissing(n.id);
