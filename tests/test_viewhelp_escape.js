@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// "How to read this" closes with Escape like every other layer (bewildered persona: Escape did not close it). The button's aria-expanded follows.
+// A real key press (not an event sent to the root) with focus wherever the click left it. "How to read this" closes with Escape like every other layer (bewildered persona: Escape did not close it). The button's aria-expanded follows.
 const assert = require("assert");
 const { sleep, openPage } = require("./kit");
 const env = require("./env");
@@ -14,7 +14,7 @@ const env = require("./env");
       const has = await tab.ev(`(() => { const b = document.querySelector(".vg-viewhelp"); if (!b || b.hidden) return false; b.click(); return !document.querySelector(".vg-viewcard").hidden; })()`);
       if (!has) continue;
       seen++;
-      await tab.ev(`document.querySelector(".vg-root").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`); await sleep(300);
+      await tab.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 }); await tab.send("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 }); await sleep(300);
       const r = await tab.ev(`JSON.stringify({ hidden: document.querySelector(".vg-viewcard").hidden, ex: document.querySelector(".vg-viewhelp").getAttribute("aria-expanded") })`);
       assert.deepStrictEqual(JSON.parse(r), { hidden: true, ex: "false" }, view + ": Escape closes the card and the button says so: " + r);
     }
