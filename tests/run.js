@@ -82,6 +82,7 @@ const steps = [
   ["test_layout_only_today.js", [path.join(__dirname, "test_layout_only_today.js"), ...env.args]],
   ["test_people_first_names.js", [path.join(__dirname, "test_people_first_names.js"), ...env.args]],
   ["test_palettes.js", [path.join(__dirname, "test_palettes.js"), ...env.args]],
+  ["test_hq_person_count_label.js", [path.join(__dirname, "test_hq_person_count_label.js"), ...env.args]],
   ["test_hq_title_once.js", [path.join(__dirname, "test_hq_title_once.js"), ...env.args]],
   ["test_hq_carried_later.js", [path.join(__dirname, "test_hq_carried_later.js"), ...env.args]],
   ["test_palette_editor.js", [path.join(__dirname, "test_palette_editor.js"), ...env.args]],

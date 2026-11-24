@@ -127,7 +127,7 @@
     // what the notes hold on someone: where they're linked, how often the journals name them, what they decided
     const about = p => (p.notes.length ? `<p class="vg-hq-status">${p.notes.length > PERSON_NOTES ? `Linked in ${plural(p.notes.length, "note")}, most used first` : "Linked in"}</p><div class="vg-hq-row">${p.notes.slice(0, PERSON_NOTES).map(noteBtn).join("")}</div>` : "") +
       (p.decisions.length ? `<div class="vg-hq-row">${p.decisions.map(d => `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost" data-open="${esc(d.path)}">Decided: ${esc(d.title)}</button>`).join("")}</div>` : "");
-    const count = p => p.items.length ? `<span>${p.items.length}</span>` : p.mentions ? `<span title="Times your journals name them">${p.mentions}</span>` : "";
+    const count = p => p.items.length ? `<span>${p.items.length} open</span>` : p.mentions ? `<span title="Times your journals name them">${plural(p.mentions, "mention")}</span>` : "";
     const card = p => `<section class="vg-hq-sec vg-hq-person"><h3>${name(p)}${count(p)}</h3>${p.items.length ? taskRows(p.items) : `<p class="vg-hq-status">Nothing open.</p>`}${about(p)}</section>`;
     const quiet = others.slice(0, PEOPLE_QUIET);
     return `<h1 class="vg-hq-h1">People</h1><p class="vg-hq-lede">${withWork.length ? `${plural(withWork.length, "person", "people")} in your open work.` : people.length ? `No open work names anyone. ${plural(people.length, "person", "people")} in your notes.` : "No open work names anyone yet."}</p>` +
