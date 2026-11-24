@@ -22,10 +22,29 @@ const VGSharedMake = () => {
   // Days are "YYYY-MM-DD" text. Noon, so a clock change or time zone can't move a date to the day next to it. noon is
   // local, for showing a date; utcNoon is the same instant on every device, for counting days.
   // colour palettes for Vault HQ: [key, name]. "obsidian" follows the vault's own theme (the select reads "Obsidian"); the others carry their colours in tokens.css.
-  const PALETTES = [["obsidian", "Obsidian"], ["midnight", "Midnight"], ["paper", "Paper"], ["forest", "Forest"], ["dusk", "Dusk"]];
+  const PALETTES = [["obsidian", "Obsidian"], ["midnight", "Midnight"], ["paper", "Paper"], ["forest", "Forest"], ["dusk", "Dusk"], ["custom", "Custom"]];
   // the one place a remembered choice becomes a theme on a root (HQ and the graph): a value from a newer build falls back to following Obsidian
-  const paletteOf = key => PALETTES.some(p => p[0] === key) ? key : "obsidian";
-  const applyPalette = (el, key) => { const p = paletteOf(key); if (p === "obsidian") delete el.dataset.vgPalette; else el.dataset.vgPalette = p; return p; };
+  // Custom: four colours the person picks (page, panel, text, accent) held in the one remembered value "custom:#page,#panel,#text,#accent";
+  // every other colour is derived from them here, so the editor, HQ, the graph and the whole-Obsidian setting all read one rule
+  const CUSTOM_DEFAULT = ["#100f0f", "#1c1b1a", "#cecdc3", "#da702c"];
+  const customOf = key => { const m = /^custom:(#[0-9a-f]{6}),(#[0-9a-f]{6}),(#[0-9a-f]{6}),(#[0-9a-f]{6})$/i.exec(String(key)); return m ? m.slice(1).map(s => s.toLowerCase()) : String(key) === "custom" ? CUSTOM_DEFAULT.slice() : null; };
+  const customKey = cols => "custom:" + cols.join(",");
+  const hexOf = rgb => "#" + rgb.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("");
+  const blend = (a, b, t) => { const x = rgbOf(a), y = rgbOf(b); return hexOf(x.map((v, i) => v + (y[i] - v) * t)); };
+  const customVars = ([bg, panel, text, accent]) => ({ "--background-primary": bg, "--background-secondary": panel, "--background-modifier-border": blend(panel, text, 0.2), "--background-modifier-hover": blend(panel, text, 0.1),
+    "--text-normal": text, "--text-muted": blend(text, bg, 0.25), "--text-faint": blend(text, bg, 0.45), "--interactive-accent": accent,
+    "--text-on-accent": contrast("#ffffff", accent) >= contrast("#000000", accent) ? "#ffffff" : "#000000", "--text-accent": inkOn(accent, bg) });
+  // the pairings that must be readable (WCAG AA, 4.5:1); the editor lists them and will not save a custom theme that fails one
+  const customChecks = cols => { const v = customVars(cols), pair = (what, a, b) => { const ratio = contrast(a, b); return { what, ratio, ok: ratio >= 4.5 }; };
+    return [pair("Text on the page", v["--text-normal"], cols[0]), pair("Text on a panel", v["--text-normal"], cols[1]), pair("Muted text on a panel", v["--text-muted"], cols[1]), pair("Button text on the accent", v["--text-on-accent"], v["--interactive-accent"])]; };
+  const paletteOf = key => { const c = customOf(key); return c ? customKey(c) : PALETTES.some(p => p[0] === key) ? key : "obsidian"; };
+  // a menu entry for a theme is on when it is the current one ("custom" stands for any custom colours); choosing "custom" while custom is on keeps the saved colours
+  const paletteIs = (current, k) => current === k || (k === "custom" && !!customOf(current));
+  const paletteChoice = (current, k) => k === "custom" && customOf(current) ? current : k;
+  const applyPalette = (el, key) => { const p = paletteOf(key), c = customOf(p);
+    for (const k of Object.keys(customVars(CUSTOM_DEFAULT))) el.style.removeProperty(k);
+    if (c) { el.dataset.vgPalette = "custom"; for (const [k, v] of Object.entries(customVars(c))) el.style.setProperty(k, v); } else if (p === "obsidian") delete el.dataset.vgPalette; else el.dataset.vgPalette = p;
+    return p; };
   const DAY_MS = 864e5;
   const noon = day => new Date(day + "T12:00:00");
   const utcNoon = day => Date.parse(day + "T12:00:00Z");
@@ -68,6 +87,6 @@ const VGSharedMake = () => {
     const to = lum(b) > 0.4 ? 0 : 255;   // toward black on a light page, white on a dark one
     for (let t = 0.05; t <= 1.0001; t += 0.05) { const out = "#" + c.map(v => hex2(v + (to - v) * t)).join(""); if (contrast(out, bg) >= min) return out; }
     return to ? "#ffffff" : "#000000"; };
-  return { PALETTES, paletteOf, applyPalette, inkOn, contrast, scopeOf, scopeHas, escapeHtml, escapeRegex, baseOf, nameOf, plural, gapWhy, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, shortDate, canUseWorker, inWorker, offThread };
+  return { PALETTES, CUSTOM_DEFAULT, customOf, customKey, customVars, customChecks, paletteIs, paletteChoice, paletteOf, applyPalette, inkOn, contrast, scopeOf, scopeHas, escapeHtml, escapeRegex, baseOf, nameOf, plural, gapWhy, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, shortDate, canUseWorker, inWorker, offThread };
 };
 const VGShared = VGSharedMake();

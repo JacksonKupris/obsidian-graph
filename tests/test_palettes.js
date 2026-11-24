@@ -13,7 +13,7 @@ const read = f => fs.readFileSync(path.join(build.ROOT, f), "utf8");
     check(list.length >= 5 && list[0][0] === "obsidian", `PALETTES should start with "obsidian" (follow the vault's theme) and offer at least four of its own: ${JSON.stringify(list)}`);
     const css = read("src/tokens.css") + read("src/hq.css");
     const need = ["--background-primary", "--background-secondary", "--background-modifier-border", "--text-normal", "--text-muted", "--text-faint", "--interactive-accent", "--text-on-accent", "--text-accent"];
-    for (const [key] of list.slice(1)) {
+    for (const [key] of list.slice(1).filter(p => p[0] !== "custom")) {   // custom is built from four colours in shared.js, checked in test_palette_editor
       const m = css.match(new RegExp(`\\.vg-hq\\[data-vg-palette="${key}"\\][^{]*\\{([^}]*)\\}`));
       if (!m) { check(false, `no CSS block for palette ${key}`); continue; }
       const v = {}; for (const [, k, val] of m[1].matchAll(/(--[a-z-]+):\s*(#[0-9a-fA-F]{6})/g)) v[k] = val;

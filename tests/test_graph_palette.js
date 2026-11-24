@@ -11,7 +11,7 @@ const read = f => fs.readFileSync(path.join(build.ROOT, f), "utf8");
   try {
     const S = new Function(`${read("src/shared.js")}; return VGShared;`)();
     const css = read("src/tokens.css");
-    for (const [key] of S.PALETTES.slice(1)) check(new RegExp(`\\.vg-root\\[data-vg-palette="${key}"\\]`).test(css), `the ${key} theme has no CSS for the graph root (.vg-root)`);
+    for (const [key] of S.PALETTES.slice(1).filter(p => p[0] !== "custom")) check(new RegExp(`\\.vg-root\\[data-vg-palette="${key}"\\]`).test(css), `the ${key} theme has no CSS for the graph root (.vg-root)`);
     const D = "window.vaultGraph._debug";
     tab = await openPage({ html: env.pageWith(`palette: "midnight", onPalette: p => { (window.__saved = window.__saved || []).push(p); },`, env.data()) });
     if (!await tab.waitFor(`window.vaultGraph && ${D} ? 1 : 0`, 30000)) throw new Error("the graph didn't mount");
