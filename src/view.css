@@ -268,7 +268,12 @@
   .vg-legend-key { display: inline-flex; }
   .vg-legend:empty + .vg-legend-key, .is-neural .vg-legend-key, .is-cosmos .vg-legend-key, .has-inspector .vg-legend-key, .has-lens .vg-legend-key, .is-playing .vg-legend-key { display: none; }
   .vg-root.legend-open .vg-legend { display: flex; bottom: calc(76px + var(--vg-bottom, 0px)); z-index: 3; }
+  /* the tooltip that lists the ring reasons never shows on touch, so the open Key spells them out beside their colours */
+  .vg-root.legend-open .vg-lg-attn-set { flex-wrap: wrap; }
+  .vg-root.legend-open .vg-lg-attn-names { display: flex; flex-wrap: wrap; gap: 4px 12px; flex-basis: 100%; }
 }
+.vg-lg-attn-names { display: none; }
+.vg-lg-attn-name { display: inline-flex; align-items: center; gap: 4px; }
 .is-compact .vg-legend-key { display: none !important; }
 
 @media (prefers-reduced-motion: reduce) {
