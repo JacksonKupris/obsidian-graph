@@ -639,7 +639,8 @@
     if (st.hiddenClusters.size) parts.push(`${plural(st.hiddenClusters.size, "topic")} hidden`);
     if (st.hidden.size) parts.push(`top ${st.hidden.size} hidden`);
     $(".vg-cv-name").textContent = `Graph of ${notesDrawn()} in ${plural(DATA.clusters.length, "topic")}.`;
-    $(".vg-status").innerHTML = `${settling ? '<span class="vg-spin" aria-hidden="true"></span>Laying out · ' : ""}${parts.map(esc).join(" · ")}`;
+    $(".vg-status").innerHTML = `${settling ? '<span class="vg-spin" aria-hidden="true"></span>Laying out · ' : ""}${parts.map(esc).join(" · ")}${st.highlight ? ' <button class="vg-btn vg-status-clear" data-clear aria-label="Clear the highlighted notes">Clear</button>' : ""}`;
+    const clr = $(".vg-status [data-clear]"); if (clr) clr.onclick = () => clearHighlight();
   }
   function renderHud() {
     if (!neural()) return;
