@@ -97,7 +97,7 @@ const VGActions = (() => {
     { key: "unmapped", ring: "#38bdf8", label: "not on its map", fix: "map", test: (n, c) => { const m = mapOf(c, n); return !!m && !VGRules.onMap(m, n.id); },
       text: (n, c) => `Not listed in ${mapOf(c, n).title}, its topic's map` },
     { key: "stale", ring: "#eab308", label: "stale", fix: "current", test: (n, c) => VGRules.isStale(n, ((c.data || {}).quality || {}).stale_days), text: n => `Unchanged for ${n.age} days` },
-    { key: "unlinked-mentions", ring: "#a78bfa", label: "named, not linked", fix: "mentions", test: (n, c) => ((c.data || {}).said_unlinked || []).some(([id]) => id === n.id),
+    { key: "unlinked-mentions", ring: "#a78bfa", label: "mentioned, not linked", fix: "mentions", test: (n, c) => ((c.data || {}).said_unlinked || []).some(([id]) => id === n.id),
       text: (n, c) => { const hit = ((c.data || {}).said_unlinked || []).find(([id]) => id === n.id); return VGRules.LINK_WORDS.namedIn(hit[1]); } },
     { key: "orphan", ring: "#e879f9", label: "nothing links here", fix: "link", test: n => n.inlinks === 0, text: () => "Nothing links here" },
     { key: "deadend", ring: "#fb923c", label: "links nowhere", fix: "link", test: n => n.outlinks === 0, text: () => "Links to no other note" },

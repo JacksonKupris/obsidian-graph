@@ -163,13 +163,13 @@
       renderChanges() + renderMaps() +
       card("Biggest gaps", (opts.writeNote ? "related topics that barely link · draft a bridge note" : "related topics that barely link") + " · " + VGShared.GAP_RANK,
         DATA.gaps.length ? sideList(DATA.gaps.slice(0, 30).map(gapRow), "gaps") : `<div class="vg-empty">No gaps found.</div>`) +
-      card("Bridge notes", "hold topics together — keep them current",
+      card("Notes that hold topics together", "most routes between topics pass through them · keep them current",
         sideList(ranked.slice(0, 30).map(id => noteRow(id, `#${rankOf[id]} most connecting · ${esc(clusterName(byId[id].cluster))}`)))) +
-      (saidUnlinked.length ? card(VGRules.LINK_WORDS.named, "named in dailies without a link",
+      (saidUnlinked.length ? card(VGRules.LINK_WORDS.named, "mentioned in daily notes without a link",
         sideList(saidUnlinked.slice(0, 30).map(([id, n]) => noteRow(id, `${n} daily notes`)))) : "") +
       (ghosts.length ? card("Notes to write", "linked from your notes but never created",
         sideList(ghosts.slice(0, 30).map(g => noteRow(g.id, `linked from ${plural(g.from.length, "note")}`)))) : "") +
-      (coolingHubs.length ? card("Cooling hubs", "well connected, not named in a daily note lately",
+      (coolingHubs.length ? card("Well linked, not mentioned lately", "many notes link to them, but no daily note has mentioned them lately",
         sideList(coolingHubs.slice(0, 30).map(n => noteRow(n.id, `#${rankOf[n.id]} most connecting · not in a daily note for ${DATA.recent_days} days`)))) : "") +
       `<p class="vg-muted vg-foot">Analysed ${esc(VGShared.longDate(DATA.date))} · ${plural(DATA.dailies_used || 0, "daily note")} read, from ${esc(DATA.since ? VGShared.longDate(DATA.since) : "the start")}</p>`;
     const panel = $('[data-panel="insights"]');

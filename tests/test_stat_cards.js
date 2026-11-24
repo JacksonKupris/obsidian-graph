@@ -22,9 +22,9 @@ const D = "window.vaultGraph._debug";
     check(/No note or topic names match/.test(miss), "a miss says so (the test can't fail without it): " + miss);
     check(await tab.ev(`document.querySelectorAll(".vg-palette-list .vg-empty-next button").length > 0`), "a search miss should offer a next step");
     // "Cooling hubs" says what it measures (daily-note mentions), never "quiet", which reads as not edited (persona round 2)
-    const cool = await tab.ev(`(() => { const c = [...document.querySelectorAll(".vg-card")].find(x => /Cooling hubs/.test(x.textContent)); return c ? c.textContent : ""; })()`);
-    check(!!cool, "the Cooling hubs card exists on the sample vault (the check can't fail without it)");
-    check(!/quiet/i.test(cool) && /daily note/.test(cool), "Cooling hubs should say daily notes, not quiet: " + cool.slice(0, 160));
+    const cool = await tab.ev(`(() => { const c = [...document.querySelectorAll(".vg-card")].find(x => /Well linked, not mentioned lately/.test(x.textContent)); return c ? c.textContent : ""; })()`);
+    check(!!cool, "the Well linked, not mentioned lately card exists on the sample vault (the check can't fail without it)");
+    check(!/quiet/i.test(cool) && /daily note/.test(cool), "the card should say daily notes, not quiet: " + cool.slice(0, 160));
   } catch (e) { fails.push("crashed: " + e.message); }
   await tab.close(); finish(fails, "stat cards open their detail");
 })();
