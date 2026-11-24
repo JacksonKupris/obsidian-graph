@@ -196,16 +196,17 @@
     const cs = DATA.clusters.filter(c => c.size >= 5).sort((a, b) => b.size - a.size), pair = {};
     (DATA.pairs || []).forEach(([a, b, l, m]) => { pair[a + "|" + b] = pair[b + "|" + a] = [l, m]; });
     const maxM = Math.max(1, ...(DATA.pairs || []).map(x => x[3])), maxL = Math.max(1, ...(DATA.pairs || []).map(x => x[2]));
+    const isGap = {}; (DATA.gaps || []).forEach(g => { if (g.comentions > 0) isGap[g.a + "|" + g.b] = isGap[g.b + "|" + g.a] = true; });   // red = a pair the analysis lists as a gap, so the tile, the card and the matrix name the same pairs
     const head = `<tr><th></th>${mxCols(cs)}</tr>`;
     const rows = cs.map(a => `<tr><th class="vg-mx-row"><button class="vg-mx-name" data-cl="${a.id}"><span class="vg-dot" style="background:${colorOf(a.id)}"></span>${cs.indexOf(a) + 1} ${esc(shortName(a.id))}</button></th>` +
       cs.map(b => {
         if (a.id === b.id) return `<td class="vg-mx-self" title="${a.size} notes">${a.size}</td>`;
         const [l, m] = pair[a.id + "|" + b.id] || [0, 0];
         const gap = m / maxM * (1 / (1 + l * 0.6));   // talked about together, barely linked
-        const style = gap > 0.08 ? cellBg("var(--vg-gap)", Math.min(0.85, 0.15 + gap * 1.6)) : l ? cellBg("var(--vg-ok)", Math.min(0.6, 0.1 + Math.log1p(l) / Math.log1p(maxL) * 0.5)) : "";
+        const style = isGap[a.id + "|" + b.id] ? cellBg("var(--vg-gap)", Math.min(0.85, 0.15 + gap * 1.6)) : l ? cellBg("var(--vg-ok)", Math.min(0.6, 0.1 + Math.log1p(l) / Math.log1p(maxL) * 0.5)) : "";
         return `<td><button class="vg-mx-cell" style="${style}" data-cell="${a.id},${b.id}" ${tipped(`${clusterName(a.id)} ↔ ${clusterName(b.id)}: ${plural(l, "link")}, ${m} co-mentions`)}>${l || m ? `${l}<small>/${m}</small>` : ""}</button></td>`;
       }).join("") + `</tr>`).join("");
-    const worst = (DATA.gaps || []).filter(g => clusterById[g.a] && clusterById[g.b] && g.comentions > 0).map(g => ({ a: g.a, b: g.b, l: g.links, m: g.comentions })).slice(0, 6);   // the analysis's own order, the same as the banner; a gap is talked about together, so no co-mentions, no gap
+    const worst = (DATA.gaps || []).filter(g => clusterById[g.a] && clusterById[g.b] && g.comentions > 0).map(g => ({ a: g.a, b: g.b, l: g.links, m: g.comentions }));   // the analysis's own order, the same as the banner; a gap is talked about together, so no co-mentions, no gap
     return `<div class="vg-mx-wrap"><table class="vg-mx">${head}${rows}</table></div><div class="vg-mx-detail"></div>
       ${DATA.engine ? `<p class="vg-muted vg-lens-note">Co-mentions need the analysis, which this vault doesn't have yet.</p>` : ""}<p class="vg-muted vg-lens-note">Cell = <b>links</b>/<small>co-mentions</small>. Green: well linked. Red: discussed together in your dailies but barely linked. Click a cell for what to do about it.</p>${VGParts.more({ label: "Column key", body: `<p>${mxKey(cs)}</p>` })}
       ${lensSec("Biggest gaps", worst.map(g => `<div class="vg-gaprow"><button class="vg-item" data-cl="${g.a},${g.b}"><span class="vg-dots"><span class="vg-dot" style="background:${colorOf(g.a)}"></span><span class="vg-dot" style="background:${colorOf(g.b)}"></span></span>
