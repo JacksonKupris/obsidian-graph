@@ -12,10 +12,11 @@ const { sleep, checks, openPage, tools } = require("./kit"), env = require("./en
     const r = await tab.ev(`(() => { const s = [...document.querySelectorAll(".vg-hq-sec")].find(x => /^Carried over/.test(x.querySelector("h3").textContent));
       if (!s) return null;
       const days = [...s.querySelectorAll(".vg-hq-item")].map(x => { const m = x.textContent.match(/(\\d+) days? ago/); return m ? Number(m[1]) : null; }).filter(x => x != null);
-      return { head: s.querySelector("h3").firstChild.textContent, btn: (s.querySelector("[data-go=sweep]") || {}).textContent || "", days }; })()`);
+      return { head: s.querySelector("h3").firstChild.textContent, btn: (s.querySelector("[data-go=sweep]") || {}).textContent || "", count: s.querySelector("h3 span").textContent, all: (s.querySelector("[data-carried]") || {}).textContent || "", days }; })()`);
     check(r, "the sample has a carried-over section");
     if (r) {
       check(/newest first/i.test(r.head), 'the heading says how the list is ordered ("' + r.head + '")');
+      check(/^showing \d+ of \d+$/.test(r.count) && /show all \d+/i.test(r.all), 'a partial list says it is partial and offers the rest ("' + r.count + '", "' + r.all + '")');
       check(/oldest first/i.test(r.btn), "the button names its own order");
       check(r.days.length > 1 && r.days.every((a, i) => i === 0 || a >= r.days[i - 1]), "the rows run newest first, as the heading says (days ago " + r.days.join(",") + ")");
     }
