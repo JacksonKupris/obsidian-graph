@@ -64,6 +64,12 @@ const VGSharedMake = () => {
     for (let n = 0; n < 10 && customChecks(cols).some(c => !c.ok); n++) cols[2] = blend(cols[2], dark ? "#ffffff" : "#000000", 0.3);   // text that falls short moves toward full contrast
     return cols;
   }
+  // the eight editable colours as the page shows them now (a preset theme's own), as hex; null where the page can't say
+  const VAR_OF = ["--background-primary", "--background-secondary", "--text-normal", "--interactive-accent", "--color-green", "--color-yellow", "--color-red", "--color-blue"];
+  function liveColours(el) {
+    const s = getComputedStyle(el), c = document.createElement("canvas").getContext("2d"); if (!c) return null;
+    const out = VAR_OF.map(v => { c.fillStyle = "#000000"; c.fillStyle = s.getPropertyValue(v).trim() || "#000000"; return c.fillStyle; });
+    return out.every(h => /^#[0-9a-f]{6}$/.test(h)) ? out : null; }
   const paletteOf = key => { const c = customOf(key); return c ? customKey(c) : PALETTES.some(p => p[0] === key) ? key : "obsidian"; };
   // a menu entry for a theme is on when it is the current one ("custom" stands for any custom colours); choosing "custom" while custom is on keeps the saved colours
   const paletteIs = (current, k) => current === k || (k === "custom" && !!customOf(current));
@@ -114,6 +120,6 @@ const VGSharedMake = () => {
     const to = lum(b) > 0.4 ? 0 : 255;   // toward black on a light page, white on a dark one
     for (let t = 0.05; t <= 1.0001; t += 0.05) { const out = "#" + c.map(v => hex2(v + (to - v) * t)).join(""); if (contrast(out, bg) >= min) return out; }
     return to ? "#ffffff" : "#000000"; };
-  return { suggestPalette, GAP_RANK, PALETTES, CUSTOM_NAMES, CUSTOM_DEFAULT, customOf, customKey, customVars, customChecks, paletteIs, paletteChoice, paletteOf, applyPalette, inkOn, contrast, scopeOf, scopeHas, escapeHtml, escapeRegex, baseOf, nameOf, plural, gapWhy, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, shortDate, canUseWorker, inWorker, offThread };
+  return { liveColours, suggestPalette, GAP_RANK, PALETTES, CUSTOM_NAMES, CUSTOM_DEFAULT, customOf, customKey, customVars, customChecks, paletteIs, paletteChoice, paletteOf, applyPalette, inkOn, contrast, scopeOf, scopeHas, escapeHtml, escapeRegex, baseOf, nameOf, plural, gapWhy, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, shortDate, canUseWorker, inWorker, offThread };
 };
 const VGShared = VGSharedMake();
