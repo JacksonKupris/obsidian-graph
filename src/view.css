@@ -1068,3 +1068,6 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-root :is(.vg-rv, .vg-st, .vg-sci-chart, .vg-rg) text { font-size: var(--chart-fs, var(--ds-fs-xs)); }
 /* narrow pane: the status line sits under the How to read this button instead of running beneath it */
 @container (max-width: 760px) { .vg-root:has(.vg-viewhelp:not([hidden])) .vg-status { top: calc(var(--vg-under-today) + var(--vg-tap) + 6px); } }
+/* neural: the header block sits under the Biggest gap strip, not behind it */
+.vg-root:has(.vg-today:not([hidden])) .vg-hud-title { top: calc(var(--vg-under-today) + 8px); }
+@container (min-width: 761px) { .vg-root.is-neural:has(.vg-today:not([hidden])) .vg-viewhelp:not([hidden]) { top: calc(var(--vg-under-today) + 96px); } .vg-root.is-neural:has(.vg-today:not([hidden])) .vg-viewcard:not([hidden]) { top: calc(var(--vg-under-today) + 130px); max-height: calc(100% - var(--vg-under-today) - 190px); } }
