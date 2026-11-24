@@ -162,6 +162,7 @@ const steps = [
   ["test_maps_count.js", [path.join(__dirname, "test_maps_count.js"), ...env.args]],
   ["test_plain_influence.js", [path.join(__dirname, "test_plain_influence.js"), ...env.args]],
   ["test_rank_ties.js", [path.join(__dirname, "test_rank_ties.js"), ...env.args]],
+  ["test_maps_card_all.js", [path.join(__dirname, "test_maps_card_all.js"), ...env.args]],
   ["test_topic_ink.js", [path.join(__dirname, "test_topic_ink.js"), ...env.args]],
   ["test_topic_not_red.js", [path.join(__dirname, "test_topic_not_red.js"), ...env.args]],
   ["test_related_notes.js", [path.join(__dirname, "test_related_notes.js"), ...env.args]],
