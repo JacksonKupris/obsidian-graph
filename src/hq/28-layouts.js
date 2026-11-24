@@ -16,13 +16,12 @@
   }
   // the colour editor: four pickers, each readable pairing listed live (the rule is VGShared.customChecks), a live preview on the page,
   // Save only while every pairing passes, Reset puts the defaults back in the pickers, Escape or Cancel puts the saved colours back
-  const COLOUR_NAMES = ["Page", "Panel", "Text", "Accent"];
   function openColourEditor() {
     if (el.querySelector(".vg-hq-colours")) return;
     const was = paletteNow(); let cols = VGShared.customOf(was) || VGShared.CUSTOM_DEFAULT.slice();
     const box = document.createElement("div"); box.className = "vg-hq-dialog vg-hq-colours"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Edit colours");
-    box.innerHTML = `<div class="vg-hq-dialog-card"><b>Edit colours</b><p>Pick four colours. Every other colour in the theme follows from them.</p>
-      <div class="vg-hq-colourgrid">${COLOUR_NAMES.map((n, i) => `<label>${n}<input type="color" data-colour="${i}" value="${cols[i]}"></label>`).join("")}</div>
+    box.innerHTML = `<div class="vg-hq-dialog-card"><b>Edit colours</b><p>Page, panel, text and accent set the look. Good, warning, error and link carry meaning. Every other colour follows from these.</p>
+      <div class="vg-hq-colourgrid">${VGShared.CUSTOM_NAMES.map((n, i) => `<label>${n}<input type="color" data-colour="${i}" value="${cols[i]}"></label>`).join("")}</div>
       <ul class="vg-hq-colourchecks" aria-live="polite"></ul>
       <div class="vg-hq-row-end"><button class="vg-hq-btn" data-colour-reset>Reset to default</button><button class="vg-hq-btn" data-colour-cancel>Cancel</button><button class="vg-hq-btn vg-hq-btn-primary" data-colour-save>Save</button></div></div>`;
     const list = box.querySelector(".vg-hq-colourchecks"), save = box.querySelector("[data-colour-save]");
