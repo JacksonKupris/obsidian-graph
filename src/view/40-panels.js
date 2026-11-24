@@ -171,7 +171,7 @@
         sideList(ghosts.slice(0, 30).map(g => noteRow(g.id, `linked from ${plural(g.from.length, "note")}`)))) : "") +
       (coolingHubs.length ? card("Cooling hubs", "well connected, not named in a daily note lately",
         sideList(coolingHubs.slice(0, 30).map(n => noteRow(n.id, `#${rankOf[n.id]} most connecting · not in a daily note for ${DATA.recent_days} days`)))) : "") +
-      `<p class="vg-muted vg-foot">Data from ${esc(DATA.date)} · ${DATA.dailies_used || "?"} daily notes since ${esc(DATA.since || "the start")}</p>`;
+      `<p class="vg-muted vg-foot">Data from ${esc(DATA.date)} · ${DATA.dailies_used || "?"} daily notes since ${esc(DATA.since ? VGShared.shortDate(DATA.since) : "the start")}</p>`;
     const panel = $('[data-panel="insights"]');
     panel.innerHTML = html;
     wire(panel); wireNext(panel);
@@ -321,7 +321,7 @@
       <div class="vg-ins-actions vg-wrap vg-noteacts"></div>
       ${VGParts.cards([stat(nb[id].size, "links", "Notes linked to this one, listed below by topic."), stat(rankOf[id] ? "#" + rankOf[id] : "—", "influence", "Its rank by how many routes between other notes run through it."),
         stat(n.mentions, wordFor(n.mentions, "daily mention"), "Daily notes that link or name it."), stat(n.recent, `last ${DATA.recent_days} days`, `Daily notes that link or name it in the last ${DATA.recent_days} days.`),
-        stat(n.tasks, "open tasks", "Tasks not yet finished in this note."), stat(n.age + "d", n.edited ? `unchanged · since ${n.edited.slice(2)}` : "since edit", "Days since the note's text last changed.")], { small: true })}
+        stat(n.tasks, "open tasks", "Tasks not yet finished in this note."), stat(n.age + "d", n.edited ? `unchanged · since ${esc(VGShared.shortDate(n.edited))}` : "since edit", "Days since the note's text last changed.")], { small: true })}
       ${mapLine(id)}
       <div class="vg-ins-sec vg-needs" hidden><div class="vg-ins-h">Needs attention <span class="vg-count"></span></div><div class="vg-needs-rows"></div></div>
       ${n.tasks && opts.readTasks ? `<div class="vg-ins-sec"><div class="vg-ins-h">Open tasks <span class="vg-count">${n.tasks}</span><button class="vg-btn vg-btn-sm vg-taskload">Show</button></div><div class="vg-tasksbox"></div></div>` : ""}

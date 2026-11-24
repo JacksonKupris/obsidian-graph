@@ -37,7 +37,7 @@
   // what's behind a card: rows the lens already knows how to draw, wired like the lens's own (VGParts.wire's onOpen)
   const rowsDetail = (title, rows, word = "more") => () => ({ title, body: rows().length ? VGParts.list(rows(), { first: 8, word }) : `<p>None.</p>` });
   const notesDetail = (title, ids, sub) => rowsDetail(title, () => ids().filter(id => byId[id]).map(id => noteLine(id, sub ? sub(id) : "")), "notes");
-  const taskRow = r => VGParts.row({ title: VGRules.plainTask(r.text), sub: `${r.event ? "done after" : "open"} ${dayWords(r.t)} · since ${r.born}`, open: r.path && opts.openNote ? r.path : null });
+  const taskRow = r => VGParts.row({ title: VGRules.plainTask(r.text), sub: `${r.event ? "done after" : "open"} ${dayWords(r.t)} · since ${VGShared.shortDate(r.born)}`, open: r.path && opts.openNote ? r.path : null });
   const taskList = (list, word = "tasks") => list.length ? VGParts.list(list.map(taskRow), { first: 8, word }) : `<p>None.</p>`;
   // one chart for all three: x and y in data units, series as lines (a stair for survival) with an optional band and tick marks
   function sciChart(o) {
