@@ -135,6 +135,7 @@ const steps = [
   ["test_insights_empty.js", [path.join(__dirname, "test_insights_empty.js")]],
   ["test_tap_floor.js", [path.join(__dirname, "test_tap_floor.js")]],
   ["test_view_legends.js", [path.join(__dirname, "test_view_legends.js")]],
+  ["test_today_strip_whole.js", [path.join(__dirname, "test_today_strip_whole.js"), ...env.args]],
   ["test_viewhelp_reachable.js", [path.join(__dirname, "test_viewhelp_reachable.js"), ...env.args]],
   ["test_ring_legend_number.js", [path.join(__dirname, "test_ring_legend_number.js"), ...env.args]],
   ["test_today_strip_expand.js", [path.join(__dirname, "test_today_strip_expand.js"), ...env.args]],
