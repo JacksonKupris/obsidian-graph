@@ -253,6 +253,7 @@ void main() { vec3 N = normalize(v_n); N = normalize(vec3(N.xy, -abs(N.z))); /* 
   };
   function syncViewHelp() { const b = $(".vg-viewhelp"), c = $(".vg-viewcard"), help = !opts.compact && !isGame() && VIEW_HELP[st.view]; b.hidden = !help; if (c.dataset.view !== st.view) { c.hidden = true; b.setAttribute("aria-expanded", "false"); c.dataset.view = st.view; c.innerHTML = help ? `<dl>${help.map(([t, d]) => `<dt>${esc(t)}</dt><dd>${esc(d)}</dd>`).join("")}</dl>` : ""; } }
   // one place opens and closes the card, so the button and Escape (goBack) agree on aria-expanded
-  function setViewCard(on) { $(".vg-viewcard").hidden = !on; $(".vg-viewhelp").setAttribute("aria-expanded", String(on)); }
+  // The button takes focus when it opens the card: a tap or a script click can leave focus on the page body, where Escape never reaches the graph's key handler.
+  function setViewCard(on) { $(".vg-viewcard").hidden = !on; $(".vg-viewhelp").setAttribute("aria-expanded", String(on)); if (on) $(".vg-viewhelp").focus({ preventScroll: true }); }
   $(".vg-viewhelp").onclick = e => { e.stopPropagation(); setViewCard($(".vg-viewcard").hidden); };
   const neuroRate = () => { if (!neuro || !neuro.net.time()) return 0; return neuro.net.total() / Math.max(1, neuro.list.length) / (neuro.net.time() / 1000); };
