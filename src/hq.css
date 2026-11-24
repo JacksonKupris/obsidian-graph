@@ -571,4 +571,8 @@ div.vg-hq-densehead { color: var(--hq-muted); border-top: 0; }
   .vg-hq .vg-hq-main > .vg-hq-strip { margin: 8px 0 0; }
   .vg-hq .vg-hq-main > .vg-hq-nextchip { display: flex; width: 100%; max-width: none; margin-top: 8px; box-sizing: border-box; }
   .vg-hq .vg-hq-strip .vg-hq-chips { display: none; }   /* the bottom bar carries these counts */
+  .vg-hq .vg-hq-top.is-phone { z-index: 12; }   /* above the week strip, so the open tray is not drawn under it */
+  .vg-hq .vg-hq-main { padding-bottom: 112px; }   /* the floating bottom bar never covers the last rows */
+  .vg-hq .vg-hq-main .vg-hq-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; }   /* one swipeable row of pills */
+  .vg-hq .vg-hq-main .vg-hq-filters .vg-hq-filter { flex: none; white-space: nowrap; }
 }
