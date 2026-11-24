@@ -90,6 +90,7 @@ const steps = [
   ["test_hq_title_once.js", [path.join(__dirname, "test_hq_title_once.js"), ...env.args]],
   ["test_hq_carried_later.js", [path.join(__dirname, "test_hq_carried_later.js"), ...env.args]],
   ["test_palette_editor.js", [path.join(__dirname, "test_palette_editor.js"), ...env.args]],
+  ["test_palette_suggest.js", [path.join(__dirname, "test_palette_suggest.js"), ...env.args]],
   ["test_graph_palette.js", [path.join(__dirname, "test_graph_palette.js"), ...env.args]],
   ["test_theme_all_obsidian.js", [path.join(__dirname, "test_theme_all_obsidian.js"), ...env.args]],
   ["test_automations_words.js", [path.join(__dirname, "test_automations_words.js"), ...env.args]],
