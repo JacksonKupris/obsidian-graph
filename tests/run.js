@@ -150,6 +150,7 @@ const steps = [
   ["test_ring_colour_key.js", [path.join(__dirname, "test_ring_colour_key.js"), ...env.args]],
   ["test_ring_colour_key_desktop.js", [path.join(__dirname, "test_ring_colour_key_desktop.js"), ...env.args]],
   ["test_ring_number_wording.js", [path.join(__dirname, "test_ring_number_wording.js"), ...env.args]],
+  ["test_hidden_notes_named.js", [path.join(__dirname, "test_hidden_notes_named.js"), ...env.args]],
   ["test_ring_reasons_cue.js", [path.join(__dirname, "test_ring_reasons_cue.js"), ...env.args]],
   ["test_note_card_dates.js", [path.join(__dirname, "test_note_card_dates.js"), ...env.args]],
   ["test_today_strip_whole.js", [path.join(__dirname, "test_today_strip_whole.js"), ...env.args]],
