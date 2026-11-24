@@ -239,6 +239,9 @@ const steps = [
   ["test_select.js", [path.join(__dirname, "test_select.js")]],
   ["smoke_page.js", [path.join(__dirname, "smoke_page.js"), ...env.args]]
 ];
+// every other tests/test_*.js is a step too, in file order, so a new test needs no line here (test_every_test_runs.js guards it)
+{ const have = new Set(steps.map(s => s[0]));
+  for (const f of fs.readdirSync(__dirname).filter(f => /^test_.*\.js$/.test(f)).sort()) if (!have.has(f)) steps.push([f, [path.join(__dirname, f), ...env.args]]); }
 const stop = msg => { console.error("FAIL  " + msg); process.exit(1); };
 // --only and --changed narrow the steps; picked stays null when every step runs
 let picked = null, pickedBy = "";
