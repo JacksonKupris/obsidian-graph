@@ -185,7 +185,7 @@
   // Re-render the open lens in place (after an action, or fresh vault data) without jumping back to the top
   function refreshLens() { if (!lensKey || !LENSES[lensKey]) return; const b = $(".vg-lens-body"), y = b.scrollTop, keep = { ...VGParts.opened(b), y }; openLens(lensKey, keep); b.scrollTop = y; }
   function closeLens() { lensKey = null; $(".vg-lens").hidden = true; root.classList.remove("has-lens"); root.focus({ preventScroll: true }); syncSelects(); }
-  const shortName = c => clusterById[c] ? clusterById[c].name.split(" · ").slice(0, 2).join(" · ") : "—";
+  const shortName = c => clusterById[c] ? clusterName(c).split(" · ").slice(0, 2).join(" · ") : "—";
   const cellBg = (col, a) => `background:color-mix(in srgb, ${col} ${Math.round(a * 100)}%, transparent)`;
 
   // matrix columns and their key: numbered by position, matching the numbers in front of the row names (were "C" + the topic id, which meant nothing to read)
