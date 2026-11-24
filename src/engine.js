@@ -1004,9 +1004,9 @@ what when where which while who how why each other same see set use used using w
       let weak = ""; if (!m) { const w = mocs.filter(x => !x.nav && (x.per[c] || 0) >= min_claim).reduce((b, x) => (!b || x.per[c] > b.per[c] ? x : b), null); if (w) weak = ` (closest: ${noteLink(w.path)}, ${w.per[c]}/${sizes.get(c)})`; }
       L.push(`| C${c} ${info.get(c).name} | ${sizes.get(c)} | ${m ? noteLink(m.path) : `**none**${weak}`} | ${cov} |`); }
     const nav = mocs.filter(m => m.nav); if (nav.length) L.push("", "Navigation hubs (span many topics — fine as indexes, not as topic maps): " + nav.map(m => noteLink(m.path)).join(", "));
-    L.push("", "## Catch-all notes posing as bridges", "", "_Task dumps link everywhere, so they win \"influence\" and fill the Neural core. Treat them as hubs._", "");
+    L.push("", "## Catch-all notes posing as bridges", "", "_Task dumps link everywhere, so they win \"most connecting\" and fill the Neural core. Treat them as hubs._", "");
     const ranked = stable(Object.keys(bc), byBc); let flagged = 0;
-    for (const r of ranked.slice(0, 10)) { const w = wordsOf(r); if (w > MIN_MAP_WORDS && (dated(r) || !r.includes("/"))) { flagged++; L.push(`- ${noteLink(r)} — influence ${bc[r].toFixed(3)} (next best ${bc[ranked[r === ranked[0] ? 1 : 0]].toFixed(3)}), ${w} words`, "  " + actRow(`treat ${noteLink(r)} as a hub (add tag \`meta/hub\`)`, { op: "tag", path: r, tag: "meta/hub" }));
+    for (const r of ranked.slice(0, 10)) { const w = wordsOf(r); if (w > MIN_MAP_WORDS && (dated(r) || !r.includes("/"))) { flagged++; L.push(`- ${noteLink(r)} — most connecting ${bc[r].toFixed(3)} (next best ${bc[ranked[r === ranked[0] ? 1 : 0]].toFixed(3)}), ${w} words`, "  " + actRow(`treat ${noteLink(r)} as a hub (add tag \`meta/hub\`)`, { op: "tag", path: r, tag: "meta/hub" }));
         if (!r.includes("/")) L.push("  " + actRow(`move ${noteLink(r)} into \`${moveTarget}/\` (it's a root stray)`, { op: "move", path: r, to: moveTarget })); } }
     for (const r of sorted(knowledge.filter(x => (tags[x] || []).includes("meta/moc")))) { flagged++; L.push(`- ${noteLink(r)} is tagged as a MOC but counted as a topic note — fixed automatically once the analysis treats \`meta/moc\` as a hub (no edit needed)`); }
     if (!flagged) L.push("- none");
