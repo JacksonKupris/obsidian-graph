@@ -593,7 +593,7 @@
       inkLegend();
       return;
     }
-    const sizeWord = { bc: "routes through it", recent: "daily mentions" }[st.sizeBy];
+    const sizeWord = { bc: "size = influence", recent: "daily mentions" }[st.sizeBy];
     const colour = neural() && st.vision === "thermal" ? `<span class="vg-lg-item"><span class="vg-lg-grad is-thermal"></span>activity · ${DATA.recent_days}d</span>`
       : st.colorBy === "cluster" ? `<span class="vg-lg-item"><span class="vg-lg-dots">${(neural() ? NEON : PALETTE).slice(0, 5).map(c => `<i style="background:${c}"></i>`).join("")}</span>topic</span>`
       : `<span class="vg-lg-item"><span class="vg-lg-grad"></span>mentions · 30d</span>`;
