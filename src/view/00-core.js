@@ -227,6 +227,8 @@ function mountVaultGraph(root, DATA, opts) {
 
   // ---------------------------------------------------------------- DOM
   const ageDays = Math.round((Date.now() - VGShared.noon(DATA.date).getTime()) / VGShared.DAY_MS);
+  // where the numbers come from, said once: the toolbar badge (tooltip) and the side panel footer both use it
+  const sourceLine = () => `Analysed ${VGShared.longDate(DATA.date)} · ${VGShared.plural(DATA.dailies_used || 0, "daily note")} read, from ${DATA.since ? VGShared.longDate(DATA.since) : "the start"}`;
   const ageText = ageDays <= 0 ? "Analysed today" : ageDays === 1 ? "Analysed yesterday" : `Analysed ${ageDays} days ago`;
   const switchRow = (cls, title, hint, on) => `<label class="vg-switch"><input type="checkbox" class="${cls}" ${on ? "checked" : ""}><span class="vg-track" aria-hidden="true"></span>
     <span><b>${title}</b><span class="vg-muted">${hint}</span></span></label>`;
@@ -242,7 +244,7 @@ function mountVaultGraph(root, DATA, opts) {
       <header class="vg-head">
         <div class="vg-title">Vault Graph</div>
         <div class="vg-sub-head">
-          <span class="vg-badge ${ageDays > 8 ? "is-warn" : ""}" title="${esc(DATA.date)}">${esc(ageText)}</span>
+          <span class="vg-badge ${ageDays > 8 ? "is-warn" : ""}" title="${esc(sourceLine())}">${esc(ageText)}</span>
           ${DATA.live ? `<span class="vg-badge is-live" title="Since the ${esc(DATA.date)} analysis: +${DATA.live.gained} / −${DATA.live.lost} links, ${plural(DATA.live.added, "new note")}, ${DATA.live.removed} removed.">${plural(DATA.live.gained + DATA.live.lost + DATA.live.added, "change")} since</span>` : ""}
         </div>
       </header>

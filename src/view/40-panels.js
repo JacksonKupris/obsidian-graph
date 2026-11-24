@@ -171,7 +171,7 @@
         sideList(ghosts.slice(0, 30).map(g => noteRow(g.id, `linked from ${plural(g.from.length, "note")}`)))) : "") +
       (coolingHubs.length ? card("Well linked, not mentioned lately", "many notes link to them, but no daily note has mentioned them lately",
         sideList(coolingHubs.slice(0, 30).map(n => noteRow(n.id, `#${rankOf[n.id]} most connecting · not in a daily note for ${DATA.recent_days} days`)))) : "") +
-      `<p class="vg-muted vg-foot">Analysed ${esc(VGShared.longDate(DATA.date))} · ${plural(DATA.dailies_used || 0, "daily note")} read, from ${esc(DATA.since ? VGShared.longDate(DATA.since) : "the start")}</p>`;
+      `<p class="vg-muted vg-foot">${esc(sourceLine())}</p>`;
     const panel = $('[data-panel="insights"]');
     panel.innerHTML = html;
     wire(panel); wireNext(panel);
