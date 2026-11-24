@@ -10,7 +10,11 @@ const { fails, ok: check } = checks();
   try {
     const S = new Function(`${fs.readFileSync(path.join(build.ROOT, "src/shared.js"), "utf8")}; return VGShared;`)();
     check(S.PALETTES.some(p => p[0] === "custom"), "PALETTES offers Custom");
-    const key = S.customKey(["#101010", "#202020", "#eeeeee", "#ff8800"]);
+    const key = S.customKey(["#101010", "#202020", "#eeeeee", "#ff8800"].concat(S.CUSTOM_DEFAULT.slice(4)));
+    check(S.CUSTOM_DEFAULT.length === 8, "a custom theme has eight colours: page, panel, text, accent, good, warning, error, link");
+    check(S.customOf("custom:#101010,#202020,#eeeeee,#ff8800").length === 8 && S.customOf("custom:#101010,#202020,#eeeeee,#ff8800")[0] === "#101010", "an older four-colour value still works, with the default status colours");
+    check(S.customVars(S.customOf(key))["--color-red"] === S.CUSTOM_DEFAULT[6] && S.customVars(S.customOf(key))["--text-error"] === S.CUSTOM_DEFAULT[6], "error colour drives red and error text");
+    check(S.customChecks(["#101010", "#202020", "#eeeeee", "#ff8800", "#111111", "#222222", "#333333", "#444444"]).filter(c => !c.ok).length >= 4, "dark status colours on a dark page fail their checks");
     check(S.paletteOf(key) === key, "a custom value is kept as it is: " + S.paletteOf(key));
     check(S.paletteOf("custom:#zzzzzz,#1,#2,#3") === "obsidian", "a malformed custom value falls back to following Obsidian");
     check(S.customChecks(S.CUSTOM_DEFAULT).every(c => c.ok), "the default custom colours pass every check");
@@ -27,9 +31,9 @@ const { fails, ok: check } = checks();
     const box = await tab.ev(`(() => { const b = document.querySelector(".vg-hq-colours"); if (!b) return null; const r = b.getBoundingClientRect(); return { inputs: b.querySelectorAll("input[type=color]").length, fits: r.left >= 0 && r.right <= innerWidth, rows: b.querySelectorAll(".vg-hq-colourchecks li").length, save: !b.querySelector("[data-colour-save]").disabled }; })()`);
     check(box, "the editor opens");
     if (box) {
-      check(box.inputs === 4, "four colour inputs: page, panel, text, accent (" + box.inputs + ")");
+      check(box.inputs === 8, "eight colour inputs (" + box.inputs + ")");
       check(box.fits, "the editor fits inside 390px");
-      check(box.rows >= 4 && box.save, "it lists the readable pairings and Save is on for passing colours");
+      check(box.rows >= 8 && box.save, "it lists the readable pairings and Save is on for passing colours");
     }
     const setColour = (i, v) => tab.ev(`(() => { const x = document.querySelector('[data-colour="${i}"]'); x.value = ${JSON.stringify(v)}; x.dispatchEvent(new Event("input", { bubbles: true })); })()`).then(() => sleep(100));
     await setColour(2, "#111111");
@@ -43,7 +47,7 @@ const { fails, ok: check } = checks();
     check(await tab.ev(`getComputedStyle(document.querySelector(".vg-hq")).getPropertyValue("--background-primary").trim()`) === "#102030", "the colours preview live");
     await tab.ev(`document.querySelector("[data-colour-save]").click()`); await sleep(150);
     const saved = await tab.ev(`window.__saved`);
-    check(saved.length === 1 && saved[0] === "custom:#102030,#1a2c3e,#f0f4f8,#ffb454", "Save sends one custom value through onPalette: " + JSON.stringify(saved));
+    check(saved.length === 1 && saved[0] === "custom:#102030,#1a2c3e,#f0f4f8,#ffb454," + S.CUSTOM_DEFAULT.slice(4).join(","), "Save sends one custom value through onPalette: " + JSON.stringify(saved));
     check(!await tab.ev(`!!document.querySelector(".vg-hq-colours")`), "the editor closes after saving");
     await tab.ev(`document.querySelector("[data-editcolors]").click()`); await sleep(150);
     await setColour(0, "#ffffff");
