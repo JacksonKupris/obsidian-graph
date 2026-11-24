@@ -346,6 +346,7 @@
     if ($(".vg-lens").hidden && SCENES[st.view] && SCENES[st.view].escape && SCENES[st.view].escape()) return 1;
     if (tour) endTour();
     else if (root.classList.contains("legend-open")) setLegendOpen(false);
+    else if (!$(".vg-viewcard").hidden) setViewCard(false);
     else if (!$(".vg-palette").hidden) { closePalette(); }
     else if (!$(".vg-picker").hidden) { closeMenu(); $(".vg-displaysel").focus(); }
     else if (!$(".vg-lens").hidden) closeLens();

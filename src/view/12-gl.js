@@ -252,5 +252,7 @@ void main() { vec3 N = normalize(v_n); N = normalize(vec3(N.xy, -abs(N.z))); /* 
     "3d": [["Moving", "Drag to orbit; the wheel flies in and out, so near notes pass you and far ones barely move."], ["Size", "Influence: how many routes between other notes run through it."], ["Floor", "Shadows sit under the notes and show how high each one is. The height itself comes from the layout: linked notes pull together, and it has no meaning of its own."]],
   };
   function syncViewHelp() { const b = $(".vg-viewhelp"), c = $(".vg-viewcard"), help = !opts.compact && !isGame() && VIEW_HELP[st.view]; b.hidden = !help; if (c.dataset.view !== st.view) { c.hidden = true; b.setAttribute("aria-expanded", "false"); c.dataset.view = st.view; c.innerHTML = help ? `<dl>${help.map(([t, d]) => `<dt>${esc(t)}</dt><dd>${esc(d)}</dd>`).join("")}</dl>` : ""; } }
-  { const b = $(".vg-viewhelp"), c = $(".vg-viewcard"); b.onclick = e => { e.stopPropagation(); c.hidden = !c.hidden; b.setAttribute("aria-expanded", String(!c.hidden)); }; }
+  // one place opens and closes the card, so the button and Escape (goBack) agree on aria-expanded
+  function setViewCard(on) { $(".vg-viewcard").hidden = !on; $(".vg-viewhelp").setAttribute("aria-expanded", String(on)); }
+  $(".vg-viewhelp").onclick = e => { e.stopPropagation(); setViewCard($(".vg-viewcard").hidden); };
   const neuroRate = () => { if (!neuro || !neuro.net.time()) return 0; return neuro.net.total() / Math.max(1, neuro.list.length) / (neuro.net.time() / 1000); };
