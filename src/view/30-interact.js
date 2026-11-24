@@ -657,7 +657,7 @@
     const p = n && P.get(n.id);
     $(".vg-hud-tele").innerHTML = n ? `<b>TARGET ▸ ${esc(n.name.toUpperCase())}</b>` +
       `<span>LOBE ${esc(clusterName(n.cluster).toUpperCase())}</span>` +
-      `<span>RANK #${rankOf[n.id] || "—"} · LINKS ${nb[n.id].size} · MENTIONS ${n.mentions}</span>` +
+      `<span>RANK ${rankText(n.id).toUpperCase()} · LINKS ${nb[n.id].size} · MENTIONS ${n.mentions}</span>` +
       `<span>ACTIVITY ${"█".repeat(Math.min(10, Math.round(10 * (n.recent || 0) / maxRecent)))}${"░".repeat(10 - Math.min(10, Math.round(10 * (n.recent || 0) / maxRecent)))}</span>` +
       (p ? `<span>XYZ ${Math.round(n.x)} ${Math.round(n.y)} ${Math.round(n.z)}</span>` : "")
       : MOBILE ? `<span>NO TARGET · TAP A NODE</span><span>DRAG TO ORBIT · PINCH TO ZOOM</span>` : `<span>NO TARGET · CLICK A NODE</span><span>DRAG TO ORBIT · SCROLL TO ZOOM</span>`;

@@ -171,6 +171,9 @@ function mountVaultGraph(root, DATA, opts) {
   const ranked = nodes.filter(n => !n.isolated && !special(n)).sort(byInfluence).map(n => n.id);
   // equal influence shares a rank (#1, #1, #3): the list never puts one above another on equal evidence
   const rankOf = {}; ranked.forEach((id, i) => { rankOf[id] = i && (byId[ranked[i - 1]].bc || 0) === (byId[id].bc || 0) ? rankOf[ranked[i - 1]] : i + 1; });
+  const rankShared = {}; ranked.forEach(id => rankShared[rankOf[id]] = (rankShared[rankOf[id]] || 0) + 1);
+  // the one way a rank is written: "#33", or "tied #33" when other notes share it (every list, tile and inspector uses this)
+  const rankText = id => rankOf[id] ? (rankShared[rankOf[id]] > 1 ? "tied " : "") + "#" + rankOf[id] : "—";
   const Q = DATA.quality || { stub_words: 80, stale_days: 180 };
   // Records are never "stale": shared rule, same as the plugin's sidebar and the weekly note
   const { isRecord } = VGRules, staleFor = VGRules.isStale, FOLDERS = VGRules.folders;   // this vault's folder names
