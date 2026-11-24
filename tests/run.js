@@ -93,6 +93,7 @@ const steps = [
   ["test_palette_suggest.js", [path.join(__dirname, "test_palette_suggest.js"), ...env.args]],
   ["test_upkeep_open.js", [path.join(__dirname, "test_upkeep_open.js"), ...env.args]],
   ["test_edit_colours_any_theme.js", [path.join(__dirname, "test_edit_colours_any_theme.js"), ...env.args]],
+  ["test_insights_footer.js", [path.join(__dirname, "test_insights_footer.js"), ...env.args]],
   ["test_graph_palette.js", [path.join(__dirname, "test_graph_palette.js"), ...env.args]],
   ["test_theme_all_obsidian.js", [path.join(__dirname, "test_theme_all_obsidian.js"), ...env.args]],
   ["test_automations_words.js", [path.join(__dirname, "test_automations_words.js"), ...env.args]],
