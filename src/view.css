@@ -278,6 +278,8 @@
   .vg-root.legend-open .vg-lg-attn-names { position: static; width: auto; max-width: none; padding: 0; border: 0; background: none; flex-basis: 100%; }
 }
 .vg-lg-attn-name { display: inline-flex; align-items: center; gap: 4px; }
+.vg-ins-why { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 4px 0 8px; font-size: var(--vg-fs-xs); }
+.vg-ins-why .vg-lg-attn-name::before { content: ""; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--ring); box-sizing: border-box; }
 .is-compact .vg-legend-key { display: none !important; }
 
 @media (prefers-reduced-motion: reduce) {
