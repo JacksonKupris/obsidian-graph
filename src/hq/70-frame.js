@@ -24,7 +24,9 @@
     const focusedFilter = document.activeElement && document.activeElement.dataset.projectFilter;
     const onRow = document.activeElement && document.activeElement.matches && document.activeElement.matches(".vg-hq-item[data-key]") ? document.activeElement.dataset.key : null;
     // Home has no Next pill: its Do next tile is the next step
-    const phone = isPhone(); el.classList.toggle("is-phone", phone); const trayOpen = phone && el.classList.contains("tray-open");
+    const phone = isPhone(); el.classList.toggle("is-phone", phone);
+    if (cur !== trayScreen) { trayScreen = cur; el.classList.remove("tray-open"); }   // moving to another screen closes the tray
+    const trayOpen = phone && el.classList.contains("tray-open");
     const toolsHtml = `<div class="vg-hq-global-tools"><label class="vg-hq-global-searchlabel"><input class="vg-hq-global-search vg-hq-project-search" type="search" value="${esc(globalQuery)}"
         placeholder="Search projects, tasks, and notes  ( / )" aria-label="Search all HQ and vault notes"></label>
         ${globalQuery ? '<button class="vg-hq-btn vg-hq-btn-sm vg-hq-global-clear" data-clear-global aria-label="Clear HQ search">Clear</button>' : ""}<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-keysbtn" data-keys aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">?</button></div>`, clockHtml = `<span class="vg-hq-clock"><b>${t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M$/i, "")}</b> <span>${esc(t.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" }))}${(() => { const d = VGRules.doneToday(DATA, STATE.review, day()).length, m = VGRules.sessionMinutes(STATE.review, day()); return d || m ? ` · ${d} done${m ? ` · ${VGRules.minutesWords(m)}` : ""}` : ""; })()}</span></span>`;
@@ -154,10 +156,12 @@
   // the board's drag: one path at a time, dropped on a column
   let dragging = null;
   // phone: the search and menu buttons open one tray under the bar (history, search, layout, theme, shortcuts); the search button also puts the cursor in the box
-  el.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-tray]"); if (!b) return;
-    const open = !el.classList.contains("tray-open") || (b.dataset.tray === "search" && !el.querySelector(".vg-hq-global-search:focus"));
-    el.classList.toggle("tray-open", open); el.querySelectorAll("[data-tray]").forEach(x => x.setAttribute("aria-expanded", String(open)));
-    if (open && b.dataset.tray === "search") { const q = el.querySelector(".vg-hq-global-search"); if (q) q.focus(); } });
+  // the same button closes it, so does a tap anywhere outside it; the search button also puts the cursor in the box when it opens
+  const setTray = open => { el.classList.toggle("tray-open", open); el.querySelectorAll("[data-tray]").forEach(x => x.setAttribute("aria-expanded", String(open))); };
+  el.addEventListener("click", e => { const t = e.target, b = t.closest && t.closest("[data-tray]"), isOpen = el.classList.contains("tray-open");
+    if (!b && (!isOpen || (t.closest && t.closest(".vg-hq-tray")))) return;
+    setTray(b ? !isOpen : false);
+    if (b && !isOpen && b.dataset.tray === "search") { const q = el.querySelector(".vg-hq-global-search"); if (q) q.focus(); } });
   new ResizeObserver(() => { if (isPhone() !== el.classList.contains("is-phone")) { el.classList.toggle("is-phone", isPhone()); render(); } }).observe(el);
   el.addEventListener("dragstart", e => { const c = e.target.closest && e.target.closest("[data-card]"); if (!c) return; dragging = c.dataset.card; c.classList.add("is-dragging"); if (e.dataTransfer) { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", dragging); } });
   el.addEventListener("dragend", () => { dragging = null; el.querySelectorAll(".is-dragging, .is-drop").forEach(x => x.classList.remove("is-dragging", "is-drop")); });

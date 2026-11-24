@@ -37,6 +37,7 @@ const { sleep, checks, openPage, tools } = require("./kit"), env = require("./en
     check(after.st >= 390, `the list stays where it was scrolled to (${after.st})`);
     await tab.ev(`document.querySelector('.vg-hq-top [data-tray="menu"]').click()`); await sleep(150);
     check(await tab.ev(`getComputedStyle(document.querySelector(".vg-hq-tray")).display !== "none" && !!document.querySelector(".vg-hq-tray select, .vg-hq-tray .vg-hq-select")`), "the menu button shows the layout and theme controls");
+    await tab.ev(`document.querySelector('.vg-hq-top [data-tray="menu"]').click()`); await sleep(150);   // the tray is open: the same button closes it
     await tab.ev(`document.querySelector('.vg-hq-top [data-tray="search"]').click()`); await sleep(150);
     check(await tab.ev(`document.activeElement && document.activeElement.classList.contains("vg-hq-global-search")`), "the search button puts the cursor in the search box");
   } finally { await tab.close(); }
