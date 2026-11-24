@@ -575,8 +575,8 @@ div.vg-hq-densehead { color: var(--hq-muted); border-top: 0; }
   .vg-hq .vg-hq-top.is-phone { z-index: 12; }   /* above the week strip, so the open tray is not drawn under it */
   .vg-hq .vg-hq-main { padding-bottom: 112px; }   /* the floating bottom bar never covers the last rows */
   /* a word under each bottom-bar icon, so a badge reads as what it counts */
-  .vg-hq .vg-hq-dockbtn { width: 46px; height: 52px; grid-template-rows: 22px 14px; align-content: center; gap: 0; }
-  .vg-hq .vg-hq-dockbtn .vg-hq-docklabel { display: block; font-size: var(--ds-fs-xs); line-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: clip; max-width: 100%; }
+  .vg-hq .vg-hq-dockbtn { flex: 0 0 auto; width: auto; min-width: 42px; padding: 0 3px; height: 52px; grid-template-rows: 22px 14px; align-content: center; gap: 0; }
+  .vg-hq .vg-hq-dockbtn .vg-hq-docklabel { display: block; font-size: var(--ds-fs-xs); line-height: 14px; white-space: nowrap; overflow: visible; }
   .vg-hq .vg-hq-main .vg-hq-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; }   /* one swipeable row of pills */
   .vg-hq .vg-hq-main .vg-hq-filters .vg-hq-filter { flex: none; white-space: nowrap; }
 }

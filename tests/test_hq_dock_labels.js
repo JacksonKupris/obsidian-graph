@@ -7,6 +7,8 @@ const { sleep, checks, openPage, tools } = require("./kit"), env = require("./en
   const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
+    // a wide fallback font (Verdana here, DejaVu Sans on the CI machine and some phones) is the case that overflowed
+    await tab.ev(`(() => { const st = document.createElement("style"); st.textContent = ".vg-hq-docklabel { font-family: Verdana, 'DejaVu Sans', sans-serif !important; }"; document.head.appendChild(st); })()`);
     for (const w of [360, 390]) {
       await tab.send("Emulation.setDeviceMetricsOverride", { width: w, height: 844, deviceScaleFactor: 1, mobile: true }); await sleep(200);
       await tools(tab, { wait: 150 }).screen("today");
