@@ -625,9 +625,12 @@
   // what's on screen, by kind: the sidebar's numbers count notes, and this says what else the total holds
   // how many notes are drawn, against all of them while some are hidden (unlinked, a hidden topic): the status line and the canvas label say it the same way
   function notesDrawn() { const n = VGRules.noteCounts(active).notes, all = VGRules.noteCounts(nodes).notes; return n < all ? `${n} of ${plural(all, "note")}` : plural(n, "note"); }
+  // the unlinked notes the Show unlinked notes switch leaves out, said in the status line beside the count (the canvas label keeps the plain count)
+  function hiddenUnlinked() { if (st.isolated) return ""; const k = VGRules.noteCounts(nodes.filter(x => x.isolated)).notes; return k ? ` (${k} unlinked hidden)` : ""; }
   function shownWords() {
     const c = VGRules.noteCounts(active), more = [c.maps ? plural(c.maps, "map") : "", c.people ? (c.people === 1 ? "1 person" : `${c.people} people`) : "", c.wanted ? `${c.wanted} to write` : ""].filter(Boolean);
-    return more.length ? `${notesDrawn()} · ${more.join(" · ")}` : `${notesDrawn()} shown`;
+    const drawn = notesDrawn() + (VGRules.noteCounts(active).notes < VGRules.noteCounts(nodes).notes ? hiddenUnlinked() : "");
+    return more.length ? `${drawn} · ${more.join(" · ")}` : `${drawn} shown`;
   }
   function renderStatus() {
     const settling = alpha > 0.005 && !neural() && !isCosmos() && !mapView();
