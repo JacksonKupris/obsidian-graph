@@ -58,7 +58,7 @@ assert.strictEqual(R.hqNextStep({ list: [{ key: "j", group: "needs", kind: "job"
     check(await tab.ev(`!(${lateKey})`), "the job is late before its time");
     await tab.ev(`(() => { window.__o.now = new Date(${start + every * hours}); window.vaultHQ.tick(); })()`);
     check(await tab.ev(lateKey), "HQ's list didn't notice a job going late");
-    await tab.ev(`window.vaultHQ.setScreen("today")`); check(await tab.ev(`document.querySelector(".vg-hq-nextchip b").textContent.startsWith("Check ")`), "the header didn't redraw when the list changed");
+    await tab.ev(`window.vaultHQ.setScreen("needs")`); check(await tab.ev(`document.querySelector(".vg-hq-nextchip b").textContent.startsWith("Check ")`), "the header didn't redraw when the list changed");
     await tab.ev(`(() => { window.__o.now = new Date(); window.vaultHQ.update(DATA); })()`);
     // a long title under hidden buttons
     await tab.ev(`window.vaultHQ.setScreen("today")`); await sleep(150);
@@ -72,9 +72,10 @@ assert.strictEqual(R.hqNextStep({ list: [{ key: "j", group: "needs", kind: "job"
     }
     // the header stays put from screen to screen
     const x = async s => { await tab.ev(`window.vaultHQ.setScreen("${s}")`); await sleep(100); return tab.ev(`document.querySelector(".vg-hq-nextchip").getBoundingClientRect().left`); };
-    const a = await x("needs"), b = await x("review"), d = await x("today"); check(a === b && b === d, `the chip moves between screens: ${a}, ${b}, ${d}`);
+    const a = await x("needs"), b = await x("review"), d = await x("people"); check(a === b && b === d, `the chip moves between screens: ${a}, ${b}, ${d}`);
     // today's date isn't the screen's loud thing; Add task isn't until there's something to add
     check(await tab.ev(`getComputedStyle(document.querySelector(".vg-hq-day.is-today")).backgroundColor !== getComputedStyle(document.querySelector(".vg-hq-nextdot")).backgroundColor`), "today's date is filled with the accent, like the next step");
+    await tab.ev(`window.vaultHQ.setScreen("today")`); await sleep(100);
     const add = `getComputedStyle(document.querySelector("[data-capture='task']")).backgroundColor`, quiet = await tab.ev(add);
     await tab.ev(`(() => { const i = document.querySelector(".vg-hq-captureinput"); i.value = "x"; })()`); await sleep(250);
     check(await tab.ev(add) !== quiet, "Add task doesn't light up with text in the box"); await tab.ev(`document.querySelector(".vg-hq-captureinput").value = ""`);

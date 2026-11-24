@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Home's Do next tile is the next step, so the header's Next pill does not say it again there; every other screen keeps the pill.
+// Home's Do next tile and Today's Do next card are the next step, so the Next pill does not say it again there (round 4: three personas read the pair as two items); every other screen keeps the pill.
 const { sleep, checks, finish, openPage } = require("./kit");
 const env = require("./env");
 (async () => {
@@ -11,7 +11,9 @@ const env = require("./env");
     await tab.ev(`window.vaultHQ.setScreen("home")`); await sleep(250);   // the page's own mount has the note actions the headless remount lacks
     check(await tab.ev(`!document.querySelector(".vg-hq-nextchip")`), "Home shows the Next pill as well as the Do next tile");
     check(await tab.ev(`!!document.querySelector(".vg-hq-tile [data-act='main']")`), "the Do next tile keeps its action");
-    for (const s of ["today", "needs", "people", "projects"]) { await show(s); check(await tab.ev(`!!document.querySelector(".vg-hq-nextchip")`), `${s} keeps the Next pill`); }
+    await show("today"); check(await tab.ev(`!!document.querySelector(".vg-hq-next")`), "Today leads with the Do next card");
+    check(await tab.ev(`!document.querySelector(".vg-hq-nextchip")`), "Today does not repeat that card as a Next pill");
+    for (const s of ["needs", "people", "projects"]) { await show(s); check(await tab.ev(`!!document.querySelector(".vg-hq-nextchip")`), `${s} keeps the Next pill`); }
   } catch (e) { fails.push(e.message); }
   await tab.close();
   finish(fails, "Home says the next step once; other screens keep the pill", "home next once");
