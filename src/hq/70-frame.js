@@ -231,12 +231,7 @@
   el.addEventListener("dragover", e => { const z = e.target.closest && e.target.closest("[data-drop]"); if (!z) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = "move"; el.querySelectorAll(".is-over").forEach(x => { if (x !== z) x.classList.remove("is-over"); }); z.classList.add("is-over"); });
   el.addEventListener("drop", e => { const z = e.target.closest && e.target.closest("[data-drop]"); if (!z) return; e.preventDefault(); const key = e.dataTransfer && e.dataTransfer.getData("text/plain"); z.classList.remove("is-over"); if (key) dropOn(key, z.dataset.drop); });
   el.addEventListener("keydown", e => {
-    if (e.key === "Escape" && !e.vgHandled && !peek && !drawer && !e.target.matches("input, textarea, select") && !el.querySelector(".vg-hq-dialog, .vg-hq-palette") && !(picked.size) && goBack()) { e.preventDefault(); return; }
-    if (e.key === "Escape" && peek) { e.preventDefault(); peek = null; render(); return; }
-    if (e.key === "Escape" && drawer) {
-      e.preventDefault(); const path = drawer; drawer = null; render();
-      const opener = [...el.querySelectorAll("[data-proj]")].find(x => x.dataset.proj === path); if (opener) opener.focus();
-    }
+    if (e.key === "Escape" && !e.vgHandled && !e.target.matches("input, textarea, select") && !el.querySelector(".vg-hq-dialog, .vg-hq-palette") && !(picked.size) && goBack()) { e.preventDefault(); return; }
   });
   el.addEventListener("keydown", e => {
     if (e.target.matches("[data-taskline]") && (e.key === "Enter" || e.key === " ")) {
@@ -245,8 +240,12 @@
     }
   });
   // Back: the screen you came from (or, on a screen reached from another, the one it belongs to); Escape does the same
-  const canGoBack = () => trail.length > 0 || !!SUB[cur];
-  function goBack() { if (!canGoBack()) return false; const to = trail.length ? trail[trail.length - 1] : SUB[cur][1]; trail = trail.slice(0, -1); setScreen(to, true); return true; }
+  const canGoBack = () => trail.length > 0 || !!SUB[cur] || !!peek || !!drawer;
+  // one Back: the topmost layer first (a note preview, going back along its own links; then a project drawer), then the screen before
+  function goBack() {
+    if (peek) { if (peek.back.length) { const back = peek.back.slice(), to = back.pop(); peekOpen(to, back); } else { peek = null; render(); } return true; }
+    if (drawer) { const path = drawer; drawer = null; render(); const opener = [...el.querySelectorAll("[data-proj]")].find(x => x.dataset.proj === path); if (opener) opener.focus(); return true; }
+    if (!canGoBack()) return false; const to = trail.length ? trail[trail.length - 1] : SUB[cur][1]; trail = trail.slice(0, -1); setScreen(to, true); return true; }
   function setScreen(s, back) { if (!known(s)) return; const moved = s !== cur; if (moved && !back) trail = [...trail.slice(-19), cur]; if (moved) { selKey = null; needsWalk = false; } if (s === "sweep" && cur !== "sweep") kept = new Set(); cur = s; drawer = null; peek = null; if (moved) { needsWalk = false; leaving = true; sayEl.textContent = SUB[s] ? SUB[s][0] : SCREENS.find(x => x[0] === s)[1]; } render(); const m = el.querySelector(".vg-hq-main"); if (m) { m.scrollTop = 0; if (moved) { const col = m.querySelector(".vg-hq-col"); if (col) col.classList.add("vg-hq-enter"); } } if (opts.onScreen) opts.onScreen(s); }
   render();
   if (api.hqVisit) api.hqVisit(ofGroup("needs").map(i => i.key));
