@@ -23,7 +23,7 @@
     box.innerHTML = `<div class="vg-hq-dialog-card"><b>Edit colours</b><p>Page, panel, text and accent set the look. Good, warning, error and link carry meaning. Every other colour follows from these.</p>
       <div class="vg-hq-colourgrid">${VGShared.CUSTOM_NAMES.map((n, i) => `<label>${n}<input type="color" data-colour="${i}" value="${cols[i]}"></label>`).join("")}</div>
       <ul class="vg-hq-colourchecks" aria-live="polite"></ul>
-      <div class="vg-hq-row-end"><button class="vg-hq-btn" data-colour-reset>Reset to default</button><button class="vg-hq-btn" data-colour-cancel>Cancel</button><button class="vg-hq-btn vg-hq-btn-primary" data-colour-save>Save</button></div></div>`;
+      <div class="vg-hq-row-end"><button class="vg-hq-btn" data-colour-suggest>Suggest colours</button><button class="vg-hq-btn" data-colour-reset>Reset to default</button><button class="vg-hq-btn" data-colour-cancel>Cancel</button><button class="vg-hq-btn vg-hq-btn-primary" data-colour-save>Save</button></div></div>`;
     const list = box.querySelector(".vg-hq-colourchecks"), save = box.querySelector("[data-colour-save]");
     const preview = () => { VGShared.applyPalette(el, VGShared.customKey(cols)); const rows = VGShared.customChecks(cols);
       list.innerHTML = rows.map(c => `<li class="${c.ok ? "is-ok" : "is-bad"}"><b>${c.ok ? "✓" : "✗"}</b> ${esc(c.what)} <span>${c.ratio.toFixed(1)}:1</span></li>`).join("") + (rows.every(c => c.ok) ? "" : "<li class=\"is-note\">Needs 4.5:1 or more to be easy to read. Change the colours until every line has a tick.</li>");
@@ -31,6 +31,8 @@
     const close = openDialog(box, box.querySelector("input")), shut = () => { close(); };
     const restore = () => { VGShared.applyPalette(el, was); shut(); };
     box.addEventListener("input", e => { const i = e.target.dataset && e.target.dataset.colour; if (i == null) return; cols = cols.map((c, j) => j === +i ? e.target.value.toLowerCase() : c); preview(); });
+    // each press is a new set, dark or light to match the page the person has now
+    box.querySelector("[data-colour-suggest]").onclick = () => { cols = VGShared.suggestPalette(Math.floor(Math.random() * 4294967296), VGShared.contrast(cols[0], "#ffffff") > VGShared.contrast(cols[0], "#000000")); box.querySelectorAll("[data-colour]").forEach((x, i) => { x.value = cols[i]; }); preview(); };
     box.querySelector("[data-colour-reset]").onclick = () => { cols = VGShared.CUSTOM_DEFAULT.slice(); box.querySelectorAll("[data-colour]").forEach((x, i) => { x.value = cols[i]; }); preview(); };
     box.querySelector("[data-colour-cancel]").onclick = restore;
     save.onclick = () => { if (save.disabled) return; const next = VGShared.customKey(cols); shut(); if (next === paletteNow()) { applyPalette(); return; } hqPalette = next; if (opts.onPalette) opts.onPalette(next); render(); };
