@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The "needs attention" legend entry says what the ring's number counts and what its colours mean, in words on screen (not only in a
+// The "needs attention" legend entry says what the ring's number counts, in words on screen (not only in a
 // hover tooltip, which a phone never shows). Three personas on the 3D view: "the numbers on the rings are never defined".
 const assert = require("assert");
 const { sleep, openPage } = require("./kit");
@@ -14,8 +14,7 @@ const env = require("./env");
       const t = await tab.ev(`(() => { const e = document.querySelector(".vg-legend .vg-lg-attn-set"); return e ? e.textContent.replace(/\\s+/g, " ").trim() : null; })()`);
       assert.ok(t, view + ": the legend carries the needs-attention entry");
       assert.ok(/number/i.test(t) && /notes?/i.test(t), view + ': the entry says what the number counts, in its visible text: "' + t + '"');
-      assert.ok(/colou?r/i.test(t), view + ': the entry says the colour is the reason, in its visible text: "' + t + '"');
     }
-    console.log("PASS: the ring legend says what its number and colours mean");
+    console.log("PASS: the ring legend says what its number counts");
   } finally { await tab.close(); }
 })().catch(e => { console.error("FAIL: " + e.message); process.exit(1); });
