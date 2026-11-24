@@ -323,7 +323,7 @@ function mountVaultGraph(root, DATA, opts) {
       <div class="vg-focusbar" hidden></div>
       <div class="vg-focusbar vg-pathbar" hidden></div>
       <div class="vg-vision" role="group" aria-label="Vision mode">
-        <button class="vg-visbtn" data-vision="std" aria-pressed="true">STD</button><button class="vg-visbtn" data-vision="nv" aria-pressed="false">NV</button><button class="vg-visbtn" data-vision="thermal" aria-pressed="false" title="Thermal: where your dailies are active">THERMAL</button><button class="vg-visbtn" data-vision="crt" aria-pressed="false">CRT</button>
+        <button class="vg-visbtn" data-vision="std" aria-pressed="true" title="Standard colours">STD</button><button class="vg-visbtn" data-vision="nv" aria-pressed="false" title="Night vision: green on dark">NV</button><button class="vg-visbtn" data-vision="thermal" aria-pressed="false" title="Thermal: where your dailies are active">THERMAL</button><button class="vg-visbtn" data-vision="crt" aria-pressed="false" title="Old screen: scan lines">CRT</button>
       </div>
       <section class="vg-lens" hidden aria-label="View"><header class="vg-lens-h"><b class="vg-lens-title"></b><span class="vg-muted vg-lens-sub"></span>
         <button class="vg-ibtn vg-lens-close" aria-label="Close" title="Close (Esc)">${icon("close")}</button></header><div class="vg-lens-body"></div></section>
