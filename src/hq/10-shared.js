@@ -145,7 +145,8 @@
   }
   // When the next step is a job of its own (standup, wrap up) the Do next card shows the step, with the button that goes to it
   const stepButton = () => VGParts.nextButton();
-  const nextChip = () => VGParts.nextButton({ label: nextStep().label, chip: true });
+  // the pill is the next step in short; where a Do next tile or card already says it in full (Home, Today) it stays out
+  const nextChip = () => cur === "home" || (cur === "today" && doNext()) ? "" : VGParts.nextButton({ label: nextStep().label, chip: true });
   // the beacon sits on the one control that is the next step, on the screen that has it
   function markNext(again) {
     if (opts.onNext) opts.onNext();
