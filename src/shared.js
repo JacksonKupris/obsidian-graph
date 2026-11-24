@@ -50,14 +50,16 @@ const VGSharedMake = () => {
   const hsl = (h, s, l) => { const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return hexOf([f(0), f(8), f(4)].map(v => v * 255)); };
   const seeded = seed => { let a = (Number(seed) || 1) >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
   const HARMONIES = [[180, 150], [30, -30], [120, 240], [150, 210]];   // [accent offset, link offset] in degrees from the page hue
-  function suggestPalette(seed, dark = true) {
-    const rnd = seeded(seed), h = rnd() * 360, [da, dl] = HARMONIES[Math.floor(rnd() * HARMONIES.length)], sat = 0.55 + rnd() * 0.3, tint = 0.1 + rnd() * 0.15;
+  // hue (0-360, optional): a colour the person chose. The page tint and the accent take it, and the link colour takes the harmony's partner hue.
+  const hueOfHex = hex => { const [r, g, b] = [1, 3, 5].map(i => parseInt(String(hex).slice(i, i + 2), 16) / 255), mx = Math.max(r, g, b), d = mx - Math.min(r, g, b); if (!d) return 0; const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return (h * 60 + 360) % 360; };
+  function suggestPalette(seed, dark = true, hue) {
+    const rnd = seeded(seed), picked = Number.isFinite(hue), r0 = rnd(), h = picked ? ((hue % 360) + 360) % 360 : r0 * 360, [da, dl] = HARMONIES[Math.floor(rnd() * HARMONIES.length)], sat = 0.55 + rnd() * 0.3, tint = 0.1 + rnd() * 0.15;
     const bgL = dark ? 0.07 + rnd() * 0.04 : 0.95 + rnd() * 0.03, step = dark ? 0.05 : -0.04, mid = dark ? 0.62 : 0.4, wrap = d => (h + d + 360) % 360;
     // the accent and the link keep clear of the status hues (green 135, amber 42, red 4) and of each other, so a button never reads as a warning
     const STATUS_HUES = [135, 42, 4], gap = (a, b) => { const d = Math.abs(a - b) % 360; return Math.min(d, 360 - d); };
-    const clear = (x, others) => { const all = [...STATUS_HUES, ...others]; let best = x, bestGap = -1;   // the nearest hue that keeps 50 degrees from all of them, else the one furthest from them
-      for (let off = 0; off <= 180; off += 5) for (const c of off ? [(x + off) % 360, (x - off + 360) % 360] : [x]) { const g = Math.min(...all.map(s => gap(c, s))); if (g >= 50) return c; if (g > bestGap) { best = c; bestGap = g; } } return best; };
-    const ha = clear(wrap(da), []), hl = clear(wrap(dl), [ha]);
+    const clear = (x, others) => { const all = [...STATUS_HUES, ...others]; let best = x, bestGap = -1;   // the nearest hue that keeps 34 degrees from all of them, else the one furthest from them
+      for (let off = 0; off <= 180; off += 5) for (const c of off ? [(x + off) % 360, (x - off + 360) % 360] : [x]) { const g = Math.min(...all.map(s => gap(c, s))); if (g >= 34) return c; if (g > bestGap) { best = c; bestGap = g; } } return best; };
+    const ha = picked ? h : clear(wrap(da), []), hl = clear(wrap(picked ? da : dl), [ha]);   // a chosen colour is the accent as it is; the link takes the harmony's partner hue
     const page = hsl(h, tint, bgL), panel = hsl(h, tint, bgL + step), at = dark ? 0.9 : 0.12;
     const cols = [page, panel, hsl(h, 0.12, at), hsl(ha, sat, mid), hsl(135, sat * 0.8, mid), hsl(42, sat, mid), hsl(4, sat, mid), hsl(hl, sat, mid + (dark ? 0.14 : -0.14))];
     for (let i = 4; i < 8; i++) cols[i] = inkOn(cols[i], page);   // status and link colours stay readable on the page
@@ -121,6 +123,6 @@ const VGSharedMake = () => {
     const to = lum(b) > 0.4 ? 0 : 255;   // toward black on a light page, white on a dark one
     for (let t = 0.05; t <= 1.0001; t += 0.05) { const out = "#" + c.map(v => hex2(v + (to - v) * t)).join(""); if (contrast(out, bg) >= min) return out; }
     return to ? "#ffffff" : "#000000"; };
-  return { longDate, liveColours, suggestPalette, GAP_RANK, PALETTES, CUSTOM_NAMES, CUSTOM_DEFAULT, customOf, customKey, customVars, customChecks, paletteIs, paletteChoice, paletteOf, applyPalette, inkOn, contrast, scopeOf, scopeHas, escapeHtml, escapeRegex, baseOf, nameOf, plural, gapWhy, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, shortDate, canUseWorker, inWorker, offThread };
+  return { hueOfHex, longDate, liveColours, suggestPalette, GAP_RANK, PALETTES, CUSTOM_NAMES, CUSTOM_DEFAULT, customOf, customKey, customVars, customChecks, paletteIs, paletteChoice, paletteOf, applyPalette, inkOn, contrast, scopeOf, scopeHas, escapeHtml, escapeRegex, baseOf, nameOf, plural, gapWhy, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, shortDate, canUseWorker, inWorker, offThread };
 };
 const VGShared = VGSharedMake();
