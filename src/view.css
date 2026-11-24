@@ -263,6 +263,10 @@
 @keyframes vg-sheet-in { from { opacity: 0; transform: translateY(20px); } }
 /* a phone has no room for the legend beside the graph: a Key button opens it above the button (Escape or a second tap closes it) */
 .vg-legend-key { display: none; position: absolute; left: 10px; bottom: calc(42px + var(--vg-bottom, 0px)); z-index: 2; }
+/* the ring names: folded until the needs-attention entry is clicked, then a card above the legend on a desktop and a list inside the open Key on a phone (below) */
+.vg-lg-attn-set { cursor: pointer; min-height: 24px; }
+.vg-lg-attn-names { display: none; }
+.vg-root.legend-open .vg-lg-attn-names { display: flex; flex-wrap: wrap; gap: 4px 12px; position: absolute; left: 0; bottom: calc(100% + 6px); width: max-content; max-width: 420px; padding: 8px 10px; border: 1px solid var(--vg-line); border-radius: var(--ds-r-md); background: var(--vg-panel); white-space: normal; cursor: default; }
 @container vg (max-width: 460px) {
   .vg-legend { display: none; }
   .vg-legend-key { display: inline-flex; }
@@ -270,9 +274,8 @@
   .vg-root.legend-open .vg-legend { display: flex; bottom: calc(76px + var(--vg-bottom, 0px)); z-index: 3; }
   /* the tooltip that lists the ring reasons never shows on touch, so the open Key spells them out beside their colours */
   .vg-root.legend-open .vg-lg-attn-set { flex-wrap: wrap; }
-  .vg-root.legend-open .vg-lg-attn-names { display: flex; flex-wrap: wrap; gap: 4px 12px; flex-basis: 100%; }
+  .vg-root.legend-open .vg-lg-attn-names { position: static; width: auto; max-width: none; padding: 0; border: 0; background: none; flex-basis: 100%; }
 }
-.vg-lg-attn-names { display: none; }
 .vg-lg-attn-name { display: inline-flex; align-items: center; gap: 4px; }
 .is-compact .vg-legend-key { display: none !important; }
 
