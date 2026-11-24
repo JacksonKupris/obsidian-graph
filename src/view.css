@@ -835,11 +835,11 @@
 .vg-root .vg-mapitem b { display: inline-flex; align-items: center; gap: 6px; }
 
 /* today strip: one line about what this view says right now, and one thing to do */
-.vg-root .vg-today { position: absolute; z-index: 3; top: var(--vg-under-bar); left: 50%; transform: translateX(-50%); max-width: min(760px, calc(100% - 24px));
+.vg-root .vg-today { position: absolute; z-index: 3; top: var(--vg-under-bar); left: 50%; transform: translateX(-50%); width: max-content; max-width: min(760px, calc(100% - 24px));
   display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 14px; border-radius: var(--ds-r-pill); font-size: var(--vg-fs-sm);
   background: color-mix(in srgb, var(--vg-raised) 88%, transparent); border: 1px solid var(--vg-border); box-shadow: var(--ds-shadow-1); backdrop-filter: blur(8px); }
-.vg-root .vg-today-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; cursor: pointer; }
-.vg-root .vg-today.is-open .vg-today-text { white-space: normal; }
+.vg-root .vg-today-text { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; line-clamp: 5; min-width: 0; cursor: pointer; }
+.vg-root .vg-today.is-open .vg-today-text { -webkit-line-clamp: unset; line-clamp: unset; }
 .vg-root .vg-today-text { padding-block: 4px; }
 .vg-root.is-mobile .vg-today-text { padding-block: 12px; }
 .vg-root .vg-today-act { flex: none; }
