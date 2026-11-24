@@ -335,8 +335,12 @@
   root.ownerDocument.addEventListener("visibilitychange", onHidden);   // all three removed in destroy()
   holdKeys({ up: k => { const d = SCENES[st.view]; if (d && d.key) d.key(k, false); },
     all: () => Object.values(SCENES).forEach(d => d.release && d.release()) });
-  function setLegendOpen(on) { root.classList.toggle("legend-open", on); $(".vg-legend-key").setAttribute("aria-expanded", String(on)); }
-  $(".vg-legend-key").onclick = () => setLegendOpen(!root.classList.contains("legend-open"));
+  function setLegendOpen(on) { root.classList.toggle("legend-open", on); $(".vg-legend-key").setAttribute("aria-expanded", String(on)); const a = $(".vg-lg-attn-set"); if (a) a.setAttribute("aria-expanded", String(on)); }
+  const toggleLegend = () => setLegendOpen(!root.classList.contains("legend-open"));
+  $(".vg-legend-key").onclick = toggleLegend;
+  // the needs-attention entry opens the ring names (a popover on a desktop, the open Key on a phone): the same state, so Escape and a second click close both
+  $(".vg-legend").addEventListener("click", e => { const a = e.target.closest(".vg-lg-attn-set"); if (a) { toggleLegend(); a.focus({ preventScroll: true }); } });   // focus stays on the entry so Escape reaches the key handler
+  $(".vg-legend").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.closest(".vg-lg-attn-set")) { e.preventDefault(); toggleLegend(); } });
   // One step back: closes the topmost layer. Escape runs it, and so does a phone's back gesture (handle.back). Returns 1 when
   // it closed something, 2 when it only left a text field (the key goes on to the host), 0 when there was nothing to close.
   function goBack(typingIn) {
@@ -612,7 +616,7 @@
     if (!st.layers.attention || !attentionOf().size) return "";
     const seen = new Set(); for (const ks of attnWhy.values()) ks.forEach(k => seen.add(k));
     const looks = [...seen].map(k => VGActions.reasonLook(k));
-    return `<span class="vg-lg-item vg-lg-attn-set" title="A ring says why a note needs attention: ${looks.map(l => l.label).join(", ")}"><span class="vg-lg-dots">${looks.map(l => `<i class="vg-lg-attn" style="--ring:${l.color}"></i>`).join("")}</span>needs attention · number = notes<span class="vg-lg-attn-names">${looks.map(l => `<span class="vg-lg-attn-name" style="--ring:${l.color}">${l.label}</span>`).join("")}</span></span>`;
+    return `<span class="vg-lg-item vg-lg-attn-set" role="button" tabindex="0" aria-expanded="${root.classList.contains("legend-open")}" title="A ring says why a note needs attention: ${looks.map(l => l.label).join(", ")}"><span class="vg-lg-dots">${looks.map(l => `<i class="vg-lg-attn" style="--ring:${l.color}"></i>`).join("")}</span>needs attention · number = notes<span class="vg-lg-attn-names">${looks.map(l => `<span class="vg-lg-attn-name" style="--ring:${l.color}">${l.label}</span>`).join("")}</span></span>`;
   };
   // A scene's own counts (alchemy's reactions, radar's tasks) go in the status pill like every other view's,
   // instead of text painted on the canvas where the banner or legend can cover it
