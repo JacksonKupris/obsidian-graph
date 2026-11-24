@@ -42,7 +42,7 @@
       const j = VGRules.canonicalJournal(h, iso);
       const duplicate = j && ((h && h.journalDuplicates) || []).find(x => x.date === iso);
       const canChoose = api.openDaily || api.openStandup || (api.openNote && (j || standups.has(iso)));
-      return `<button class="vg-hq-day${on ? " is-today" : ""}" ${canChoose ? `data-weekday="${iso}"` : "disabled"} ${duplicate ? `title="Duplicate journal date; using ${esc(j.path)}"` : ""} aria-label="${DAYS[d.getDay()]} ${d.getDate()}, journal and standup${duplicate ? ", duplicate journal paths; canonical copy selected" : ""}"><span>${DAYS[d.getDay()]}</span><b>${d.getDate()}</b><span class="vg-hq-marks">${marks}</span></button>`;
+      return `<button class="vg-hq-day${on ? " is-today" : ""}" ${canChoose ? `data-weekday="${iso}"` : "disabled"} ${duplicate ? `title="Duplicate journal date; using ${esc(j.path)}"` : ""} aria-label="${DAYS[d.getDay()]} ${d.getDate()}, ${[journals.has(iso) && "journal", standups.has(iso) && "standup"].filter(Boolean).join(" and ") || "nothing written yet"}${duplicate ? ", duplicate journal paths; canonical copy selected" : ""}"><span>${DAYS[d.getDay()]}</span><b>${d.getDate()}</b><span class="vg-hq-marks">${marks}</span></button>`;
     }).join("");
     const { needs, projects: { active: projects } } = hqCounts(), jobs = VGRules.hqJobs(h || {}, now());
     const badJobs = jobs.filter(j => j.state === "failed" || j.state === "late").length;
