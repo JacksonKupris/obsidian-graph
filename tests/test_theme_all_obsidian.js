@@ -10,11 +10,11 @@ try {
   const { Plugin } = stub.load(env.rules);
   const S = new Function(`${read("src/shared.js")}; return VGShared;`)();
   const css = read("src/tokens.css");
-  for (const [key] of S.PALETTES.slice(1)) check(new RegExp(`body\\[data-vg-palette="${key}"\\]`).test(css), `the ${key} theme has no CSS for <body>`);
+  for (const [key] of S.PALETTES.slice(1).filter(p => p[0] !== "custom")) check(new RegExp(`body\\[data-vg-palette="${key}"\\]`).test(css), `the ${key} theme has no CSS for <body>`);
   const P = Plugin.prototype;
   check(typeof P.syncAppTheme === "function" && typeof P.setPalette === "function", "the plugin has syncAppTheme and setPalette");
   if (typeof P.syncAppTheme === "function") {
-    global.document = { body: { dataset: {} } };
+    const props = {}; global.document = { body: { dataset: {}, style: { setProperty: (k, v) => { props[k] = v; }, removeProperty: k => { delete props[k]; } } } };
     const mk = s => { const p = Object.create(P); p.settings = s; p.saveSettings = async () => { p.saved = (p.saved || 0) + 1; }; return p; };
     const now = () => global.document.body.dataset.vgPalette || "obsidian";
     let p = mk({ hqPalette: "paper" });
@@ -25,6 +25,8 @@ try {
     p.setPalette("forest"); check(p.saved === 1, "choosing the same theme again saves nothing");
     p.settings.themeObsidian = false; p.syncAppTheme(); check(now() === "obsidian", "switching off restores Obsidian's colours");
     p.settings.themeObsidian = true; p.settings.hqPalette = "obsidian"; p.syncAppTheme(); check(now() === "obsidian", "the Obsidian theme adds nothing to <body>");
+    p.setPalette("custom:#102030,#1a2c3e,#f0f4f8,#ffb454"); check(now() === "custom" && props["--background-primary"] === "#102030", "a custom theme puts its colours on <body>");
+    p.setPalette("forest"); check(now() === "forest" && !props["--background-primary"], "leaving a custom theme removes its colours from <body>");
     p.settings.hqPalette = "dusk"; p.syncAppTheme(); p.onunload(); check(now() === "obsidian", "unloading the plugin restores Obsidian's colours");
   }
 } catch (e) { fails.push("crashed: " + e.message); }

@@ -226,7 +226,7 @@
     const items = pickItems().filter(i => i.tab === "views"), cur = items.find(i => i.on);
     vs.innerHTML = (cur ? "" : opt("", "View", " hidden disabled")) + viewGroups(items).map(([name, xs]) => `<optgroup label="${esc(name)}">${xs.map(i => opt(i.k, i.name)).join("")}</optgroup>`).join("");
     vs.value = cur ? cur.k : "";
-    const displayOpts = `<optgroup label="Styles">${Object.entries(PRESETS).sort((a, b) => byName(a[1], b[1])).map(([k, p]) => opt("preset:" + k, (st.preset === k ? "✓ " : "") + p.name)).join("")}</optgroup><optgroup label="Theme">${VGShared.PALETTES.map(([k, name]) => opt("palette:" + k, (palette === k ? "✓ " : "") + name)).join("")}</optgroup><optgroup label="Settings">${opt("panel:style", "Size, colour and layers…")}${opt("panel:health", "Health overlays…")}</optgroup>`;
+    const displayOpts = `<optgroup label="Styles">${Object.entries(PRESETS).sort((a, b) => byName(a[1], b[1])).map(([k, p]) => opt("preset:" + k, (st.preset === k ? "✓ " : "") + p.name)).join("")}</optgroup><optgroup label="Theme">${VGShared.PALETTES.map(([k, name]) => opt("palette:" + k, (VGShared.paletteIs(palette, k) ? "✓ " : "") + name)).join("")}</optgroup><optgroup label="Settings">${opt("panel:style", "Size, colour and layers…")}${opt("panel:health", "Health overlays…")}</optgroup>`;
     ds.innerHTML = opt("", "Display", " hidden disabled") + displayOpts;
     ds.value = "";
     const hs = VGActions.history.state(), h = (v, name, on) => opt(v, name, on ? "" : " disabled");
@@ -234,7 +234,7 @@
     ts.value = "";
   }
   $(".vg-viewsel").onchange = e => { const it = pickItems().find(i => i.tab === "views" && i.k === e.target.value); if (it) it.run(); syncSelects(); };
-  const chooseDisplay = v => { const [kind, k] = v.split(":"); if (kind === "palette") { if (k !== palette) { palette = VGShared.applyPalette(root, k); if (opts.onPalette) opts.onPalette(palette); } } else if (kind === "preset") applyPreset(k); else if (kind === "panel") openPicker(k); };
+  const chooseDisplay = v => { const [kind, k] = v.split(":"); if (kind === "palette") { if (!VGShared.paletteIs(palette, k) || (k === "custom" && !VGShared.customOf(palette))) { palette = VGShared.applyPalette(root, VGShared.paletteChoice(palette, k)); if (opts.onPalette) opts.onPalette(palette); } } else if (kind === "preset") applyPreset(k); else if (kind === "panel") openPicker(k); };
   $(".vg-displaysel").onchange = e => { const v = e.target.value; e.target.value = ""; chooseDisplay(v); syncSelects(); };
   $(".vg-toolsel").onchange = e => { const v = e.target.value; e.target.value = ""; if (v === "hprev" || v === "hundo" || v === "hredo") { const b = document.createElement("button"); b.setAttribute("data-" + v, ""); VGActions.history.press(b, showDecided); } else if (/^(preset|panel):/.test(v)) chooseDisplay(v); else if (v) runTool(v); syncSelects(); };
   const sheetMode = () => MOBILE || root.clientWidth < 760;

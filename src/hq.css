@@ -580,3 +580,11 @@ div.vg-hq-densehead { color: var(--hq-muted); border-top: 0; }
   .vg-hq .vg-hq-main .vg-hq-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; }   /* one swipeable row of pills */
   .vg-hq .vg-hq-main .vg-hq-filters .vg-hq-filter { flex: none; white-space: nowrap; }
 }
+/* the colour editor (Custom theme): four pickers in a grid that fits a phone, each readable pairing listed with a tick or a cross */
+.vg-hq .vg-hq-colourgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--ds-sp-3, 12px); margin: 12px 0; }
+.vg-hq .vg-hq-colourgrid label { display: grid; gap: 4px; font-size: var(--ds-fs-sm); color: var(--hq-muted); }
+.vg-hq .vg-hq-colourgrid input[type="color"] { width: 100%; height: 44px; padding: 2px; border: 1px solid var(--hq-line); border-radius: var(--ds-r-md); background: var(--hq-surface); cursor: pointer; }
+.vg-hq .vg-hq-colourchecks { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 4px; font-size: var(--ds-fs-sm); }
+.vg-hq .vg-hq-colourchecks li.is-ok b { color: var(--ds-ok); } .vg-hq .vg-hq-colourchecks li.is-bad b { color: var(--ds-danger); }
+.vg-hq .vg-hq-colourchecks li span { color: var(--hq-muted); } .vg-hq .vg-hq-colourchecks li.is-note { color: var(--hq-muted); }
+.vg-hq .vg-hq-colours .vg-hq-row-end { flex-wrap: wrap; }
