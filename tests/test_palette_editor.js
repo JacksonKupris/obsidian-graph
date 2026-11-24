@@ -28,7 +28,7 @@ const { fails, ok: check } = checks();
     check(await tab.ev(`getComputedStyle(document.querySelector(".vg-hq")).getPropertyValue("--background-primary").trim()`) === "#101010", "the custom page colour is on the HQ root");
     check(await tab.ev(`!!document.querySelector("[data-editcolors]")`), "there is an Edit colours button");
     await tab.ev(`document.querySelector("[data-editcolors]").click()`); await sleep(200);
-    const box = await tab.ev(`(() => { const b = document.querySelector(".vg-hq-colours"); if (!b) return null; const r = b.getBoundingClientRect(); return { inputs: b.querySelectorAll("input[type=color]").length, fits: r.left >= 0 && r.right <= innerWidth, rows: b.querySelectorAll(".vg-hq-colourchecks li").length, save: !b.querySelector("[data-colour-save]").disabled }; })()`);
+    const box = await tab.ev(`(() => { const b = document.querySelector(".vg-hq-colours"); if (!b) return null; const r = b.getBoundingClientRect(); return { inputs: b.querySelectorAll("input[data-colour]").length, fits: r.left >= 0 && r.right <= innerWidth, rows: b.querySelectorAll(".vg-hq-colourchecks li").length, save: !b.querySelector("[data-colour-save]").disabled }; })()`);
     check(box, "the editor opens");
     if (box) {
       check(box.inputs === 8, "eight colour inputs (" + box.inputs + ")");

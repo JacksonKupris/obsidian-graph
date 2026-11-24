@@ -18,9 +18,10 @@
   // Save only while every pairing passes, Reset puts the defaults back in the pickers, Escape or Cancel puts the saved colours back
   function openColourEditor() {
     if (el.querySelector(".vg-hq-colours")) return;
-    const was = paletteNow(); let cols = VGShared.customOf(was) || VGShared.liveColours(el) || VGShared.CUSTOM_DEFAULT.slice();
+    const was = paletteNow(); let baseHue = null, cols = VGShared.customOf(was) || VGShared.liveColours(el) || VGShared.CUSTOM_DEFAULT.slice();
     const box = document.createElement("div"); box.className = "vg-hq-dialog vg-hq-colours"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Edit colours");
     box.innerHTML = `<div class="vg-hq-dialog-card"><b>Edit colours</b><p>Page, panel, text and accent set the look. Good, warning, error and link carry meaning. Every other colour follows from these.</p>
+      <label class="vg-hq-colourbase">Start from a colour<input type="color" data-colour-base value="${cols[3]}"></label>
       <div class="vg-hq-colourgrid">${VGShared.CUSTOM_NAMES.map((n, i) => `<label>${n}<input type="color" data-colour="${i}" value="${cols[i]}"></label>`).join("")}</div>
       <ul class="vg-hq-colourchecks" aria-live="polite"></ul>
       <div class="vg-hq-row-end"><button class="vg-hq-btn" data-colour-suggest>Suggest colours</button><button class="vg-hq-btn" data-colour-reset>Reset to default</button><button class="vg-hq-btn" data-colour-cancel>Cancel</button><button class="vg-hq-btn vg-hq-btn-primary" data-colour-save>Save</button></div></div>`;
@@ -30,9 +31,12 @@
       save.disabled = !rows.every(c => c.ok); };
     const close = openDialog(box, box.querySelector("input")), shut = () => { close(); };
     const restore = () => { VGShared.applyPalette(el, was); shut(); };
-    box.addEventListener("input", e => { const i = e.target.dataset && e.target.dataset.colour; if (i == null) return; cols = cols.map((c, j) => j === +i ? e.target.value.toLowerCase() : c); preview(); });
+    const fill = () => box.querySelectorAll("[data-colour]").forEach((x, i) => { x.value = cols[i]; });
+    const isDark = () => VGShared.contrast(cols[0], "#ffffff") > VGShared.contrast(cols[0], "#000000");
+    box.addEventListener("input", e => { if (e.target.dataset && e.target.dataset.colourBase != null) { baseHue = VGShared.hueOfHex(e.target.value); cols = VGShared.suggestPalette(Math.floor(Math.random() * 4294967296), isDark(), baseHue); fill(); preview(); return; }
+      const i = e.target.dataset && e.target.dataset.colour; if (i == null) return; cols = cols.map((c, j) => j === +i ? e.target.value.toLowerCase() : c); preview(); });
     // each press is a new set, dark or light to match the page the person has now
-    box.querySelector("[data-colour-suggest]").onclick = () => { cols = VGShared.suggestPalette(Math.floor(Math.random() * 4294967296), VGShared.contrast(cols[0], "#ffffff") > VGShared.contrast(cols[0], "#000000")); box.querySelectorAll("[data-colour]").forEach((x, i) => { x.value = cols[i]; }); preview(); };
+    box.querySelector("[data-colour-suggest]").onclick = () => { cols = VGShared.suggestPalette(Math.floor(Math.random() * 4294967296), isDark(), baseHue === null ? undefined : baseHue); fill(); preview(); };
     box.querySelector("[data-colour-reset]").onclick = () => { cols = VGShared.CUSTOM_DEFAULT.slice(); box.querySelectorAll("[data-colour]").forEach((x, i) => { x.value = cols[i]; }); preview(); };
     box.querySelector("[data-colour-cancel]").onclick = restore;
     save.onclick = () => { if (save.disabled) return; const next = VGShared.customKey(cols); shut(); if (next === paletteNow()) { applyPalette(); return; } hqPalette = next; if (opts.onPalette) opts.onPalette(next); render(); };
