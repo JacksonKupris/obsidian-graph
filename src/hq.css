@@ -189,6 +189,7 @@
   border: 1px solid var(--hq-line); border-radius: var(--ds-r-xl); background: color-mix(in srgb, var(--hq-surface) 88%, transparent); backdrop-filter: blur(12px); box-shadow: var(--ds-shadow-2); }
 .vg-hq .vg-hq-dockbtn { position: relative; width: 48px; height: 44px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: var(--ds-r-lg); background: transparent; color: var(--hq-muted); }
 .vg-hq .vg-hq-dockbtn:hover { background: var(--background-modifier-hover); } .vg-hq .vg-hq-dockbtn.is-on { color: var(--hq-accent-text); border-color: var(--hq-line); background: var(--hq-accent-soft); }
+.vg-hq .vg-hq-docklabel { display: none; }
 .vg-hq .vg-hq-dockbtn.is-on::after { content: ""; position: absolute; bottom: -4px; width: 22px; height: 3px; border-radius: var(--ds-r-2xs); background: var(--hq-accent); }
 .vg-hq .vg-hq-badge { position: absolute; top: -5px; right: -3px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--ds-r-md); background: var(--hq-accent); color: var(--hq-accent-ink); font-size: var(--ds-fs-xs); font-weight: 700; line-height: 18px; }
 .vg-hq .vg-hq-sep { width: 1px; height: 28px; background: var(--hq-line); margin: 0 4px; }
@@ -573,6 +574,9 @@ div.vg-hq-densehead { color: var(--hq-muted); border-top: 0; }
   .vg-hq .vg-hq-strip .vg-hq-chips { display: none; }   /* the bottom bar carries these counts */
   .vg-hq .vg-hq-top.is-phone { z-index: 12; }   /* above the week strip, so the open tray is not drawn under it */
   .vg-hq .vg-hq-main { padding-bottom: 112px; }   /* the floating bottom bar never covers the last rows */
+  /* a word under each bottom-bar icon, so a badge reads as what it counts */
+  .vg-hq .vg-hq-dockbtn { width: 46px; height: 52px; grid-template-rows: 22px 14px; align-content: center; gap: 0; }
+  .vg-hq .vg-hq-dockbtn .vg-hq-docklabel { display: block; font-size: var(--ds-fs-xs); line-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: clip; max-width: 100%; }
   .vg-hq .vg-hq-main .vg-hq-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; }   /* one swipeable row of pills */
   .vg-hq .vg-hq-main .vg-hq-filters .vg-hq-filter { flex: none; white-space: nowrap; }
 }
