@@ -28,7 +28,7 @@
   const wordFor = (n, one, many) => plural(n, one, many).replace(/^\S+ /, "");   // the word alone, for when the number sits apart from it
   function renderChanges() {
     const c = DATA.changes || {};
-    if (!c.since) return card("Since last run", "", emptyNext("Nothing to compare yet. The next analysis lists what changed since this one.", "lens:timeline"));
+    if (!c.since) return "";   // the first analysis has no earlier one to compare with: no card rather than an empty one
     const line = (n, one, many) => n ? `<li>${plural(n, one, many).replace(/^\d+/, "<b>$&</b>")}</li>` : "";
     const pairName = p => p.split("|").map(id => byId[id] ? byId[id].name : VGShared.nameOf(id)).join(" ↔ ");
     const body = `<ul class="vg-changes">
