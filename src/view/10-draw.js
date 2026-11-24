@@ -170,7 +170,7 @@
       ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `600 14px ${font}`;
       for (const [c, g] of Object.entries(sum).sort((a, b) => b[1].c - a[1].c)) {
         if (g.c < 5) continue;
-        const name = clusterById[c].name, w = ctx.measureText(name).width;
+        const name = clusterName(c), w = ctx.measureText(name).width;
         const x = Math.min(W - w / 2 - 6, Math.max(w / 2 + 6, g.x / g.c)); let y = Math.min(H - 12, Math.max(56, g.y / g.c));
         const dy = [0, -18, 18].find(d => freeSpot(x - w / 2, y + d - 9, w, 18)); if (dy == null) continue;   // reserves the spot (or one a line up or down); node labels steer around it
         y += dy;
@@ -456,7 +456,7 @@
       // A quiet lobe's label dims. Hover a label for the full picture, click it to focus the topic.
       const small = `500 9px ${css("--vg-mono")}`, big = ctx.font;
       for (const [c, g, p] of lobes) {
-        const hs = lobeStats[c], name = `⟨ ${clusterById[c].name.toUpperCase()} ⟩`;
+        const hs = lobeStats[c], name = `⟨ ${clusterName(c).toUpperCase()} ⟩`;
         const sub = topicReadout(c).toUpperCase();
         ctx.font = small; const ws = sub ? ctx.measureText(sub).width : 0; ctx.font = big;
         const w = Math.max(ctx.measureText(name).width, ws), h = sub ? 30 : 18;
