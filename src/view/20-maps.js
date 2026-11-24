@@ -524,7 +524,7 @@
   }
   // A topic's name over its group (a well, column, settlement or bay): fitted to maxW, left out where a label already is
   // A topic's health in a few words (Neural's lobes and the scenes' topic labels): notes, active this week, share stale
-  const topicReadout = c => { const g = lobeStats[c]; return g && g.notes ? `${plural(g.notes, "note")} · ${g.fresh} active · ${Math.round(100 * g.stale / g.notes)}% stale` : ""; };
+  const topicReadout = c => { const g = lobeStats[c]; return g && g.notes ? `${plural(g.notes, "note")} · ${g.fresh} edited this week · ${Math.round(100 * g.stale / g.notes)}% stale (${Q.stale_days}d+)` : ""; };
   // o.readout: a second, quieter line with topicReadout under the name (big group labels: settlements, yards)
   function topicLabel(c, text, x, y, maxW, fill, halo, size, o = {}) {
     const px = size || Math.max(8, Math.min(11, 10 * Math.sqrt(cam.k))), font = css("--vg-font") || "system-ui, sans-serif", f = `700 ${px}px ${font}`;
