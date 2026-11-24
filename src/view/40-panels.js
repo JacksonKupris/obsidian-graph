@@ -164,7 +164,7 @@
       card("Biggest gaps", (opts.writeNote ? "related topics that barely link · draft a bridge note" : "related topics that barely link") + " · " + VGShared.GAP_RANK,
         DATA.gaps.length ? sideList(DATA.gaps.slice(0, 30).map(gapRow), "gaps") : `<div class="vg-empty">No gaps found.</div>`) +
       card("Bridge notes", "hold topics together — keep them current",
-        sideList(ranked.slice(0, 30).map(id => noteRow(id, `#${rankOf[id]} influence · ${esc(clusterName(byId[id].cluster))}`)))) +
+        sideList(ranked.slice(0, 30).map(id => noteRow(id, `#${rankOf[id]} most connecting · ${esc(clusterName(byId[id].cluster))}`)))) +
       (saidUnlinked.length ? card(VGRules.LINK_WORDS.named, "named in dailies without a link",
         sideList(saidUnlinked.slice(0, 30).map(([id, n]) => noteRow(id, `${n} daily notes`)))) : "") +
       (ghosts.length ? card("Notes to write", "linked from your notes but never created",
@@ -319,7 +319,7 @@
       <h2 class="vg-ins-title">${esc(n.name)}</h2>
       <div class="vg-muted vg-ins-path">${esc(n.folder || "/")}</div>
       <div class="vg-ins-actions vg-wrap vg-noteacts"></div>
-      ${VGParts.cards([stat(nb[id].size, "links", "Notes linked to this one, listed below by topic."), stat(rankOf[id] ? "#" + rankOf[id] : "—", "influence", "Its rank by how many routes between other notes run through it."),
+      ${VGParts.cards([stat(nb[id].size, "links", "Notes linked to this one, listed below by topic."), stat(rankOf[id] ? "#" + rankOf[id] : "—", "most connecting", "Its rank by how many routes between other notes run through it."),
         stat(n.mentions, wordFor(n.mentions, "daily mention"), "Daily notes that link or name it."), stat(n.recent, `last ${DATA.recent_days} days`, `Daily notes that link or name it in the last ${DATA.recent_days} days.`),
         stat(n.tasks, "open tasks", "Tasks not yet finished in this note."), stat(n.age + "d", n.edited ? `unchanged · since ${esc(VGShared.shortDate(n.edited))}` : "since edit", "Days since the note's text last changed.")], { small: true })}
       ${mapLine(id)}

@@ -185,7 +185,7 @@
 
   // ---------------------------------------------------------------- presets
   const PRESETS = {
-    explore: { name: "Explore", hint: "Topics, influence and gaps", apply: () => ({ sizeBy: "bc", colorBy: "cluster", gaps: true, overlays: [] }) },
+    explore: { name: "Explore", hint: "Topics, most connecting notes and gaps", apply: () => ({ sizeBy: "bc", colorBy: "cluster", gaps: true, overlays: [] }) },
     attention: { name: "Attention map", hint: "Big + grey = important but not mentioned lately",
       apply: () => ({ sizeBy: "bc", colorBy: "recent", gaps: false, overlays: [] }) },
     recent: { name: "Recent work", hint: `What your dailies talked about in the last ${DATA.recent_days} days`, apply: () => ({ sizeBy: "recent", colorBy: "recent", gaps: false, overlays: [] }) },

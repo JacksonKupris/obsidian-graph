@@ -336,7 +336,7 @@ function mountVaultGraph(root, DATA, opts) {
           <section class="vg-ppanel" data-ppanel="style" hidden>
             <div class="vg-field"><label class="vg-flabel" for="vg-size">Node size</label>
               <select id="vg-size" class="vg-select vg-size">
-                <option value="bc">Influence (routes through the note)</option><option value="recent">Daily mentions (${DATA.recent_days} days)</option></select></div>
+                <option value="bc">Most connecting (routes through the note)</option><option value="recent">Daily mentions (${DATA.recent_days} days)</option></select></div>
             <div class="vg-field"><label class="vg-flabel" for="vg-color">Node colour</label>
               <select id="vg-color" class="vg-select vg-color">
                 <option value="cluster">Topic</option>

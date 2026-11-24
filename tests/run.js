@@ -95,6 +95,7 @@ const steps = [
   ["test_edit_colours_any_theme.js", [path.join(__dirname, "test_edit_colours_any_theme.js"), ...env.args]],
   ["test_insights_footer.js", [path.join(__dirname, "test_insights_footer.js"), ...env.args]],
   ["test_since_last_run_card.js", [path.join(__dirname, "test_since_last_run_card.js"), ...env.args]],
+  ["test_rank_wording.js", [path.join(__dirname, "test_rank_wording.js"), ...env.args]],
   ["test_graph_palette.js", [path.join(__dirname, "test_graph_palette.js"), ...env.args]],
   ["test_theme_all_obsidian.js", [path.join(__dirname, "test_theme_all_obsidian.js"), ...env.args]],
   ["test_automations_words.js", [path.join(__dirname, "test_automations_words.js"), ...env.args]],

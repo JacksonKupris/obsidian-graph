@@ -12,13 +12,13 @@ const env = require("./env");
     for (const view of ["2d", "3d", "neural"]) {
       await tab.ev(`window.vaultGraph._debug.openView(${JSON.stringify(view)})`); await sleep(1200);
       const legend = await tab.ev(`(() => { const e = document.querySelector(".vg-legend"); return e ? e.textContent.replace(/\\s+/g, " ").trim() : ""; })()`);
-      assert.ok(/influence/i.test(legend), view + ': the legend names the size "influence": "' + legend + '"');
+      assert.ok(/most connecting/i.test(legend), view + ': the legend names the size "most connecting": "' + legend + '"');
       assert.ok(!/routes through it/i.test(legend), view + ": the legend has no second name for it: " + legend);
     }
     await tab.ev(`window.vaultGraph._debug.openView("3d")`); await sleep(800);
     await tab.ev(`(() => { const b = document.querySelector(".vg-viewhelp"); if (b) b.click(); })()`); await sleep(400);
     const card = await tab.ev(`(() => { const e = document.querySelector(".vg-viewcard"); return e ? e.textContent.replace(/\\s+/g, " ") : ""; })()`);
-    assert.ok(/Size[^.]*influence/i.test(card), 'the 3D help card says size is "influence": ' + card);
+    assert.ok(/Size[^.]*most connecting/i.test(card), 'the 3D help card says size is "most connecting": ' + card);
     console.log("PASS: size is called influence in the legend and the help card");
   } finally { await tab.close(); }
 })().catch(e => { console.error("FAIL: " + e.message); process.exit(1); });
