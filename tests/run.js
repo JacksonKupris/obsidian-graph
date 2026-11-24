@@ -36,6 +36,7 @@ const steps = [
   ["test_press_states.js", [path.join(__dirname, "test_press_states.js"), ...env.args]],
   ["test_touch_labels.js", [path.join(__dirname, "test_touch_labels.js"), ...env.args]],
   ["test_matrix_phone.js", [path.join(__dirname, "test_matrix_phone.js"), ...env.args]],
+  ["test_gap_counts.js", [path.join(__dirname, "test_gap_counts.js"), ...env.args]],
   ["test_persona_plan.js", [path.join(__dirname, "test_persona_plan.js"), ...env.args]],
   ["test_every_tap_target.js", [path.join(__dirname, "test_every_tap_target.js"), ...env.args]],
   ["test_monkey.js", [path.join(__dirname, "test_monkey.js"), ...env.args]],
