@@ -54,7 +54,8 @@
       for (const r of ids) for (const t of G.links[r] || []) if (ids.has(t)) inl.set(t, (inl.get(t) || 0) + 1);
       out.nodes.forEach(n => { if (n.person || n.moc) return; n.inlinks = inl.get(n.id) || 0; n.outlinks = (G.links[n.id] || []).filter(t => ids.has(t)).length;
         const f = this.fileAt(n.id), fm = (f instanceof TFile && this.fmOf(f)) || {}; n.refs = !!(fm.references && [].concat(fm.references).length);
-        const e = CONTENT.log[n.id], rv = /^\d{4}-\d{2}-\d{2}/.test(String(fm.reviewed || "")) ? String(fm.reviewed).slice(0, 10) : ""; if (e) { n.edited = [e.since, rv].filter(Boolean).sort().pop(); n.age = daysSince(n.edited); } }); }
+        const e = CONTENT.log[n.id], rv = /^\d{4}-\d{2}-\d{2}/.test(String(fm.reviewed || "")) ? String(fm.reviewed).slice(0, 10) : ""; if (e) { n.edited = [e.since, rv].filter(Boolean).sort().pop(); n.age = daysSince(n.edited); } });
+      VGRules.settleRefs(out.nodes); }
     out.since = VGEngine.dayShift(out.date, 365); out.dailies_used = N.used;
     return out;
   }

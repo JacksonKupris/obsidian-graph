@@ -156,6 +156,7 @@ const steps = [
   ["test_today_strip_expand.js", [path.join(__dirname, "test_today_strip_expand.js"), ...env.args]],
   ["test_lens_load_failed.js", [path.join(__dirname, "test_lens_load_failed.js")]],
   ["test_attention_ring.js", [path.join(__dirname, "test_attention_ring.js")]],
+  ["test_refs_in_use.js", [path.join(__dirname, "test_refs_in_use.js"), ...env.args]],
   ["test_view_scale.js", [path.join(__dirname, "test_view_scale.js")]],
   ["test_attention_library.js", [path.join(__dirname, "test_attention_library.js")]],
   ["test_shards.js", [path.join(__dirname, "test_shards.js")]],

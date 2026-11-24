@@ -74,7 +74,7 @@ function liveMerge(app, data, since) {
   for (const file of vault.getMarkdownFiles()) {
     if (byId.has(file.path) || !(knowledge(file) || joins(file))) continue;
     const n = { id: file.path, name: file.basename, cluster: -1, bc: 0, folder: file.parent ? file.parent.path : "", mentions: 0, recent: 0,
-      inlinks: 0, outlinks: 0, broken: 0, tasks: 0, words: 0, age: 0, refs: false, isolated: true, live: true };
+      inlinks: 0, outlinks: 0, broken: 0, tasks: 0, words: 0, age: 0, refs: VGRules.noRefsValue(data.nodes), isolated: true, live: true };
     byId.set(n.id, n); added.push(n);
   }
   const isNote = id => byId.has(id) && !byId.get(id).person && !byId.get(id).moc;
