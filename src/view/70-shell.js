@@ -363,7 +363,7 @@
       animateTo({ k: Math.min(cam.k, 1), tx: 0, ty: 0, cx: 0, cy: 0, cz: 0, pitch: st.angles.neural === "flat" ? 0 : -0.25, yaw: 0 }, 1400);
       layNeural(); syncDim();   // the toggle was set before this, from whatever view came before
       fitted = false; afterMorph(() => { fitted = true; fit(n => !special(n), 900); }, 1500);
-      toast("Neural view — lobes are topics, the core holds your bridge notes");
+      toast("Neural view — lobes are topics, the core holds your most connecting notes");
     } else {
       st.three = view === "3d"; cv.style.cursor = st.three ? "grab" : "default";
       const L = layouts[mode()], known = Object.keys(L).length > nodes.length * 0.3;
