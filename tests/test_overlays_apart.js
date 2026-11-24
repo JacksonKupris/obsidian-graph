@@ -1,23 +1,27 @@
 #!/usr/bin/env node
-// The strip under the toolbar (Today: the biggest gap and its button) and the status pill ("49 notes · 6 maps") are two overlays on the same edge.
-// They must not lie over each other, on a computer or a phone, whether or not the first-run tour is showing.
+// The 3D view's overlays (How to read this, legend, status line, toolbar, hint toast) never sit on top of each other,
+// on a phone or a desktop window (3D persona round, 0.6.242: the chip overlapped How to read this after Show both).
+//   node tests/test_overlays_apart.js        exit 0 = pass
 const { sleep, checks, finish, openPage } = require("./kit"), env = require("./env");
 const { fails, ok: check } = checks();
-const hit = (a, b) => a && b && a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1;
+const D = "window.vaultGraph._debug";
+const SEL = [".vg-viewhelp", ".vg-legend", ".vg-status", ".vg-toolbar", ".vg-toast", ".vg-chips", ".vg-today"];
 (async () => {
-  for (const [w, h, mobile] of [[1280, 800, false], [390, 844, true]]) {
+  for (const mobile of [true, false]) {
     const tab = await openPage({ html: env.pageWith("", env.data()), mobile });
     try {
-      await tab.send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile });
-      check(await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000), "the graph must mount");
-      await tab.ev(`document.querySelectorAll(".vg-tour, .vg-tour-card").forEach(x => x.remove())`); await sleep(1500);
-      const r = await tab.ev(`(() => { const box = s => { const e = document.querySelector(s); if (!e || e.hidden || !e.offsetWidth) return null; const b = e.getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom }; };
-        return { today: box(".vg-today"), status: box(".vg-status"), legend: box(".vg-legend"), bar: box(".vg-toolbar") }; })()`);
-      check(!!r.today, `${w}px: the page must show the Today strip, or this test reads nothing`);
-      check(!!r.status, `${w}px: the page must show the status pill, or this test reads nothing`);
-      check(!hit(r.today, r.status), `${w}px: the status pill lies over the Today strip: ${JSON.stringify([r.today, r.status])}`);
-      check(!hit(r.today, r.bar), `${w}px: the Today strip lies over the toolbar`);
+      if (!await tab.waitFor(`window.vaultGraph && ${D} ? 1 : 0`, 30000)) throw new Error("the graph didn't mount");
+      await sleep(1500); await tab.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape" }).catch(() => {});
+      await tab.ev(`${D}.openView("3d")`); await sleep(2500);
+      const boxes = await tab.ev(`(${JSON.stringify(SEL)}).flatMap(s => [...document.querySelectorAll(s)].map(e => { const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return { s, x: r.left, y: r.top, w: r.width, h: r.height, v: r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none" && !e.hidden }; })).filter(b => b.v)`);
+      const names = boxes.map(b => b.s);
+      check(names.includes(".vg-toolbar") && names.includes(".vg-viewhelp"), (mobile ? "phone" : "desktop") + ": the toolbar and How to read this show (the test can't fail without them): " + names.join(","));
+      for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i], b = boxes[j]; if (a.s === b.s) continue;
+        const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x), h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+        check(!(w > 3 && h > 3), `${mobile ? "phone" : "desktop"}: ${a.s} overlaps ${b.s} (${Math.round(w)}x${Math.round(h)}px)`);
+      }
     } finally { await tab.close(); }
   }
-  finish(fails, "the Today strip and the status pill do not overlap");
-})();
+  finish(fails, "3D overlays stay apart");
+})().catch(e => { console.error(e); process.exit(1); });
