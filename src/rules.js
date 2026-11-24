@@ -625,7 +625,7 @@ const VGRules = (() => {
   const titleOf = (text, path) => { const m = bodyOf(text).match(/^#\s+(.+)$/m); return plainTask(m ? m[1] : stemCase(path)); };
   // The words for the two link problems, so every screen says the same thing: an UNLINKED note has no links in or out (a count, a list, a tile);
   // a NAMED note is spelled out in daily notes without a link (a count, a list, a fix). tests/test_link_words.js fails when a screen words them differently.
-  const LINK_WORDS = { unlinked: "Unlinked notes", named: "Named, not linked", namedIn: n => `Named in ${VGShared.plural(n, "daily note")}, not linked` };
+  const LINK_WORDS = { unlinked: "Unlinked notes", named: "Mentioned, not linked", namedIn: n => `Mentioned in ${VGShared.plural(n, "daily note")}, not linked` };
   // "No references" is a problem only in a vault that uses references. A note's refs is true (has some), false (lacks them) or null
   // (this vault doesn't use them, so nothing is missing); the attention ring and the inspector row flag only false.
   const noRefsValue = nodes => nodes.some(n => n.refs === true) ? false : null;
