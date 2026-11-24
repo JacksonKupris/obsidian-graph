@@ -47,6 +47,7 @@ const steps = [
   ["test_hq_layout.js", [path.join(__dirname, "test_hq_layout.js"), ...env.args]],
   ["test_hq_features.js", [path.join(__dirname, "test_hq_features.js"), ...env.args]],
   ["test_hq_ux.js", [path.join(__dirname, "test_hq_ux.js"), ...env.args]],
+  ["test_hq_back_layers.js", [path.join(__dirname, "test_hq_back_layers.js"), ...env.args]],
   ["test_hq_polish.js", [path.join(__dirname, "test_hq_polish.js"), ...env.args]],
   ["test_hq_next.js", [path.join(__dirname, "test_hq_next.js"), ...env.args]],
   ["test_analysis_pace.js", [path.join(__dirname, "test_analysis_pace.js")]],
