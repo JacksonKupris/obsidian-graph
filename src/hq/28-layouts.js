@@ -7,7 +7,7 @@
   let hqPalette = opts.palette;
   const paletteNow = () => VGShared.paletteOf(hqPalette);
   const applyPalette = () => VGShared.applyPalette(el, hqPalette);
-  const paletteSelect = () => `<label class="vg-hq-layoutlabel"><select class="vg-hq-layoutsel" data-palette aria-label="Theme" title="Colour theme">${VGShared.PALETTES.map(([k, name]) => `<option value="${k}"${VGShared.paletteIs(paletteNow(), k) ? " selected" : ""}>${esc(name)}</option>`).join("")}</select></label>${VGShared.customOf(paletteNow()) ? `<button class="vg-hq-btn vg-hq-btn-sm" data-editcolors>Edit colours</button>` : ""}`;
+  const paletteSelect = () => `<label class="vg-hq-layoutlabel"><select class="vg-hq-layoutsel" data-palette aria-label="Theme" title="Colour theme">${VGShared.PALETTES.map(([k, name]) => `<option value="${k}"${VGShared.paletteIs(paletteNow(), k) ? " selected" : ""}>${esc(name)}</option>`).join("")}</select></label><button class="vg-hq-btn vg-hq-btn-sm" data-editcolors>Edit colours</button>`;
   function setPalette(p) {
     if (!VGShared.PALETTES.some(x => x[0] === p) && !VGShared.customOf(p)) return;
     p = VGShared.paletteChoice(paletteNow(), p); if (p === paletteNow()) return;
@@ -18,7 +18,7 @@
   // Save only while every pairing passes, Reset puts the defaults back in the pickers, Escape or Cancel puts the saved colours back
   function openColourEditor() {
     if (el.querySelector(".vg-hq-colours")) return;
-    const was = paletteNow(); let cols = VGShared.customOf(was) || VGShared.CUSTOM_DEFAULT.slice();
+    const was = paletteNow(); let cols = VGShared.customOf(was) || VGShared.liveColours(el) || VGShared.CUSTOM_DEFAULT.slice();
     const box = document.createElement("div"); box.className = "vg-hq-dialog vg-hq-colours"; box.setAttribute("role", "dialog"); box.setAttribute("aria-label", "Edit colours");
     box.innerHTML = `<div class="vg-hq-dialog-card"><b>Edit colours</b><p>Page, panel, text and accent set the look. Good, warning, error and link carry meaning. Every other colour follows from these.</p>
       <div class="vg-hq-colourgrid">${VGShared.CUSTOM_NAMES.map((n, i) => `<label>${n}<input type="color" data-colour="${i}" value="${cols[i]}"></label>`).join("")}</div>
