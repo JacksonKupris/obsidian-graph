@@ -68,7 +68,10 @@ const env = require("./env");
     // the switch turns it off
     await tab.ev(`window.vaultGraph._debug.openView("2d")`); await sleep(600);
     await tab.ev(`(() => { const cb = document.querySelector(".vg-l-attention"); cb.checked = false; cb.dispatchEvent(new Event("change", { bubbles: true })); })()`); await sleep(700);
-    const off = await tab.ev(`(() => { const W = VGActions.PROBLEMS.map(p => [1, 3, 5].map(i => parseInt(p.ring.slice(i, i + 2), 16))), cv = document.querySelector(".vg-cv"), g = cv.getContext("2d"), s = cv.width / cv.clientWidth; let amber = 0; for (const x of window.vaultGraph._debug.attention().filter(x => x.at).slice(0, 12)) { const rr = Math.max(4, Math.min(24, x.at.r)) + 4, d = g.getImageData(Math.round((x.at.x + rr) * s) - 1, Math.round(x.at.y * s), 3, 1).data; for (let i = 0; i < 9; i += 4) if (W.some(c => Math.abs(d[i] - c[0]) < 30 && Math.abs(d[i + 1] - c[1]) < 30 && Math.abs(d[i + 2] - c[2]) < 30) && d[i + 3] > 80) { amber++; break; } } return amber; })()`);
+    // the canvas repaints a frame after the switch; on a slow machine that is later than a fixed wait, so poll for the painted rings to go
+    const measureOff = () => tab.ev(`(() => { const W = VGActions.PROBLEMS.map(p => [1, 3, 5].map(i => parseInt(p.ring.slice(i, i + 2), 16))), cv = document.querySelector(".vg-cv"), g = cv.getContext("2d"), s = cv.width / cv.clientWidth; let amber = 0; for (const x of window.vaultGraph._debug.attention().filter(x => x.at).slice(0, 12)) { const rr = Math.max(4, Math.min(24, x.at.r)) + 4, d = g.getImageData(Math.round((x.at.x + rr) * s) - 1, Math.round(x.at.y * s), 3, 1).data; for (let i = 0; i < 9; i += 4) if (W.some(c => Math.abs(d[i] - c[0]) < 30 && Math.abs(d[i + 1] - c[1]) < 30 && Math.abs(d[i + 2] - c[2]) < 30) && d[i + 3] > 80) { amber++; break; } } return amber; })()`);
+    let off = await measureOff();
+    for (let i = 0; i < 20 && off !== 0; i++) { await sleep(300); off = await measureOff(); }
     assert.strictEqual(off, 0, "with the switch off no ring is painted");
     assert.strictEqual(await tab.ev(`document.querySelectorAll(".vg-legend .vg-lg-attn-set").length`), 0, "with the switch off the legend drops the entries");
     // every problem has its own look, and a note with two problems gets a ring of two colours
