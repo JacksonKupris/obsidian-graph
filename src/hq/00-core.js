@@ -16,6 +16,7 @@ function mountVaultHQ(root, data, opts) {
   const known = s => SCREENS.some(x => x[0] === s) || !!SUB[s];
   const api = opts.api || {};
   let DATA = data || { nodes: [], links: [] }, STATE = opts.state || {}, cur = SCREENS.some(s => s[0] === opts.screen) || opts.screen === "automations" ? opts.screen : "home";
+  let trayScreen = cur;   // the screen the phone menu tray was opened on: it closes when the screen changes
   let kept = new Set(), rowsPath = null;   // the sweep's Keep (this visit only); the report whose rows are open
   // What you just acted on is off the list at once. The host's next data can still be the old one (a note's index
   // lags its file by a moment), so a key stays off for GONE_HOLD after the action, then the data decides again.
