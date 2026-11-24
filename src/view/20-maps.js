@@ -18,7 +18,7 @@
   const gapToday = () => { const g = (DATA.gaps || [])[0];
     return g ? { text: `Biggest gap: ${clusterName(g.a)} ↔ ${clusterName(g.b)} · ${VGShared.gapWhy(g)}`, label: "Show both", run: () => focusClusters([g.a, g.b]), title: VGShared.GAP_RANK } : null; };
   view("2d", { kind: "graph", name: "Graph", short: "2D", icon: "hub", menu: "see", hint: "Notes and links: topics, most connecting notes and gaps", today: gapToday });
-  view("3d", { kind: "graph", name: "Graph in 3D", short: "3D", icon: "layers", menu: "see", hint: "The same graph in depth; drag to turn it", today: gapToday });
+  view("3d", { kind: "graph", name: "3D graph", short: "3D", icon: "layers", menu: "see", hint: "The same graph in depth; drag to turn it", today: gapToday });
   view("neural", { kind: "graph", name: "Neural", icon: "brain", menu: "see", hint: "Topics as brain lobes, links firing between them", today: gapToday });
   view("cosmos", { kind: "graph", name: "Cosmos", icon: "orbit", menu: "see", hint: "Maps become stars; place planets and fly between them" });
   // ---------------------------------------------------------------- scene registry
