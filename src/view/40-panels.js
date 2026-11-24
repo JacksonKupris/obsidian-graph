@@ -161,7 +161,7 @@
       `${VGParts.cards([stat(linked, "linked notes", "", "all", "Fit the whole graph"), stat(DATA.clusters.length, "topics", "", "topics", "List the topics"),
         stat(DATA.gaps.length, "topic gaps", DATA.gaps.length ? "accent" : "", "gaps", "Topic pairs that barely link"), stat(iso, "unlinked notes", iso > linked * 0.25 ? "warn" : "", "unlinked", "Show the notes with no links")])}` +
       renderChanges() + renderMaps() +
-      card("Biggest gaps", opts.writeNote ? "related topics that barely link · draft a bridge note" : "related topics that barely link",
+      card("Biggest gaps", (opts.writeNote ? "related topics that barely link · draft a bridge note" : "related topics that barely link") + " · " + VGShared.GAP_RANK,
         DATA.gaps.length ? sideList(DATA.gaps.slice(0, 30).map(gapRow), "gaps") : `<div class="vg-empty">No gaps found.</div>`) +
       card("Bridge notes", "hold topics together — keep them current",
         sideList(ranked.slice(0, 30).map(id => noteRow(id, `#${rankOf[id]} influence · ${esc(clusterName(byId[id].cluster))}`)))) +

@@ -14,6 +14,8 @@ const VGSharedMake = () => {
   const plural = (n, word, words) => `${n} ${n === 1 ? word : words || word + "s"}`;
   // why two topics are a gap, in words (one rule for the bar, the sidebar, the matrix and the reports). "only" when the links really are fewer than
   // the co-mentions; a pair with no co-mentions is there for its shared tags and says so, never "only".
+  // what ranks a gap, said once: the analysis orders gaps by how unusually often two topics are named together (and shared tags), less when they already link
+  const GAP_RANK = "Ranked by how unusually often the topics are named together, less when they already link; the daily-note count alone doesn't set the order.";
   const gapWhy = g => g.comentions ? `named together in ${plural(g.comentions, "daily note")}, ${g.links === 0 ? "no links between them yet" : (g.links < g.comentions ? "only " : "") + plural(g.links, "link")}` : `related by shared tags, ${plural(g.links, "link")}`;
   // note text with each [[link|alias]] as its alias and each [[link]] as its name, and without its frontmatter
   const plainLinks = s => String(s).replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1");
@@ -92,6 +94,6 @@ const VGSharedMake = () => {
     const to = lum(b) > 0.4 ? 0 : 255;   // toward black on a light page, white on a dark one
     for (let t = 0.05; t <= 1.0001; t += 0.05) { const out = "#" + c.map(v => hex2(v + (to - v) * t)).join(""); if (contrast(out, bg) >= min) return out; }
     return to ? "#ffffff" : "#000000"; };
-  return { PALETTES, CUSTOM_NAMES, CUSTOM_DEFAULT, customOf, customKey, customVars, customChecks, paletteIs, paletteChoice, paletteOf, applyPalette, inkOn, contrast, scopeOf, scopeHas, escapeHtml, escapeRegex, baseOf, nameOf, plural, gapWhy, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, shortDate, canUseWorker, inWorker, offThread };
+  return { GAP_RANK, PALETTES, CUSTOM_NAMES, CUSTOM_DEFAULT, customOf, customKey, customVars, customChecks, paletteIs, paletteChoice, paletteOf, applyPalette, inkOn, contrast, scopeOf, scopeHas, escapeHtml, escapeRegex, baseOf, nameOf, plural, gapWhy, plainLinks, stripFrontmatter, DAY_MS, noon, utcNoon, shiftDay, daysBetween, pad2, shortDate, canUseWorker, inWorker, offThread };
 };
 const VGShared = VGSharedMake();
