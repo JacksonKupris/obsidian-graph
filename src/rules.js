@@ -130,14 +130,21 @@ const VGRules = (() => {
   };                                                // back; spar: two from the group trade blows, the more relied-on wins
   const fuzzyScore = (query, text) => {
     const s = String(text).toLowerCase(), q = String(query).toLowerCase().replace(/\s+/g, "");
-    let i = 0, score = 0, run = 0, prev = -2;
+    let i = 0, score = 0, run = 0, prev = -2, first = -1;
     for (const ch of q) {
       const j = s.indexOf(ch, i); if (j < 0) return -1;
       run = j === prev + 1 ? run + 1 : 0; score += 1 + run * 2 + (j === 0 || " -_/·".includes(s[j - 1]) ? 3 : 0);
-      prev = j; i = j + 1;
+      if (first < 0) first = j; prev = j; i = j + 1;
     }
-    if (q.length > 3 && score < q.length * 1.6) return -1;
+    // letters spread over much more than their own length are chance, not a typo or an abbreviation ("stale" across "spare parts catalogue")
+    if (q.length > 3 && (score < q.length * 1.6 || prev - first + 1 > q.length * 2 + 2)) return -1;
     return score - s.length * 0.01;
+  };
+  // a folder path is long, so letters scattered across it match almost any word: the path counts only where every word of the query
+  // is written in it (a word that is a folder's name finds the notes in that folder), and then it scores a little below a name
+  const pathScore = (query, path) => {
+    const p = String(path).toLowerCase();
+    return String(query).toLowerCase().split(/\s+/).filter(Boolean).every(w => p.includes(w)) ? fuzzyScore(query, path) - 2 : -1;
   };
   // Recall: find where something was dealt with before, inside notes, from whatever is half-remembered: words (also
   // misspelled or partial), when ("last month", "in June"), who (a name from the people folder), what kind of thing
@@ -736,7 +743,7 @@ const VGRules = (() => {
     const byPath = new Map();
     hits.filter(h => h.kind !== "related").forEach(h => { if (!byPath.has(h.path)) byPath.set(h.path, h); });
     return projects.map(p => ({ p, hit: byPath.get(p.path), score: Math.max(fuzzyScore(q, p.title), fuzzyScore(q, p.name || ""),
-      fuzzyScore(q, p.path) - 2) })).filter(r => r.score >= 0 || r.hit)
+      pathScore(q, p.path)) })).filter(r => r.score >= 0 || r.hit)
       .sort((a, b) => Number(b.score >= 0) - Number(a.score >= 0) || b.score - a.score || (b.hit?.score || 0) - (a.hit?.score || 0) || a.p.path.localeCompare(b.p.path))
       .map(r => ({ ...r.p, searchHit: r.hit }));
   }
@@ -1583,7 +1590,7 @@ const VGRules = (() => {
     const kept = all.filter(p => p[1] / total >= floor), rest = all.filter(p => p[1] / total < floor);
     return rest.length === 1 ? { kept: all, rest: [] } : { kept, rest };
   };
-  return { sectionWords, whenWords, placeWords, jobWords, hqBriefLines, ringClusters, ringBudget, foldSmall, errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, mocNode, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, unmentioned, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, snippetLine, relatedNotes, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, LINK_WORDS, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, kindName, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+  return { pathScore, sectionWords, whenWords, placeWords, jobWords, hqBriefLines, ringClusters, ringBudget, foldSmall, errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, mocNode, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, unmentioned, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, snippetLine, relatedNotes, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, LINK_WORDS, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, kindName, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
     RULES: R, NEXT_NOTE, nextView, nextItem, SCALES, VIEW_SCALES, viewScale, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, GUIDE_LOG_KEEP, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageFrom, triageQueue, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
