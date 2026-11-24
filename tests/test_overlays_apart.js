@@ -15,6 +15,7 @@ const SEL = [".vg-hud-title", ".vg-viewhelp", ".vg-legend", ".vg-status", ".vg-t
       await tab.ev(`${D}.openView("${view}")`); await sleep(2500);
       const boxes = await tab.ev(`(${JSON.stringify(SEL)}).flatMap(s => [...document.querySelectorAll(s)].map(e => { const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return { s, x: r.left, y: r.top, w: r.width, h: r.height, v: r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none" && !e.hidden }; })).filter(b => b.v)`);
       const names = boxes.map(b => b.s);
+      const st = boxes.find(b => b.s === ".vg-status"); if (st) check(st.h < 100, `${view} ${mobile ? "phone" : "desktop"}: the status line is one line, not ${Math.round(st.h)}px tall`);
       check(names.includes(".vg-toolbar") && names.includes(".vg-viewhelp"), view + " " + (mobile ? "phone" : "desktop") + ": the toolbar and How to read this show (the test can't fail without them): " + names.join(","));
       for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
         const a = boxes[i], b = boxes[j]; if (a.s === b.s) continue;
