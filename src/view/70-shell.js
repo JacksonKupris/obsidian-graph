@@ -226,6 +226,7 @@
   const opt = (v, label, extra = "") => `<option value="${esc(v)}"${extra}>${esc(label)}</option>`;
   function syncSelects() {
     const vs = $(".vg-viewsel"), ds = $(".vg-displaysel"), ts = $(".vg-toolsel"); if (!vs) return;
+    root.classList.toggle("vg-short-views", sheetMode());   // the picker then names the views "2D" and "3D" itself, so the 2D/3D toggle beside it is hidden (two boxes both reading 3D)
     const items = pickItems().filter(i => i.tab === "views"), cur = items.find(i => i.on);
     vs.innerHTML = (cur ? "" : opt("", "View", " hidden disabled")) + viewGroups(items).map(([name, xs]) => `<optgroup label="${esc(name)}">${xs.map(i => opt(i.k, sheetMode() && i.short ? i.short : i.name)).join("")}</optgroup>`).join("");
     vs.value = cur ? cur.k : "";
