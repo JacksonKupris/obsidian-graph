@@ -559,8 +559,20 @@ div.vg-hq-densehead { color: var(--hq-muted); border-top: 0; }
 .vg-hq-thead2 h2 { margin: 0; font-size: var(--ds-fs-lg); }
 @media (max-width: 700px) { .vg-hq-thead { display: none; } .vg-hq-trow { grid-template-columns: 24px minmax(0, 1fr); } .vg-hq-trow > .vg-hq-tkind, .vg-hq-trow > .vg-hq-tthread, .vg-hq-trow > .vg-hq-tage { display: none; } .vg-hq-trow > .vg-hq-acts { grid-column: 1 / -1; } }
 
-/* phones: once the list is scrolled, the search, next step, layout and week strip fold away so the list gets the screen */
+/* phones: one slim bar (the screen's name, search, menu) that never changes height; the search, history, layout and theme controls
+   open as a tray under it; the week strip and the Next line are the first things in the content and scroll away with it */
 @container (max-width: 760px) {
-  .vg-hq.is-scrolled .vg-hq-global-tools, .vg-hq.is-scrolled .vg-hq-strip, .vg-hq.is-scrolled .vg-hq-nextchip, .vg-hq.is-scrolled .vg-hq-layoutlabel, .vg-hq.is-scrolled .vg-hq-clock { display: none; }
-  .vg-hq .vg-hq-top { gap: 8px; }
+  .vg-hq .vg-hq-top.is-phone { flex-wrap: nowrap; gap: 0; height: 44px; padding: 0 4px 0 12px; box-sizing: border-box; }
+  .vg-hq .vg-hq-top.is-phone .vg-hq-crumb { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ds-fs-lg); }
+  .vg-hq .vg-hq-iconbtn { flex: none; width: 44px; height: 44px; min-width: 44px; padding: 0; justify-content: center; }
+  .vg-hq .vg-hq-tray { display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 9; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; background: var(--hq-bg); border-bottom: 1px solid var(--hq-line); box-shadow: var(--ds-shadow-1); }
+  .vg-hq.tray-open .vg-hq-tray { display: flex; }
+  .vg-hq .vg-hq-tray .vg-hq-global-tools { order: 0; flex: 1 1 100%; max-width: none; }
+  .vg-hq .vg-hq-main > .vg-hq-strip { margin: 8px 0 0; }
+  .vg-hq .vg-hq-main > .vg-hq-nextchip { display: flex; width: 100%; max-width: none; margin-top: 8px; box-sizing: border-box; }
+  .vg-hq .vg-hq-strip .vg-hq-chips { display: none; }   /* the bottom bar carries these counts */
+  .vg-hq .vg-hq-top.is-phone { z-index: 12; }   /* above the week strip, so the open tray is not drawn under it */
+  .vg-hq .vg-hq-main { padding-bottom: 112px; }   /* the floating bottom bar never covers the last rows */
+  .vg-hq .vg-hq-main .vg-hq-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; }   /* one swipeable row of pills */
+  .vg-hq .vg-hq-main .vg-hq-filters .vg-hq-filter { flex: none; white-space: nowrap; }
 }

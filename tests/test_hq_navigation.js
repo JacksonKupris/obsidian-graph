@@ -12,8 +12,9 @@ const assert = require("assert"), env = require("./env");
       for (const from of ["home", "needs", "projects", "automations"]) {
         for (const to of ["needs", "projects", "automations"]) {
           await tab.ev(`window.vaultHQ.setScreen(${JSON.stringify(from)})`);
+          if (mobile && to === "automations") await tab.ev(`(() => { const h = document.querySelector('.vg-hq'); if (!h.classList.contains('tray-open')) { const m = document.querySelector('[data-tray="menu"]'); if (m) m.click(); } })()`);   // a phone's only shortcut to Automations is in its menu
           const point = await tab.ev(`(() => {
-            const b = document.querySelector('.vg-hq-chips [data-go="${to}"]');
+            const b = [...document.querySelectorAll('.vg-hq-chips [data-go="${to}"], .vg-hq-dock [data-go="${to}"], .vg-hq-tray [data-go="${to}"]')].find(x => x.getBoundingClientRect().width);
             if (!b) return null;
             const r = (b.querySelector("b") || b).getBoundingClientRect();
             return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
@@ -23,7 +24,7 @@ const assert = require("assert"), env = require("./env");
           await tab.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...point, button: "left", clickCount: 1 });
           assert.strictEqual(await tab.ev("window.vaultHQ.screen()"), to, `${mobile ? "phone" : "desktop"}: ${from} -> ${to}`);
           assert.strictEqual(await tab.ev("document.querySelector('.vg-hq-crumb').textContent.trim()"),
-            `Vault HQ / ${to === "needs" ? "Needs you" : to === "projects" ? "Projects" : "Automations"}`);
+            `${mobile ? "" : "Vault HQ / "}${to === "needs" ? "Needs you" : to === "projects" ? "Projects" : "Automations"}`);
           await tab.ev("window.vaultHQ.update(null, null)");
           assert.strictEqual(await tab.ev("window.vaultHQ.screen()"), to, "live data refresh lost navigation");
         }
