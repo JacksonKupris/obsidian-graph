@@ -143,7 +143,7 @@
     return card("Maps", "how much of each topic its map lists · click to light up what it misses",
       rows.map(({ m, size, miss, pct }) => `${VGParts.item({ cls: "vg-maprow", attrs: `data-moc="${esc(m.id)}"`, lead: `<span class="vg-hex" style="--c:${colorOf(m.clusters[0])}"></span>`, title: `<span><b>${esc(m.title)}</b></span>`, mid: `<span class="vg-bar"><i style="width:${Math.max(3, pct)}%;background:${colorOf(m.clusters[0])}"></i></span>`, sub: `${pct}% of ${size} listed · ${miss ? `${miss} missing` : "complete"}${m.clusters.length > 1 ? ` · ${m.clusters.length} topics` : ""}` })}`).join("") +
       (otherMaps.length ? VGParts.section({ title: "Other maps", count: otherMaps.length, body: sideList(otherMaps.map(n => noteRow(n.id, "covers no topic")), "maps") }) : "") +
-      (unmapped.length ? VGParts.section({ title: "No map yet", count: unmapped.length, body: sideList(unmapped.map(c => `${VGParts.item({ cls: "vg-unmapped", attrs: `data-c="${c.id}"`, lead: `<span class="vg-dot" style="background:${colorOf(c.id)}"></span>`, title: `<span>${esc(c.name)}</span>`, sub: `${plural(c.size, "note")}${opts.writeNote ? " · make one from its row under Topics" : ""}` })}`), "topics") }) : ""));
+      (unmapped.length ? VGParts.section({ title: "No map yet", count: unmapped.length, body: sideList(unmapped.map(c => `${VGParts.item({ cls: "vg-unmapped", attrs: `data-c="${c.id}"`, lead: `<span class="vg-dot" style="background:${colorOf(c.id)}"></span>`, title: `<span>${esc(clusterName(c.id))}</span>`, sub: `${plural(c.size, "note")}${opts.writeNote ? " · make one from its row under Topics" : ""}` })}`), "topics") }) : ""));
   }
   function showMocMissing(id) {
     const m = mocs.find(x => x.id === id); if (!m) return;
@@ -197,8 +197,8 @@
         return `<div class="vg-cluster ${off ? "is-off" : ""}" data-c="${c.id}">
           ${VGParts.item({ cls: "vg-cl-main", attrs: `data-c="${c.id}" title="Show this topic"`, lead: `<span class="vg-dot" style="background:${colorOf(c.id)}"></span>`, title: `<span><b>${esc(clusterName(c.id))}</b></span>`, mid: `<span class="vg-bar"><i style="width:${Math.max(4, 100 * c.size / max)}%;background:${colorOf(c.id)}"></i></span>`, sub: `${plural(c.size, "note")} · ${healthy}% healthy (not a stub or stale, no broken links)${c.keywords ? ` · <i>${esc(c.keywords)}</i>` : ""} · ${c.core.map(esc).join(", ")}` })}
           <div class="vg-cl-acts">
-            ${opts.writeNote ? `<button class="vg-ibtn vg-cl-hub" data-c="${c.id}" title="Create or refresh this topic's map" aria-label="Map for ${esc(c.name)}">${icon("hub", 15)}</button>` : ""}
-            <button class="vg-ibtn vg-cl-eye" data-c="${c.id}" aria-pressed="${!off}" aria-label="${off ? "Show" : "Hide"} ${esc(c.name)}" title="${off ? "Show" : "Hide"} topic">${icon(off ? "eyeOff" : "eye", 15)}</button>
+            ${opts.writeNote ? `<button class="vg-ibtn vg-cl-hub" data-c="${c.id}" title="Create or refresh this topic's map" aria-label="Map for ${esc(clusterName(c.id))}">${icon("hub", 15)}</button>` : ""}
+            <button class="vg-ibtn vg-cl-eye" data-c="${c.id}" aria-pressed="${!off}" aria-label="${off ? "Show" : "Hide"} ${esc(clusterName(c.id))}" title="${off ? "Show" : "Hide"} topic">${icon(off ? "eyeOff" : "eye", 15)}</button>
           </div>
         </div>`;
       }).join("") || `<div class="vg-empty">No topics match.</div>`;
@@ -478,7 +478,7 @@
       <div class="vg-ins-actions vg-wrap"><span class="vg-noteacts"></span>
         <button class="vg-btn" data-act="missing">${icon("target", 14)} Light up missing</button>
         ${canAddToMap() && miss.length ? `<button class="vg-btn" data-act="addall">${icon("plus", 14)} Add top ${Math.min(10, miss.length)}</button>` : ""}</div>
-      <div class="vg-ins-sec"><div class="vg-ins-h">Maps</div>${m.clusters.map(c => `<button class="vg-chip is-btn" data-c="${c}" style="--c:${colorOf(c)}">${esc((clusterById[c] || { name: "?" }).name)} · ${(clusterById[c] || { size: 0 }).size - (m.missing[c] || []).length}/${(clusterById[c] || { size: 0 }).size}</button>`).join(" ")}</div>
+      <div class="vg-ins-sec"><div class="vg-ins-h">Maps</div>${m.clusters.map(c => `<button class="vg-chip is-btn" data-c="${c}" style="--c:${colorOf(c)}">${esc(clusterById[c] ? clusterName(c) : "?")} · ${(clusterById[c] || { size: 0 }).size - (m.missing[c] || []).length}/${(clusterById[c] || { size: 0 }).size}</button>`).join(" ")}</div>
       <div class="vg-ins-sec"><div class="vg-ins-h">In the topic, not in the map <span class="vg-count">${miss.length}</span></div>
       ${miss.slice(0, 40).map(i => `<div class="vg-sugg">${noteRow(i, `#${rankOf[i] || "—"} most connecting`)}${canAddToMap() ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-addmap="${esc(n.id)}" data-note="${esc(i)}">${icon("plus", 12)} Add</button></span>` : ""}</div>`).join("") || `<div class="vg-empty">Everything in this topic is listed.</div>`}</div>`;
     box.querySelector(".vg-ins-close").onclick = () => select(null);
