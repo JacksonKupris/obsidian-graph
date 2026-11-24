@@ -227,7 +227,7 @@
   function syncSelects() {
     const vs = $(".vg-viewsel"), ds = $(".vg-displaysel"), ts = $(".vg-toolsel"); if (!vs) return;
     const items = pickItems().filter(i => i.tab === "views"), cur = items.find(i => i.on);
-    vs.innerHTML = (cur ? "" : opt("", "View", " hidden disabled")) + viewGroups(items).map(([name, xs]) => `<optgroup label="${esc(name)}">${xs.map(i => opt(i.k, i.name)).join("")}</optgroup>`).join("");
+    vs.innerHTML = (cur ? "" : opt("", "View", " hidden disabled")) + viewGroups(items).map(([name, xs]) => `<optgroup label="${esc(name)}">${xs.map(i => opt(i.k, sheetMode() && i.short ? i.short : i.name)).join("")}</optgroup>`).join("");
     vs.value = cur ? cur.k : "";
     const displayOpts = `<optgroup label="Styles">${Object.entries(PRESETS).sort((a, b) => byName(a[1], b[1])).map(([k, p]) => opt("preset:" + k, (st.preset === k ? "✓ " : "") + p.name)).join("")}</optgroup><optgroup label="Theme">${VGShared.PALETTES.map(([k, name]) => opt("palette:" + k, (VGShared.paletteIs(palette, k) ? "✓ " : "") + name)).join("")}</optgroup><optgroup label="Settings">${opt("panel:style", "Size, colour and layers…")}${opt("panel:health", "Health overlays…")}</optgroup>`;
     ds.innerHTML = opt("", "Display", " hidden disabled") + displayOpts;
@@ -247,7 +247,7 @@
   function pickItems() {
     const out = [];
     Object.entries(VIEWS).forEach(([k, v]) => { if (v.hidden || (opts.compact && (v.kind === "lens" || k === "cosmos"))) return;   // hidden: reachable by key, listed in no picker
-      out.push({ tab: "views", k, ic: v.icon, name: v.name, hint: v.hint, field: v.field, on: v.kind === "lens" ? lensKey === v.lens : st.view === k && !lensKey, run: () => openView(k) }); });
+      out.push({ tab: "views", k, ic: v.icon, name: v.name, short: v.short, hint: v.hint, field: v.field, on: v.kind === "lens" ? lensKey === v.lens : st.view === k && !lensKey, run: () => openView(k) }); });
     Object.entries(PRESETS).forEach(([k, p]) => out.push({ tab: "style", k, ic: "sparkles", name: p.name, hint: p.hint, on: st.preset === k, run: () => applyPreset(k) }));
     out.sort(byName);   // A–Z within every tab
     if (opts.writeNote && !opts.compact) out.push({ tab: "views", k: "newscene", ic: "plus", name: "New view", hint: "Your own view, written in a note", on: false, run: () => newScene() });
