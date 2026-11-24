@@ -138,6 +138,7 @@ const steps = [
   ["test_viewhelp_escape.js", [path.join(__dirname, "test_viewhelp_escape.js"), ...env.args]],
   ["test_ring_colour_key.js", [path.join(__dirname, "test_ring_colour_key.js"), ...env.args]],
   ["test_ring_colour_key_desktop.js", [path.join(__dirname, "test_ring_colour_key_desktop.js"), ...env.args]],
+  ["test_ring_number_wording.js", [path.join(__dirname, "test_ring_number_wording.js"), ...env.args]],
   ["test_note_card_dates.js", [path.join(__dirname, "test_note_card_dates.js"), ...env.args]],
   ["test_today_strip_whole.js", [path.join(__dirname, "test_today_strip_whole.js"), ...env.args]],
   ["test_size_one_name.js", [path.join(__dirname, "test_size_one_name.js"), ...env.args]],
