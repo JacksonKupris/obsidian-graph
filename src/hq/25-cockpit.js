@@ -45,7 +45,7 @@
   }
   function threadsScreen() {
     const all = threads();
-    return `<h1 class="vg-hq-h1">Threads</h1><p class="vg-hq-lede">Your open work by what it belongs to.</p>` + (all.length ? all.map(t => section(t.title, t.items)).join("") : empty("No open work yet.", [["Today", 'data-go="today"']]));
+    return `<h1 class="vg-hq-h1">Threads</h1><p class="vg-hq-lede">Your open work by what it belongs to.</p>` + (all.length ? all.map(t => section(t.title, t.items, "", 0, "open")).join("") : empty("No open work yet.", [["Today", 'data-go="today"']]));
   }
   // ---- the weekly review: five minutes, in order, each step going to where it's done
   function reviewScreen() {
