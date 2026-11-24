@@ -205,13 +205,12 @@
         const style = gap > 0.08 ? cellBg("var(--vg-gap)", Math.min(0.85, 0.15 + gap * 1.6)) : l ? cellBg("var(--vg-ok)", Math.min(0.6, 0.1 + Math.log1p(l) / Math.log1p(maxL) * 0.5)) : "";
         return `<td><button class="vg-mx-cell" style="${style}" data-cell="${a.id},${b.id}" ${tipped(`${clusterName(a.id)} ↔ ${clusterName(b.id)}: ${plural(l, "link")}, ${m} co-mentions`)}>${l || m ? `${l}<small>/${m}</small>` : ""}</button></td>`;
       }).join("") + `</tr>`).join("");
-    const worst = (DATA.pairs || []).filter(([a, b]) => clusterById[a] && clusterById[b]).map(([a, b, l, m]) => ({ a, b, l, m, s: m / (1 + l * 0.6) })).filter(g => g.m > 0)   // a gap is talked about together; no co-mentions, no gap
-      .sort((x, y) => y.s - x.s).slice(0, 6);
+    const worst = (DATA.gaps || []).filter(g => clusterById[g.a] && clusterById[g.b] && g.comentions > 0).map(g => ({ a: g.a, b: g.b, l: g.links, m: g.comentions })).slice(0, 6);   // the analysis's own order, the same as the banner; a gap is talked about together, so no co-mentions, no gap
     return `<div class="vg-mx-wrap"><table class="vg-mx">${head}${rows}</table></div><div class="vg-mx-detail"></div>
       ${DATA.engine ? `<p class="vg-muted vg-lens-note">Co-mentions need the analysis, which this vault doesn't have yet.</p>` : ""}<p class="vg-muted vg-lens-note">Cell = <b>links</b>/<small>co-mentions</small>. Green: well linked. Red: discussed together in your dailies but barely linked. Click a cell for what to do about it.</p>${VGParts.more({ label: "Column key", body: `<p>${mxKey(cs)}</p>` })}
       ${lensSec("Biggest gaps", worst.map(g => `<div class="vg-gaprow"><button class="vg-item" data-cl="${g.a},${g.b}"><span class="vg-dots"><span class="vg-dot" style="background:${colorOf(g.a)}"></span><span class="vg-dot" style="background:${colorOf(g.b)}"></span></span>
         <span class="vg-item-main"><span>${esc(clusterName(g.a))} ↔ ${esc(clusterName(g.b))}</span><span class="vg-item-sub">${VGShared.gapWhy({ comentions: g.m, links: g.l })}</span></span></button>
-        ${opts.writeNote ? `<button class="vg-ibtn" data-bridge="${g.a},${g.b}" title="Draft a bridge note">${icon("bridge", 15)}</button>` : ""}</div>`), { count: null, first: 6 })}`;
+        ${opts.writeNote ? `<button class="vg-ibtn" data-bridge="${g.a},${g.b}" title="Draft a bridge note">${icon("bridge", 15)}</button>` : ""}</div>`), { count: null, first: 6, hint: VGShared.GAP_RANK })}`;
   }
 
   function lensTimeline() {

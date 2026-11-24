@@ -208,6 +208,7 @@ const steps = [
   ["test_overlays_apart.js", [path.join(__dirname, "test_overlays_apart.js"), ...env.args]],
   ["test_stat_cards.js", [path.join(__dirname, "test_stat_cards.js"), ...env.args]],
   ["test_gap_text.js", [path.join(__dirname, "test_gap_text.js"), ...env.args]],
+  ["test_gap_rank.js", [path.join(__dirname, "test_gap_rank.js"), ...env.args]],
   ["test_view_picker.js", [path.join(__dirname, "test_view_picker.js"), ...env.args]],
   ["test_tour_start.js", [path.join(__dirname, "test_tour_start.js")]],
   ["test_lens_contrast.js", [path.join(__dirname, "test_lens_contrast.js")]],

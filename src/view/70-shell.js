@@ -6,7 +6,7 @@
     const bar = $(".vg-today"); if (!bar) return;
     const t = opts.compact || replay || todayHidden.has(st.view) ? null : todayFor(st.view);
     if (!t) { bar.hidden = true; return; }
-    bar.hidden = false; const tx = $(".vg-today-text"); tx.textContent = t.text; tx.title = t.text;   // the whole text on hover
+    bar.hidden = false; const tx = $(".vg-today-text"); tx.textContent = t.text; tx.title = t.title ? t.text + " · " + t.title : t.text;   // the whole text on hover
     // a tap or Enter opens a cut-off line to its full text; it is a button that says whether it is open
     const toggle = () => { bar.classList.toggle("is-open"); tx.setAttribute("aria-expanded", String(bar.classList.contains("is-open"))); };
     tx.setAttribute("role", "button"); tx.tabIndex = 0; tx.setAttribute("aria-expanded", String(bar.classList.contains("is-open")));
