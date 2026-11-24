@@ -7,7 +7,10 @@
     const t = opts.compact || replay || todayHidden.has(st.view) ? null : todayFor(st.view);
     if (!t) { bar.hidden = true; return; }
     bar.hidden = false; const tx = $(".vg-today-text"); tx.textContent = t.text; tx.title = t.text;   // the whole text on hover
-    tx.onclick = () => bar.classList.toggle("is-open");   // and on a tap: a cut-off line opens to its full text
+    // a tap or Enter opens a cut-off line to its full text; it is a button that says whether it is open
+    const toggle = () => { bar.classList.toggle("is-open"); tx.setAttribute("aria-expanded", String(bar.classList.contains("is-open"))); };
+    tx.setAttribute("role", "button"); tx.tabIndex = 0; tx.setAttribute("aria-expanded", String(bar.classList.contains("is-open")));
+    tx.onclick = toggle; tx.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
     const b = $(".vg-today-act"); b.hidden = !t.run; b.textContent = t.label; b.onclick = () => t.run && t.run();
     todayRoom();
   }
