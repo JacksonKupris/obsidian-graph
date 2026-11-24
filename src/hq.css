@@ -588,3 +588,4 @@ div.vg-hq-densehead { color: var(--hq-muted); border-top: 0; }
 .vg-hq .vg-hq-colourchecks li.is-ok b { color: var(--ds-ok); } .vg-hq .vg-hq-colourchecks li.is-bad b { color: var(--ds-danger); }
 .vg-hq .vg-hq-colourchecks li span { color: var(--hq-muted); } .vg-hq .vg-hq-colourchecks li.is-note { color: var(--hq-muted); }
 .vg-hq .vg-hq-colours .vg-hq-row-end { flex-wrap: wrap; }
+.vg-hq .vg-hq-legend-dots { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }

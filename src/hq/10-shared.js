@@ -47,7 +47,7 @@
     const { needs, projects: { active: projects } } = hqCounts(), jobs = VGRules.hqJobs(h || {}, now());
     const badJobs = jobs.filter(j => j.state === "failed" || j.state === "late").length;
     const chip = (screen, ic, title, sub, dot) => `<button class="vg-hq-chip" data-go="${screen}">${icon(ic, 16)}<span><b>${esc(title)}</b>${dot ? '<i class="vg-hq-dot"></i>' : ""}<small>${esc(sub)}</small></span></button>`;
-    return `<nav class="vg-hq-strip" aria-label="This week"><div class="vg-hq-weekbox"><div class="vg-hq-week">${days}</div><p class="vg-hq-weeklegend">Tap a day to open it. <span class="vg-hq-marks"><i class="is-j"></i></span>Journal <span class="vg-hq-marks"><i class="is-s"></i></span>Standup. No dot: neither written yet.</p></div><div class="vg-hq-chips">` +
+    return `<nav class="vg-hq-strip" aria-label="This week"><div class="vg-hq-weekbox"><div class="vg-hq-week">${days}</div><p class="vg-hq-weeklegend">Tap a day to open it. ${dotLegend}</p></div><div class="vg-hq-chips">` +
       chip("needs", "inbox", "Needs you", plural(needs, "item"), needs > 0) + chip("projects", "folder", "Projects", `${projects} active`, false) +
       (jobs.length ? chip("automations", "clock", "Automations", badJobs ? `${badJobs} need${badJobs === 1 ? "s" : ""} a look` : `${jobs.length} configured`, badJobs > 0) : "") + `</div></nav>`;
   }
@@ -200,6 +200,8 @@
   const section = (title, items, more, total, unit) => items.length ? `<section class="vg-hq-sec"><h3>${esc(title)}<span>${total > items.length ? `showing ${items.length} of ${total}` : items.length}${unit ? ` ${unit}` : ""}</span></h3>${taskRows(pageOf(title, items))}${pageOf(title, items).length < items.length ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-page="${esc(title)}">Show ${items.length - PAGE} more</button></div>` : ""}${more || ""}</section>` : "";
   // an empty screen says what's true and where to go next
   // one filter bar for every screen: a labelled group of pills, each with its count; attr is the data attribute the click handler reads
+  // what the journal and standup dots mean: one wording for the week strip and the month grid
+  const dotLegend = '<span class="vg-hq-legend-dots"><span class="vg-hq-marks"><i class="is-j"></i></span>Journal <span class="vg-hq-marks"><i class="is-s"></i></span>Standup. No dot: neither written yet.</span>';
   const pillBar = (label, attr, current, choices) => `<div class="vg-hq-filters" role="group" aria-label="${esc(label)}">${choices.map(([k, text, n]) => `<button class="vg-hq-filter${current === k ? " is-on" : ""}" data-${attr}="${esc(k)}" aria-pressed="${current === k}">${esc(text)} <span>${n}</span></button>`).join("")}</div>`;
   const empty = (fact, next) => `<div class="vg-hq-empty"><p>${esc(fact)}</p><div class="vg-hq-row">${next.map(([label, attr]) => `<button class="vg-hq-btn" ${attr}>${esc(label)}</button>`).join("")}</div></div>`;
   const nextSteps = () => [...(api.openDaily ? [["Open today's journal", "data-daily"]] : []), ...(opts.openGraph ? [["Open the graph", "data-graph"]] : []), ["Projects", 'data-go="projects"']];
