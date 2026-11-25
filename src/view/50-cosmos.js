@@ -68,7 +68,7 @@
         vis.forEach(n => { const ia = na.has(n.id), ib = nB.has(n.id);
           if (ia && ib) claim(n.id, b, 1, { r: 6 + (hash(n.id) % 18), spin: 0.2, lagrange: true }); else if (ia || ib) claim(n.id, b, 1, { r: 42, spin: 0.6, anchor: ia ? 0 : 1 }); });
       } else if (b.type === "blackhole") {
-        const test = bhTest(b.target), kept = new Set(cos.kept || []); vis.filter(n => !n.moc && !kept.has(n.id) && test(n)).forEach((n, i) => claim(n.id, b, 0, { r: 12 + (i % 6) * 5, spin: 1.4, hole: true }));
+        const test = bhTest(b.target), kept = new Set([...(cos.kept || []), ...(cos.gone || [])]); vis.filter(n => !n.moc && !kept.has(n.id) && test(n)).forEach((n, i) => claim(n.id, b, 0, { r: 12 + (i % 6) * 5, spin: 1.4, hole: true }));
       } else if (b.type === "repulsor") {
         vis.filter(matchQuery(b.target)).forEach(n => repelled.set(n.id, b));
       }
@@ -682,7 +682,7 @@
     select(null); st.body = id; const b = cos.bodies.find(x => x.id === id); if (!b) { st.body = null; return; }
     st.follow = cos.auto.motion ? id : null;
     const box = $(".vg-inspector"); box.hidden = false; root.classList.add("has-inspector");
-    const got = (bodyCaptured.get(b.id) || []).filter(i => byId[i]), hp = health(b);
+    const got = (bodyCaptured.get(b.id) || []).filter(i => byId[i]), hp = health(b), kept = (cos.kept || []).filter(i => byId[i]);
     const opt = (v, l, cur) => `<option value="${esc(v)}" ${v === cur ? "selected" : ""}>${esc(l)}</option>`;
     const noteOpts = cur => mocs.filter(m => byId[m.id]).map(m => opt(m.id, "Map · " + m.title, cur)).join("") + ranked.slice(0, 40).map(i => opt(i, byId[i].name, cur)).join("");
     const cfg = b.type === "star" ? `<div class="vg-field"><span class="vg-flabel">Centre</span><button class="vg-btn" data-b="pick">${icon("search", 14)} ${b.target && byId[b.target] ? esc(byId[b.target].name) : "Choose a note or map…"}</button></div>`
@@ -706,9 +706,10 @@
           ? `<div class="vg-bh-row">${noteRow(i, `${byId[i].age} days since edit · ${esc(clusterName(byId[i].cluster))}`)}<span class="vg-bh-acts">
              ${opts.stampReviewed ? `<button class="vg-btn vg-btn-sm" data-bhr="${esc(i)}" title="Stamp reviewed: today in its frontmatter">Reviewed</button>` : ""}
              ${opts.moveNote ? `<button class="vg-btn vg-btn-sm" data-bha="${esc(i)}" title="Move to ${FOLDERS.archive} (links keep working)">Archive</button>` : ""}
-             <button class="vg-btn vg-btn-sm vg-btn-ghost" data-bhk="${esc(i)}" title="Keep it out of this black hole">Keep</button></span></div>`
-          : noteRow(i, esc(clusterName(byId[i].cluster)))).join("") || `<div class="vg-empty">Nothing captured yet — configure it above.</div>`}</div>`;
-    const q = s => box.querySelector(`[data-b="${s}"]`), changed = () => { cosmosCapture(); persistSoon(); alpha = Math.max(alpha, 0.4); kick(); selectBody(b.id); };
+             <button class="vg-btn vg-btn-sm vg-btn-ghost" data-bhk="${esc(i)}" title="Leave this note out of review queues">Keep</button></span></div>`
+          : noteRow(i, esc(clusterName(byId[i].cluster)))).join("") || `<div class="vg-empty">Nothing captured yet — configure it above.</div>`}
+        ${b.type === "blackhole" && kept.length ? `<div class="vg-ins-actions"><span class="vg-muted">${kept.length} kept out of review</span><button class="vg-btn vg-btn-sm vg-btn-ghost" data-b="unkeep">Put back</button></div>` : ""}</div>`;
+    const q = s => box.querySelector(`[data-b="${s}"]`), changed = () => { cosmosCapture(); persistSoon(); alpha = Math.max(alpha, 0.4); kick(); if (st.body === b.id) selectBody(b.id); };
     box.querySelector(".vg-ins-close").onclick = () => { st.body = null; box.hidden = true; root.classList.remove("has-inspector"); };
     q("name").onchange = e => { b.name = e.target.value.trim(); changed(); };
     q("mass").oninput = e => { b.mass = +e.target.value; box.querySelector(".vg-mass-val").textContent = b.mass.toFixed(1) + "×"; alpha = Math.max(alpha, 0.4); kick(); persistSoon(); };
@@ -721,8 +722,10 @@
     box.querySelectorAll("[data-bhr]").forEach(x => x.onclick = async e => { e.stopPropagation(); const id = x.dataset.bhr;
       if (await VGActions.run("current", byId[id], actionCtx(), e)) changed(); });
     box.querySelectorAll("[data-bha]").forEach(x => x.onclick = async e => { e.stopPropagation(); const id = x.dataset.bha;
-      if (await VGActions.run("archive", byId[id], actionCtx(), e)) { cos.kept = [...(cos.kept || []), id]; changed(); } });
-    box.querySelectorAll("[data-bhk]").forEach(x => x.onclick = e => { e.stopPropagation(); cos.kept = [...new Set([...(cos.kept || []), x.dataset.bhk])]; logDiscovery(`Kept ${byId[x.dataset.bhk].name}`); changed(); });
+      if (await VGActions.run("archive", byId[id], actionCtx(), e)) { cos.gone = [...(cos.gone || []), id]; changed(); } });
+    box.querySelectorAll("[data-bhk]").forEach(x => x.onclick = e => { e.stopPropagation(); const id = x.dataset.bhk; cos.kept = [...new Set([...(cos.kept || []), id])]; logDiscovery(`Kept ${byId[id].name}`); changed();
+      toast(`Kept ${byId[id].name} out of review`, "ok", () => { cos.kept = cos.kept.filter(k => k !== id); changed(); }); });
+    if (q("unkeep")) q("unkeep").onclick = () => { cos.kept = []; changed(); };
     q("del").onclick = () => { cos.bodies = cos.bodies.filter(x => x !== b); st.body = null; box.hidden = true; root.classList.remove("has-inspector"); cosmosCapture(); persistSoon(); kick(); };
     wire(box); wireSheet(box);
   }
