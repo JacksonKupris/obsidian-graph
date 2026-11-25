@@ -25,7 +25,7 @@ function mountVaultHQ(root, data, opts) {
   const settleGone = () => { const t = clock(); gone = new Set([...gone].filter(k => t - (goneAt.get(k) || 0) < GONE_HOLD)); [...goneAt.keys()].forEach(k => { if (!gone.has(k)) goneAt.delete(k); }); };
   let gone = new Set(), feedAt = 0, filter = "active", kindFilter = "all", needFilter = "all", systemFilter = "all",
     globalQuery = "", noteHits = [], noteSearchError = "", searchPending = false, searchTimer = null, searchToken = 0,
-    compactProjects = false, drawer = null, focusDrawerOnRender = false, carriedAll = false, clockTimer = null, trail = [];   // trail: the screens you came from, for Back
+    compactProjects = false, drawer = null, focusDrawerOnRender = false, carriedAll = false, clockTimer = null, trail = [], scrolls = {};   // trail: the screens you came from, for Back
   const now = () => opts.now || new Date(), day = () => VGRules.localDay(now());
   const esc = VGShared.escapeHtml;
   const plural = VGShared.plural;
