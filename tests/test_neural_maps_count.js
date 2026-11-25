@@ -10,7 +10,7 @@ const D = "window.vaultGraph._debug";
     if (!await tab.waitFor(`window.vaultGraph && ${D} ? 1 : 0`, 30000)) throw new Error("the graph didn't mount");
     await sleep(1500);
     await tab.ev(`${D}.openView("neural")`); await sleep(1500);
-    const hdr = await tab.ev(`[...document.querySelectorAll("span")].filter(s => /LOBES/.test(s.textContent) && s.children.length === 0).map(s => s.textContent).join(" ")`);
+    const hdr = await tab.ev(`[...document.querySelectorAll("span")].filter(s => /TOPICS/.test(s.textContent) && s.children.length === 0).map(s => s.textContent).join(" ")`);
     const bar = await tab.ev(`(document.querySelector(".vg-status") || {}).textContent || ""`);
     const head = (hdr.match(/MAPS\s*(\d+)/) || [])[1], stat = (bar.match(/(\d+) maps?\b/i) || [])[1];
     check(!!head, "the Neural header shows MAPS n (the test can't fail without it)");

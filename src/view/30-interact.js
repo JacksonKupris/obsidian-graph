@@ -653,14 +653,14 @@
     if (!neural()) return;
     const n = st.selected && byId[st.selected];
     $(".vg-hud-title").innerHTML = `<b>VAULT // NEURAL MAP</b><span>${esc(DATA.vault || "").toUpperCase()} · ${esc(DATA.date)} · ${st.vision.toUpperCase()}</span>` +
-      `<span>NOTES ${VGRules.noteCounts(active).notes} · LINKS ${visLinks.filter(l => l.kind === "link").length} · LOBES ${DATA.clusters.length} · MAPS ${VGRules.noteCounts(active).maps}${(b => b ? " · BRIDGES " + b : "")(nodes.filter(n => n.bridge).length)}</span>` + (st.three && glOn() ? `<span>MODEL ONLY · FIRING ${neuroRate().toFixed(1)} HZ · SLOWED ×${NEURO_SLOW}</span>` : "");
+      `<span>NOTES ${VGRules.noteCounts(active).notes} · LINKS ${visLinks.filter(l => l.kind === "link").length} · TOPICS ${DATA.clusters.length} · MAPS ${VGRules.noteCounts(active).maps}${(b => b ? " · BRIDGES " + b : "")(nodes.filter(n => n.bridge).length)}</span>` + (st.three && glOn() ? `<span>MODEL ONLY · FIRING ${neuroRate().toFixed(1)} HZ · SLOWED ×${NEURO_SLOW}</span>` : "");
     const p = n && P.get(n.id);
     $(".vg-hud-tele").innerHTML = n ? `<b>TARGET ▸ ${esc(n.name.toUpperCase())}</b>` +
       `<span>LOBE ${esc(clusterName(n.cluster).toUpperCase())}</span>` +
       `<span>RANK ${rankText(n.id).toUpperCase()} · LINKS ${nb[n.id].size} · MENTIONS ${n.mentions}</span>` +
       `<span>ACTIVITY ${"█".repeat(Math.min(10, Math.round(10 * (n.recent || 0) / maxRecent)))}${"░".repeat(10 - Math.min(10, Math.round(10 * (n.recent || 0) / maxRecent)))}</span>` +
       (p ? `<span>XYZ ${Math.round(n.x)} ${Math.round(n.y)} ${Math.round(n.z)}</span>` : "")
-      : MOBILE ? `<span>NO TARGET · TAP A NODE</span><span>DRAG TO ORBIT · PINCH TO ZOOM</span>` : `<span>NO TARGET · CLICK A NODE</span><span>DRAG TO ORBIT · SCROLL TO ZOOM</span>`;
+      : MOBILE ? `<span>NOTHING SELECTED · TAP A NOTE</span><span>DRAG TO ORBIT · PINCH TO ZOOM</span>` : `<span>NOTHING SELECTED · CLICK A NOTE</span><span>DRAG TO ORBIT · SCROLL TO ZOOM</span>`;
     $(".vg-hud-tele").classList.toggle("is-idle", !n);
   }
   // undo (optional): an Undo button on the toast, which then stays up longer
