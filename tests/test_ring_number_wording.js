@@ -9,7 +9,7 @@ const env = require("./env");
   try {
     assert.ok(await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000), "the graph must mount");
     await tab.send("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false }); await sleep(400);
-    for (const view of ["2d", "3d"]) {
+    for (const view of ["2d", "3d", "neural"]) {
       await tab.ev(`window.vaultGraph._debug.openView(${JSON.stringify(view)})`); await sleep(1200);
       const r = await tab.ev(`(() => { const e = document.querySelector(".vg-legend .vg-lg-attn-set"); if (!e) return null;
         const c = e.cloneNode(true); c.querySelector(".vg-lg-attn-names").remove(); return { names: e.querySelector(".vg-lg-attn-names").textContent, text: c.innerText.replace(/\\s+/g, " ").trim(), title: e.getAttribute("title") || "" }; })()`);
