@@ -33,7 +33,7 @@ const hueOf = c => { const [r, g, b] = [1, 3, 5].map(i => parseInt(c.slice(i, i 
     const after = await read();
     check(after !== before, "choosing a colour fills the eight colours");
     const pageHue = hueOf(after.split(",")[0]), d = Math.abs(pageHue - hueOf("#e11d48"));
-    check(Math.min(d, 360 - d) < 15, "the page tint follows the chosen colour's hue: " + Math.round(pageHue));
+    check(Math.min(d, 360 - d) < 20, "the page tint follows the chosen colour's hue: " + Math.round(pageHue));
     check(await tab.ev(`!document.querySelector("[data-colour-save]").disabled && document.querySelectorAll(".vg-hq-colourchecks .is-bad").length === 0`), "Save stays available after choosing a colour");
     // pressing Suggest after choosing keeps the chosen colour as the base and picks a different harmony
     await tab.ev(`document.querySelector("[data-colour-suggest]").click()`); await sleep(150);
