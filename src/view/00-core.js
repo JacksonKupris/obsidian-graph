@@ -286,10 +286,10 @@ function mountVaultGraph(root, DATA, opts) {
         <button class="vg-autobtn" data-auto="belt" aria-pressed="true" title="Notes to write as an asteroid belt">Belt</button>
         <button class="vg-autobtn" data-auto="nebula" aria-pressed="true" title="Unlinked notes as a nebula">Nebula</button>
         <button class="vg-autobtn" data-auto="grid" aria-pressed="true" title="Warped space grid">Grid</button>
-        <button class="vg-autobtn" data-auto="motion" aria-pressed="true" title="Bodies orbit the galactic core and tug on each other">Orbits</button>
+        <button class="vg-autobtn" data-auto="motion" aria-pressed="true" title="Bodies circle the centre">Orbits</button>
         <button class="vg-autobtn" data-auto="trails" aria-pressed="true" title="Faint trails behind bodies and the selected system's notes">Trails</button>
         <button class="vg-dockbtn vg-seedbtn" title="Propose bodies from the vault's maps, Context notes and project tags"><span>✦</span>Populate</button>
-        <button class="vg-dockbtn vg-arrangebtn" title="Arrange the bodies on resonant orbits"><span>✺</span>Arrange</button>
+        <button class="vg-dockbtn vg-arrangebtn" title="Space the bodies out on rings"><span>✺</span>Arrange</button>
         <span class="vg-docksep"></span>
         <button class="vg-dockbtn vg-shipbtn" aria-pressed="false" title="Ship mode: fly between systems"><span>➤</span>Ship</button>
         <button class="vg-dockbtn vg-pausebtn" aria-pressed="false" title="Pause the simulation (Space)"><span>❚❚</span>Pause</button>
