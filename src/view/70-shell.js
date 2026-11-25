@@ -382,7 +382,7 @@
         if (!cos.bodies.length) seedCosmos();
         cosmosCapture(); updateGame(false); alpha = 0.7; cam.cx = cam.cy = cam.cz = 0;
         fitted = false; afterMorph(() => { fitted = true; fit(n => !n.ghost && !n.isolated, 900); }, 1600);
-        toast("Cosmos — your maps are stars; drop bodies from the dock to reorganise the graph");
+        toast("Cosmos — notes orbit the stars; add bodies from the dock to regroup them");
       }
     }
     rebuild(false); renderLegend(); renderHud(); persistSoon(); renderToday();
