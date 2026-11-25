@@ -608,7 +608,7 @@
       : `<span class="vg-lg-item"><span class="vg-lg-grad"></span>mentions · 30d</span>`;
     $(".vg-legend").innerHTML = `<span class="vg-lg-item"><span class="vg-lg-size"><i></i><i></i></span>${sizeWord}</span>${colour}` +
       `<span class="vg-lg-item"><i class="vg-lg-line"></i>link</span>` +
-      (neural() ? `<span class="vg-lg-item" title="Pulses fire along links of notes edited or mentioned lately; lobes glow by the same activity">✦ pulse · recent activity</span>` : "") +
+      (neural() ? `<span class="vg-lg-item" title="Pulses fire along links of notes edited or mentioned lately; lobes glow by the same activity">✦ pulse · activity in the last ${DATA.recent_days} days</span>` : "") +
       (st.gaps ? `<span class="vg-lg-item"><i class="vg-lg-line is-gap"></i>mentioned together</span><span class="vg-lg-item"><i class="vg-lg-line is-sim"></i>similar wording</span>` : "") +
       (st.layers.mocs && mocs.length ? `<span class="vg-lg-item"><i class="vg-lg-hex"></i>map</span>` : "") +
       (st.layers.people ? `<span class="vg-lg-item"><i class="vg-lg-diamond"></i>person</span>` : "") +
