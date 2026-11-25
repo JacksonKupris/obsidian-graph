@@ -8,7 +8,7 @@ const env = require("./env");
   const { fails, ok: check } = checks();
   try {
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
-    await tab.ev(`(() => { window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { now: new Date("2026-10-28T12:00:00"), api: {} }); window.vaultHQ.setScreen("people"); })()`);
+    await tab.ev(`(() => { window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { now: new Date(), api: {} }); window.vaultHQ.setScreen("people"); })()`);
     await tab.waitFor(`document.querySelectorAll(".vg-hq-person").length ? 1 : 0`, 15000); await sleep(300);
     const r = await tab.ev(`(() => [...document.querySelectorAll(".vg-hq-person")].map(c => ({ n: parseInt((c.querySelector("h3 span") || {}).textContent, 10) || 0, rows: c.querySelectorAll(".vg-hq-item").length, label: [...c.querySelectorAll(".vg-hq-duplicates > summary")].map(s => s.textContent.trim()) })))()`);
     const folded = r.filter(c => c.label.length);
