@@ -15,6 +15,10 @@ const D = "window.vaultGraph._debug";
     check(/NOTES [0-9]/.test(hdr), "the Neural header shows (the test can't fail without it): " + hdr.slice(0, 60));
     check(/TOPICS \d/.test(hdr) && !/LOBES/.test(hdr), "the header counts topics, the word the toast and help use: " + hdr.slice(0, 160));
     check(!/HZ|SLOWED|FIRING/.test(hdr) && /SIMULATED/.test(hdr), "the header says the flashes are simulated, with no rate or slow-down number that changes between loads: " + hdr.slice(0, 200));
+    // the header and How to read this must agree: input to the model rises for recently edited notes, so the header must not deny any link to edits
+    const help = await tab.ev(`(() => { const b = document.querySelector(".vg-viewhelp"); b.click(); const t = [...document.querySelectorAll(".vg-viewcard dt")].map(d => d.textContent); const all = document.querySelector(".vg-viewcard").textContent; b.click(); return { t, all }; })()`);
+    check(/BUSIER FOR RECENT NOTES/.test(hdr) && !/NOT YOUR EDITS/.test(hdr), "the header says recent notes flash more, as the help does: " + hdr.slice(0, 220));
+    check(help.t.includes("Simulated flashes") && !help.t.some(t => /Firing Hz|Model only/.test(t)), "How to read this names the header's words, not a header line that is gone: " + help.t.join(" | "));
     const hint = await tab.ev(`(document.querySelector(".vg-hud-tele") || document.querySelector(".vg-hud") || {}).textContent || ""`);
     check(!/NO TARGET/i.test(hint), "the hint says what is selected in plain words, not 'no target': " + hint.slice(0, 120));
     check(await tab.ev(`/style/i.test((document.querySelector(".vg-vision") || {}).getAttribute("aria-label") || "")`), "the STD, NV, THERMAL, CRT group is named as a screen style");
