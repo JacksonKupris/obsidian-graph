@@ -33,6 +33,7 @@
     if (opts.compact && labelRects.length > (W < 520 ? 8 : 16)) return false;
     x = paneX(x, w);
     if (labelRects.some(r => x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1])) return false;
+    if (ringBadges.some(b => x < b.x + b.r && x + w > b.x - b.r && y < b.y + b.r && y + h > b.y - b.r)) return false;   // the badges are drawn last, over every label: last frame's stay clear
     labelRects.push([x, y, w, h]); return true;
   };
   function draw(now) {
@@ -461,12 +462,12 @@
         ctx.font = small; const ws = sub ? ctx.measureText(sub).width : 0; ctx.font = big;
         const w = Math.max(ctx.measureText(name).width, ws), h = sub ? 30 : 18;
         const x = Math.min(W - w / 2 - 6, Math.max(w / 2 + 6, p.x)), y = Math.min(H - h + 6, Math.max(56, p.y));
-        if (!freeSpot(x - w / 2 - 4, y - 9, w + 8, h)) continue;
+        const dy = [0, -h - 6, h + 6].find(d => freeSpot(x - w / 2 - 4, y + d - 9, w + 8, h)); if (dy == null) continue;
         const back = Math.max(0.2, Math.min(1, 0.6 - p.depth / 400)), quiet = hs ? 0.45 + 0.55 * Math.min(1, hs.act * 2.5) : 1;
         const col = st.vision === "std" ? neonOf(+c) : hudCol;
-        ctx.globalAlpha = (litSet && !g.lit ? 0.18 : 0.9) * back * quiet; ctx.fillStyle = col; ctx.fillText(name, x, y);
-        if (sub) { ctx.font = small; ctx.globalAlpha *= 0.75; ctx.fillText(sub, x, y + 13); ctx.font = big; }
-        if (back > 0.3) lobeSpots.push([x - w / 2 - 4, y - 9, w + 8, h, +c]);
+        ctx.globalAlpha = (litSet && !g.lit ? 0.18 : 0.9) * back * quiet; ctx.fillStyle = col; ctx.fillText(name, x, y + dy);
+        if (sub) { ctx.font = small; ctx.globalAlpha *= 0.75; ctx.fillText(sub, x, y + dy + 13); ctx.font = big; }
+        if (back > 0.3) lobeSpots.push([x - w / 2 - 4, y + dy - 9, w + 8, h, +c]);
       }
       ctx.globalAlpha = 1;
     }
