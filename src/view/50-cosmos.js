@@ -419,6 +419,7 @@
     const v = healthNow(b); healthCache.set(b.id, [now, v]); return v;
   }
   function healthNow(b) {   // share of a system's notes that are mapped, linked and current
+    if (b.type === "blackhole" || b.type === "repulsor") return null;   // a review queue and a push hold no system to score
     const ids = bodyCaptured.get(b.id) || []; if (!ids.length) return null;
     const s = ids.reduce((acc, id) => { const n = byId[id], m = inMoc(id); return acc + ((m === null ? 0.5 : m ? 1 : 0) + (nb[id].size >= 2 ? 1 : 0) + (!staleFor(n, Q.stale_days) ? 1 : 0)) / 3; }, 0);
     return Math.round(100 * s / ids.length);
@@ -567,7 +568,7 @@
         for (let i = 0; i < 3; i++) { const ph = ((now / 1600 + i / 3) % 1); ctx.strokeStyle = `rgba(125,211,252,${(1 - ph) * 0.7})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, s * (0.6 + ph * 3), 0, 2 * Math.PI); ctx.stroke(); }
         ctx.fillStyle = "#e0f2fe"; ctx.beginPath(); ctx.arc(x, y, s * 0.5, 0, 2 * Math.PI); ctx.fill();
       }
-      const hp = b.type === "blackhole" || b.type === "repulsor" ? null : health(b);
+      const hp = health(b);
       if (hp != null) {   // system health ring
         ctx.strokeStyle = "rgba(255,255,255,.12)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, s + 9, 0, 2 * Math.PI); ctx.stroke();
         ctx.strokeStyle = hp >= 70 ? "#4ade80" : hp >= 40 ? "#facc15" : "#f87171"; ctx.beginPath(); ctx.arc(x, y, s + 9, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * hp / 100); ctx.stroke();
@@ -679,6 +680,7 @@
     if (go) go.onclick = () => { const pick = [...box.querySelectorAll('input[data-seed]')].filter(c => c.checked).map(c => items[+c.dataset.seed]); close(); if (pick.length) acceptSeed(pick); };
   }
   function selectBody(id) {
+    const unfolded = st.body === id && !!$(".vg-inspector details.ds-more[open]");   // a changed setting re-renders: keep the fold as it was
     select(null); st.body = id; const b = cos.bodies.find(x => x.id === id); if (!b) { st.body = null; return; }
     st.follow = cos.auto.motion ? id : null;
     const box = $(".vg-inspector"); box.hidden = false; root.classList.add("has-inspector");
@@ -694,20 +696,21 @@
       <div class="vg-ins-head"><span class="vg-chip" style="--c:#fbbf24">${BODY[b.type].glyph} ${BODY[b.type].label}</span>
         <button class="vg-ibtn vg-ins-close" aria-label="Close" title="Close (Esc)">${icon("close")}</button></div>
       <h2 class="vg-ins-title">${esc(bodyName(b))}</h2><div class="vg-muted vg-ins-path">${esc(BODY[b.type].hint)}</div>
+      ${hp != null ? `${VGParts.cards([{ value: got.length, label: "in orbit" }, { value: `${hp}%`, label: "healthy" }, { value: got.filter(i => inMoc(i) === false).length, label: "not in a map" }], { small: true })}<div class="vg-muted vg-lens-note">Healthy averages three things across its notes: being on a map, having at least two links, and being edited recently.</div>` : ""}
+      <div class="vg-ins-actions vg-wrap"><button class="vg-btn" data-b="light">${icon("target", 14)} Light up</button><button class="vg-btn vg-btn-ghost" data-b="del">Remove body</button></div>
+      ${VGParts.more({ label: "Settings and orbit", open: unfolded || !got.length, body: `
       <div class="vg-field"><span class="vg-flabel">Name</span><input class="vg-input" data-b="name" value="${esc(b.name || "")}" placeholder="${esc(bodyName(b))}"></div>
       ${cfg}
       ${cos.auto.motion && b.rx != null ? `<div class="vg-physline">${esc(orbitText(b))}</div><div class="vg-muted vg-lens-note">a is its average distance. e is its orbit's shape: 0 is a circle, near 1 a long ellipse. Retrograde means it runs against the others.</div>` : ""}
       ${gmOf(b) ? `<div class="vg-physline">GM ${Math.round(gmOf(b))} · ${b.type === "blackhole" ? `r<sub>s</sub> ${rsOf(b)} · ISCO ${3 * rsOf(b)}` : b.type === "binary" ? `binary period ${Math.round(2 * Math.PI / Math.sqrt(2 * gmOf(b) / Math.pow(BIN_SEP, 3)) / 60)} s` : `orbit 1 link out: ${periodSec(b, 85).toFixed(1)} s · 3 links: ${periodSec(b, 195).toFixed(1)} s`} <span class="vg-muted">(Kepler: T = 2π√(r³/GM))</span></div><div class="vg-muted vg-lens-note">GM is how hard it pulls, set by Gravity below.${b.type === "blackhole" ? " r<sub>s</sub> is the event horizon, and ISCO the closest orbit that stays stable." : " T is the time for one lap: further out takes longer."}</div>` : ""}
-      <div class="vg-field"><label class="vg-flabel">Gravity <b class="vg-mass-val">${(b.mass || 1).toFixed(1)}×</b></label><input type="range" class="vg-range" data-b="mass" min="0.3" max="3" step="0.1" value="${b.mass || 1}" aria-label="Gravity"></div>
-      ${hp != null ? `${VGParts.cards([{ value: got.length, label: "in orbit" }, { value: `${hp}%`, label: "healthy" }, { value: got.filter(i => inMoc(i) === false).length, label: "not in a map" }], { small: true })}<div class="vg-muted vg-lens-note">Healthy averages three things across its notes: being on a map, having at least two links, and being edited recently.</div>` : ""}
-      <div class="vg-ins-actions vg-wrap"><button class="vg-btn" data-b="light">${icon("target", 14)} Light up</button><button class="vg-btn vg-btn-ghost" data-b="del">Remove body</button></div>
+      <div class="vg-field"><label class="vg-flabel">Gravity <b class="vg-mass-val">${(b.mass || 1).toFixed(1)}×</b></label><input type="range" class="vg-range" data-b="mass" min="0.3" max="3" step="0.1" value="${b.mass || 1}" aria-label="Gravity"></div>` })}
       <div class="vg-ins-sec"><div class="vg-ins-h">${b.type === "blackhole" ? "Review queue" : "Captured"} <span class="vg-count">${got.length}</span></div>
         ${got.sort((x, y) => byId[y].bc - byId[x].bc).slice(0, 40).map(i => b.type === "blackhole"
           ? `<div class="vg-bh-row">${noteRow(i, `${byId[i].age} days since edit · ${esc(clusterName(byId[i].cluster))}`)}<span class="vg-bh-acts">
              ${opts.stampReviewed ? `<button class="vg-btn vg-btn-sm" data-bhr="${esc(i)}" title="Stamp reviewed: today in its frontmatter">Reviewed</button>` : ""}
              ${opts.moveNote ? `<button class="vg-btn vg-btn-sm" data-bha="${esc(i)}" title="Move to ${FOLDERS.archive} (links keep working)">Archive</button>` : ""}
              <button class="vg-btn vg-btn-sm vg-btn-ghost" data-bhk="${esc(i)}" title="Leave this note out of review queues">Keep</button></span></div>`
-          : noteRow(i, esc(clusterName(byId[i].cluster)))).join("") || `<div class="vg-empty">Nothing captured yet — configure it above.</div>`}
+          : noteRow(i, esc(clusterName(byId[i].cluster)))).join("") || `<div class="vg-empty">Nothing captured yet.</div>`}
         ${b.type === "blackhole" && kept.length ? `<div class="vg-ins-actions"><span class="vg-muted">${kept.length} kept out of review</span><button class="vg-btn vg-btn-sm vg-btn-ghost" data-b="unkeep">Put back</button></div>` : ""}</div>`;
     const q = s => box.querySelector(`[data-b="${s}"]`), changed = () => { cosmosCapture(); persistSoon(); alpha = Math.max(alpha, 0.4); kick(); if (st.body === b.id) selectBody(b.id); };
     box.querySelector(".vg-ins-close").onclick = () => { st.body = null; box.hidden = true; root.classList.remove("has-inspector"); };
