@@ -17,6 +17,17 @@ const env = require("./env");
     check(/three links/i.test(help), "a star reaches notes up to three links away, and the help says so");
     check(!/You place these/.test(help) && /first visit/i.test(help), "the help says the first stars and the black hole are placed for you");
     check(/180/.test(help), "the help says how old stale is");
+    check(/one body/i.test(help) && /adding a body/i.test(help), "the help says why a body's counts change when another is added");
+    // every mark on the picture has an entry in the card (bewildered and explainer personas)
+    const terms = await tab.ev(`[...document.querySelectorAll(".vg-viewcard dt")].map(e => e.textContent)`);
+    for (const t of ["Ring", "Healthy", "Flares", "Dotted lines", "Small dots", "Centre glow"]) check(terms.includes(t), `the card explains "${t}": ` + terms.join(", "));
+    check(/number/i.test(help) && /two other notes/.test(help) && /70/.test(help), "the card says what a number on a ring counts and how healthy is worked out");
+    // a taller card still fits a phone and scrolls to its last entry
+    await tab.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 2, mobile: true }); await sleep(600);
+    await tab.ev(`(() => { const c = document.querySelector(".vg-viewcard"); if (c.hidden) document.querySelector(".vg-viewhelp").click(); })()`); await sleep(300);
+    const fit = await tab.ev(`(() => { const c = document.querySelector(".vg-viewcard"), d = c.querySelector("dl > dd:last-child"); d.scrollIntoView({ block: "nearest" }); const r = c.getBoundingClientRect(), l = d.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, h: innerHeight, last: l.bottom, shown: r.height > 0 }; })()`);
+    check(fit.shown && fit.top >= 0 && fit.bottom <= fit.h + 1 && fit.last <= fit.bottom + 1, "on a phone the card fits and reaches its last entry: " + JSON.stringify(fit));
+    await tab.send("Emulation.clearDeviceMetricsOverride"); await sleep(300);
     const titles = await tab.ev(`[document.querySelector(".vg-arrangebtn"), document.querySelector('[data-auto="motion"]')].map(b => b ? b.title : "").join(" | ")`);
     check(titles.length > 3, "the Arrange and Orbits buttons have hints");
     check(!/resonant|tug/i.test(titles), "the button hints match the code: " + titles);
