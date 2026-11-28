@@ -17,6 +17,7 @@ const env = require("./env");
     check(/three links/i.test(help), "a star reaches notes up to three links away, and the help says so");
     check(!/You place these/.test(help) && /first visit/i.test(help), "the help says the first stars and the black hole are placed for you");
     check(/180/.test(help), "the help says how old stale is");
+    check(/one body/i.test(help) && /adding a body/i.test(help), "the help says why a body's counts change when another is added");
     // every mark on the picture has an entry in the card (bewildered and explainer personas)
     const terms = await tab.ev(`[...document.querySelectorAll(".vg-viewcard dt")].map(e => e.textContent)`);
     for (const t of ["Ring", "Healthy", "Flares", "Dotted lines", "Small dots", "Centre glow"]) check(terms.includes(t), `the card explains "${t}": ` + terms.join(", "));
