@@ -33,13 +33,13 @@
     if (opts.compact && labelRects.length > (W < 520 ? 8 : 16)) return false;
     x = paneX(x, w);
     if (labelRects.some(r => x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1])) return false;
-    if (ringBadges.some(b => x < b.x + b.r && x + w > b.x - b.r && y < b.y + b.r && y + h > b.y - b.r)) return false;   // the badges are drawn last, over every label: last frame's stay clear
+    if (ringBadges.some(b => x < b.x + b.r && x + w > b.x - b.r && y < b.y + b.r && y + h > b.y - b.r)) return false;   // the badges are drawn last, over every label (placeRings)
     labelRects.push([x, y, w, h]); return true;
   };
   function draw(now) {
     const r = drawView(now);
     if (mapView() && W) polishLayer(now);
-    if (W && st.layers.attention) drawAttention();
+    if (W) drawAttention();
     return r;
   }
   // Notes with a problem beyond a missing reference or a short note (VGActions.attention) get a ring in the warning colour, over every view that
@@ -55,21 +55,31 @@
     const n = keys.length, gap = n > 1 ? 0.18 : 0; ctx.lineWidth = width; ctx.globalAlpha = alpha;
     keys.forEach((k, i) => { ctx.strokeStyle = VGActions.reasonLook(k).color; ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2 + i * 2 * Math.PI / n + gap / 2, -Math.PI / 2 + (i + 1) * 2 * Math.PI / n - gap / 2); ctx.stroke(); });
   }
-  let ringBadges = [];   // the count badges drawn last frame: [{ ids, x, y, r, reasons }], for a tap to open the notes behind one
+  let ringBadges = [];   // the count badges on screen: [{ ids, x, y, r, reasons }], for a tap to open the notes behind one
   const RING_GAP = 18;
   let ringMarks = { n: 0, budget: 0, notes: 0 };   // what the last frame drew: marks (rings and badges), the pane's budget, the flagged notes on screen
-  function drawAttention() {
-    const hits = attentionOf(); ringBadges = []; if (!hits.size) return;
-    const bg = css("--vg-bg") || "#16161a";
+  // Where this frame's rings and badges go, from where its notes are (P). A view that labels around the badges calls it
+  // before its labels, so they clear the badges of the same frame; the others clear last frame's.
+  function placeRings() {
+    ringBadges = []; const hits = st.layers.attention ? attentionOf() : null; if (!hits || !hits.size) return null;
     const items = []; for (const [id] of hits) { const p = P.get(id); if (p && p.a > 0.5 && byId[id] && p.x > -30 && p.x < W + 30 && p.y > -30 && p.y < H + 30) items.push({ id, x: p.x, y: p.y, r: Math.max(4, Math.min(24, p.r || 6)) + 4 }); }
-    const one = new Map(items.map(i => [i.id, i]));
+    const budget = VGRules.ringBudget(W, H), groups = VGRules.ringClusters(items, RING_GAP, budget);
+    ringMarks = { n: groups.length, budget, notes: items.length };
+    for (const g of groups) {
+      if (g.ids.length === 1) continue;
+      // a badge: a pie of the reasons behind the notes it holds, the count in the middle; one holding more notes is a little larger
+      const tally = new Map(); for (const id of g.ids) for (const k of reasonsOf(id)) tally.set(k, (tally.get(k) || 0) + 1);
+      g.badge = { ids: g.ids, x: g.x, y: g.y, r: Math.min(20, Math.round(10.5 + Math.sqrt(g.ids.length))), reasons: [...tally.keys()], tally }; ringBadges.push(g.badge);
+    }
+    return { groups, one: new Map(items.map(i => [i.id, i])) };
+  }
+  function drawAttention() {
+    const plan = placeRings(); if (!plan) return;
+    const bg = css("--vg-bg") || "#16161a", { groups, one } = plan;
     ctx.save(); ctx.globalCompositeOperation = "source-over";
-    const groups = VGRules.ringClusters(items, RING_GAP, VGRules.ringBudget(W, H)); ringMarks = { n: groups.length, budget: VGRules.ringBudget(W, H), notes: items.length };
     for (const g of groups) {
       if (g.ids.length === 1) { const i = one.get(g.ids[0]); ringArcs(i.x, i.y, i.r, reasonsOf(i.id), 2.5, 0.95); continue; }
-      // a badge: a pie of the reasons behind the notes it holds, the count in the middle; one holding more notes is a little larger
-      const r = Math.min(20, Math.round(10.5 + Math.sqrt(g.ids.length))), tally = new Map(); for (const id of g.ids) for (const k of reasonsOf(id)) tally.set(k, (tally.get(k) || 0) + 1);
-      const total = [...tally.values()].reduce((a, b) => a + b, 0); let at = -Math.PI / 2; ringBadges.push({ ids: g.ids, x: g.x, y: g.y, r, reasons: [...tally.keys()] });
+      const { r, tally } = g.badge, total = [...tally.values()].reduce((a, b) => a + b, 0); let at = -Math.PI / 2;
       ctx.globalAlpha = 0.95;
       for (const [k, v] of tally) { const to = at + 2 * Math.PI * v / total; ctx.fillStyle = VGActions.reasonLook(k).color; ctx.beginPath(); ctx.moveTo(g.x, g.y); ctx.arc(g.x, g.y, r, at, to); ctx.closePath(); ctx.fill(); at = to; }
       ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(g.x, g.y, r - 4, 0, 2 * Math.PI); ctx.fill();
@@ -442,7 +452,7 @@
     }
     drawReticle(now, hudCol);
     if (st.path) drawPath(hudCol);
-    labelRects = []; lobeSpots = [];
+    labelRects = []; lobeSpots = []; placeRings();   // before the lobe captions and note names
     // lobe labels in HUD type
     if (!fd) {
       // each lobe is labelled just outside the shell, at its own centre (not the members' centroid,
