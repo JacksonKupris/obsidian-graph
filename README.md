@@ -61,7 +61,7 @@ npm run queue                 # open pull requests and their checks, merged-not-
 npm run install-release       # install the latest release (or -- 0.6.15, -- --vault <dir>) into a vault
 ```
 
-Setting up a computer, branches and pull requests, `npm run sync`: [CONTRIBUTING.md](CONTRIBUTING.md). Releasing, failed runs and working offline: [RELEASING.md](RELEASING.md).
+Setting up a computer, branches and pull requests, `npm run sync`: [CONTRIBUTING.md](CONTRIBUTING.md). Releasing, failed runs and working offline: [RELEASING.md](RELEASING.md). Mutation testing (tests that can't fail): [docs/mutation-testing.md](docs/mutation-testing.md).
 
 ```sh
 npm run page -- --data <graph.json> [--rules <file>]   # the standalone graph page, in .out/

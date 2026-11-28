@@ -17,7 +17,7 @@ on `main` is in [RELEASING.md](RELEASING.md).
    npm install
    npm test
    ```
-   `npm install` fetches the graphs library (`vault-graph-views`, pinned to a tag in `package.json`) from GitHub; it needs the internet once. `.npmrc` sets `allow-git=root`, because npm 11 and newer refuse git dependencies otherwise; it allows only the ones this package lists itself. Only `tests/test_views_contract.js` needs the library so far; without it that test says to run `npm install`.
+   `npm install` fetches the graphs library (`vault-graph-views`, pinned to a tag in `package.json`) from GitHub; it needs the internet once. `.npmrc` sets `allow-git=root`, because npm 11 and newer refuse git dependencies otherwise; it allows only the ones this package lists itself. Only `tests/test_views_contract.js` needs the library so far; without it that test says to run `npm install`. To move to a newer library tag: change it in `package.json`, then run `npm install --allow-git=all` once (npm 12 refuses a changed git pin under `allow-git=root`) and commit `package-lock.json`.
    The first push asks you to sign in to GitHub; you need push access to the repository.
 4. Optional: say where your vault is, so tests can run on it and a release installs itself there. Create `local.json`
    (per computer, never committed):

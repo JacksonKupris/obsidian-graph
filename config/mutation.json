@@ -1,0 +1,9 @@
+{
+  "timeoutMs": 60000,
+  "files": {
+    "src/shared.js": ["test_word_matching", "test_shared"],
+    "src/rules.js": ["test_rules", "test_plugin_rules"],
+    "src/engine.js": ["test_engine"],
+    "src/science.js": ["test_science"]
+  }
+}

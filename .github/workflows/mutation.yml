@@ -1,0 +1,25 @@
+# Mutation testing, weekly and on demand: which changes to the core files does no test notice? The table is on the run page and
+# every survivor is in the uploaded reports. A low score doesn't fail the run; a file whose tests can't run does (docs/mutation-testing.md).
+name: Mutation
+on:
+  schedule:
+    - cron: "41 7 * * 1"
+  workflow_dispatch:
+jobs:
+  mutate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Install the graphs library
+        run: npm install
+      - run: npm run mutate -- --all --limit 120
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-reports
+          path: .out/mutation
+          include-hidden-files: true
