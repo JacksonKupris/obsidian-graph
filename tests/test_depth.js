@@ -7,7 +7,8 @@ const env = require("./env");
 const fs = require("fs"), path = require("path"), sleep = ms => new Promise(r => setTimeout(r, ms)), shotsAt = process.argv.indexOf("--shots"), SHOTS = shotsAt > 0 ? process.argv[shotsAt + 1] : null;
 (async () => {
   // a task history for the survival lens: the page has no plugin to read journals with, so 80 tasks: half finished over time, half still open
-  const history = Array.from({ length: 80 }, (_, i) => { const d = String(1 + i % 28).padStart(2, "0"), done = String(Math.min(28, 2 + i % 28 + (i % 9))).padStart(2, "0"); return { date: `2026-08-${d}`, path: "j.md", tasks: [{ mark: i % 2 ? " " : "x", text: `Task ${i}${i % 4 === 0 ? " with [[A link]]" : ""}${i % 2 ? "" : ` ✅ 2026-08-${done}`}` }] }; });
+  const ago = n => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10);   // the last four weeks: fixed dates fell out of the lenses' windows as they aged
+  const history = Array.from({ length: 80 }, (_, i) => { const born = 29 - i % 28, d = ago(born), done = ago(Math.max(1, born - 1 - i % 9)); return { date: d, path: "j.md", tasks: [{ mark: i % 2 ? " " : "x", text: `Task ${i}${i % 4 === 0 ? " with [[A link]]" : ""}${i % 2 ? "" : ` ✅ ${done}`}` }] }; });
   const links = env.data().links.filter(l => l.kind === "link"), out = {}; links.forEach(l => { (out[l.source] = out[l.source] || {})[l.target] = 1; });   // the page has no Obsidian index, so direction comes from the data's own order: enough to run the real path
   const tab = await openPage({ html: env.pageWith(`taskHistory: async () => ${JSON.stringify(history)}, writtenLinks: () => (window.__noDir ? null : ${JSON.stringify(out)}),`) });
   const { fails, ok: check } = checks(), shot = name => tools(tab, { shots: SHOTS }).shot(name);

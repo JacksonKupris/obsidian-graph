@@ -856,6 +856,8 @@
 .vg-root.is-mobile .vg-today-text { padding-block: 12px; }
 .vg-root .vg-today-act { flex: none; }
 .vg-root .vg-today-x { flex: none; width: 24px; height: 24px; opacity: .6; }
+/* on a phone the sentence takes the width (beside the Hide button) and the action sits under it: beside it, the words ran to six lines and were cut */
+@container vg (max-width: 520px) { .vg-root .vg-today { flex-wrap: wrap; width: calc(100% - 24px); border-radius: var(--ds-r-lg, 14px); row-gap: 2px; } .vg-root .vg-today-text { flex: 1 1 calc(100% - 40px); } .vg-root .vg-today-act { order: 1; } }
 .vg-root.has-lens .vg-today { display: none; }
 /* radar triage */
 .vg-root .vg-triage { position: absolute; z-index: 4; bottom: calc(52px + var(--vg-bottom, 0px)); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px;

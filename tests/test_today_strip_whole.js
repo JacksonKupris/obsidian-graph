@@ -11,6 +11,8 @@ const env = require("./env");
       assert.ok(await tab.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000), "the graph must mount");
       await tab.send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile }); await sleep(500);
       await tab.ev(`document.querySelectorAll(".vg-tour, .vg-tour-card").forEach(x => x.remove())`);
+      // CI machines fall back to a wider font than this PC: measure with a wide one
+      await tab.ev(`document.querySelector(".vg-root").style.setProperty("--vg-font", "Verdana"); document.head.insertAdjacentHTML("beforeend", "<style>.vg-root, .vg-root * { font-family: Verdana !important }</style>")`); await sleep(300);
       for (const view of ["3d", "neural", "2d"]) {
         await tab.ev(`window.vaultGraph._debug.openView(${JSON.stringify(view)})`); await sleep(1200);
         const r = await tab.ev(`(() => { const t = document.querySelector(".vg-today-text"); if (!t || t.closest("[hidden]")) return null; t.closest(".vg-today").classList.remove("is-open");
