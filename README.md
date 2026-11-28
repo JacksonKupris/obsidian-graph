@@ -15,6 +15,8 @@ An Obsidian plugin that maps your vault: it finds the topics your notes form, th
 It never changes a note without asking, and every change it makes can be undone.
 
 ## Install
+The repository is `obsidian-graph`; the plugin is **Vault Graph** (folder `jk-vault-graph`).
+
 
 With [BRAT](https://github.com/TfTHacker/obsidian42-brat): **Add beta plugin** → `JacksonKupris/obsidian-graph`, then enable **Vault Graph**. BRAT keeps it updated from the releases.
 

@@ -32,11 +32,11 @@ const assert = require("assert"), env = require("./env");
         window.vaultHQ.setScreen("today");
       })()`);
       assert(await tab.ev(`document.querySelector(".vg-hq-next").textContent.includes("Current action")`), "today action must outrank approval: " + await tab.ev(`document.querySelector(".vg-hq-next").textContent + " / " + JSON.stringify(window.vaultHQ.items().map(i => [i.group, i.kind]))`));
-      await tab.ev(`window.vaultHQ.setScreen("projects");window.__selectProjectFilter=(key,value)=>{const s=document.querySelector('[data-project-filter="'+key+'"]');s.value=value;s.focus();s.dispatchEvent(new Event("change",{bubbles:true}));};`);
+      await tab.ev(`window.vaultHQ.setScreen("projects");window.__selectProjectFilter=(key,value)=>{if(key==="status"){document.querySelector('.vg-hq-filters[aria-label="Project status"] [data-filter="'+value+'"]').click();return;}const s=document.querySelector('[data-project-filter="'+key+'"]');s.value=value;s.focus();s.dispatchEvent(new Event("change",{bubbles:true}));};window.__statusPill=v=>document.querySelector('.vg-hq-filters[aria-label="Project status"] [data-filter="'+v+'"]');`);
       assert.deepEqual(await tab.ev(`[...document.querySelectorAll(".vg-hq-project-filters select")].map(s=>[s.getAttribute("aria-label"),s.value])`),
-        [["Kind","all"],["System","all"],["Project status","active"]], "labeled native dropdowns retain defaults");
+        [["Kind","all"],["System","all"]], "labeled native dropdowns retain defaults");
       assert.equal(await tab.ev(`document.querySelector('[data-project-filter="kind"] option[value="all"]').textContent`), "All kinds (3)");
-      assert.equal(await tab.ev(`document.querySelector('[data-project-filter="status"] option[value="active"]').textContent`), "In progress (1)");
+      assert.equal(await tab.ev(`window.__statusPill("active").textContent.trim()`), "In progress 1");
       await tab.ev(`(() => {const style=document.createElement("style");style.textContent="select {height:30px;font-size:11px;background-image:none;padding:0 8px;box-shadow:0 1px 3px black;}";document.head.appendChild(style);})()`);
       // the style was added a moment ago: a loaded CI machine may not have settled it. It has to settle right, within the wait.
       assert(await tab.waitFor(`[...document.querySelectorAll(".vg-hq-select")].every(s => {
@@ -54,6 +54,7 @@ const assert = require("assert"), env = require("./env");
       assert.equal(await tab.ev(`!!document.querySelector('[data-proj="Child.md"]')`),false,"the active project filters exclude the project result");
       await tab.ev(`document.querySelector("[data-compact]").click();window.vaultHQ.update(null,null);`);
       assert(await tab.ev(`!!document.querySelector(".vg-hq-grid.is-compact")`));
+      await tab.ev(`(document.querySelector('[data-tray="search"]') || { click() {} }).click()`);   // a phone keeps the search box behind its button
       for (const query of ["prnt cons", "balances roll", "balnces"]) {
         await tab.ev(`(() => {const s=document.querySelector(".vg-hq-global-search");s.focus();s.value=${JSON.stringify(query)};s.dispatchEvent(new Event("input",{bubbles:true}));window.vaultHQ.update(null,null);})()`);
         assert(await tab.waitFor(`document.querySelectorAll(".vg-hq-search-proj").length === 1 ? 1 : 0`,5000),`global project search: ${query}`);
@@ -72,12 +73,12 @@ const assert = require("assert"), env = require("./env");
       await tab.ev(`document.querySelector("[data-clear-global]").click()`);
       assert.equal(await tab.ev(`window.vaultHQ.screen()`),"sweep","clearing search returns to the current subview");
       await tab.ev(`window.vaultHQ.setScreen("projects")`);
-      assert.deepEqual(await tab.ev(`[...document.querySelectorAll(".vg-hq-project-filters select")].map(s=>s.value)`),["Scope","project/server","other"],"global search preserves Projects filters");
+      assert.deepEqual(await tab.ev(`[...document.querySelectorAll(".vg-hq-project-filters select")].map(s=>s.value)`),["Scope","project/server"],"global search preserves Projects filters");
       await tab.ev(`window.__selectProjectFilter("kind","all");window.__selectProjectFilter("system","all");window.__selectProjectFilter("status","all")`);
       await tab.ev(`document.querySelector(".vg-hq-proj").click()`);
       assert(await tab.ev(`document.querySelector(".vg-hq-drawer").textContent.includes("Parent: Parent.md")`));
       assert(await tab.ev(`document.querySelector(".vg-hq-drawer").textContent.includes("Source heading: Acceptance")`));
-      const point = await tab.ev(`(() => {const r=document.querySelector(".vg-hq-chips [data-go=needs]").getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+      const point = await tab.ev(`(() => {const r=[...document.querySelectorAll(".vg-hq-chips [data-go=needs], .vg-hq-dock [data-go=needs]")].find(b => b.getBoundingClientRect().width).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
       await tab.send("Input.dispatchMouseEvent",{type:"mousePressed",...point,button:"left",clickCount:1});
       await tab.send("Input.dispatchMouseEvent",{type:"mouseReleased",...point,button:"left",clickCount:1});
       assert.equal(await tab.ev("window.vaultHQ.screen()"), "needs", "drawer must not block header navigation");
@@ -90,10 +91,10 @@ const assert = require("assert"), env = require("./env");
       assert.equal(await tab.ev(`document.querySelectorAll(".vg-hq-proj").length`), 1, "unclassified record visible");
       await tab.ev(`window.__selectProjectFilter("system","project/odoo");window.vaultHQ.update(null,null)`);
       assert.equal(await tab.ev(`document.querySelectorAll(".vg-hq-proj").length`), 0, "system filter survives refresh");
-      assert.deepEqual(await tab.ev(`[...document.querySelectorAll(".vg-hq-project-filters select")].map(s=>s.value)`), ["all","project/odoo","other"]);
-      assert.equal(await tab.ev(`document.querySelector('[data-project-filter="status"] option[value="all"]').textContent`), "All (1)", "status counts follow kind and system");
+      assert.deepEqual(await tab.ev(`[...document.querySelectorAll(".vg-hq-project-filters select")].map(s=>s.value)`), ["all","project/odoo"]);
+      assert.equal(await tab.ev(`window.__statusPill("all").textContent.trim()`), "All 1", "status counts follow kind and system");
       await tab.ev(`document.querySelector("[data-clearsearch]").click()`);
-      assert.deepEqual(await tab.ev(`[...document.querySelectorAll(".vg-hq-project-filters select")].map(s=>s.value)`), ["all","all","all"], "clear restores all filter groups");
+      assert.deepEqual(await tab.ev(`[...document.querySelectorAll(".vg-hq-project-filters select")].map(s=>s.value)`), ["all","all"], "clear restores all filter groups");
       await tab.ev(`DATA.hq.journals=[{path:VGRules.folders.daily+"/2026/10-October/Journal/2026-10-26.md",date:"2026-10-26",tasks:[{line:1,text:"Repeat task",mark:" "}]},{path:VGRules.folders.daily+"/2026/10-October/Journal/2026-10-27.md",date:"2026-10-27",tasks:[{line:2,text:"Repeat task",mark:" "}]}];window.vaultHQ.update(null,null);window.vaultHQ.setScreen("sweep")`);
       assert(await tab.ev(`!!document.querySelector(".vg-hq-duplicates")`));
       assert.equal(await tab.ev(`document.querySelectorAll("[data-one=x]").length`), 2, "duplicate grouping preserves independent actions");

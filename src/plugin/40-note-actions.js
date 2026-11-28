@@ -73,6 +73,8 @@
   }
 
   async saveSettings() { await this.saveData(this.settings); }
+  setPalette(p) { if (this.settings.hqPalette === p) return; this.settings.hqPalette = p; this.syncAppTheme(); return this.saveSettings(); }   // the one colour theme, for HQ and the graph
+  syncAppTheme() { VGShared.applyPalette(document.body, this.settings.themeObsidian ? this.settings.hqPalette : "obsidian"); }   // the same theme on all of Obsidian, only when the setting is on
 
   // Notes written from the graph (hub, bridge, map, wanted). mode "create": never overwrite -- pick a
   // free name instead. mode "regen": keep the note's text above the generated marker, replace below it.
@@ -279,6 +281,7 @@
       moveTasks: (items, to) => this.moveTasks(items, to),
       recentChanges: () => this.recentChanges(),
       version: () => this.manifest.version,
+      hqVisit: keys => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.hqVisit = { at: new Date().toISOString(), keys: keys.slice(0, 500) }; return sh; }),
       hqNewsSeen: version => this.updateShared(sh => { sh.review = sh.review || {}; sh.review.hqNewsSeen = version; return sh; }),
       labelUndo: (id, label) => this.labelUndo(id, label),
       setParents: rows => this.setParents(rows),

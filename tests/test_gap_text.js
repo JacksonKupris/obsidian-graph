@@ -14,8 +14,8 @@ const D = "window.vaultGraph._debug";
     const rows = await tab.ev(`[...document.querySelectorAll(".vg-lens-body .vg-gaprow .vg-item-sub")].map(x => x.textContent)`);
     check(rows.length > 0, "the matrix should list at least one gap on this data (the check can't fail without one)");
     for (const t of rows) {
-      check(!/^0 co-mentions/.test(t), `a gap needs co-mentions, got "${t}"`);
-      const m = /^(\d+) co-mentions in your dailies, (only )?(?:(\d+) links?|no links between them yet)$/.exec(t);
+      check(!/^named together in 0 /.test(t), `a gap needs co-mentions, got "${t}"`);
+      const m = /^named together in (\d+) daily notes?, (only )?(?:(\d+) links?|no links between them yet)$/.exec(t);
       check(!!m, `gap text should come from one rule (got "${t}")`);
       if (m && m[3] !== undefined) check(!!m[2] === (Number(m[3]) < Number(m[1])), `"only" belongs with fewer links than co-mentions (got "${t}")`);
     }

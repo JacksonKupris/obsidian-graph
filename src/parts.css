@@ -18,6 +18,8 @@
 .vg-root .ds-detail-close:hover, .vg-hq .ds-detail-close:hover { color: var(--ds-text); background: var(--ds-hover); }
 
 .ds-section { margin: 14px 0; }
+.ds-section.is-landed > h4 { color: var(--ds-text); }
+.ds-section.is-landed > h4::before { content: "→ "; color: var(--ds-accent); }
 .ds-section h4, .ds-heading { margin: 0 0 6px; font-size: var(--ds-fs-xs); font-weight: var(--ds-w-semi); letter-spacing: .06em; text-transform: uppercase; color: var(--ds-muted); }
 .ds-hint { margin: 0 0 6px; font-size: var(--ds-fs-xs); line-height: 1.4; color: var(--ds-muted); }
 .ds-count { padding: 0 6px; font-size: var(--ds-fs-2xs); font-weight: var(--ds-w-semi); letter-spacing: 0; color: var(--ds-muted); background: var(--ds-hover); border-radius: var(--ds-r-pill); }
@@ -35,3 +37,8 @@
 .vg-root button.ds-row, .vg-hq button.ds-row { cursor: pointer; }
 .vg-root button.ds-row:hover, .vg-hq button.ds-row:hover { background: var(--ds-hover); }
 .vg-root .ds-card:focus-visible, .vg-hq .ds-card:focus-visible, .vg-root .ds-row:focus-visible, .vg-hq .ds-row:focus-visible, .ds-more > summary:focus-visible { outline: var(--ds-focus); outline-offset: 1px; }
+
+/* One pressed state and one disabled look for every pressable control, in the viewer and in HQ */
+.vg-root :is(button, [role="button"], summary):active:not(:disabled), .vg-hq :is(button, [role="button"], summary):active:not(:disabled) { transform: translateY(1px); filter: brightness(0.92); }
+.vg-root :is(button, select, input):disabled, .vg-hq :is(button, select, input):disabled { cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) { .vg-root :is(button, [role="button"], summary):active, .vg-hq :is(button, [role="button"], summary):active { transform: none; } }

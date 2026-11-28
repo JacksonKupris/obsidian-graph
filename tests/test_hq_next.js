@@ -58,27 +58,28 @@ assert(open(null, day), "the task is listed"); assert(!open("until:2026-11-09", 
     const size = async (width, mobile = false) => { await tab.send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile }); await sleep(120); };
     const screen = s => tools(tab, { wait: 60 }).screen(s);
     const click = sel => tools(tab).click(sel);
-    const chip = () => tab.ev(`document.querySelector(".vg-hq-nextchip b").textContent`), marked = () => tab.ev(`[...document.querySelectorAll(".is-nextstep")].length`);
+    // Home and Today say the next step in full, so the pill is read from Needs you, and the screen is put back
+    const chip = async () => { const was = await tab.ev(`window.vaultHQ.screen()`), away = ["home", "today"].includes(was); if (away) await screen("needs"); const t = await tab.ev(`document.querySelector(".vg-hq-nextchip b").textContent`); if (away) await screen(was); return t; }, marked = () => tab.ev(`[...document.querySelectorAll(".is-nextstep")].length`);
     // a noon clock, so the evening's standup doesn't change what this checks
     let mount = (state = "{}", hour = 12) => tab.ev(`(() => { window.vaultHQ.destroy(); window.__calls = []; const rec = k => async (...a) => { window.__calls.push([k, ...a]); return true; }; const when = new Date(); when.setHours(${hour}, 0, 0, 0); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), DATA, { now: when, state: ${state}, ask: async () => true, api: { hqFocus: rec("hqFocus"), hqMark: rec("hqMark"), hqSession: rec("hqSession"), setTaskStatus: rec("setTaskStatus"), completeTask: rec("completeTask"), setTasksStatus: rec("setTasksStatus"), capture: rec("capture"), openNote() {}, openStandup: rec("openStandup"), searchNotes: async () => [] } }); })()`);
     await mount(); await size(1500);
     // something broken comes before the rest of the day, with its beacon on its own row
     const jobs = await tab.ev(`window.vaultHQ.items().filter(i => i.kind === "job").map(i => i.key)`);
-    if (jobs.length) { check(/^Check /.test(await chip()), `a failed job should come first: ${await chip()}`); await tab.ev(`document.querySelector("[data-nextstep]").click()`); await sleep(100); check(await tab.ev(`window.vaultHQ.screen()`) === "needs", "the chip should go to Needs you"); check(await tab.ev(`document.querySelector(".is-nextstep") && document.querySelector(".is-nextstep").dataset.key.startsWith("job|")`), "the beacon should be on the job");
+    if (jobs.length) { check(/^Check /.test(await chip()), `a failed job should come first: ${await chip()}`); await screen("needs"); await tab.ev(`document.querySelector("[data-nextstep]").click()`); await sleep(100); check(await tab.ev(`window.vaultHQ.screen()`) === "needs", "the chip should go to Needs you"); check(await tab.ev(`document.querySelector(".is-nextstep") && document.querySelector(".is-nextstep").dataset.key.startsWith("job|")`), "the beacon should be on the job");
       const set = `{ review: { hq: Object.fromEntries(${JSON.stringify(jobs)}.map(k => [k, "later:" + VGRules.localDay(new Date())])) } }`; const again = mount; mount = (state = set, hour = 12) => again(state, hour); await mount(); await size(1500); }
     const hasWork = await tab.ev(`window.vaultHQ.items().some(i => i.group === "today")`);
     // the chip is on every screen, and says one thing everywhere
     const label = await chip(); check(!!label, "no next step named");
     // on a phone the chip stays inside the screen and is big enough to tap, on every screen
     await size(390, true);
-    for (const s of ["home", "today", "needs"]) { await screen(s); const r = await tab.ev(`(() => { const b = document.querySelector(".vg-hq-nextchip").getBoundingClientRect(); return { l: b.left, r: b.right, h: b.height, w: innerWidth, scroll: document.documentElement.scrollWidth }; })()`); check(r.l >= 0 && r.r <= r.w && r.h >= 44 && r.scroll <= r.w, `the chip on ${s} at phone width: ${JSON.stringify(r)}`); }
+    for (const s of ["needs", "people"]) { await screen(s); const r = await tab.ev(`(() => { const b = document.querySelector(".vg-hq-nextchip").getBoundingClientRect(); return { l: b.left, r: b.right, h: b.height, w: innerWidth, scroll: document.documentElement.scrollWidth }; })()`); check(r.l >= 0 && r.r <= r.w && r.h >= 44 && r.scroll <= r.w, `the chip on ${s} at phone width: ${JSON.stringify(r)}`); }
     await size(1500);
-    for (const s of ["home", "today", "needs", "people", "projects", "calendar"]) { await screen(s); check((await chip()) === label, `the chip differs on ${s}`); const n = await tab.ev(`[document.querySelectorAll(".vg-hq-nextchip").length, document.querySelectorAll("[data-nextstep]:not(.vg-hq-nextchip)").length]`); check(n[0] === 1 && n[1] <= 1, `${s} shows ${n[0]} next chips and ${n[1]} Go buttons: one of each at most`); }
+    for (const s of ["home", "today", "needs", "people", "projects", "calendar"]) { await screen(s); if (s !== "home" && s !== "today") check((await chip()) === label, `the chip differs on ${s}`); await screen(s); const n = await tab.ev(`[document.querySelectorAll(".vg-hq-nextchip").length, document.querySelectorAll("[data-nextstep]:not(.vg-hq-nextchip)").length]`); check(n[0] === (s === "home" || s === "today" ? 0 : 1) && n[1] <= 1, `${s} shows ${n[0]} next chips and ${n[1]} Go buttons: one of each at most`); }
     if (hasWork) {
       check(label === "Pick today's focus", `with nothing picked: ${label}`);
       // the marker: off its screen a dot on the dock, on it the beacon on the one control
       await screen("home"); check(await marked() === 0, "the beacon shows where its control isn't"); check(await tab.ev(`!!document.querySelector('.vg-hq-dockbtn[data-go="today"].has-next')`), "the dock doesn't point at the screen");
-      await click("[data-nextstep]"); await sleep(120);
+      await screen("needs"); await click("[data-nextstep]"); await sleep(120);
       check(await tab.ev(`window.vaultHQ.screen()`) === "today", "the chip doesn't go to the step"); check(await marked() === 1, "there should be one beacon");
       check(await tab.ev(`document.querySelector(".is-nextstep").classList.contains("vg-hq-star")`), "the beacon isn't on the star"); check(!(await tab.ev(`!!document.querySelector(".vg-hq-dockbtn.has-next")`)), "the dock's dot stays when you're there");
       const cs = await tab.ev(`(() => { const c = getComputedStyle(document.querySelector(".is-nextstep")); return { n: c.animationIterationCount, name: c.animationName, ring: c.outlineStyle }; })()`);
@@ -119,7 +120,7 @@ assert(open(null, day), "the task is listed"); assert(!open("until:2026-11-09", 
     check(JSON.stringify(await hb()) === JSON.stringify({ undo: true, redo: false, title: "Undo: Archived Plan" }), "a decision turns Undo on and names it: " + JSON.stringify(await hb()));
     await click("[data-hundo]"); await sleep(120);
     check((await tab.ev(`window.__h.join("")`)) === "u" && (await hb()).redo && !(await hb()).undo, "Undo from the header reverses it and turns Redo on");
-    await size(390, true); const hbSize = await tab.ev(`Math.round(document.querySelector("[data-hredo]").getBoundingClientRect().height)`); check(hbSize >= 44, `Redo is ${hbSize}px tall on a phone`);
+    await size(390, true); await tab.ev(`(() => { const h = document.querySelector('.vg-hq'); if (!h.classList.contains('tray-open')) { const m = document.querySelector('[data-tray="menu"]'); if (m) m.click(); } })()`); await sleep(80); const hbSize = await tab.ev(`Math.round(document.querySelector("[data-hredo]").getBoundingClientRect().height)`); check(hbSize >= 44, `Redo is ${hbSize}px tall on a phone`);
     await size(1500); await click("[data-hredo]"); await sleep(120);
     check((await tab.ev(`window.__h.join("")`)) === "ur", "Redo from the header does it again");
     // Previous: off with nothing decided on an item, then it opens what the last decision was made on and changes nothing
@@ -131,7 +132,7 @@ assert(open(null, day), "the task is listed"); assert(!open("until:2026-11-09", 
     check(await tab.ev(`document.querySelector("[data-hprev]").title`) === "Previous: Done: A", "Previous names the decision it goes back to");
     await click("[data-hprev]"); await sleep(150);
     check(await tab.ev(`(() => { const s = document.querySelector(".vg-hq-item.is-sel"); return !!s && s.dataset.key === ${JSON.stringify(prevKey)}; })()`) && (await tab.ev(`window.__h.join("")`)) === "", "Previous selects the decided item and reverses nothing");
-    await size(390, true); check(await tab.ev(`document.querySelector(".vg-hq").scrollWidth <= document.querySelector(".vg-hq").clientWidth && document.querySelector("[data-hprev]").getBoundingClientRect().height >= 44`), "with Previous the header runs off a phone, or the button is under 44px"); await size(1500);
+    await size(390, true); await tab.ev(`(() => { const h = document.querySelector('.vg-hq'); if (!h.classList.contains('tray-open')) { const m = document.querySelector('[data-tray="menu"]'); if (m) m.click(); } })()`); await sleep(80); check(await tab.ev(`document.querySelector(".vg-hq").scrollWidth <= document.querySelector(".vg-hq").clientWidth && document.querySelector("[data-hprev]").getBoundingClientRect().height >= 44`), "with Previous the header runs off a phone, or the button is under 44px"); await size(1500);
     const errs = await tab.ev("window.__errs"); check(!errs.length, "page errors: " + errs.join("; "));
   } catch (e) { fails.push(e.message); } finally { await tab.close(); }
   if (fails.length) { console.log("FAIL - next step:\n  " + fails.join("\n  ")); process.exit(1); }

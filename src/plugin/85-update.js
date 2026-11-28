@@ -17,11 +17,27 @@ class VaultGraphUpdater {
     if (gone.length) throw new Error(`release ${rel.tag_name} has no ${gone.join(", ")}`);
     const files = {};
     for (const f of VGRelease.FILES) files[f] = (await requestUrl({ url: urls[f] })).text;
-    const bad = VGRelease.problem(rel, files, this.plugin.manifest.id);
+    const bad = VGRelease.problem(rel, files, this.plugin.manifest.id, apiVersion);   // apiVersion: the Obsidian running; a release that needs a newer one is refused
     if (bad) throw new Error(bad);
     const ad = this.plugin.app.vault.adapter, dir = this.plugin.manifest.dir;
     for (const f of VGRelease.FILES) await ad.write(`${dir}/${f}.new`, files[f]);
-    for (const f of VGRelease.FILES) { if (await ad.exists(`${dir}/${f}`)) await ad.remove(`${dir}/${f}`); await ad.rename(`${dir}/${f}.new`, `${dir}/${f}`); }
+    // swap: each live file is moved aside, never deleted, until every new one is in place; any failure puts the old ones back
+    const aside = [], P = f => `${dir}/${f}`;
+    try {
+      for (const f of VGRelease.FILES) {
+        if (await ad.exists(P(f))) { if (await ad.exists(P(f) + ".old")) await ad.remove(P(f) + ".old"); await ad.rename(P(f), P(f) + ".old"); aside.push(f); }
+        await ad.rename(P(f) + ".new", P(f));
+      }
+    } catch (e) {
+      for (const f of VGRelease.FILES) {
+        try {
+          if (aside.includes(f)) { if (await ad.exists(P(f))) await ad.remove(P(f)); await ad.rename(P(f) + ".old", P(f)); }
+          if (await ad.exists(P(f) + ".new")) await ad.remove(P(f) + ".new");
+        } catch (_) { /* keep restoring the others */ }
+      }
+      throw e;
+    }
+    for (const f of aside) { try { await ad.remove(P(f) + ".old"); } catch (_) { /* a leftover .old is harmless */ } }
   }
   // the app reads the manifest again first: without it the old version is enabled again
   async reload() {

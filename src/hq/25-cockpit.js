@@ -2,14 +2,16 @@
   // made visible: pick anything and it shows what the vault knows about it, without leaving the list you're working through.
   let selKey = null;
   const NO_RAIL = new Set(["projects", "automations", "sweep", "rows", "review", "wrap", "session", "calendar"]);
-  const HAS_HERO = new Set(["home", "today"]);   // these screens already show Do next in full
+  const HAS_HERO = new Set(["today"]);   // Today shows Do next in full; Home has its own tile, so its panel waits for a pick
   const railOn = () => el.clientWidth >= RAIL_WIDTH && !NO_RAIL.has(cur) && !(cur === "today" && LAYOUT_NO_RAIL.has(layoutNow())) && !globalQuery.trim() && !(cur === "needs" && needsWalk);   // one at a time shows the same things itself
   const RAIL_WIDTH = 1100;
   // what the rail shows: the item you picked, or else the first thing on this screen. Nothing unrelated to the screen.
   const selected = () => BY_KEY.get(selKey) || (cur === "needs" ? ofGroup("needs")[0] : null) || (HAS_HERO.has(cur) ? doNext() : null);
   let threadsCache = null;   // worked out once per list: compute() clears it
   const threads = () => threadsCache || (threadsCache = VGRules.hqThreads(LIST.filter(it => it.group === "today"), VGRules.hqProjects(DATA)));
-  function railHtml() {
+  // the panel is never an empty box: when the picked item adds nothing beside the Do next card, it says what a pick shows
+  function railHtml() { const h = railBody(); return h.replace(/<[^>]*>/g, "").trim() ? h : `<div class="vg-hq-railempty"><p>Pick an item to see where it came from.</p><small>Its note, its project, the people on it and what your notes say about it show here.</small></div>`; }
+  function railBody() {
     const it = selected();
     if (!it) return `<div class="vg-hq-railempty"><p>Nothing selected.</p><small>Pick an item to see what your notes know about it.</small></div>`;
     const th = threads().find(t => t.items.includes(it)), who = VGRules.hqPeople(DATA, [it]).filter(p => p.items.length), src = it.path || (it.ids || [])[0];
@@ -29,8 +31,9 @@
   function selectItem(key) { selKey = key; cursorKey = key; updateRail(); }
 
   // ---- the morning brief: the day in a few sentences, from what the vault already says
+  const visitBefore = (STATE.review || {}).hqVisit || null;   // the last visit, as it was when this screen opened
   function briefHtml() {
-    const b = VGRules.hqBriefLines(DATA, LIST, STATE.review, day(), threads(), now().getHours());   // each sentence opens what it counts
+    const b = VGRules.hqBriefLines(DATA, LIST, { ...STATE.review, hqVisit: visitBefore }, day(), threads(), now().getHours());   // each sentence opens what it counts
     return b.length ? `<p class="vg-hq-brief">${b.map(l => `<button class="vg-hq-briefline" ${l.proj ? `data-proj="${esc(l.proj)}"` : `data-go="${esc(l.go)}"`}>${esc(l.text)}</button>`).join(" ")}</p>` : "";
   }
   // Threads: the same open work, grouped by the project it belongs to, which is how it's thought about
@@ -42,7 +45,7 @@
   }
   function threadsScreen() {
     const all = threads();
-    return `<h1 class="vg-hq-h1">Threads</h1><p class="vg-hq-lede">Your open work by what it belongs to.</p>` + (all.length ? all.map(t => section(t.title, t.items)).join("") : empty("No open work yet.", [["Today", 'data-go="today"']]));
+    return `<h1 class="vg-hq-h1">Threads</h1><p class="vg-hq-lede">Your open work by what it belongs to.</p>` + (all.length ? all.map(t => section(t.title, t.items, "", 0, "open")).join("") : empty("No open work yet.", [["Today", 'data-go="today"']]));
   }
   // ---- the weekly review: five minutes, in order, each step going to where it's done
   function reviewScreen() {

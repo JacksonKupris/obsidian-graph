@@ -42,13 +42,13 @@
       const j = VGRules.canonicalJournal(h, iso);
       const duplicate = j && ((h && h.journalDuplicates) || []).find(x => x.date === iso);
       const canChoose = api.openDaily || api.openStandup || (api.openNote && (j || standups.has(iso)));
-      return `<button class="vg-hq-day${on ? " is-today" : ""}" ${canChoose ? `data-weekday="${iso}"` : "disabled"} ${duplicate ? `title="Duplicate journal date; using ${esc(j.path)}"` : ""} aria-label="${DAYS[d.getDay()]} ${d.getDate()}, journal and standup${duplicate ? ", duplicate journal paths; canonical copy selected" : ""}"><span>${DAYS[d.getDay()]}</span><b>${d.getDate()}</b><span class="vg-hq-marks">${marks}</span></button>`;
+      return `<button class="vg-hq-day${on ? " is-today" : ""}" ${canChoose ? `data-weekday="${iso}"` : "disabled"} ${duplicate ? `title="Duplicate journal date; using ${esc(j.path)}"` : ""} aria-label="${DAYS[d.getDay()]} ${d.getDate()}, ${[journals.has(iso) && "journal", standups.has(iso) && "standup"].filter(Boolean).join(" and ") || "nothing written yet"}${duplicate ? ", duplicate journal paths; canonical copy selected" : ""}"><span>${DAYS[d.getDay()]}</span><b>${d.getDate()}</b><span class="vg-hq-marks">${marks}</span></button>`;
     }).join("");
     const { needs, projects: { active: projects } } = hqCounts(), jobs = VGRules.hqJobs(h || {}, now());
     const badJobs = jobs.filter(j => j.state === "failed" || j.state === "late").length;
     const chip = (screen, ic, title, sub, dot) => `<button class="vg-hq-chip" data-go="${screen}">${icon(ic, 16)}<span><b>${esc(title)}</b>${dot ? '<i class="vg-hq-dot"></i>' : ""}<small>${esc(sub)}</small></span></button>`;
-    return `<nav class="vg-hq-strip" aria-label="This week"><div class="vg-hq-week">${days}</div><div class="vg-hq-chips">` +
-      chip("needs", "inbox", "Needs you", plural(needs, "item"), needs > 0) + chip("projects", "folder", "Projects", `${projects} active`) +
+    return `<nav class="vg-hq-strip" aria-label="This week"><div class="vg-hq-weekbox"><div class="vg-hq-week">${days}</div><p class="vg-hq-weeklegend">Tap a day to open it. ${dotLegend}</p></div><div class="vg-hq-chips">` +
+      chip("needs", "inbox", "Needs you", plural(needs, "item"), needs > 0) + chip("projects", "folder", "Projects", `${projects} active`, false) +
       (jobs.length ? chip("automations", "clock", "Automations", badJobs ? `${badJobs} need${badJobs === 1 ? "s" : ""} a look` : `${jobs.length} configured`, badJobs > 0) : "") + `</div></nav>`;
   }
   // The counts Home, the week strip and the dock show: worked out in one place, so the same fact is the same number everywhere
@@ -56,8 +56,8 @@
   function dock() {
     const { needs } = hqCounts();
     const nextAt = nextStep().screen, nextHome = SUB[nextAt] ? SUB[nextAt][1] : nextAt;
-    return `<nav class="vg-hq-dock" aria-label="Screens">${SCREENS.map(([k, label, ic]) => `<button class="vg-hq-dockbtn${cur === k || (SUB[cur] && SUB[cur][1] === k) ? " is-on" : ""}${nextHome === k && cur !== nextAt ? " has-next" : ""}" data-go="${k}" aria-label="${label}" ${cur === k ? 'aria-current="page"' : ""} title="${label}">${icon(ic, 20)}${k === "needs" && needs ? `<span class="vg-hq-badge">${needs}</span>` : ""}</button>`).join("")}` +
-      (api.openDaily ? `<span class="vg-hq-sep"></span><button class="vg-hq-dockbtn" data-daily aria-label="Open today's journal" title="Open today's journal">${icon("journal", 20)}</button>` : "") + `</nav>`;
+    return `<nav class="vg-hq-dock" aria-label="Screens">${SCREENS.map(([k, label, ic, short]) => `<button class="vg-hq-dockbtn${cur === k || (SUB[cur] && SUB[cur][1] === k) ? " is-on" : ""}${nextHome === k && cur !== nextAt ? " has-next" : ""}" data-go="${k}" aria-label="${k === "needs" && needs ? `${label}, ${needs} waiting` : label}" ${cur === k ? 'aria-current="page"' : ""} title="${k === "needs" && needs ? `${label}, ${needs} waiting` : label}">${icon(ic, 20)}<span class="vg-hq-docklabel">${esc(short || label)}</span>${k === "needs" && needs ? `<span class="vg-hq-badge" aria-hidden="true">${needs}</span>` : ""}</button>`).join("")}` +
+      (api.openDaily ? `<span class="vg-hq-sep"></span><button class="vg-hq-dockbtn" data-daily aria-label="Open today's journal" title="Open today's journal">${icon("journal", 20)}<span class="vg-hq-docklabel">Journal</span></button>` : "") + `</nav>`;
   }
   // ---- picking several: tick rows (shift for a run of them, v on the keyboard), then one bar acts on them all. Done on old
   // tasks is one write with one Undo, and stays out of the standup, as in the sweep; today's go in the standup one by one.
@@ -102,13 +102,13 @@
   const ctxButton = it => api.searchNotes ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-ctxbtn" data-ctx="${esc(it.key)}" aria-expanded="${ctxOpen === it.key}" title="What your notes know about this (Enter)" aria-label="What your notes know about this">${icon("down", 14)}</button>` : "";
   function loadContext(it) {
     if (!api.searchNotes || ctxCache.has(it.key)) return; ctxCache.set(it.key, null);
-    Promise.resolve(api.searchNotes(ctxQuery(it), 8)).then(hits => { const own = it.path; ctxCache.set(it.key, (Array.isArray(hits) ? hits : []).filter(h => h.path !== own && !String(h.path).startsWith(`${VGRules.folders.system}/`)).filter((h, i, a) => a.findIndex(x => x.path === h.path) === i).slice(0, 4)); if (railOn()) updateRail(); else render(); }, () => { ctxCache.set(it.key, []); if (railOn()) updateRail(); else render(); });
+    Promise.resolve(api.searchNotes(ctxQuery(it), 8)).then(hits => { const own = it.path; ctxCache.set(it.key, VGRules.relatedNotes(Array.isArray(hits) ? hits : [], ctxQuery(it)).filter(h => h.path !== own && !String(h.path).startsWith(`${VGRules.folders.system}/`)).filter((h, i, a) => a.findIndex(x => x.path === h.path) === i).slice(0, 3)); if (railOn()) updateRail(); else render(); }, () => { ctxCache.set(it.key, []); if (railOn()) updateRail(); else render(); });
   }
   function contextPanel(it, always) {
     if (!api.searchNotes || (!always && ctxOpen !== it.key)) return "";
     loadContext(it); const hits = ctxCache.get(it.key);
     const body = hits === null ? `<p class="vg-hq-ctx-none">Looking in your notes…</p>` : !hits || !hits.length ? `<p class="vg-hq-ctx-none">Nothing related in your notes.</p>`
-      : hits.map(h => `<button class="vg-hq-ctxhit" ${api.readNote ? "data-peek" : "data-open"}="${esc(h.path)}"><b>${esc(nameOf(h.path))}</b>${h.heading && h.heading !== nameOf(h.path) ? `<small>${esc(h.heading)}</small>` : ""}${h.snippet ? `<span>${esc(VGRules.plainSnippet(h.snippet))}</span>` : ""}</button>`).join("");
+      : hits.map(h => `<button class="vg-hq-ctxhit" ${api.readNote ? "data-peek" : "data-open"}="${esc(h.path)}"><b>${esc(nameOf(h.path))}</b>${h.heading && h.heading !== nameOf(h.path) ? `<small>${esc(h.heading)}</small>` : ""}${h.snippet ? `<span>${esc(VGRules.snippetLine(h.snippet))}</span>` : ""}${h.reason ? `<small class="vg-hq-ctxwhy">${esc(h.reason)}</small>` : ""}</button>`).join("");
     return `<div class="vg-hq-ctx"><div class="vg-hq-eyebrow">From your notes</div><div class="vg-hq-ctxhits">${body}</div></div>`;
   }
   // More / Less like this: on every item when the host can keep them
@@ -116,7 +116,7 @@
   // worded: on Do next, where it's what the day's Plan step asks for; a row keeps just the star
   const starButton = (it, worded) => api.hqFocus && it.group === "today" ? `<button class="vg-hq-btn vg-hq-btn-sm vg-hq-btn-ghost vg-hq-star${isFocus(it) ? " is-on" : ""}" data-star="${esc(it.key)}" aria-pressed="${isFocus(it)}" aria-label="Today's focus" title="${isFocus(it) ? "Take out of today's focus" : "Add to today's focus"} (f)">${isFocus(it) ? "★" : "☆"}${worded ? ` ${isFocus(it) ? "Starred" : "Star"}` : ""}</button>` : "";
   // why this one leads the list, in the order the list is ranked
-  const whyNext = it => isFocus(it) ? "First because you starred it for today." : it.urgent ? "First because it's urgent." : it.kind === "task" ? "First because nothing's starred, and today's journal comes first." : it.kind === "plan" ? "First because nothing's starred or in today's journal, and it's next in your last standup's plan." : it.kind === "carried" ? "First because nothing newer is planned, and this is the most recent left over." : "First on the list.";
+  const whyNext = it => isFocus(it) ? "First because you starred it for today." : it.urgent ? "First because it's urgent." : it.kind === "task" ? "First because nothing's starred, and today's journal comes first." : it.kind === "plan" ? "First because nothing's starred or in today's journal, and it's next in your last standup's plan." : it.kind === "carried" ? "First because nothing newer is planned, and this is the most recent left over." : it.kind === "job" ? "First because a failed or late automation can stop everything after it, so it comes before any task." : "First on the list.";
   const statusWord = p => VGRules.statusWords(p && p.status) || "no status";
   // what Later and Next week have taken off the list, still in sight, with a way back. Open by itself if something urgent is in it.
   const heldList = () => VGRules.hqPutOff(DATA, { review: STATE.review, hidden: STATE.hidden, today: day(), now: now() });
@@ -145,7 +145,8 @@
   }
   // When the next step is a job of its own (standup, wrap up) the Do next card shows the step, with the button that goes to it
   const stepButton = () => VGParts.nextButton();
-  const nextChip = () => VGParts.nextButton({ label: nextStep().label, chip: true });
+  // the pill is the next step in short; where a Do next tile or card already says it in full (Home, Today) it stays out
+  const nextChip = () => cur === "home" || (cur === "today" && doNext()) ? "" : VGParts.nextButton({ label: nextStep().label, chip: true });
   // the beacon sits on the one control that is the next step, on the screen that has it
   function markNext(again) {
     if (opts.onNext) opts.onNext();
@@ -171,7 +172,7 @@
     const focused = VGRules.sessionMinutes(STATE.review, day());
     return `<h1 class="vg-hq-h1">Wrap up</h1>${flow()}<p class="vg-hq-lede">${plural(done.length, "thing")} done today${focused ? ` · ${VGRules.minutesWords(focused)} focused` : ""}${left.length ? ` · ${left.length} still in focus` : ""}.</p>
       <div class="vg-hq-row vg-hq-wrapacts">${standup ? `${forIt.length && api.logWork ? `<button class="vg-hq-btn vg-hq-btn-primary" data-logall>Add ${plural(forIt.length, "line")} to the standup</button>` : ""}${api.openNote ? `<button class="vg-hq-btn" data-open="${esc(standup.path)}">Open the standup</button>` : ""}` : api.openStandup && VGRules.standupsInUse(h) ? `<button class="vg-hq-btn vg-hq-btn-primary" data-makestandup>Start today's standup</button>` : ""}</div>
-      ${doneRows ? `<section class="vg-hq-sec"><h3>Done today<span>${forIt.length}</span></h3>${doneRows}</section>` : !notForIt.length ? empty("Nothing marked done today yet.", [["Today", 'data-go="today"']]) : ""}
+      ${doneRows ? `<section class="vg-hq-sec"><h3>Done today<span>${forIt.length}</span></h3>${doneRows}</section>` : !notForIt.length ? empty("Nothing done yet today. Tick a task on Today and it appears here.", [["Back to Today", 'data-go="today"']]) : ""}
       ${notForIt.length ? `<section class="vg-hq-sec"><h3>Left out of the standup<span>${notForIt.length}</span></h3>${notForIt.map(doneRow).join("")}</section>` : ""}
       ${leftRows ? `<section class="vg-hq-sec"><h3>Still in focus<span>${left.length}</span></h3>${leftRows}</section>` : ""}`;
   }
@@ -191,13 +192,17 @@
     const groups = new Map();
     items.forEach(it => { const key = ["task", "carried", "plan"].includes(it.kind) ? duplicateKey(it) : it.key; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(it); });
     return [...groups.values()].map(group => group.length === 1 ? row(group[0]) :
-      VGParts.more({ cls: "vg-hq-duplicates", label: `Possible duplicate wording · ${group.length} source tasks · review separately`, body: group.map(row).join("") })).join("");
+      VGParts.more({ cls: "vg-hq-duplicates", label: `${group.length} tasks worded alike · each counted · review separately`, body: group.map(row).join("") })).join("");
   }
   const PAGE = 30, opened = new Set();   // long lists come a page at a time, whatever the vault's size
   const pageOf = (title, items) => opened.has(title) || items.length <= PAGE ? items : items.slice(0, PAGE);
-  // total: when the list shows only part of what there is, the heading says so
-  const section = (title, items, more, total) => items.length ? `<section class="vg-hq-sec"><h3>${esc(title)}<span>${total > items.length ? `${items.length} of ${total}` : items.length}</span></h3>${taskRows(pageOf(title, items))}${pageOf(title, items).length < items.length ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-page="${esc(title)}">Show ${items.length - PAGE} more</button></div>` : ""}${more || ""}</section>` : "";
+  // total: when the list shows only part of what there is, the heading says so. unit: what the plain number counts ("open")
+  const section = (title, items, more, total, unit) => items.length ? `<section class="vg-hq-sec"><h3>${esc(title)}<span>${total > items.length ? `showing ${items.length} of ${total}` : items.length}${unit ? ` ${unit}` : ""}</span></h3>${taskRows(pageOf(title, items))}${pageOf(title, items).length < items.length ? `<div class="vg-hq-row"><button class="vg-hq-btn vg-hq-btn-ghost" data-page="${esc(title)}">Show ${items.length - PAGE} more</button></div>` : ""}${more || ""}</section>` : "";
   // an empty screen says what's true and where to go next
+  // one filter bar for every screen: a labelled group of pills, each with its count; attr is the data attribute the click handler reads
+  // what the journal and standup dots mean: one wording for the week strip and the month grid
+  const dotLegend = '<span class="vg-hq-legend-dots"><span class="vg-hq-marks"><i class="is-j"></i></span>Journal <span class="vg-hq-marks"><i class="is-s"></i></span>Standup. No dot: neither written yet.</span>';
+  const pillBar = (label, attr, current, choices) => `<div class="vg-hq-filters" role="group" aria-label="${esc(label)}">${choices.map(([k, text, n]) => `<button class="vg-hq-filter${current === k ? " is-on" : ""}" data-${attr}="${esc(k)}" aria-pressed="${current === k}">${esc(text)} <span>${n}</span></button>`).join("")}</div>`;
   const empty = (fact, next) => `<div class="vg-hq-empty"><p>${esc(fact)}</p><div class="vg-hq-row">${next.map(([label, attr]) => `<button class="vg-hq-btn" ${attr}>${esc(label)}</button>`).join("")}</div></div>`;
   const nextSteps = () => [...(api.openDaily ? [["Open today's journal", "data-daily"]] : []), ...(opts.openGraph ? [["Open the graph", "data-graph"]] : []), ["Projects", 'data-go="projects"']];
   const journalWarning = () => DATA.hqError ? `<aside class="vg-hq-warning" role="alert"><b>Vault HQ couldn't read your notes.</b><p>${esc(DATA.hqError)}. Today and Needs you may be missing work.</p></aside>` : ((hq() || {}).journalDuplicates || []).length

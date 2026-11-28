@@ -28,7 +28,7 @@
   const wordFor = (n, one, many) => plural(n, one, many).replace(/^\S+ /, "");   // the word alone, for when the number sits apart from it
   function renderChanges() {
     const c = DATA.changes || {};
-    if (!c.since) return card("Since last run", "", emptyNext("No earlier snapshot to compare with.", "lens:timeline"));
+    if (!c.since) return "";   // the first analysis has no earlier one to compare with: no card rather than an empty one
     const line = (n, one, many) => n ? `<li>${plural(n, one, many).replace(/^\d+/, "<b>$&</b>")}</li>` : "";
     const pairName = p => p.split("|").map(id => byId[id] ? byId[id].name : VGShared.nameOf(id)).join(" ↔ ");
     const body = `<ul class="vg-changes">
@@ -139,9 +139,11 @@
       return { m, size, miss, pct };
     }).sort((a, b) => b.miss - a.miss);
     const unmapped = DATA.clusters.filter(c => !mocOf[c.id] && c.size >= 6);
+    const mapIds = new Set(mocs.map(m => m.id)), otherMaps = nodes.filter(n => n.moc && !mapIds.has(n.id));   // drawn as hexagons and counted by the pill, but cover no topic
     return card("Maps", "how much of each topic its map lists · click to light up what it misses",
-      rows.map(({ m, size, miss, pct }) => `${VGParts.item({ cls: "vg-maprow", attrs: `data-moc="${esc(m.id)}"`, lead: `<span class="vg-hex" style="--c:${colorOf(m.clusters[0])}"></span>`, title: `<span><b>${esc(m.title)}</b></span>`, mid: `<span class="vg-bar"><i style="width:${Math.max(3, pct)}%;background:${colorOf(m.clusters[0])}"></i></span>`, sub: `${pct}% of ${size} · ${miss ? `${miss} missing` : "complete"}${m.clusters.length > 1 ? ` · ${m.clusters.length} topics` : ""}` })}`).join("") +
-      (unmapped.length ? VGParts.section({ title: "No map yet", count: unmapped.length, body: sideList(unmapped.map(c => `${VGParts.item({ cls: "vg-unmapped", attrs: `data-c="${c.id}"`, lead: `<span class="vg-dot" style="background:${colorOf(c.id)}"></span>`, title: `<span>${esc(c.name)}</span>`, sub: `${plural(c.size, "note")}${opts.writeNote ? " · make one from its row under Topics" : ""}` })}`), "topics") }) : ""));
+      rows.map(({ m, size, miss, pct }) => `${VGParts.item({ cls: "vg-maprow", attrs: `data-moc="${esc(m.id)}"`, lead: `<span class="vg-hex" style="--c:${colorOf(m.clusters[0])}"></span>`, title: `<span><b>${esc(m.title)}</b></span>`, mid: `<span class="vg-bar"><i style="width:${Math.max(3, pct)}%;background:${colorOf(m.clusters[0])}"></i></span>`, sub: `${pct}% of ${size} listed · ${miss ? `${miss} missing` : "complete"}${m.clusters.length > 1 ? ` · ${m.clusters.length} topics` : ""}` })}`).join("") +
+      (otherMaps.length ? VGParts.section({ title: "Other maps", count: otherMaps.length, body: sideList(otherMaps.map(n => noteRow(n.id, "covers no topic")), "maps") }) : "") +
+      (unmapped.length ? VGParts.section({ title: "No map yet", count: unmapped.length, body: sideList(unmapped.map(c => `${VGParts.item({ cls: "vg-unmapped", attrs: `data-c="${c.id}"`, lead: `<span class="vg-dot" style="background:${colorOf(c.id)}"></span>`, title: `<span>${esc(clusterName(c.id))}</span>`, sub: `${plural(c.size, "note")}${opts.writeNote ? " · make one from its row under Topics" : ""}` })}`), "topics") }) : ""));
   }
   function showMocMissing(id) {
     const m = mocs.find(x => x.id === id); if (!m) return;
@@ -149,7 +151,7 @@
     if (byId[id] && !baseVisible(byId[id])) setLayer("mocs", true);
     focusClusters(m.clusters);
     setHighlight(new Set([...miss, id]), `${m.title} · ${miss.size} not in the map`);
-    select(id);
+    select(id); st.highlightTied = id;   // one gesture made both, so one Escape undoes both
   }
   function renderInsights() {
     const { linked, unlinked: iso } = VGRules.noteCounts(nodes);
@@ -157,19 +159,19 @@
     const stat = (value, label, tone, go, title) => ({ value, label, tone, title, data: { stat: go } });
     const html =
       `${VGParts.cards([stat(linked, "linked notes", "", "all", "Fit the whole graph"), stat(DATA.clusters.length, "topics", "", "topics", "List the topics"),
-        stat(DATA.gaps.length, "topic gaps", DATA.gaps.length ? "accent" : "", "gaps", "Topic pairs that barely link"), stat(iso, "unlinked notes", iso > linked * 0.25 ? "warn" : "", "unlinked", "Show the notes with no links")])}` +
+        stat(DATA.gaps.length, "topic gaps", DATA.gaps.length ? "accent" : "", "gaps", "Open the topic matrix: pairs of topics that barely link"), stat(iso, "unlinked notes", iso > linked * 0.25 ? "warn" : "", "unlinked", "Open a list of the notes with no links")])}` +
       renderChanges() + renderMaps() +
-      card("Biggest gaps", opts.writeNote ? "related topics that barely link · draft a bridge note" : "related topics that barely link",
+      card("Biggest gaps", (opts.writeNote ? "related topics that barely link · draft a bridge note" : "related topics that barely link") + " · " + VGShared.GAP_RANK,
         DATA.gaps.length ? sideList(DATA.gaps.slice(0, 30).map(gapRow), "gaps") : `<div class="vg-empty">No gaps found.</div>`) +
-      card("Bridge notes", "hold topics together — keep them current",
-        sideList(ranked.slice(0, 30).map(id => noteRow(id, `#${rankOf[id]} influence · ${esc(clusterName(byId[id].cluster))}`)))) +
-      (saidUnlinked.length ? card("Talked about, never linked", "named in dailies without a link",
+      card("Notes that hold topics together", "most routes between topics pass through them · keep them current",
+        sideList(ranked.slice(0, 30).map(id => noteRow(id, `${rankText(id)} most connecting · ${esc(clusterName(byId[id].cluster))}`)))) +
+      (saidUnlinked.length ? card(VGRules.LINK_WORDS.named, "mentioned in daily notes without a link",
         sideList(saidUnlinked.slice(0, 30).map(([id, n]) => noteRow(id, `${n} daily notes`)))) : "") +
       (ghosts.length ? card("Notes to write", "linked from your notes but never created",
         sideList(ghosts.slice(0, 30).map(g => noteRow(g.id, `linked from ${plural(g.from.length, "note")}`)))) : "") +
-      (coolingHubs.length ? card("Cooling hubs", "well connected, not named in a daily note lately",
-        sideList(coolingHubs.slice(0, 30).map(n => noteRow(n.id, `#${rankOf[n.id]} most connecting · not in a daily note for ${DATA.recent_days} days`)))) : "") +
-      `<p class="vg-muted vg-foot">Data from ${esc(DATA.date)} · ${DATA.dailies_used || "?"} daily notes since ${esc(DATA.since || "the start")}</p>`;
+      (coolingHubs.length ? card("Well linked, not mentioned lately", "many notes link to them, but no daily note has mentioned them lately",
+        sideList(coolingHubs.slice(0, 30).map(n => noteRow(n.id, `${rankText(n.id)} most connecting · not in a daily note for ${DATA.recent_days} days`)))) : "") +
+      `<p class="vg-muted vg-foot">${esc(sourceLine())}</p>`;
     const panel = $('[data-panel="insights"]');
     panel.innerHTML = html;
     wire(panel); wireNext(panel);
@@ -178,7 +180,7 @@
       all: () => (openPalette(), true),   // the notes themselves, most connected first
       topics: () => (setTab("clusters"), true),   // true: what it opens is in this panel, so a phone's drawer stays open
       gaps: () => openLens("matrix"),
-      unlinked: () => openLens("blind"),   // the list, each with its fix; Islands is every note with no links
+      unlinked: () => openLens("blind", null, VGRules.LINK_WORDS.unlinked),   // the list, each with its fix: Islands is every note with no links, the number on the tile
     };
     panel.querySelectorAll("[data-stat]").forEach(b => b.onclick = () => { if (!STAT_GO[b.dataset.stat]()) closeDrawer(true); });
     panel.querySelectorAll(".vg-maprow").forEach(e => e.onclick = () => showMocMissing(e.dataset.moc));
@@ -195,8 +197,8 @@
         return `<div class="vg-cluster ${off ? "is-off" : ""}" data-c="${c.id}">
           ${VGParts.item({ cls: "vg-cl-main", attrs: `data-c="${c.id}" title="Show this topic"`, lead: `<span class="vg-dot" style="background:${colorOf(c.id)}"></span>`, title: `<span><b>${esc(clusterName(c.id))}</b></span>`, mid: `<span class="vg-bar"><i style="width:${Math.max(4, 100 * c.size / max)}%;background:${colorOf(c.id)}"></i></span>`, sub: `${plural(c.size, "note")} · ${healthy}% healthy (not a stub or stale, no broken links)${c.keywords ? ` · <i>${esc(c.keywords)}</i>` : ""} · ${c.core.map(esc).join(", ")}` })}
           <div class="vg-cl-acts">
-            ${opts.writeNote ? `<button class="vg-ibtn vg-cl-hub" data-c="${c.id}" title="Create or refresh this topic's map" aria-label="Map for ${esc(c.name)}">${icon("hub", 15)}</button>` : ""}
-            <button class="vg-ibtn vg-cl-eye" data-c="${c.id}" aria-pressed="${!off}" aria-label="${off ? "Show" : "Hide"} ${esc(c.name)}" title="${off ? "Show" : "Hide"} topic">${icon(off ? "eyeOff" : "eye", 15)}</button>
+            ${opts.writeNote ? `<button class="vg-ibtn vg-cl-hub" data-c="${c.id}" title="Create or refresh this topic's map" aria-label="Map for ${esc(clusterName(c.id))}">${icon("hub", 15)}</button>` : ""}
+            <button class="vg-ibtn vg-cl-eye" data-c="${c.id}" aria-pressed="${!off}" aria-label="${off ? "Show" : "Hide"} ${esc(clusterName(c.id))}" title="${off ? "Show" : "Hide"} topic">${icon(off ? "eyeOff" : "eye", 15)}</button>
           </div>
         </div>`;
       }).join("") || `<div class="vg-empty">No topics match.</div>`;
@@ -268,7 +270,13 @@
     b.onclick = () => { const nid = nextNoteId(id); if (nid) select(nid); else { b.disabled = true; b.textContent = VGRules.NEXT_NOTE.empty; } };
     head.insertBefore(b, head.querySelector(".vg-ins-close"));
   }
-  function select(id) { if (!id) st.nextSeen = null; const r = selectNow(id); addNextControl(id); carryFocus(id); return r; }
+  // the notes opened one from another, so Escape and the back gesture step back through them (goBack pops it) instead of closing the inspector from any depth
+  const noteTrail = [];
+  function select(id, fromBack) {
+    if (!id) st.nextSeen = null;
+    if (!fromBack) { if (!id) noteTrail.length = 0; else if (st.selected && st.selected !== id && byId[st.selected] && noteTrail[noteTrail.length - 1] !== st.selected) { noteTrail.push(st.selected); if (noteTrail.length > 50) noteTrail.shift(); } }
+    const r = selectNow(id); addNextControl(id); carryFocus(id); return r; }
+  const stepBackNote = () => { const prev = noteTrail.pop(); if (!prev) return false; select(prev, true); return true; };
   // a note opening from a control (a sidebar row, a search result) takes focus into its panel; closing returns it to that control
   function carryFocus(id) {
     const box = $(".vg-inspector"), a = document.activeElement, seen = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.right > 0 && r.bottom > 0; };
@@ -311,9 +319,9 @@
       <h2 class="vg-ins-title">${esc(n.name)}</h2>
       <div class="vg-muted vg-ins-path">${esc(n.folder || "/")}</div>
       <div class="vg-ins-actions vg-wrap vg-noteacts"></div>
-      ${VGParts.cards([stat(nb[id].size, "links", "Notes linked to this one, listed below by topic."), stat(rankOf[id] ? "#" + rankOf[id] : "—", "influence", "Its rank by how many routes between other notes run through it."),
+      ${VGParts.cards([stat(nb[id].size, "links", "Notes linked to this one, listed below by topic."), stat(rankText(id), "most connecting", "Its rank by how many routes between other notes run through it."),
         stat(n.mentions, wordFor(n.mentions, "daily mention"), "Daily notes that link or name it."), stat(n.recent, `last ${DATA.recent_days} days`, `Daily notes that link or name it in the last ${DATA.recent_days} days.`),
-        stat(n.tasks, "open tasks", "Tasks not yet finished in this note."), stat(n.age + "d", n.edited ? `unchanged · since ${n.edited.slice(2)}` : "since edit", "Days since the note's text last changed.")], { small: true })}
+        stat(n.tasks, "open tasks", "Tasks not yet finished in this note."), stat(n.age + "d", n.edited ? `unchanged · since ${esc(VGShared.shortDate(n.edited))}` : "since edit", "Days since the note's text last changed.")], { small: true })}
       ${mapLine(id)}
       <div class="vg-ins-sec vg-needs" hidden><div class="vg-ins-h">Needs attention <span class="vg-count"></span></div><div class="vg-needs-rows"></div></div>
       ${n.tasks && opts.readTasks ? `<div class="vg-ins-sec"><div class="vg-ins-h">Open tasks <span class="vg-count">${n.tasks}</span><button class="vg-btn vg-btn-sm vg-taskload">Show</button></div><div class="vg-tasksbox"></div></div>` : ""}
@@ -470,9 +478,9 @@
       <div class="vg-ins-actions vg-wrap"><span class="vg-noteacts"></span>
         <button class="vg-btn" data-act="missing">${icon("target", 14)} Light up missing</button>
         ${canAddToMap() && miss.length ? `<button class="vg-btn" data-act="addall">${icon("plus", 14)} Add top ${Math.min(10, miss.length)}</button>` : ""}</div>
-      <div class="vg-ins-sec"><div class="vg-ins-h">Maps</div>${m.clusters.map(c => `<button class="vg-chip is-btn" data-c="${c}" style="--c:${colorOf(c)}">${esc((clusterById[c] || { name: "?" }).name)} · ${(clusterById[c] || { size: 0 }).size - (m.missing[c] || []).length}/${(clusterById[c] || { size: 0 }).size}</button>`).join(" ")}</div>
+      <div class="vg-ins-sec"><div class="vg-ins-h">Maps</div>${m.clusters.map(c => `<button class="vg-chip is-btn" data-c="${c}" style="--c:${colorOf(c)}">${esc(clusterById[c] ? clusterName(c) : "?")} · ${(clusterById[c] || { size: 0 }).size - (m.missing[c] || []).length}/${(clusterById[c] || { size: 0 }).size}</button>`).join(" ")}</div>
       <div class="vg-ins-sec"><div class="vg-ins-h">In the topic, not in the map <span class="vg-count">${miss.length}</span></div>
-      ${miss.slice(0, 40).map(i => `<div class="vg-sugg">${noteRow(i, `#${rankOf[i] || "—"} most connecting`)}${canAddToMap() ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-addmap="${esc(n.id)}" data-note="${esc(i)}">${icon("plus", 12)} Add</button></span>` : ""}</div>`).join("") || `<div class="vg-empty">Everything in this topic is listed.</div>`}</div>`;
+      ${miss.slice(0, 40).map(i => `<div class="vg-sugg">${noteRow(i, `${rankText(i)} most connecting`)}${canAddToMap() ? `<span class="vg-sugg-acts"><button class="vg-btn vg-btn-sm" data-addmap="${esc(n.id)}" data-note="${esc(i)}">${icon("plus", 12)} Add</button></span>` : ""}</div>`).join("") || `<div class="vg-empty">Everything in this topic is listed.</div>`}</div>`;
     box.querySelector(".vg-ins-close").onclick = () => select(null);
     noteActions(n, box.querySelector(".vg-noteacts"), ["open", "copy", "current", "archive"]);
     box.querySelector('[data-act="missing"]').onclick = () => showMocMissing(n.id);
@@ -640,7 +648,7 @@
     el.querySelectorAll("[data-open]").forEach(d => d.onclick = e => { e.stopPropagation(); if (opts.openNote) opts.openNote(d.dataset.open, e.ctrlKey || e.metaKey); });
   }
   function setHighlight(set, labelText) { st.highlight = set; st.highlightLabel = labelText; if (isCosmos() && set && !st.paused) setPaused(true, true); renderStatus(); dirty = true; kick(); }
-  function clearHighlight() { if (st.autoPaused && !st.selected) setPaused(false); st.highlight = null; st.highlightLabel = null; markLists(); renderStatus(); dirty = true; kick(); }
+  function clearHighlight() { st.highlightTied = null; if (st.autoPaused && !st.selected) setPaused(false); st.highlight = null; st.highlightLabel = null; markLists(); renderStatus(); dirty = true; kick(); }
   function focusClusters(ids) {
     ids.forEach(c => st.hiddenClusters.delete(c));
     closeDrawer();

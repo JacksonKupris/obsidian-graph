@@ -26,12 +26,13 @@ assert.deepStrictEqual(AREA.map(t => [t.title, t.items.length]), [["Dispatch", 2
 assert.strictEqual(VGRules.plainSnippet("> **SES lists** are [[Note|case]] `sensitive` | ▼ x"), "SES lists are case sensitive x", "a preview shows markup");
 // the brief says only what's true
 const brief = VGRules.hqBrief({ hq: { journals: [{ path: "j", tasks: [{ mark: "x", text: "A ✅ 2026-10-27" }] }] } }, [{ kind: "approval", key: "a", title: "x" }], {}, "2026-10-28", []);
-assert(brief.some(s => s.startsWith("1 done yesterday")), "brief: " + brief); assert(brief.some(s => s.includes("1 approval")), "brief: " + brief);
+assert(brief.some(s => s.startsWith("1 done yesterday")), "brief: " + brief); assert(brief.some(s => s.startsWith("1 waiting on you")), "brief: " + brief);
 assert.deepStrictEqual(VGRules.hqBrief({}, [], {}, "2026-10-28", []), [], "an empty vault should have no brief, not invented sentences");
 // every brief sentence says where its detail is, and the sentences alone are the same brief
 { const args = [{ hq: { journals: [{ path: "j", tasks: [{ mark: "x", text: "A ✅ 2026-10-27" }] }] } }, [{ kind: "approval", key: "a", title: "x" }, { kind: "job", key: "j", title: "y" }], {}, "2026-10-28", [{ title: "Console", area: "Console", items: [1, 2] }]];
   const lines = VGRules.hqBriefLines(...args);
-  assert.ok(lines.length >= 4 && lines.every(l => l.text && (l.go || l.proj)), "a brief sentence with nowhere to open: " + JSON.stringify(lines.filter(l => !(l.go || l.proj))));
+  assert.ok(lines.length >= 3 && lines.every(l => l.text && (l.go || l.proj)), "a brief sentence with nowhere to open: " + JSON.stringify(lines.filter(l => !(l.go || l.proj))));
+  assert.ok(!lines.some(l => l.text.includes("y") && /: y\b|\by\b/.test(l.text.replace("waiting on you", ""))), "a failed job's title is not a brief line: the Automations chip and Do next carry it (the count line may name the kind)");
   assert.deepStrictEqual(VGRules.hqBrief(...args), lines.map(l => l.text), "hqBrief is the sentences of hqBriefLines");
   // one count per fact: the strip, Home's cards and the dock read hqCounts, none counts for itself
   const fs = require("fs"), path = require("path"), dir = path.join(__dirname, "..", "src", "hq"), own = fs.readdirSync(dir).flatMap(f => fs.readFileSync(path.join(dir, f), "utf8").split("\n").filter(l => /ofGroup\("needs"\)\.length|p\.group === "active"\)\.length/.test(l) && !/function hqCounts/.test(l)).map(() => f));
@@ -44,7 +45,7 @@ assert.deepStrictEqual(VGRules.hqBrief({}, [], {}, "2026-10-28", []), [], "an em
     if (!await tab.waitFor("window.vaultHQ ? 1 : 0", 20000)) throw new Error("HQ didn't mount");
     const mount = (data = "DATA") => tab.ev(`(() => { window.__calls = []; window.vaultHQ.destroy(); window.vaultHQ = mountVaultHQ(document.getElementById("hq"), ${data}, { now: new Date("2026-10-28T12:00:00"), ask: async () => true, openGraph: () => window.__calls.push(["graph"]),
       api: { capture: async (t, k) => window.__calls.push(["capture", t, k]), hqMark: async () => {}, hqFocus: async () => {}, hqHome: async h => window.__calls.push(["home", h]), openNote: p => window.__calls.push(["open", p]), openDaily: async d => window.__calls.push(["daily", d]), openStandup: async d => window.__calls.push(["standup", d]), setTaskStatus: async () => {}, logWork: async () => false,
-        searchNotes: async q => [{ path: "Old fix.md", heading: "How it was solved", snippet: "We did this before" }], searchMeaning: async q => [{ path: "Close in meaning.md", heading: "" }] } }); })()`);
+        searchNotes: async q => [{ path: "Old fix.md", heading: "How it was solved", snippet: "We did this before: " + q }], searchMeaning: async q => [{ path: "Close in meaning.md", heading: "" }] } }); })()`);
     await mount(); await sleep(120);
     await tab.send("Emulation.setDeviceMetricsOverride", { width: 1500, height: 900, deviceScaleFactor: 1, mobile: false }); await tab.ev(`window.vaultHQ.setScreen("today")`); await sleep(120);
     // the rail

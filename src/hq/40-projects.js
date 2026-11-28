@@ -1,6 +1,6 @@
   // ---- Projects: every project (scope of work, project note, user story) as a card; one opens in a drawer, where its
   // status is set
-  const FILTERS = [["active", "In progress"], ["planned", "Planned"], ["waiting", "Waiting"], ["closed", "Done"], ["other", "Needs classification"], ["all", "All"]];
+  const FILTERS = [["all", "All"], ["active", "In progress"], ["planned", "Planned"], ["waiting", "Waiting"], ["closed", "Done"], ["other", "Needs classification"]];
   function spark(days) {
     const set = new Set(days || []), t = Date.parse(day()), cells = [];
     if (!set.size) return "";
@@ -25,13 +25,13 @@
         `<option value="${esc(value)}"${value === selected ? " selected" : ""}>${esc(text)}</option>`).join("")}</select></label>`;
     };
     const filters = dropdown("kind", "Kind", kindFilter, [["all", `All kinds (${every.length})`], ...kinds.map(k => [k, `${k} (${every.filter(p => p.kind === k).length})`])]) +
-      dropdown("system", "System", systemFilter, [["all", "All systems"], ...systems.map(s => [s, VGRules.systemLabel(s)])]) +
-      (projectBoard ? "" : dropdown("status", "Project status", filter, FILTERS.map(([k, label]) => [k, `${label} (${k === "all" ? all.length : all.filter(p => p.group === k).length})`])));   // on the board the columns are the statuses
+      dropdown("system", "System", systemFilter, [["all", "All systems"], ...systems.map(s => [s, VGRules.systemLabel(s)])]);
+    const statusBar = projectBoard ? "" : pillBar("Project status", "filter", filter, FILTERS.map(([k, label]) => [k, label, k === "all" ? all.length : all.filter(p => p.group === k).length]));   // on the board the columns are the statuses
     const body = projectBoard ? boardHtml(all) : list.length ? `<div class="vg-hq-grid${compactProjects ? " is-compact" : ""}">${list.map(card).join("")}</div>`     : every.length
     ? empty("No projects match the current filters.", [["Reset filters", 'data-clearsearch'], ["All systems", 'data-system="all"']])
     : empty(`No projects yet (notes with type: ${Object.keys(VGRules.PROJECT_TYPES).join(", ") || "scope-of-work"}).`, nextSteps().filter(s => s[1] !== 'data-go="projects"'));
-    return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">Every project, newest first. Ticks on a card are the days your dailies named it, over the last 30.</p>${focusChart(every)}
-    <div class="vg-hq-project-filters">${filters}<span class="vg-hq-seg vg-hq-compacttoggle" role="group" aria-label="View"><button class="vg-hq-filter${projectBoard ? " is-on" : ""}" data-board aria-pressed="${projectBoard}">Board</button>${projectBoard ? "" : `<button class="vg-hq-filter" data-compact aria-pressed="${compactProjects}">${compactProjects ? "Card view" : "Compact list"}</button>`}</span></div>${body}${drawerHtml(every)}`;
+    return `<h1 class="vg-hq-h1">Projects</h1><p class="vg-hq-lede">${!projectBoard && list.length && list.length < every.length ? `Showing ${list.length} of ${every.length} projects (${[filter !== "all" && (FILTERS.find(x => x[0] === filter) || [])[1], kindFilter !== "all" && kindFilter, systemFilter !== "all" && VGRules.systemLabel(systemFilter)].filter(Boolean).join(", ")}), newest first.` : "Every project, newest first."} Ticks on a card are the days your dailies named it, over the last 30.</p>${focusChart(every)}
+    ${statusBar}<div class="vg-hq-project-filters">${filters}<span class="vg-hq-seg vg-hq-compacttoggle" role="group" aria-label="View"><button class="vg-hq-filter${projectBoard ? " is-on" : ""}" data-board aria-pressed="${projectBoard}">Board</button>${projectBoard ? "" : `<button class="vg-hq-filter" data-compact aria-pressed="${compactProjects}">${compactProjects ? "Card view" : "Compact list"}</button>`}</span></div>${body}${drawerHtml(every)}`;
   }
   // focus time per project: one measure, so bars from a shared zero, the biggest first. Each row is its project's name, its time
   // and a way into it, so the words carry what the bar shows. Hidden until there's time to show.

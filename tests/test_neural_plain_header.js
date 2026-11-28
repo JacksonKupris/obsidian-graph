@@ -1,0 +1,31 @@
+#!/usr/bin/env node
+// Neural view: the header says its rate is a model, not a measure of the vault, and the screen-style buttons say what they are
+// (explainer and bewildered personas, 0.6.249: LIF, E/I, Hz, STD/NV/CRT unreadable; Hz read as a real measurement).
+//   node tests/test_neural_plain_header.js        exit 0 = pass
+const { sleep, checks, finish, openPage } = require("./kit"), env = require("./env");
+const { fails, ok: check } = checks();
+const D = "window.vaultGraph._debug";
+(async () => {
+  const tab = await openPage({ html: env.pageWith("", env.data()), mobile: false });
+  try {
+    if (!await tab.waitFor(`window.vaultGraph && ${D} ? 1 : 0`, 30000)) throw new Error("the graph didn't mount");
+    await sleep(1500);
+    await tab.ev(`${D}.openView("neural")`); await sleep(1500);
+    const hdr = await tab.ev(`(document.querySelector(".vg-hud-title") || {}).textContent || ""`);
+    check(/NOTES [0-9]/.test(hdr), "the Neural header shows (the test can't fail without it): " + hdr.slice(0, 60));
+    check(/TOPICS \d/.test(hdr) && !/LOBES/.test(hdr), "the header counts topics, the word the toast and help use: " + hdr.slice(0, 160));
+    check(!/HZ|SLOWED|FIRING/.test(hdr) && /SIMULATED/.test(hdr), "the header says the flashes are simulated, with no rate or slow-down number that changes between loads: " + hdr.slice(0, 200));
+    // the header and How to read this must agree: input to the model rises for recently edited notes, so the header must not deny any link to edits
+    const help = await tab.ev(`(() => { const b = document.querySelector(".vg-viewhelp"); b.click(); const t = [...document.querySelectorAll(".vg-viewcard dt")].map(d => d.textContent); const all = document.querySelector(".vg-viewcard").textContent; b.click(); return { t, all }; })()`);
+    check(/BUSIER FOR RECENT NOTES/.test(hdr) && !/NOT YOUR EDITS/.test(hdr), "the header says recent notes flash more, as the help does: " + hdr.slice(0, 220));
+    check(help.t.includes("Simulated flashes") && !help.t.some(t => /Firing Hz|Model only/.test(t)), "How to read this names the header's words, not a header line that is gone: " + help.t.join(" | "));
+    const hint = await tab.ev(`(document.querySelector(".vg-hud-tele") || document.querySelector(".vg-hud") || {}).textContent || ""`);
+    check(!/NO TARGET/i.test(hint), "the hint says what is selected in plain words, not 'no target': " + hint.slice(0, 120));
+    check(await tab.ev(`/style/i.test((document.querySelector(".vg-vision") || {}).getAttribute("aria-label") || "")`), "the STD, NV, THERMAL, CRT group is named as a screen style");
+    check(!/\bLIF\b|\bE\/I\b/.test(hdr), "the header uses LIF or E/I: " + hdr.slice(0, 160));
+    const btns = await tab.ev(`[...document.querySelectorAll(".vg-visbtn")].map(b => [b.textContent, b.title || b.getAttribute("aria-label") || ""])`);
+    check(btns.length === 4, "four screen-style buttons (the test can't fail without them): " + btns.length);
+    btns.forEach(([t, name]) => check(name.length > t.length, `the ${t} button names what it does (${name || "no title"})`));
+  } finally { await tab.close(); }
+  finish(fails, "the Neural header and screen buttons are plain");
+})().catch(e => { console.error(e); process.exit(1); });

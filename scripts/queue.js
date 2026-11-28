@@ -57,14 +57,22 @@ function openPrs(dir = ROOT, run = (...a) => spawnSync("gh", a, { cwd: dir, enco
   catch (e) { return { why: "gh printed something that isn't JSON" }; }
 }
 
+// the weekly hunt (npm run hunt): when it last ran and how it ended, so a hunt nobody has looked at shows in the queue
+function lastHunt(run = (...a) => spawnSync("gh", a, { cwd: ROOT, encoding: "utf8" })) {
+  const r = run("run", "list", "--workflow", "hunt.yml", "--limit", "1", "--json", "conclusion,createdAt,status");
+  if (r.error || r.status) return "Weekly hunt: not known (gh unavailable, or the workflow is not on GitHub yet)  -> npm run hunt";
+  try { const x = JSON.parse(r.stdout)[0]; return x ? `Weekly hunt: ${x.conclusion || x.status} on ${x.createdAt.slice(0, 10)}${x.conclusion === "failure" ? "  -> open the run, replay its seed, write the finding as a failing test" : ""}` : "Weekly hunt: has not run yet  -> npm run hunt"; }
+  catch (e) { return "Weekly hunt: not known"; }
+}
+
 function main() {
   const git = gitIn(ROOT);
   if (!git("rev-parse", "--git-dir").ok) { console.log("FAIL - not inside the repository. cd into it, then npm run queue"); process.exit(1); }
   const f = git("fetch", "--tags", "--quiet", "origin");
   const note = f.ok ? [] : ["(could not reach GitHub: showing what this computer last fetched)"];
   const pr = openPrs(ROOT), heads = new Set((pr.prs || []).map(p => p.branch));
-  console.log([...note, ...render({ git: gitState(ROOT, "origin/main", heads), prs: pr.prs || null, prsWhy: pr.why })].join("\n"));
+  console.log([...note, ...render({ git: gitState(ROOT, "origin/main", heads), prs: pr.prs || null, prsWhy: pr.why }), "", lastHunt()].join("\n"));
 }
 
-module.exports = { checkState, gitState, nextStep, render, openPrs };
+module.exports = { lastHunt, checkState, gitState, nextStep, render, openPrs };
 if (require.main === module) main();

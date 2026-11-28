@@ -6,16 +6,28 @@
     const bar = $(".vg-today"); if (!bar) return;
     const t = opts.compact || replay || todayHidden.has(st.view) ? null : todayFor(st.view);
     if (!t) { bar.hidden = true; return; }
-    bar.hidden = false; const tx = $(".vg-today-text"); tx.textContent = t.text; tx.title = t.text;   // the whole text on hover
-    tx.onclick = () => bar.classList.toggle("is-open");   // and on a tap: a cut-off line opens to its full text
+    bar.hidden = false; const tx = $(".vg-today-text"); tx.textContent = t.text; tx.title = t.title ? t.text + " · " + t.title : t.text;   // the whole text on hover
+    // a tap or Enter opens a cut-off line to its full text; it is a button that says whether it is open
+    const toggle = () => { bar.classList.toggle("is-open"); tx.setAttribute("aria-expanded", String(bar.classList.contains("is-open"))); };
+    tx.setAttribute("role", "button"); tx.tabIndex = 0; tx.setAttribute("aria-expanded", String(bar.classList.contains("is-open")));
+    tx.onclick = toggle; tx.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
     const b = $(".vg-today-act"); b.hidden = !t.run; b.textContent = t.label; b.onclick = () => t.run && t.run();
     todayRoom();
   }
   // the room kept under the strip (--vg-today-h, which the status pill and the framing read) is the strip's real height and its gap:
   // on a phone its buttons are tap size, and an opened line wraps, so a fixed number put the pill under it
   const TODAY_GAP = 8;
-  function todayRoom() { const bar = $(".vg-today"), app = $(".vg-app"); if (bar && app && !bar.hidden && bar.offsetHeight) app.style.setProperty("--vg-today-h", bar.offsetHeight + TODAY_GAP + "px"); }
+  function todayRoom() { const bar = $(".vg-today"), app = $(".vg-app"); if (!bar || !app) return; if (bar.hidden) app.style.removeProperty("--vg-today-h"); else if (bar.offsetHeight) app.style.setProperty("--vg-today-h", bar.offsetHeight + TODAY_GAP + "px"); }
   if ($(".vg-today") && typeof ResizeObserver === "function") new ResizeObserver(todayRoom).observe($(".vg-today"));
+  // chart text is drawn in the chart's own units and scaled with the drawing, so each chart gets the unit size that comes out at 11 px on screen
+  const CHART_PX = 11.5;
+  function fitChartText() {
+    for (const s of root.querySelectorAll("svg.vg-rv, svg.vg-st, svg.vg-sci-chart, svg.vg-rg")) {
+      const w = s.getBoundingClientRect().width, vb = s.viewBox.baseVal;
+      if (w > 20 && vb && vb.width) s.style.setProperty("--chart-fs", (CHART_PX * vb.width / w).toFixed(1) + "px");
+    }
+  }
+  if (typeof MutationObserver === "function") { let q = 0; const again = () => { cancelAnimationFrame(q); q = requestAnimationFrame(fitChartText); }; new MutationObserver(again).observe(root, { childList: true, subtree: true }); if (typeof ResizeObserver === "function") new ResizeObserver(again).observe(root); }
   $(".vg-today-x").onclick = () => { todayHidden.add(st.view); renderToday(); };
 
   // ---------------------------------------------------------------- save the current view in one click
@@ -58,7 +70,7 @@
       const pool = palMode && palMode.filter ? nodes.filter(palNote).sort((a, b) => draft(a) - draft(b) || byImportance(a, b)).map(n => n.id) : ranked.filter(id => palNote(byId[id]));
       palItems = pool.slice(0, 8).map(id => ({ kind: "note", id, score: 0 }));
     } else {
-      const ns = nodes.filter(palNote).map(n => ({ kind: "note", id: n.id, score: Math.max(fuzzy(q, n.name), fuzzy(q, n.folder + "/" + n.name) - 2) })).filter(x => x.score >= 0);
+      const ns = nodes.filter(palNote).map(n => ({ kind: "note", id: n.id, score: Math.max(fuzzy(q, n.name), VGRules.pathScore(q, n.folder + "/" + n.name)) })).filter(x => x.score >= 0);
       const cs = palMode ? [] : DATA.clusters.map(c => ({ kind: "cluster", c: c.id, score: lift(Math.max(fuzzy(q, c.name), fuzzy(q, c.label || ""), wordHits(q, c.keywords || "") - 1), 1) })).filter(x => x.score >= 0);
       const svs = palMode ? [] : savedViews.map((v, i) => ({ kind: "saved", i, score: lift(fuzzy(q, v.name), 2) })).filter(x => x.score >= 0);
       palItems = [...svs, ...cs, ...ns].sort((a, b) => b.score - a.score).slice(0, 40);
@@ -173,7 +185,7 @@
 
   // ---------------------------------------------------------------- presets
   const PRESETS = {
-    explore: { name: "Explore", hint: "Topics, influence and gaps", apply: () => ({ sizeBy: "bc", colorBy: "cluster", gaps: true, overlays: [] }) },
+    explore: { name: "Explore", hint: "Topics, most connecting notes and gaps", apply: () => ({ sizeBy: "bc", colorBy: "cluster", gaps: true, overlays: [] }) },
     attention: { name: "Attention map", hint: "Big + grey = important but not mentioned lately",
       apply: () => ({ sizeBy: "bc", colorBy: "recent", gaps: false, overlays: [] }) },
     recent: { name: "Recent work", hint: `What your dailies talked about in the last ${DATA.recent_days} days`, apply: () => ({ sizeBy: "recent", colorBy: "recent", gaps: false, overlays: [] }) },
@@ -214,10 +226,11 @@
   const opt = (v, label, extra = "") => `<option value="${esc(v)}"${extra}>${esc(label)}</option>`;
   function syncSelects() {
     const vs = $(".vg-viewsel"), ds = $(".vg-displaysel"), ts = $(".vg-toolsel"); if (!vs) return;
+    root.classList.toggle("vg-short-views", sheetMode());   // the picker then names the views "2D" and "3D" itself, so the 2D/3D toggle beside it is hidden (two boxes both reading 3D)
     const items = pickItems().filter(i => i.tab === "views"), cur = items.find(i => i.on);
-    vs.innerHTML = (cur ? "" : opt("", "View", " hidden disabled")) + viewGroups(items).map(([name, xs]) => `<optgroup label="${esc(name)}">${xs.map(i => opt(i.k, i.name)).join("")}</optgroup>`).join("");
+    vs.innerHTML = (cur ? "" : opt("", "View", " hidden disabled")) + viewGroups(items).map(([name, xs]) => `<optgroup label="${esc(name)}">${xs.map(i => opt(i.k, sheetMode() && i.short ? i.short : i.name)).join("")}</optgroup>`).join("");
     vs.value = cur ? cur.k : "";
-    const displayOpts = `<optgroup label="Styles">${Object.entries(PRESETS).sort((a, b) => byName(a[1], b[1])).map(([k, p]) => opt("preset:" + k, (st.preset === k ? "✓ " : "") + p.name)).join("")}</optgroup><optgroup label="Settings">${opt("panel:style", "Size, colour and layers…")}${opt("panel:health", "Health overlays…")}</optgroup>`;
+    const displayOpts = `<optgroup label="Styles">${Object.entries(PRESETS).sort((a, b) => byName(a[1], b[1])).map(([k, p]) => opt("preset:" + k, (st.preset === k ? "✓ " : "") + p.name)).join("")}</optgroup><optgroup label="Theme">${VGShared.PALETTES.map(([k, name]) => opt("palette:" + k, (VGShared.paletteIs(palette, k) ? "✓ " : "") + name)).join("")}</optgroup><optgroup label="Settings">${opt("panel:style", "Size, colour and layers…")}${opt("panel:health", "Health overlays…")}</optgroup>`;
     ds.innerHTML = opt("", "Display", " hidden disabled") + displayOpts;
     ds.value = "";
     const hs = VGActions.history.state(), h = (v, name, on) => opt(v, name, on ? "" : " disabled");
@@ -225,15 +238,17 @@
     ts.value = "";
   }
   $(".vg-viewsel").onchange = e => { const it = pickItems().find(i => i.tab === "views" && i.k === e.target.value); if (it) it.run(); syncSelects(); };
-  const chooseDisplay = v => { const [kind, k] = v.split(":"); if (kind === "preset") applyPreset(k); else if (kind === "panel") openPicker(k); };
+  const chooseDisplay = v => { const [kind, k] = v.split(":"); if (kind === "palette") { if (!VGShared.paletteIs(palette, k) || (k === "custom" && !VGShared.customOf(palette))) { palette = VGShared.applyPalette(root, VGShared.paletteChoice(palette, k)); if (opts.onPalette) opts.onPalette(palette); } } else if (kind === "preset") applyPreset(k); else if (kind === "panel") openPicker(k); };
   $(".vg-displaysel").onchange = e => { const v = e.target.value; e.target.value = ""; chooseDisplay(v); syncSelects(); };
   $(".vg-toolsel").onchange = e => { const v = e.target.value; e.target.value = ""; if (v === "hprev" || v === "hundo" || v === "hredo") { const b = document.createElement("button"); b.setAttribute("data-" + v, ""); VGActions.history.press(b, showDecided); } else if (/^(preset|panel):/.test(v)) chooseDisplay(v); else if (v) runTool(v); syncSelects(); };
   const sheetMode = () => MOBILE || root.clientWidth < 760;
+  // the Tools select holds Display below 760px (the Display select is hidden there), so it is rebuilt when the width crosses that line
+  { let was = sheetMode(); if (typeof ResizeObserver === "function") new ResizeObserver(() => { const now = sheetMode(); if (now !== was) { was = now; syncSelects(); } }).observe(root); }
   let pickTab = null;
   function pickItems() {
     const out = [];
     Object.entries(VIEWS).forEach(([k, v]) => { if (v.hidden || (opts.compact && (v.kind === "lens" || k === "cosmos"))) return;   // hidden: reachable by key, listed in no picker
-      out.push({ tab: "views", k, ic: v.icon, name: v.name, hint: v.hint, field: v.field, on: v.kind === "lens" ? lensKey === v.lens : st.view === k && !lensKey, run: () => openView(k) }); });
+      out.push({ tab: "views", k, ic: v.icon, name: v.name, short: v.short, hint: v.hint, field: v.field, on: v.kind === "lens" ? lensKey === v.lens : st.view === k && !lensKey, run: () => openView(k) }); });
     Object.entries(PRESETS).forEach(([k, p]) => out.push({ tab: "style", k, ic: "sparkles", name: p.name, hint: p.hint, on: st.preset === k, run: () => applyPreset(k) }));
     out.sort(byName);   // A–Z within every tab
     if (opts.writeNote && !opts.compact) out.push({ tab: "views", k: "newscene", ic: "plus", name: "New view", hint: "Your own view, written in a note", on: false, run: () => newScene() });
@@ -348,7 +363,7 @@
       animateTo({ k: Math.min(cam.k, 1), tx: 0, ty: 0, cx: 0, cy: 0, cz: 0, pitch: st.angles.neural === "flat" ? 0 : -0.25, yaw: 0 }, 1400);
       layNeural(); syncDim();   // the toggle was set before this, from whatever view came before
       fitted = false; afterMorph(() => { fitted = true; fit(n => !special(n), 900); }, 1500);
-      toast("Neural view — lobes are topics, the core holds your bridge notes");
+      toast("Neural view — lobes are topics, the core holds your most connecting notes");
     } else {
       st.three = view === "3d"; cv.style.cursor = st.three ? "grab" : "default";
       const L = layouts[mode()], known = Object.keys(L).length > nodes.length * 0.3;
@@ -367,7 +382,7 @@
         if (!cos.bodies.length) seedCosmos();
         cosmosCapture(); updateGame(false); alpha = 0.7; cam.cx = cam.cy = cam.cz = 0;
         fitted = false; afterMorph(() => { fitted = true; fit(n => !n.ghost && !n.isolated, 900); }, 1600);
-        toast("Cosmos — your maps are stars; drop bodies from the dock to reorganise the graph");
+        toast("Cosmos — notes orbit the stars; add bodies from the dock to regroup them");
       }
     }
     rebuild(false); renderLegend(); renderHud(); persistSoon(); renderToday();
@@ -604,7 +619,7 @@
     setView, openLens,
     hasView: v => canvasView(v),   // a scene from a note exists once its block is in the state
     async snapshot() { const blob = await new Promise(res => cv.toBlob(res, "image/png")); return blob.arrayBuffer(); },   // the canvas as PNG (State of the vault)
-    _debug: { gl: {
+    _debug: { topicReadouts: () => DATA.clusters.map(c => topicReadout(c.id)).filter(Boolean), select: id => select(id), focusClusters: ids => focusClusters(ids), gl: {
         info: () => GL.info(),
         // two spheres at one spot, in both drawing orders: the depth buffer decides, so the near (red) one must show either way. Pixels are read in the same task, before the page composites.
         depthCheck() { if (!GL.ok()) return null; const put = (a, b) => { GL.begin([0, 0, 0], 1); glSn = 0; for (const [d, c] of [a, b]) putSprite(W / 2, H / 2, d, 60, c, 1, 0, 0); GL.sprites("lit", glS, glSn, { light: [0, 0, -1], dark: true }); glSn = 0; return GL.pixel(W / 2, H / 2); }, near = [0.3, [1, 0, 0]], far = [0.35, [0, 0, 1]], out = { nearLast: put(far, near), nearFirst: put(near, far) }; dirty = true; kick(); return out; },
@@ -616,13 +631,14 @@
       },
       neuro() { const N = neuro; if (!N) return { spikes: 0, ok: false }; const P = N.net.P; let ok = true; for (const v of N.net.V) if (!isFinite(v) || v > P.threshold + 40 || v < -200) ok = false; return { spikes: N.net.total(), hz: neuroRate(), ok, n: N.list.length, time: N.net.time(), morph: !!morph, vMax: Math.max(...N.net.V), vMean: N.net.V.reduce((x, y) => x + y, 0) / N.net.V.length, shown: neuroSpikes.length }; },
       drawNow() { if (!W) return null; const t0 = performance.now(); draw(performance.now()); dirty = false; return performance.now() - t0; },   // tests: a frame now, its ms
-      ringMarks: () => ringMarks, ringBadges: () => ringBadges.map(b => ({ ids: b.ids, x: b.x, y: b.y, r: b.r, reasons: b.reasons })),
+      ringMarks: () => ringMarks, lobeSpots: () => lobeSpots.map(s => s.slice()), ringBadges: () => ringBadges.map(b => ({ ids: b.ids, x: b.x, y: b.y, r: b.r, reasons: b.reasons })),
       attention: () => [...attentionOf()].map(([id, k]) => ({ id, k, why: reasonsOf(id), at: P.get(id) ? { x: P.get(id).x, y: P.get(id).y, r: P.get(id).r || 6 } : null })),
       lensDefs: () => LENSES,   // the test swaps a lens's load() to make it fail
       toast, views: () => Object.keys(VIEWS).filter(canvasView), allViews: () => Object.entries(VIEWS).map(([key, v]) => ({ key, kind: v.kind, name: v.name, menu: v.menu, hint: v.hint, icon: v.icon, field: v.field || "", scale: VGRules.viewScale(key), hidden: !!v.hidden })), openView, lenses: () => Object.keys(LENSES), clusters: () => DATA.clusters, links: () => links, screen: id => { const p = P.get(id); return p ? { x: p.x, y: p.y, r: p.r, a: p.a } : null; },
       radarScope() { const A = mapCache.radar; if (!A) return null; const R = rot(), k = cam.k, o = scr(0, 0, R), r = A.RMAX * k, under = parseFloat(getComputedStyle(wrap).getPropertyValue("--vg-under-bar")) || 0;
         const held = nodes.find(n => !special(n) && n.tasks > 0 && P.get(n.id) && Math.hypot(P.get(n.id).x - o.x, P.get(n.id).y - o.y) < A.hold * k * 0.9);
         return { cx: o.x, cy: o.y, top: o.y - r, bottom: o.y + r, left: o.x - r, right: o.x + r, W, H, under, held: held ? held.id : null }; },
+      openBody(type) { const b = cos.bodies.find(x => x.type === type); if (b) selectBody(b.id); return !!b; },
       clockRing(i) { const C = mapCache.clock; if (!C || !C.cs[i]) return null; const R = rot(), k = cam.k, [dx, dy] = C.DIAL[0], o = scr(dx, dy, R), a = -Math.PI / 2 + 0.25 * Math.PI / 7, d = (C.ring(i) + 9) * k; return { x: o.x + Math.cos(a) * d, y: o.y + Math.sin(a) * d, c: C.cs[i].c }; }, saved: { snapshot: snapshotView, apply: applySaved, bodies: () => cos.bodies, auto: () => cos.auto, captured: () => Object.fromEntries(cos.bodies.map(b => [b.id, (bodyCaptured.get(b.id) || []).length])) }, openLens, closeLens, lensFps, noteGraph, renewLinks: () => { linkGen++; }, dropLink: () => { const at = links.findIndex(l => l.kind === "link"), l = links[at]; links.splice(at, 1); return () => links.splice(at, 0, l); }, st, cam, active: () => active, P, alpha: () => alpha, layouts, setView, scenes: () => SCENES, drawMs: () => drawMs, maps: () => mapCache, cos: () => cos, nodes, nb, replay: () => replay, visible, rules: VGRules },
     syncNext: syncNextBtn,
     destroy() { persistNow(); destroyed = true; unHistory(); GL.destroy(); clearTimeout(persistTimer); 

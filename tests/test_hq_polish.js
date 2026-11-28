@@ -36,7 +36,7 @@ assert(!JSON.stringify(R.notePreview("```dataview\nopen").blocks).includes("open
   Q.configure(env.rules); assert(!today()[0].urgent, "with no pattern nothing is urgent"); }
 
 // reasons and figures in words, with the stored wording left alone (it goes in the note when a suggestion is accepted)
-assert.strictEqual(R.whyWords("similar meaning (0.812)"), "similar meaning: 81% alike"); assert.strictEqual(R.whyWords("3× together in daily notes"), "3× together in daily notes"); assert.strictEqual(R.whyWords(""), "");
+assert.strictEqual(R.whyWords("similar meaning (0.812)"), "similar meaning: 81% alike"); assert.strictEqual(R.whyWords("named together in 3 daily notes"), "named together in 3 daily notes"); assert.strictEqual(R.whyWords(""), "");
 // words
 assert.strictEqual(R.statusWords("in-progress"), "in progress"); assert.strictEqual(R.statusWords("pending-approval"), "pending approval"); assert.strictEqual(R.statusWords(""), "");
 assert.strictEqual(R.codeNameWords("JK_LiveDriveTimes"), "Live Drive Times"); assert.strictEqual(R.codeNameWords("FIX-JK_TwilioResponse"), "Twilio Response");
@@ -58,7 +58,7 @@ assert.strictEqual(R.hqNextStep({ list: [{ key: "j", group: "needs", kind: "job"
     check(await tab.ev(`!(${lateKey})`), "the job is late before its time");
     await tab.ev(`(() => { window.__o.now = new Date(${start + every * hours}); window.vaultHQ.tick(); })()`);
     check(await tab.ev(lateKey), "HQ's list didn't notice a job going late");
-    check(await tab.ev(`document.querySelector(".vg-hq-nextchip b").textContent.startsWith("Check ")`), "the header didn't redraw when the list changed");
+    await tab.ev(`window.vaultHQ.setScreen("needs")`); check(await tab.ev(`document.querySelector(".vg-hq-nextchip b").textContent.startsWith("Check ")`), "the header didn't redraw when the list changed");
     await tab.ev(`(() => { window.__o.now = new Date(); window.vaultHQ.update(DATA); })()`);
     // a long title under hidden buttons
     await tab.ev(`window.vaultHQ.setScreen("today")`); await sleep(150);
@@ -72,9 +72,10 @@ assert.strictEqual(R.hqNextStep({ list: [{ key: "j", group: "needs", kind: "job"
     }
     // the header stays put from screen to screen
     const x = async s => { await tab.ev(`window.vaultHQ.setScreen("${s}")`); await sleep(100); return tab.ev(`document.querySelector(".vg-hq-nextchip").getBoundingClientRect().left`); };
-    const a = await x("home"), b = await x("review"), d = await x("today"); check(a === b && b === d, `the chip moves between screens: ${a}, ${b}, ${d}`);
+    const a = await x("needs"), b = await x("review"), d = await x("people"); check(a === b && b === d, `the chip moves between screens: ${a}, ${b}, ${d}`);
     // today's date isn't the screen's loud thing; Add task isn't until there's something to add
     check(await tab.ev(`getComputedStyle(document.querySelector(".vg-hq-day.is-today")).backgroundColor !== getComputedStyle(document.querySelector(".vg-hq-nextdot")).backgroundColor`), "today's date is filled with the accent, like the next step");
+    await tab.ev(`window.vaultHQ.setScreen("today")`); await sleep(100);
     const add = `getComputedStyle(document.querySelector("[data-capture='task']")).backgroundColor`, quiet = await tab.ev(add);
     await tab.ev(`(() => { const i = document.querySelector(".vg-hq-captureinput"); i.value = "x"; })()`); await sleep(250);
     check(await tab.ev(add) !== quiet, "Add task doesn't light up with text in the box"); await tab.ev(`document.querySelector(".vg-hq-captureinput").value = ""`);
@@ -114,7 +115,7 @@ assert.strictEqual(R.hqNextStep({ list: [{ key: "j", group: "needs", kind: "job"
     await g.waitFor("window.vaultGraph && window.vaultGraph._debug ? 1 : 0", 30000); await g.send("Emulation.setDeviceMetricsOverride", { width: 1500, height: 900, deviceScaleFactor: 1, mobile: false }); await sleep(1200);
     await g.ev(`document.querySelectorAll(".vg-tour").forEach(x => x.remove())`);
     check(await g.ev(`(() => { const s = getComputedStyle(document.querySelector("[data-stat]")); return s.display === "flex" && s.flexDirection === "column"; })()`), "a stat tile isn't set to stack, so Obsidian's button styles run its number into its label");
-    const words = await g.ev(`document.querySelector(".vg-status").textContent`), active = await g.ev(`window.vaultGraph._debug.active().length`), sum = (words.match(/\d+/g) || []).map(Number).reduce((s, n) => s + n, 0);
+    const words = await g.ev(`document.querySelector(".vg-status").textContent`), active = await g.ev(`window.vaultGraph._debug.active().length`), sum = (words.replace(/ \(\d+ unlinked hidden\)/, "").replace(/ of \d+ notes/, " notes").match(/\d+/g) || []).map(Number).reduce((s, n) => s + n, 0);
     check(sum === active, `the status "${words}" doesn't add up to the ${active} on screen`); check(!/persons/.test(words), `the status says "${words}"`);
     await g.close?.();
     console.log(fails.length ? fails.map(f => "  FAIL " + f).join("\n") : "ok - counts add up, the list keeps time, nothing veiled or raw");

@@ -866,8 +866,8 @@ what when where which while who how why each other same see set use used using w
     // suggested links, each pair once: co-mentions, a gap's suggestions, then similar notes
     const { near, rel } = similarLinks({ ...N, skip });
     const seen = new Set(), out = [], edge = (x, y, kind, why) => { const k = x < y ? `${x}\n${y}` : `${y}\n${x}`; if (seen.has(k) || x === y) return; seen.add(k); const e = { source: x, target: y, w: 1, kind, why }, ev = evidence[`${x}|${y}`] || evidence[`${y}|${x}`]; if (ev) e.ev = ev; out.push(e); };
-    unlinked.forEach(([x, y, n]) => edge(x, y, "gap", `${n}× together in daily notes`));
-    top.forEach(g => g.suggest.forEach(([x, y, n]) => edge(x, y, "gap", `${n}× together in daily notes`)));
+    unlinked.forEach(([x, y, n]) => edge(x, y, "gap", `named together in ${VGShared.plural(n, "daily note")}`));
+    top.forEach(g => g.suggest.forEach(([x, y, n]) => edge(x, y, "gap", `named together in ${VGShared.plural(n, "daily note")}`)));
     rel.forEach(([x, y, , why]) => edge(x, y, "similar", why));
     const passages = closestPassages(out.map(l => [l.source, l.target]), raw);
     out.forEach(l => { const p = passages[`${l.source}|${l.target}`]; if (p) { l.pa = p.a; l.pb = p.b; } });
@@ -964,7 +964,7 @@ what when where which while who how why each other same see set use used using w
     for (const g of R.gaps) { const why = []; if (g.comentions) why.push(`${g.comentions} co-mentions in daily notes`); if (g.shared_tags.length) why.push("shared tags " + g.shared_tags.map(t => `\`${t}\``).join(", "));
       L.push(`- ${clusterLine(by.get(g.a))}`, `  ↔ ${clusterLine(by.get(g.b))}`, `  - ${why.join("; ")} · only **${g.links}** link(s) between them`);
       for (const [x, y, n] of g.suggest) L.push(`  - [ ] consider linking ${noteLink(x)} ↔ ${noteLink(y)} (${n}× together in dailies)`, ...evidenceLine(R.evidence, x, y, "    ")); }
-    L.push("", "## Bridge notes — what holds topics together", "_Highest betweenness: removing or neglecting these splits the graph. Keep them current._", "");
+    L.push("", "## Bridge notes — what holds topics together", "_Most routes between topics run through these notes: neglecting them splits the graph. Keep them current._", "");
     for (const [r, score, c] of R.bridges) L.push(`- ${noteLink(r)} — ${pyFloat(score)}${c != null ? ` (C${c})` : ""}`);
     L.push("", "## Frequently co-mentioned, never linked", "_Pairs linked from the same daily notes again and again, with no direct link between them._", "");
     for (const [x, y, n] of R.unlinked) L.push(`- [ ] ${noteLink(x)} ↔ ${noteLink(y)} — ${n}×`, ...evidenceLine(R.evidence, x, y, "  "));
@@ -1004,9 +1004,9 @@ what when where which while who how why each other same see set use used using w
       let weak = ""; if (!m) { const w = mocs.filter(x => !x.nav && (x.per[c] || 0) >= min_claim).reduce((b, x) => (!b || x.per[c] > b.per[c] ? x : b), null); if (w) weak = ` (closest: ${noteLink(w.path)}, ${w.per[c]}/${sizes.get(c)})`; }
       L.push(`| C${c} ${info.get(c).name} | ${sizes.get(c)} | ${m ? noteLink(m.path) : `**none**${weak}`} | ${cov} |`); }
     const nav = mocs.filter(m => m.nav); if (nav.length) L.push("", "Navigation hubs (span many topics — fine as indexes, not as topic maps): " + nav.map(m => noteLink(m.path)).join(", "));
-    L.push("", "## Catch-all notes posing as bridges", "", "_Task dumps link everywhere, so they win \"influence\" and fill the Neural core. Treat them as hubs._", "");
+    L.push("", "## Catch-all notes posing as bridges", "", "_Task dumps link everywhere, so they win \"most connecting\" and fill the Neural core. Treat them as hubs._", "");
     const ranked = stable(Object.keys(bc), byBc); let flagged = 0;
-    for (const r of ranked.slice(0, 10)) { const w = wordsOf(r); if (w > MIN_MAP_WORDS && (dated(r) || !r.includes("/"))) { flagged++; L.push(`- ${noteLink(r)} — influence ${bc[r].toFixed(3)} (next best ${bc[ranked[r === ranked[0] ? 1 : 0]].toFixed(3)}), ${w} words`, "  " + actRow(`treat ${noteLink(r)} as a hub (add tag \`meta/hub\`)`, { op: "tag", path: r, tag: "meta/hub" }));
+    for (const r of ranked.slice(0, 10)) { const w = wordsOf(r); if (w > MIN_MAP_WORDS && (dated(r) || !r.includes("/"))) { flagged++; L.push(`- ${noteLink(r)} — most connecting ${bc[r].toFixed(3)} (next best ${bc[ranked[r === ranked[0] ? 1 : 0]].toFixed(3)}), ${w} words`, "  " + actRow(`treat ${noteLink(r)} as a hub (add tag \`meta/hub\`)`, { op: "tag", path: r, tag: "meta/hub" }));
         if (!r.includes("/")) L.push("  " + actRow(`move ${noteLink(r)} into \`${moveTarget}/\` (it's a root stray)`, { op: "move", path: r, to: moveTarget })); } }
     for (const r of sorted(knowledge.filter(x => (tags[x] || []).includes("meta/moc")))) { flagged++; L.push(`- ${noteLink(r)} is tagged as a MOC but counted as a topic note — fixed automatically once the analysis treats \`meta/moc\` as a hub (no edit needed)`); }
     if (!flagged) L.push("- none");

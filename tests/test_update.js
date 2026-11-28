@@ -18,13 +18,23 @@ assert.match(R.problem({ tag_name: "0.6.86" }, good("0.6.85")), /carries manifes
 assert.match(R.problem({ tag_name: "0.6.86" }, { ...good("0.6.86"), "styles.css": "" }), /no styles.css/);
 assert.match(R.problem({ tag_name: "0.6.86" }, { ...good("0.6.86"), "main.js": "<html>404</html>" }), /isn't a plugin/);
 assert.match(R.problem({ tag_name: "0.6.86" }, good("0.6.86"), "other-plugin"), /not "other-plugin"/);
+// a release that needs a newer Obsidian than the one running is refused, and says which
+const needs = (v, min) => ({ "main.js": "module.exports = class {};", "manifest.json": JSON.stringify({ id: "jk-vault-graph", version: v, minAppVersion: min }), "styles.css": ".a{}" });
+assert.match(R.problem({ tag_name: "0.6.86" }, needs("0.6.86", "1.4.0"), "jk-vault-graph", "1.3.7"), /needs Obsidian 1\.4\.0.*1\.3\.7/);
+assert.strictEqual(R.problem({ tag_name: "0.6.86" }, needs("0.6.86", "1.4.0"), "jk-vault-graph", "1.4.0"), null, "the same Obsidian version is enough");
+assert.strictEqual(R.problem({ tag_name: "0.6.86" }, needs("0.6.86", "1.4.0"), "jk-vault-graph"), null, "an unknown Obsidian version doesn't block");
+// going back to an older release while Update automatically is on: say it will be undone, and how to stop that
+assert.match(R.rollbackNote("0.6.150", "0.6.155", true), /0\.6\.155.*Update automatically/);
+assert.strictEqual(R.rollbackNote("0.6.150", "0.6.155", false), null, "auto-update is off: nothing to warn about");
+assert.strictEqual(R.rollbackNote("0.6.155", "0.6.155", true), null, "the latest release is not a rollback");
+assert.strictEqual(R.rollbackNote("0.6.150", null, true), null, "latest unknown (offline): no guess");
 
 // --- the updater, with the app stood in
-function world({ running = "0.6.85", latest = "0.6.86", serve = good, failOn, auto, release } = {}) {
+function world({ running = "0.6.85", latest = "0.6.86", serve = good, failOn, auto, release, app } = {}) {
   const disk = { "p/main.js": "OLD", "p/manifest.json": manifest(running), "p/styles.css": "OLD" }, notices = [], calls = [], settings = auto === undefined ? {} : { autoUpdate: auto };
   const rel = release || { tag_name: latest, assets: R.FILES.map(f => ({ name: f, browser_download_url: "u/" + f })) };
   const ctx = {
-    window: { setInterval: () => 1 }, setTimeout: fn => fn(), Date, console,
+    window: { setInterval: () => 1 }, setTimeout: fn => fn(), Date, console, apiVersion: app,
     Notice: class { constructor(m) { notices.push(m); } },
     requestUrl: async ({ url }) => {
       if (failOn && url.includes(failOn)) throw new Error("Request failed, status 500");
@@ -49,9 +59,16 @@ function world({ running = "0.6.85", latest = "0.6.86", serve = good, failOn, au
   assert.strictEqual(await w.up.check(), "updated");
   assert.strictEqual(w.disk["p/main.js"], good("0.6.86")["main.js"]);
   assert.strictEqual(JSON.parse(w.disk["p/manifest.json"]).version, "0.6.86");
-  assert.ok(!Object.keys(w.disk).some(k => k.endsWith(".new")), "no half-written file is left");
+  assert.ok(!Object.keys(w.disk).some(k => /\.(new|old)$/.test(k)), "no half-written or backup file is left");
   assert.deepStrictEqual(w.calls.filter(c => c !== "saved"), ["manifests", "off", "on"], "the manifest is read again before the reload");
   assert.match(w.notices[0], /updated 0\.6\.85 to 0\.6\.86/);
+  // a rename that fails partway through the swap: every live file is put back, nothing is left behind
+  w = world();
+  const ad = w.plugin.app.vault.adapter, realRename = ad.rename;
+  ad.rename = async (a, b) => { if (b.endsWith("manifest.json") && a.endsWith(".new")) throw new Error("locked by sync"); return realRename(a, b); };
+  assert.strictEqual(await w.up.check({ manual: true }), "failed");
+  assert.deepStrictEqual(["main.js", "manifest.json", "styles.css"].map(f => w.disk["p/" + f]).map(x => x === undefined ? "MISSING" : /0\.6\.86/.test(x) ? "NEW" : "old"), ["old", "old", "old"], "a failed swap leaves the running version whole");
+  assert.ok(!Object.keys(w.disk).some(k => /\.(new|old)$/.test(k)), "a failed swap leaves no .new or .old file");
   // the same version: nothing is written, and the automatic check stays quiet
   w = world({ latest: "0.6.85" });
   assert.strictEqual(await w.up.check(), "current");
@@ -65,6 +82,12 @@ function world({ running = "0.6.85", latest = "0.6.86", serve = good, failOn, au
   for (const serve of [() => good("0.6.99"), v => ({ ...good(v), "manifest.json": JSON.stringify({ id: "x", version: v }) })]) {
     w = world({ serve }); assert.strictEqual(await w.up.check(), "failed"); assert.strictEqual(w.disk["p/main.js"], "OLD");
   }
+  // a release that needs a newer Obsidian than this one: nothing written, and the notice says which
+  w = world({ app: "1.3.0", serve: v => needs(v, "1.4.0") });
+  assert.strictEqual(await w.up.check({ manual: true }), "failed"); assert.strictEqual(w.disk["p/main.js"], "OLD");
+  assert.match(w.notices.join(), /needs Obsidian 1\.4\.0/);
+  w = world({ app: "1.4.0", serve: v => needs(v, "1.4.0") });
+  assert.strictEqual(await w.up.check(), "updated", "an Obsidian that is new enough installs it");
   // a release missing a file
   w = world({ release: { tag_name: "0.6.86", assets: [{ name: "main.js", browser_download_url: "u/main.js" }] } });
   assert.strictEqual(await w.up.check(), "failed"); assert.strictEqual(w.disk["p/main.js"], "OLD");

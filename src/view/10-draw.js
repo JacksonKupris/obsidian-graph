@@ -33,6 +33,7 @@
     if (opts.compact && labelRects.length > (W < 520 ? 8 : 16)) return false;
     x = paneX(x, w);
     if (labelRects.some(r => x < r[0] + r[2] && x + w > r[0] && y < r[1] + r[3] && y + h > r[1])) return false;
+    if (ringBadges.some(b => x < b.x + b.r && x + w > b.x - b.r && y < b.y + b.r && y + h > b.y - b.r)) return false;   // the badges are drawn last, over every label: last frame's stay clear
     labelRects.push([x, y, w, h]); return true;
   };
   function draw(now) {
@@ -170,13 +171,13 @@
       ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `600 14px ${font}`;
       for (const [c, g] of Object.entries(sum).sort((a, b) => b[1].c - a[1].c)) {
         if (g.c < 5) continue;
-        const name = clusterById[c].name, w = ctx.measureText(name).width;
+        const name = clusterName(c), w = ctx.measureText(name).width;
         const x = Math.min(W - w / 2 - 6, Math.max(w / 2 + 6, g.x / g.c)); let y = Math.min(H - 12, Math.max(56, g.y / g.c));
         const dy = [0, -18, 18].find(d => freeSpot(x - w / 2, y + d - 9, w, 18)); if (dy == null) continue;   // reserves the spot (or one a line up or down); node labels steer around it
         y += dy;
-        ctx.globalAlpha = litSet && !g.lit ? 0.15 : 0.9;
+        ctx.globalAlpha = litSet && !g.lit ? 0.15 : 1;   // full strength: the ink is already picked to read on the page (inkOn), and any transparency takes that back
         ctx.lineWidth = 4; ctx.strokeStyle = bg; ctx.strokeText(name, x, y);
-        ctx.fillStyle = colorOf(+c); ctx.fillText(name, x, y);
+        ctx.fillStyle = VGShared.inkOn(colorOf(+c), bg); ctx.fillText(name, x, y);
       }
       ctx.globalAlpha = 1;
     }
@@ -456,17 +457,17 @@
       // A quiet lobe's label dims. Hover a label for the full picture, click it to focus the topic.
       const small = `500 9px ${css("--vg-mono")}`, big = ctx.font;
       for (const [c, g, p] of lobes) {
-        const hs = lobeStats[c], name = `⟨ ${clusterById[c].name.toUpperCase()} ⟩`;
+        const hs = lobeStats[c], name = `⟨ ${clusterName(c).toUpperCase()} ⟩`;
         const sub = topicReadout(c).toUpperCase();
         ctx.font = small; const ws = sub ? ctx.measureText(sub).width : 0; ctx.font = big;
         const w = Math.max(ctx.measureText(name).width, ws), h = sub ? 30 : 18;
         const x = Math.min(W - w / 2 - 6, Math.max(w / 2 + 6, p.x)), y = Math.min(H - h + 6, Math.max(56, p.y));
-        if (!freeSpot(x - w / 2 - 4, y - 9, w + 8, h)) continue;
+        const dy = [0, -h - 6, h + 6].find(d => freeSpot(x - w / 2 - 4, y + d - 9, w + 8, h)); if (dy == null) continue;
         const back = Math.max(0.2, Math.min(1, 0.6 - p.depth / 400)), quiet = hs ? 0.45 + 0.55 * Math.min(1, hs.act * 2.5) : 1;
         const col = st.vision === "std" ? neonOf(+c) : hudCol;
-        ctx.globalAlpha = (litSet && !g.lit ? 0.18 : 0.9) * back * quiet; ctx.fillStyle = col; ctx.fillText(name, x, y);
-        if (sub) { ctx.font = small; ctx.globalAlpha *= 0.75; ctx.fillText(sub, x, y + 13); ctx.font = big; }
-        if (back > 0.3) lobeSpots.push([x - w / 2 - 4, y - 9, w + 8, h, +c]);
+        ctx.globalAlpha = (litSet && !g.lit ? 0.18 : 0.9) * back * quiet; ctx.fillStyle = col; ctx.fillText(name, x, y + dy);
+        if (sub) { ctx.font = small; ctx.globalAlpha *= 0.75; ctx.fillText(sub, x, y + dy + 13); ctx.font = big; }
+        if (back > 0.3) lobeSpots.push([x - w / 2 - 4, y + dy - 9, w + 8, h, +c]);
       }
       ctx.globalAlpha = 1;
     }

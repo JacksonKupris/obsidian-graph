@@ -28,24 +28,25 @@
     if (move === "done") return it.kind === "carried" && c.api.setTasksStatus ? VGActions.runBatch([it], "x", c) : VGActions.runToday(it, c);
     if (move === "cancel") return c.api.setTasksStatus ? VGActions.runBatch([it], "-", c) : Promise.resolve(false);
     const m = more(move === "later" ? "later" : "delegate");
-    return m ? VGActions.runMore(m, it, c) : Promise.resolve(false);
+    if (!m) { TG.said = move === "later" ? "Later isn't available here" : "Delegate isn't available here"; TG.unavailable = true; return Promise.resolve(false); }
+    return VGActions.runMore(m, it, c);
   }
   function triageSwipe(move) {
     if (TG.state !== "play" || TG.waiting || TG.fly) return;
     const it = TG.deck[TG.at]; if (!it) return;
     TG.drag = null;
     const entry = { move, points: 0, undo: null };
-    const score = ok => { if (!ok) { TG.failed++; TG.combo = 0; return; }
+    const score = (ok, err) => { if (!ok) { if (!TG.unavailable) { TG.failed++; TG.failWhy = err ? "the task changed since" : TG.said || "the task changed since"; } TG.unavailable = false; TG.combo = 0; return; }
       const points = move === "later" ? 0 : VGRules.triagePoints(it.age, TG.combo);   // putting it off keeps the run going but earns nothing
       entry.points = points; TG.score += points; TG.counts[move]++; if (move !== "later") { TG.combo++; TG.bestCombo = Math.max(TG.bestCombo, TG.combo); }
       if (entry.undo) TG.undos.push(entry); };
     const next = () => { TG.fly = { move, t: performance.now(), it }; TG.at++; if (TG.at >= TG.deck.length) setTimeout(triageEnd, FLY_MS); };
     if (move === "delegate") {   // it asks first: the clock waits, and the card stays until the answer
       TG.waiting = true;
-      return (TG.chain = TG.chain.then(() => triageWrite(move, it, entry)).then(ok => { TG.waiting = false; TG.last = 0; if (ok) { score(true); next(); } }, () => { TG.waiting = false; TG.last = 0; }));
+      return (TG.chain = TG.chain.then(() => triageWrite(move, it, entry)).then(ok => { TG.waiting = false; TG.last = 0; TG.unavailable = false; if (ok) { score(true); next(); } }, () => { TG.waiting = false; TG.last = 0; }));
     }
     next();
-    return (TG.chain = TG.chain.then(() => triageWrite(move, it, entry)).then(score, () => score(false)));
+    return (TG.chain = TG.chain.then(() => triageWrite(move, it, entry)).then(ok => score(ok), () => score(false, true)));
   }
   // Undo the latest write: the note goes back, and the swipe's points with it
   function triageUndo() {
@@ -97,7 +98,7 @@
     ctx.fillStyle = "#f4efe9"; ctx.font = `600 ${w < 320 ? 17 : 20}px ${font}`;
     triageWrap(it.title, w - pad * 2, 5).forEach((l, i) => ctx.fillText(l, -w / 2 + pad, -h / 2 + pad + 44 + i * (w < 320 ? 23 : 27)));
     ctx.fillStyle = "#a79f97"; ctx.font = `12px ${font}`;
-    const from = triageWrap(it.why || "", w - pad * 2, 1)[0] || ""; ctx.fillText(from, -w / 2 + pad, h / 2 - pad + 4);
+    const from = triageWrap(VGRules.triageFrom(it), w - pad * 2, 1)[0] || ""; ctx.fillText(from, -w / 2 + pad, h / 2 - pad + 4);
     ctx.restore();
   }
   function triageDraw(now) {
@@ -111,7 +112,7 @@
       ctx.fillStyle = "#f4efe9"; ctx.font = `700 ${narrow ? 30 : 40}px ${font}`; ctx.fillText(TG.state === "over" ? `${TG.score} points` : "Triage Run", cx, H * 0.27);
       ctx.font = `15px ${font}`; ctx.fillStyle = "#c9c1b8";
       const lines = TG.state === "over"
-        ? [`Done ${TG.counts.done} · Later ${TG.counts.later} · Delegated ${TG.counts.delegate} · Cancelled ${TG.counts.cancel}`, `Best streak ${TG.bestCombo}${TG.newBest ? " · New best" : best ? ` · Best ${best}` : ""}`, ...(TG.failed ? [`${TG.failed} couldn't be written: the task changed since`] : [])]
+        ? [`Done ${TG.counts.done} · Later ${TG.counts.later} · Delegated ${TG.counts.delegate} · Cancelled ${TG.counts.cancel}`, `Best streak ${TG.bestCombo}${TG.newBest ? " · New best" : best ? ` · Best ${best}` : ""}`, ...(TG.failed ? [`${TG.failed} couldn't be written: ${TG.failWhy}`] : [])]
         : n ? [`${plural(n, "open task")}, oldest first. ${TRIAGE_SECONDS} seconds.`, "Older tasks score more. Each swipe changes the real task.", ...(best ? [`Best ${best}`] : [])]
           : ["No open tasks to triage."];
       let textY = H * 0.27 + 36;

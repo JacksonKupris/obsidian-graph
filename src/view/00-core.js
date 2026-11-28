@@ -33,10 +33,10 @@
 function mountVaultGraph(root, DATA, opts) {
   opts = opts || {};
   // Flexoki, its two strengths of each hue: readable on both of its backgrounds, and at home in the vault's theme
-  const PALETTE = ["#4385BE", "#879A39", "#DA702C", "#8B7EC8", "#3AA99F", "#D14D41", "#D0A215", "#CE5D97",
-                   "#205EA6", "#66800B", "#BC5215", "#5E409D", "#24837B", "#AF3029", "#AD8301", "#A02F6F"];
-  const NEON = ["#38bdf8", "#4ade80", "#fb923c", "#c084fc", "#22d3ee", "#f87171", "#facc15", "#f472b6",
-                "#818cf8", "#34d399", "#fbbf24", "#a78bfa", "#2dd4bf", "#fb7185", "#a3e635", "#e879f9"];
+  const PALETTE = ["#4385BE", "#879A39", "#DA702C", "#8B7EC8", "#3AA99F", "#9A7B4F", "#D0A215", "#CE5D97",
+                   "#205EA6", "#66800B", "#BC5215", "#5E409D", "#24837B", "#6B7F8C", "#AD8301", "#A02F6F"];
+  const NEON = ["#38bdf8", "#4ade80", "#fb923c", "#c084fc", "#22d3ee", "#d4a574", "#facc15", "#f472b6",
+                "#818cf8", "#34d399", "#fbbf24", "#a78bfa", "#2dd4bf", "#8fb8a0", "#a3e635", "#e879f9"];
   // One settings object for what the renderer's views, scenes and panels share: colours that carry a meaning, timings
   // and sizes. A part reads these instead of its own literal, so a change (the selection colour, how long a toast
   // stays) is made once. Topic colours are PALETTE / NEON above.
@@ -131,7 +131,7 @@ function mountVaultGraph(root, DATA, opts) {
     tasks: 0, words: 0, age: 0, refs: true, isolated: false }));
   const nodes = DATA.nodes.concat(ghosts), byId = Object.fromEntries(nodes.map(n => [n.id, n]));
   const special = n => n.person || n.ghost || n.moc;
-  const byImportance = (a, b) => importance(b) - importance(a), byInfluence = (a, b) => (b.bc || 0) - (a.bc || 0);   // most relied-on / most central first
+  const byImportance = (a, b) => importance(b) - importance(a), byInfluence = (a, b) => (b.bc || 0) - (a.bc || 0) || String(a.name).localeCompare(String(b.name));   // most relied-on / most central first
   // maps of content: which MOC maps each cluster, and what it misses
   const mocs = (DATA.mocs || []).filter(m => !m.nav), mocOf = {};
   mocs.forEach(m => m.clusters.forEach(c => { if (!(c in mocOf)) mocOf[c] = VGRules.mapForCluster(mocs, c); }));   // first map wins (shared rule)
@@ -169,7 +169,11 @@ function mountVaultGraph(root, DATA, opts) {
   }
   countLeaves();
   const ranked = nodes.filter(n => !n.isolated && !special(n)).sort(byInfluence).map(n => n.id);
-  const rankOf = Object.fromEntries(ranked.map((id, i) => [id, i + 1]));
+  // equal influence shares a rank (#1, #1, #3): the list never puts one above another on equal evidence
+  const rankOf = {}; ranked.forEach((id, i) => { rankOf[id] = i && (byId[ranked[i - 1]].bc || 0) === (byId[id].bc || 0) ? rankOf[ranked[i - 1]] : i + 1; });
+  const rankShared = {}; ranked.forEach(id => rankShared[rankOf[id]] = (rankShared[rankOf[id]] || 0) + 1);
+  // the one way a rank is written: "#33", or "tied #33" when other notes share it (every list, tile and inspector uses this)
+  const rankText = id => rankOf[id] ? (rankShared[rankOf[id]] > 1 ? "tied " : "") + "#" + rankOf[id] : "—";
   const Q = DATA.quality || { stub_words: 80, stale_days: 180 };
   // Records are never "stale": shared rule, same as the plugin's sidebar and the weekly note
   const { isRecord } = VGRules, staleFor = VGRules.isStale, FOLDERS = VGRules.folders;   // this vault's folder names
@@ -226,10 +230,13 @@ function mountVaultGraph(root, DATA, opts) {
 
   // ---------------------------------------------------------------- DOM
   const ageDays = Math.round((Date.now() - VGShared.noon(DATA.date).getTime()) / VGShared.DAY_MS);
+  // where the numbers come from, said once: the toolbar badge (tooltip) and the side panel footer both use it
+  const sourceLine = () => `Analysed ${VGShared.longDate(DATA.date)} · ${VGShared.plural(DATA.dailies_used || 0, "daily note")} read, from ${DATA.since ? VGShared.longDate(DATA.since) : "the start"}`;
   const ageText = ageDays <= 0 ? "Analysed today" : ageDays === 1 ? "Analysed yesterday" : `Analysed ${ageDays} days ago`;
   const switchRow = (cls, title, hint, on) => `<label class="vg-switch"><input type="checkbox" class="${cls}" ${on ? "checked" : ""}><span class="vg-track" aria-hidden="true"></span>
     <span><b>${title}</b><span class="vg-muted">${hint}</span></span></label>`;
   root.classList.add("vg-root");
+  let palette = VGShared.applyPalette(root, opts.palette);   // the same themes as Vault HQ
   if (opts.compact) root.classList.add("is-compact");
   if (MOBILE) root.classList.add("is-mobile");
   root.tabIndex = -1;
@@ -240,7 +247,7 @@ function mountVaultGraph(root, DATA, opts) {
       <header class="vg-head">
         <div class="vg-title">Vault Graph</div>
         <div class="vg-sub-head">
-          <span class="vg-badge ${ageDays > 8 ? "is-warn" : ""}" title="${esc(DATA.date)}">${esc(ageText)}</span>
+          <span class="vg-badge ${ageDays > 8 ? "is-warn" : ""}" title="${esc(sourceLine())}">${esc(ageText)}</span>
           ${DATA.live ? `<span class="vg-badge is-live" title="Since the ${esc(DATA.date)} analysis: +${DATA.live.gained} / −${DATA.live.lost} links, ${plural(DATA.live.added, "new note")}, ${DATA.live.removed} removed.">${plural(DATA.live.gained + DATA.live.lost + DATA.live.added, "change")} since</span>` : ""}
         </div>
       </header>
@@ -257,7 +264,7 @@ function mountVaultGraph(root, DATA, opts) {
       </div>
     </aside>
     <main class="vg-canvas">
-      <span class="vg-sr" id="vg-cv-label-${vgId}">Graph of ${VGRules.noteCounts(nodes).notes} notes in ${plural(DATA.clusters.length, "topic")}.</span>
+      <span class="vg-sr vg-cv-name" id="vg-cv-label-${vgId}"></span>
       <canvas class="vg-cv" role="img" tabindex="0" aria-labelledby="vg-cv-label-${vgId}"></canvas>
       <div class="vg-hud" aria-hidden="true"><i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i>
         <div class="vg-hud-title"></div><div class="vg-hud-tele"></div><div class="vg-scan"></div></div>
@@ -279,10 +286,10 @@ function mountVaultGraph(root, DATA, opts) {
         <button class="vg-autobtn" data-auto="belt" aria-pressed="true" title="Notes to write as an asteroid belt">Belt</button>
         <button class="vg-autobtn" data-auto="nebula" aria-pressed="true" title="Unlinked notes as a nebula">Nebula</button>
         <button class="vg-autobtn" data-auto="grid" aria-pressed="true" title="Warped space grid">Grid</button>
-        <button class="vg-autobtn" data-auto="motion" aria-pressed="true" title="Bodies orbit the galactic core and tug on each other">Orbits</button>
+        <button class="vg-autobtn" data-auto="motion" aria-pressed="true" title="Bodies circle the centre">Orbits</button>
         <button class="vg-autobtn" data-auto="trails" aria-pressed="true" title="Faint trails behind bodies and the selected system's notes">Trails</button>
         <button class="vg-dockbtn vg-seedbtn" title="Propose bodies from the vault's maps, Context notes and project tags"><span>✦</span>Populate</button>
-        <button class="vg-dockbtn vg-arrangebtn" title="Arrange the bodies on resonant orbits"><span>✺</span>Arrange</button>
+        <button class="vg-dockbtn vg-arrangebtn" title="Space the bodies out on rings"><span>✺</span>Arrange</button>
         <span class="vg-docksep"></span>
         <button class="vg-dockbtn vg-shipbtn" aria-pressed="false" title="Ship mode: fly between systems"><span>➤</span>Ship</button>
         <button class="vg-dockbtn vg-pausebtn" aria-pressed="false" title="Pause the simulation (Space)"><span>❚❚</span>Pause</button>
@@ -315,8 +322,8 @@ function mountVaultGraph(root, DATA, opts) {
       </div>
       <div class="vg-focusbar" hidden></div>
       <div class="vg-focusbar vg-pathbar" hidden></div>
-      <div class="vg-vision" role="group" aria-label="Vision mode">
-        <button class="vg-visbtn" data-vision="std" aria-pressed="true">STD</button><button class="vg-visbtn" data-vision="nv" aria-pressed="false">NV</button><button class="vg-visbtn" data-vision="thermal" aria-pressed="false" title="Thermal: where your dailies are active">THERMAL</button><button class="vg-visbtn" data-vision="crt" aria-pressed="false">CRT</button>
+      <div class="vg-vision" role="group" aria-label="Screen style" title="Screen style: standard, night vision, thermal or old screen">
+        <button class="vg-visbtn" data-vision="std" aria-pressed="true" title="Standard colours">STD</button><button class="vg-visbtn" data-vision="nv" aria-pressed="false" title="Night vision: green on dark">NV</button><button class="vg-visbtn" data-vision="thermal" aria-pressed="false" title="Thermal: where your dailies are active">THERMAL</button><button class="vg-visbtn" data-vision="crt" aria-pressed="false" title="Old screen: scan lines">CRT</button>
       </div>
       <section class="vg-lens" hidden aria-label="View"><header class="vg-lens-h"><b class="vg-lens-title"></b><span class="vg-muted vg-lens-sub"></span>
         <button class="vg-ibtn vg-lens-close" aria-label="Close" title="Close (Esc)">${icon("close")}</button></header><div class="vg-lens-body"></div></section>
@@ -334,14 +341,14 @@ function mountVaultGraph(root, DATA, opts) {
           <section class="vg-ppanel" data-ppanel="style" hidden>
             <div class="vg-field"><label class="vg-flabel" for="vg-size">Node size</label>
               <select id="vg-size" class="vg-select vg-size">
-                <option value="bc">Influence (betweenness)</option><option value="recent">Daily mentions (${DATA.recent_days} days)</option></select></div>
+                <option value="bc">Most connecting (routes through the note)</option><option value="recent">Daily mentions (${DATA.recent_days} days)</option></select></div>
             <div class="vg-field"><label class="vg-flabel" for="vg-color">Node colour</label>
               <select id="vg-color" class="vg-select vg-color">
                 <option value="cluster">Topic</option>
                 <option value="recent">Daily mentions (${DATA.recent_days} days)</option></select></div>
             <div class="vg-flabel">Layers</div>
-            ${switchRow("vg-l-mocs", "Maps", `${plural(mocs.length, "map")}, drawn as hexagons on the topics they cover`, true)}
-            ${switchRow("vg-l-wanted", "Notes to write", `${ghosts.length} notes you link to that don't exist yet (hollow)`)}
+            ${switchRow("vg-l-mocs", "Maps", `${plural(VGRules.noteCounts(nodes).maps, "map")}, drawn as hexagons on the topics they cover`, true)}
+            ${switchRow("vg-l-wanted", "Notes to write", `${plural(ghosts.length, "note")} you link to that don't exist yet (hollow)`)}
             ${switchRow("vg-l-people", "People", "Who is connected to which topics (diamonds)")}
             ${switchRow("vg-l-tasks", "Open tasks", "Badge with the number of unchecked tasks")}
             ${switchRow("vg-l-attention", "Needs attention", "A ring on notes with a problem to fix, in every view (a missing reference or a short note alone does not count)", true)}
@@ -375,6 +382,7 @@ function mountVaultGraph(root, DATA, opts) {
       </section>
       <div class="vg-tip" role="tooltip"></div>
       <div class="vg-legend" aria-label="Legend"></div>
+      <button class="vg-btn vg-btn-sm vg-legend-key" aria-expanded="false" title="What the colours and shapes mean">Key</button>
       <div class="vg-status" aria-live="polite"></div>
       <div class="vg-toasts" aria-live="polite"></div>
     </main>

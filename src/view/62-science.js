@@ -31,13 +31,13 @@
   const sciRead = VGParts.howTo;
   const lensAbout = (text, label = "About this data") => VGParts.more({ label, body: `<p>${text}</p>` });
   // a lens's list: a heading with its count, one short line, the first few rows and the rest behind a show more
-  const lensSec = (title, rows, { count = rows.length, hint, lead = "", about, first = 5, word = "more", empty = "None.", cls } = {}) => VGParts.section({ title, count, hint, body: `${about ? lensAbout(about, "About this list") : ""}${lead}${rows.length ? VGParts.list(rows, { first, word, cls }) : `<p class="vg-muted vg-lens-note">${empty}</p>`}${count != null && count > rows.length ? `<p class="vg-muted vg-lens-note">The first ${rows.length} of ${count}.</p>` : ""}` });
+  const lensSec = (title, rows, { count = rows.length, hint, lead = "", about, first = 5, word = "more", empty = "None.", next = [], cls } = {}) => VGParts.section({ title, count, hint, body: `${about ? lensAbout(about, "About this list") : ""}${lead}${rows.length ? VGParts.list(rows, { first, word, cls }) : `<p class="vg-muted vg-lens-note">${empty}</p>${nextButtons(next)}`}${count != null && count > rows.length ? `<p class="vg-muted vg-lens-note">The first ${rows.length} of ${count}.</p>` : ""}` });
   const noteLine = (id, sub, acts = "") => `<div class="vg-sugg">${noteRow(id, sub)}${acts ? `<span class="vg-sugg-acts">${acts}</span>` : ""}</div>`;
   const topicLine = (c, sub, acts = "") => `<div class="vg-sugg"><button class="vg-item" data-cl="${c}"><span class="vg-dot" style="background:${colorOf(c)}"></span><span class="vg-item-main"><span>${esc(clusterName(c))}</span>${sub ? `<span class="vg-item-sub">${sub}</span>` : ""}</span></button>${acts ? `<span class="vg-sugg-acts">${acts}</span>` : ""}</div>`;
   // what's behind a card: rows the lens already knows how to draw, wired like the lens's own (VGParts.wire's onOpen)
   const rowsDetail = (title, rows, word = "more") => () => ({ title, body: rows().length ? VGParts.list(rows(), { first: 8, word }) : `<p>None.</p>` });
   const notesDetail = (title, ids, sub) => rowsDetail(title, () => ids().filter(id => byId[id]).map(id => noteLine(id, sub ? sub(id) : "")), "notes");
-  const taskRow = r => VGParts.row({ title: VGRules.plainTask(r.text), sub: `${r.event ? "done after" : "open"} ${dayWords(r.t)} · since ${r.born}`, open: r.path && opts.openNote ? r.path : null });
+  const taskRow = r => VGParts.row({ title: VGRules.plainTask(r.text), sub: `${r.event ? "done after" : "open"} ${dayWords(r.t)} · since ${VGShared.shortDate(r.born)}`, open: r.path && opts.openNote ? r.path : null });
   const taskList = (list, word = "tasks") => list.length ? VGParts.list(list.map(taskRow), { first: 8, word }) : `<p>None.</p>`;
   // one chart for all three: x and y in data units, series as lines (a stair for survival) with an optional band and tick marks
   function sciChart(o) {

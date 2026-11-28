@@ -10,12 +10,13 @@
 // · onDone(message) (the host logs it) · openGraph() · now (a Date: tests)
 function mountVaultHQ(root, data, opts) {
   opts = opts || {};
-  const SCREENS = [["home", "Home", "home"], ["today", "Today", "tasks"], ["needs", "Needs you", "inbox"], ["people", "People", "people"], ["projects", "Projects", "folder"], ["calendar", "Calendar", "calendar"]];
+  const SCREENS = [["home", "Home", "home"], ["today", "Today", "tasks"], ["needs", "Needs you", "inbox", "Needs"], ["people", "People", "people"], ["projects", "Projects", "folder"], ["calendar", "Calendar", "calendar"]];
   // screens reached from another one (not in the dock): the carried-over sweep, and a report's rows; each has a way back
   const SUB = { session: ["Focus", "today"], threads: ["Threads", "today"], review: ["Weekly review", "today"], wrap: ["Wrap up", "today"], sweep: ["Sweep", "today"], rows: ["Report rows", "needs"], automations: ["Automations", "needs"], changes: ["Recent changes", "home"] };
   const known = s => SCREENS.some(x => x[0] === s) || !!SUB[s];
   const api = opts.api || {};
   let DATA = data || { nodes: [], links: [] }, STATE = opts.state || {}, cur = SCREENS.some(s => s[0] === opts.screen) || opts.screen === "automations" ? opts.screen : "home";
+  let trayScreen = cur;   // the screen the phone menu tray was opened on: it closes when the screen changes
   let kept = new Set(), rowsPath = null;   // the sweep's Keep (this visit only); the report whose rows are open
   // What you just acted on is off the list at once. The host's next data can still be the old one (a note's index
   // lags its file by a moment), so a key stays off for GONE_HOLD after the action, then the data decides again.
@@ -24,7 +25,7 @@ function mountVaultHQ(root, data, opts) {
   const settleGone = () => { const t = clock(); gone = new Set([...gone].filter(k => t - (goneAt.get(k) || 0) < GONE_HOLD)); [...goneAt.keys()].forEach(k => { if (!gone.has(k)) goneAt.delete(k); }); };
   let gone = new Set(), feedAt = 0, filter = "active", kindFilter = "all", needFilter = "all", systemFilter = "all",
     globalQuery = "", noteHits = [], noteSearchError = "", searchPending = false, searchTimer = null, searchToken = 0,
-    compactProjects = false, drawer = null, focusDrawerOnRender = false, carriedAll = false, clockTimer = null, trail = [];   // trail: the screens you came from, for Back
+    compactProjects = false, drawer = null, focusDrawerOnRender = false, carriedAll = false, clockTimer = null, trail = [], scrolls = {};   // trail: the screens you came from, for Back
   const now = () => opts.now || new Date(), day = () => VGRules.localDay(now());
   const esc = VGShared.escapeHtml;
   const plural = VGShared.plural;
@@ -55,6 +56,7 @@ function mountVaultHQ(root, data, opts) {
     check: '<path d="M5 12l5 5 9-10"/>', clock: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>', key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l2 2"/>',
     eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>', alert: '<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>',
     draft: '<path d="M5 3h10l4 4v14H5z"/><path d="M14 3v5h5"/>', graph: '<circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="10" cy="18" r="2.5"/><path d="M8 7l8 1M7 8l2 8M16 10l-5 6"/>',
+    search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/>', more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
     calendar: '<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>', close: '<path d="M6 6l12 12M18 6L6 18"/>', people: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.8 3.1-6 6.5-6s5.9 2.2 6.5 6"/><path d="M16 5a3.5 3.5 0 0 1 0 6.5M18 14.4c2 .8 3.2 2.7 3.5 5.6"/>', down: '<path d="M6 9l6 6 6-6"/>',
   };
   const icon = (k, s = 18) => `<svg class="vg-hq-ic" viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ""}</svg>`;
@@ -137,7 +139,7 @@ function mountVaultHQ(root, data, opts) {
   // an item's buttons: its main action, then Later / Reject / Delegate / Open
   function buttons(it, big, all) {   // all: the rarer choices too, where there's room (a row keeps to the usual ones)
     const c = ctx(), main = VGActions.todayWhen(it, c) ? `<button class="vg-hq-btn vg-hq-btn-primary${big ? "" : " vg-hq-btn-sm"}" data-act="main" data-key="${esc(it.key)}">${esc(VGActions.todayLabel(it))}</button>` : "";
-    const more = VGActions.todayMore(it, c).filter(m => !(m.key === "open" && (VGActions.todayLabel(it) === "Open" || it.reviewOnly)) && (!m.quiet || big || all))
+    const more = VGActions.todayMore(it, c).filter(m => !(m.key === "open" && (VGActions.todayOpens(it) || it.reviewOnly)) && (!m.quiet || big || all))
       .map(m => `<button class="vg-hq-btn${big ? "" : " vg-hq-btn-sm"}${m.quiet ? " vg-hq-btn-ghost" : ""}" data-act="${m.key}" data-key="${esc(it.key)}" title="${esc(typeof m.title === "function" ? m.title(it) : m.title)}">${esc(m.label)}</button>`).join("");
     return main + more;
   }
@@ -148,6 +150,6 @@ function mountVaultHQ(root, data, opts) {
     const ok = kind === "main" ? await VGActions.runToday(it, c) : await VGActions.runMore(kind, it, c);
     if (btn && btn.isConnected) btn.disabled = false;
     // a write that changes the item (Done, Later, Accept...) takes it off at once; the host's update brings the truth
-    if (ok && !(kind === "open" || (kind === "main" && VGActions.todayLabel(it) === "Open"))) { takeOff(key); picked.delete(key); relist(); if (session && session.key === key) sessionNext(); render(); }
+    if (ok && !(kind === "open" || (kind === "main" && VGActions.todayOpens(it)))) { takeOff(key); picked.delete(key); relist(); if (session && session.key === key) sessionNext(); render(); }
   }
 

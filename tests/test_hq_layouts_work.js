@@ -82,12 +82,10 @@ const env = require("./env");
     // every working layout at phone width: no sideways scroll, and still an action on a phone (a Move select instead of a drag)
     await tab.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 800, deviceScaleFactor: 1, mobile: true });
     for (const l of ["triage", "board", "week", "table", "threads"]) { await mount(l); await sleep(150); check(await tab.ev(`document.documentElement.scrollWidth <= innerWidth + 1`), l + " overflows at phone width"); }
-    // on a phone the header rows fold away once the list is scrolled and come back at the top
+    // on a phone one slim bar stays at the top while the list scrolls (the header rows no longer fold away since #207)
     await mount("queue"); await sleep(150);
     await tab.ev(`(m => { const pad = document.createElement("div"); pad.style.height = "3000px"; m.appendChild(pad); m.scrollTo({ top: 400, behavior: "instant" }); })(document.querySelector(".vg-hq-main"))`); await sleep(200);
-    check(await tab.ev(`getComputedStyle(document.querySelector(".vg-hq-global-tools")).display === "none"`), "the search row stayed after scrolling on a phone");
-    await tab.ev(`document.querySelector(".vg-hq-main").scrollTo({ top: 0, behavior: "instant" })`); await sleep(300);
-    check(await tab.ev(`getComputedStyle(document.querySelector(".vg-hq-global-tools")).display !== "none"`), "the search row didn't return at the top");
+    check(await tab.ev(`(() => { const r = document.querySelector(".vg-hq-top").getBoundingClientRect(); return r.height > 0 && r.top >= -1 && r.bottom <= 120; })()`), "the top bar left the screen when the list scrolled on a phone");
     await mount("board"); await sleep(100); check(await q(".vg-hq-movesel"), "Board has no Move select for a phone");
   } catch (e) { fails.push(e.message); }
   await tab.close();

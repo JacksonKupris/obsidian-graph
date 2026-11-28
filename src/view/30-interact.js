@@ -80,6 +80,7 @@
     cv.width = Math.max(1, Math.round(W * dpr)); cv.height = Math.max(1, Math.round(H * dpr));
     cv.style.width = W + "px"; cv.style.height = H + "px";
     if (fitted && !cam.userMoved) fit(lastFit, 0);   // keep the framing until the user pans/zooms
+    if (W && fitted) { draw(performance.now()); dirty = false; }   // a resize clears the canvas: drawn again before the browser paints, or one empty frame shows
     dirty = true; kick();
   };
   const ro = new ResizeObserver(sizeCanvas);
@@ -202,7 +203,7 @@
       if (n && opts.onHoverNote && !special(n)) opts.onHoverNote(n.id, e);
     }
     if (n) {
-      const sub = n.moc ? `Map of content · ${n.outlinks} notes${mocs.some(m => m.id === n.id) ? ` in ${esc(clusterName(n.cluster))}` : ""}` : n.ghost ? `Not written yet · linked from ${plural(n.from.length, "note")}` : n.person ? `Person · ${plural(n.outlinks, "linked note")}`
+      const sub = n.moc ? `Topic map · ${n.outlinks} notes${mocs.some(m => m.id === n.id) ? ` in ${esc(clusterName(n.cluster))}` : ""}` : n.ghost ? `Not written yet · linked from ${plural(n.from.length, "note")}` : n.person ? `Person · ${plural(n.outlinks, "linked note")}`
         : `${plural(nb[n.id].size, "link")} · ${esc(clusterName(n.cluster))}${n.recent ? ` · ${n.recent} recent` : ""}${n.tasks ? ` · ${plural(n.tasks, "open task")}` : ""}`;
       tip.innerHTML = `<div class="vg-tip-title"><span class="vg-dot" style="background:${fillOf(n)}"></span>${esc(n.name)}</div>` +
         `<div class="vg-muted">${esc(n.folder || "/")}</div><div class="vg-tip-meta">${sub}</div>`;
@@ -305,10 +306,14 @@
     const ids = [...st.multi], box = $(".vg-inspector"), groups = {};
     ids.forEach(id => (groups[byId[id].cluster] = groups[byId[id].cluster] || []).push(id));
     box.hidden = false; root.classList.add("has-inspector");
+    // the reasons behind any rings in the selection, counted by reason: a ring number opens notes, and this says why they were flagged
+    const tally = new Map(); if (st.layers.attention) ids.forEach(id => reasonsOf(id).forEach(k => tally.set(k, (tally.get(k) || 0) + 1)));
+    const why = tally.size ? `<p class="vg-ins-why">Needs attention: ${[...tally].sort((a, b) => b[1] - a[1]).map(([k, n]) => `<span class="vg-lg-attn-name" style="--ring:${VGActions.reasonLook(k).color}">${esc(VGActions.reasonLook(k).label)} · ${n}</span>`).join(" ")}</p>` : "";
     box.innerHTML = `<div class="vg-sheet-handle" aria-hidden="true"></div>
       <div class="vg-ins-head"><span class="vg-chip" style="--c:${css("--vg-accent")}">Selection</span>
         <button class="vg-ibtn vg-ins-close" aria-label="Close" title="Close (Esc)">${icon("close")}</button></div>
       <h2 class="vg-ins-title">${plural(ids.length, "note")} selected</h2>
+      ${why}
       <div class="vg-ins-actions vg-wrap">
         <button class="vg-btn" data-act="copy">${icon("copy", 14)} Copy links</button>
         ${opts.writeNote ? `<button class="vg-btn" data-act="map">${icon("file", 14)} Map note</button>` : ""}
@@ -334,12 +339,22 @@
   root.ownerDocument.addEventListener("visibilitychange", onHidden);   // all three removed in destroy()
   holdKeys({ up: k => { const d = SCENES[st.view]; if (d && d.key) d.key(k, false); },
     all: () => Object.values(SCENES).forEach(d => d.release && d.release()) });
+  function setLegendOpen(on) { root.classList.toggle("legend-open", on); $(".vg-legend-key").setAttribute("aria-expanded", String(on)); const a = $(".vg-lg-attn-set"); if (a) a.setAttribute("aria-expanded", String(on)); }
+  const toggleLegend = () => setLegendOpen(!root.classList.contains("legend-open"));
+  $(".vg-legend-key").onclick = toggleLegend;
+  // the needs-attention entry opens the ring names (a popover on a desktop, the open Key on a phone): the same state, so Escape and a second click close both
+  $(".vg-legend").addEventListener("click", e => { const a = e.target.closest(".vg-lg-attn-set"); if (a) { toggleLegend(); a.focus({ preventScroll: true }); } });   // focus stays on the entry so Escape reaches the key handler
+  $(".vg-legend").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.closest(".vg-lg-attn-set")) { e.preventDefault(); toggleLegend(); } });
   // One step back: closes the topmost layer. Escape runs it, and so does a phone's back gesture (handle.back). Returns 1 when
   // it closed something, 2 when it only left a text field (the key goes on to the host), 0 when there was nothing to close.
   function goBack(typingIn) {
     // the topmost layer goes first: an open report sits over the scene, so it closes before the scene (a game in play) does
+    const dialog = $$(".vg-confirm").pop();   // a dialog is the top layer wherever focus is; its own key handler only hears Escape while focus is inside it
+    if (dialog) { (dialog.querySelector('[data-c="no"]') || dialog.querySelector('[data-c="ok"]')).click(); return 1; }
     if ($(".vg-lens").hidden && SCENES[st.view] && SCENES[st.view].escape && SCENES[st.view].escape()) return 1;
     if (tour) endTour();
+    else if (root.classList.contains("legend-open")) setLegendOpen(false);
+    else if (!$(".vg-viewcard").hidden) setViewCard(false);
     else if (!$(".vg-palette").hidden) { closePalette(); }
     else if (!$(".vg-picker").hidden) { closeMenu(); $(".vg-displaysel").focus(); }
     else if (!$(".vg-lens").hidden) closeLens();
@@ -351,7 +366,7 @@
     else if (st.path) clearPath();
     else if (st.focus && !st.quietFocus) exitFocus();
     else if (st.multi) clearMulti();
-    else if (st.selected) select(null);
+    else if (st.selected) { const tied = st.highlightTied === st.selected; if (!stepBackNote()) { select(null); if (tied) clearHighlight(); } }
     else if (st.highlight) clearHighlight();
     else if (root.classList.contains("vg-side-open")) root.classList.remove("vg-side-open");
     else return 0;
@@ -480,7 +495,7 @@
     { sel: ".vg-cv", ring: false, title: "Tap a note", text: "Its panel lists what it needs, each with the button that fixes it." },
   ];
   let tour = null, tourSeen = false;
-  function startTour() { tour = runTour(root, TOUR, { find: s => $(s), cls: { btn: "vg-btn", primary: "vg-btn-primary", ghost: "vg-btn-ghost" }, onEnd: () => { tour = null; tourSeen = true; persistSoon(); } }); tour.draw(); }
+  function startTour() { tour = runTour(root, TOUR, { find: s => $(s), clear: () => [$(".vg-today")], cls: { btn: "vg-btn", primary: "vg-btn-primary", ghost: "vg-btn-ghost" }, onEnd: () => { tour = null; } }); tourSeen = true; persistSoon(); tour.draw(); }   // seen once shown: leaving with the card open must not bring it back
   function endTour() { if (tour) tour.end(); }
 
   // ---------------------------------------------------------------- confirm dialog + discovery log
@@ -571,20 +586,30 @@
   }
 
   // ---------------------------------------------------------------- legend + status + HUD + toasts
+  // a glyph's colour is picked for the scene it names, not for the page behind the legend: each one is moved only as far as it takes to read there
+  function inkLegend() {
+    const lg = $(".vg-legend"); let bg = null;
+    for (let e = lg; e && !bg; e = e.parentElement) { const c = getComputedStyle(e).backgroundColor, m = c.match(/[0-9.]+/g); if (m && m.length >= 3 && (m[3] === undefined || +m[3] > 0.6)) bg = c; }
+    bg = bg || css("--vg-bg") || "#ffffff";
+    lg.querySelectorAll("b, span, i").forEach(e => { if (e.style.color && e.textContent.trim()) e.style.color = VGShared.inkOn(getComputedStyle(e).color, bg); });
+    // a filled dot is a shape, not text: it needs 3:1
+    lg.querySelectorAll("i[style*=background]").forEach(e => { e.style.background = VGShared.inkOn(getComputedStyle(e).backgroundColor, bg, 3); });
+  }
   function renderLegend() {
     if (mapView()) {
       const item = (sw, t) => `<span class="vg-lg-item">${sw}${t}</span>`;
       $(".vg-legend").innerHTML = (SCENES[st.view].legend ? SCENES[st.view].legend(item) : "") + (SCENES[st.view].lib ? "" : attentionLegend());
+      inkLegend();
       return;
     }
-    const sizeWord = { bc: "routes through it", recent: "daily mentions" }[st.sizeBy];
+    const sizeWord = { bc: "size = most connecting", recent: "daily mentions" }[st.sizeBy];
     const colour = neural() && st.vision === "thermal" ? `<span class="vg-lg-item"><span class="vg-lg-grad is-thermal"></span>activity · ${DATA.recent_days}d</span>`
       : st.colorBy === "cluster" ? `<span class="vg-lg-item"><span class="vg-lg-dots">${(neural() ? NEON : PALETTE).slice(0, 5).map(c => `<i style="background:${c}"></i>`).join("")}</span>topic</span>`
       : `<span class="vg-lg-item"><span class="vg-lg-grad"></span>mentions · 30d</span>`;
     $(".vg-legend").innerHTML = `<span class="vg-lg-item"><span class="vg-lg-size"><i></i><i></i></span>${sizeWord}</span>${colour}` +
       `<span class="vg-lg-item"><i class="vg-lg-line"></i>link</span>` +
-      (neural() ? `<span class="vg-lg-item" title="Pulses fire along links of notes edited or mentioned lately; lobes glow by the same activity">✦ pulse · recent activity</span>` : "") +
-      (st.gaps ? `<span class="vg-lg-item"><i class="vg-lg-line is-gap"></i>co-mentioned</span><span class="vg-lg-item"><i class="vg-lg-line is-sim"></i>similar</span>` : "") +
+      (neural() ? `<span class="vg-lg-item" title="Pulses fire along links of notes edited or mentioned lately; lobes glow by the same activity">✦ pulse · activity in the last ${DATA.recent_days} days</span>` : "") +
+      (st.gaps ? `<span class="vg-lg-item"><i class="vg-lg-line is-gap"></i>mentioned together</span><span class="vg-lg-item"><i class="vg-lg-line is-sim"></i>similar wording</span>` : "") +
       (st.layers.mocs && mocs.length ? `<span class="vg-lg-item"><i class="vg-lg-hex"></i>map</span>` : "") +
       (st.layers.people ? `<span class="vg-lg-item"><i class="vg-lg-diamond"></i>person</span>` : "") +
       (st.layers.wanted ? `<span class="vg-lg-item"><i class="vg-lg-ghost"></i>not written</span>` : "") + attentionLegend();
@@ -595,16 +620,21 @@
     if (!st.layers.attention || !attentionOf().size) return "";
     const seen = new Set(); for (const ks of attnWhy.values()) ks.forEach(k => seen.add(k));
     const looks = [...seen].map(k => VGActions.reasonLook(k));
-    return `<span class="vg-lg-item vg-lg-attn-set" title="A ring says why a note needs attention: ${looks.map(l => l.label).join(", ")}"><span class="vg-lg-dots">${looks.map(l => `<i class="vg-lg-attn" style="--ring:${l.color}"></i>`).join("")}</span>needs attention</span>`;
+    return `<span class="vg-lg-item vg-lg-attn-set" role="button" tabindex="0" aria-expanded="${root.classList.contains("legend-open")}" title="A number groups the flagged notes that sit close together on screen; zoom in or widen the pane to split it. A ring says why a note needs attention: ${looks.map(l => l.label).join(", ")}"><span class="vg-lg-dots">${looks.map(l => `<i class="vg-lg-attn" style="--ring:${l.color}"></i>`).join("")}</span>needs attention · reasons<span class="vg-lg-attn-names">${looks.map(l => `<span class="vg-lg-attn-name" style="--ring:${l.color}">${l.label}</span>`).join("")}<span class="vg-lg-attn-note">A number groups the flagged notes that sit close together; zoom in or widen the pane to split it.</span></span></span>`;
   };
   // A scene's own counts (alchemy's reactions, radar's tasks) go in the status pill like every other view's,
   // instead of text painted on the canvas where the banner or legend can cover it
   let sceneStat = { view: null, text: "" };
   function setSceneStat(text) { if (sceneStat.view !== st.view || sceneStat.text !== text) { sceneStat = { view: st.view, text }; renderStatus(); } }
   // what's on screen, by kind: the sidebar's numbers count notes, and this says what else the total holds
+  // how many notes are drawn, against all of them while some are hidden (unlinked, a hidden topic): the status line and the canvas label say it the same way
+  function notesDrawn() { const n = VGRules.noteCounts(active).notes, all = VGRules.noteCounts(nodes).notes; return n < all ? `${n} of ${plural(all, "note")}` : plural(n, "note"); }
+  // the unlinked notes the Show unlinked notes switch leaves out, said in the status line beside the count (the canvas label keeps the plain count)
+  function hiddenUnlinked() { if (st.isolated) return ""; const k = VGRules.noteCounts(nodes.filter(x => x.isolated)).notes; return k ? ` (${k} unlinked hidden)` : ""; }
   function shownWords() {
     const c = VGRules.noteCounts(active), more = [c.maps ? plural(c.maps, "map") : "", c.people ? (c.people === 1 ? "1 person" : `${c.people} people`) : "", c.wanted ? `${c.wanted} to write` : ""].filter(Boolean);
-    return more.length ? `${plural(c.notes, "note")} · ${more.join(" · ")}` : `${plural(c.notes, "note")} shown`;
+    const drawn = notesDrawn() + (VGRules.noteCounts(active).notes < VGRules.noteCounts(nodes).notes ? hiddenUnlinked() : "");
+    return more.length ? `${drawn} · ${more.join(" · ")}` : `${drawn} shown`;
   }
   function renderStatus() {
     const settling = alpha > 0.005 && !neural() && !isCosmos() && !mapView();
@@ -615,25 +645,27 @@
     if (st.multi) parts.push(`${st.multi.size} selected`);
     if (st.hiddenClusters.size) parts.push(`${plural(st.hiddenClusters.size, "topic")} hidden`);
     if (st.hidden.size) parts.push(`top ${st.hidden.size} hidden`);
-    $(".vg-status").innerHTML = `${settling ? '<span class="vg-spin" aria-hidden="true"></span>Laying out · ' : ""}${parts.map(esc).join(" · ")}`;
+    $(".vg-cv-name").textContent = `Graph of ${notesDrawn()} in ${plural(DATA.clusters.length, "topic")}.`;
+    $(".vg-status").innerHTML = `${settling ? '<span class="vg-spin" aria-hidden="true"></span>Laying out · ' : ""}${parts.map(esc).join(" · ")}${st.highlight ? ' <button class="vg-btn vg-status-clear" data-clear aria-label="Clear the highlighted notes">Clear</button>' : ""}`;
+    const clr = $(".vg-status [data-clear]"); if (clr) clr.onclick = () => clearHighlight();
   }
   function renderHud() {
     if (!neural()) return;
     const n = st.selected && byId[st.selected];
     $(".vg-hud-title").innerHTML = `<b>VAULT // NEURAL MAP</b><span>${esc(DATA.vault || "").toUpperCase()} · ${esc(DATA.date)} · ${st.vision.toUpperCase()}</span>` +
-      `<span>NODES ${active.length} · LINKS ${visLinks.filter(l => l.kind === "link").length} · LOBES ${DATA.clusters.length} · MAPS ${mocs.length} · BRIDGES ${nodes.filter(n => n.bridge).length}</span>` + (st.three && glOn() ? `<span>LIF NETWORK · 80/20 E/I · ${neuroRate().toFixed(1)} HZ · ×1/${NEURO_SLOW} SPEED</span>` : "");
+      `<span>NOTES ${VGRules.noteCounts(active).notes} · LINKS ${visLinks.filter(l => l.kind === "link").length} · TOPICS ${DATA.clusters.length} · MAPS ${VGRules.noteCounts(active).maps}${(b => b ? " · BRIDGES " + b : "")(nodes.filter(n => n.bridge).length)}</span>` + (st.three && glOn() ? `<span>FLASHES ARE SIMULATED · BUSIER FOR RECENT NOTES</span>` : "");
     const p = n && P.get(n.id);
     $(".vg-hud-tele").innerHTML = n ? `<b>TARGET ▸ ${esc(n.name.toUpperCase())}</b>` +
       `<span>LOBE ${esc(clusterName(n.cluster).toUpperCase())}</span>` +
-      `<span>RANK #${rankOf[n.id] || "—"} · LINKS ${nb[n.id].size} · MENTIONS ${n.mentions}</span>` +
+      `<span>RANK ${rankText(n.id).toUpperCase()} · LINKS ${nb[n.id].size} · MENTIONS ${n.mentions}</span>` +
       `<span>ACTIVITY ${"█".repeat(Math.min(10, Math.round(10 * (n.recent || 0) / maxRecent)))}${"░".repeat(10 - Math.min(10, Math.round(10 * (n.recent || 0) / maxRecent)))}</span>` +
       (p ? `<span>XYZ ${Math.round(n.x)} ${Math.round(n.y)} ${Math.round(n.z)}</span>` : "")
-      : MOBILE ? `<span>NO TARGET · TAP A NODE</span><span>DRAG TO ORBIT · PINCH TO ZOOM</span>` : `<span>NO TARGET · CLICK A NODE</span><span>DRAG TO ORBIT · SCROLL TO ZOOM</span>`;
+      : MOBILE ? `<span>NOTHING SELECTED · TAP A NOTE</span><span>DRAG TO ORBIT · PINCH TO ZOOM</span>` : `<span>NOTHING SELECTED · CLICK A NOTE</span><span>DRAG TO ORBIT · SCROLL TO ZOOM</span>`;
     $(".vg-hud-tele").classList.toggle("is-idle", !n);
   }
   // undo (optional): an Undo button on the toast, which then stays up longer
   function toast(msg, kind, undo) {
-    if (opts.compact && !kind) return;   // explanatory toasts are noise in a card or embed; results and warnings still show
+    if ((opts.compact || tour) && !kind) return;   // explanatory toasts are noise in a card or embed, and sit on the tour card; results and warnings still show
     const el = document.createElement("div");
     el.className = `vg-toast ${kind ? "is-" + kind : ""}`; el.textContent = msg;
     if (undo) {

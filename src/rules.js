@@ -130,14 +130,21 @@ const VGRules = (() => {
   };                                                // back; spar: two from the group trade blows, the more relied-on wins
   const fuzzyScore = (query, text) => {
     const s = String(text).toLowerCase(), q = String(query).toLowerCase().replace(/\s+/g, "");
-    let i = 0, score = 0, run = 0, prev = -2;
+    let i = 0, score = 0, run = 0, prev = -2, first = -1;
     for (const ch of q) {
       const j = s.indexOf(ch, i); if (j < 0) return -1;
       run = j === prev + 1 ? run + 1 : 0; score += 1 + run * 2 + (j === 0 || " -_/·".includes(s[j - 1]) ? 3 : 0);
-      prev = j; i = j + 1;
+      if (first < 0) first = j; prev = j; i = j + 1;
     }
-    if (q.length > 3 && score < q.length * 1.6) return -1;
+    // letters spread over much more than their own length are chance, not a typo or an abbreviation ("stale" across "spare parts catalogue")
+    if (q.length > 3 && (score < q.length * 1.6 || prev - first + 1 > q.length * 2 + 2)) return -1;
     return score - s.length * 0.01;
+  };
+  // a folder path is long, so letters scattered across it match almost any word: the path counts only where every word of the query
+  // is written in it (a word that is a folder's name finds the notes in that folder), and then it scores a little below a name
+  const pathScore = (query, path) => {
+    const p = String(path).toLowerCase();
+    return String(query).toLowerCase().split(/\s+/).filter(Boolean).every(w => p.includes(w)) ? fuzzyScore(query, path) - 2 : -1;
   };
   // Recall: find where something was dealt with before, inside notes, from whatever is half-remembered: words (also
   // misspelled or partial), when ("last month", "in June"), who (a name from the people folder), what kind of thing
@@ -616,6 +623,13 @@ const VGRules = (() => {
     return "";
   }
   const titleOf = (text, path) => { const m = bodyOf(text).match(/^#\s+(.+)$/m); return plainTask(m ? m[1] : stemCase(path)); };
+  // The words for the two link problems, so every screen says the same thing: an UNLINKED note has no links in or out (a count, a list, a tile);
+  // a NAMED note is spelled out in daily notes without a link (a count, a list, a fix). tests/test_link_words.js fails when a screen words them differently.
+  const LINK_WORDS = { unlinked: "Unlinked notes", named: "Mentioned, not linked", namedIn: n => `Mentioned in ${VGShared.plural(n, "daily note")}, not linked` };
+  // "No references" is a problem only in a vault that uses references. A note's refs is true (has some), false (lacks them) or null
+  // (this vault doesn't use them, so nothing is missing); the attention ring and the inspector row flag only false.
+  const noRefsValue = nodes => nodes.some(n => n.refs === true) ? false : null;
+  function settleRefs(nodes) { const v = noRefsValue(nodes); nodes.forEach(n => { if (n.refs === false) n.refs = v; }); return nodes; }
   // What a list of graph nodes is made of. The one definition of a note: not a person, a map or a note still to write. Every count
   // on screen comes from here, so they add up: linked + unlinked = notes, and notes + maps + people + wanted = every node.
   function noteCounts(list) {
@@ -624,6 +638,8 @@ const VGRules = (() => {
     return c;
   }
   // A suggestion's reason as it shows on screen: a similarity score means little as 0.812
+  // a journal heading that only says "Tasks" or "To do" is not a place worth naming
+  const sectionWords = s => !s || /^(tasks?|to ?dos?)$/i.test(String(s).trim()) ? "Today's journal" : s;
   const whyWords = why => String(why || "").replace(/similar meaning \((\d*\.?\d+)\)/, (_, s) => `similar meaning: ${Math.round(parseFloat(s) * 100)}% alike`);
   // A status as it reads in a sentence: frontmatter's in-progress is "in progress". The value in the note stays as it is.
   const statusWords = s => String(s || "").replace(/[-_]+/g, " ").trim();
@@ -652,7 +668,7 @@ const VGRules = (() => {
         tags, systems, tasks, chunks: recallChunks(f.text), parents: references(fm.parent || fm["Parent task"]), related: references(fm.related),
         updated: String(fm.updated || fm.modified || fm.created || "") });
       }
-      else if (kind === "inbox") hq.inbox.push({ path: f.path, name, title: titleOf(f.text, f.path) });
+      else if (kind === "inbox") hq.inbox.push({ path: f.path, name, title: titleOf(f.text, f.path), status: String(fm.status || "").toLowerCase() });
       else if (kind === "backlog") tasksIn(f.text).filter(t => t.mark === " ").forEach(t => hq.backlog.push({ path: f.path, ...t }));
       else if (kind === "report") { const prefix = reportPrefix(f.path) || automationReport(f.path).report, date = (name.match(/(\d{4}-\d{2}-\d{2})/) || [])[1] || "";
         const rows = reportRows(f.text).filter(r => r.mark === " ");
@@ -661,12 +677,16 @@ const VGRules = (() => {
       else if (kind === "review") hq.reviews.push({ path: f.path, name, title: titleOf(f.text, f.path), status: String(fm.status || "").toLowerCase(), task: plainTask(fm.task || ""), created: String(fm.created || ""),
         reviewOnly: f.path.startsWith(R.folders.reports + "/") });
       else if (kind === "decision") hq.decisions.push({ path: f.path, name, title: titleOf(f.text, f.path), date: String(fm.date || fm.created || ""), status: String(fm.status || "").toLowerCase(),
-        by: plainTask([].concat(fm.decided_by || []).join(", ")), project: plainTask([].concat(fm.project || []).join(", ")) });
+        by: plainTask([].concat(fm.decided_by || []).join(", ")), project: plainTask([].concat(fm.project || []).join(", ")),
+        links: [...String(f.text).matchAll(/\[\[([^\]|#]+)/g)].map(m => m[1].trim().toLowerCase()) });
       else if (kind === "runlog") String(f.text).split(/\r?\n/).filter(l => /^- \d{4}-\d{2}-\d{2}/.test(l)).forEach(l => hq.runlog.push(plainTask(l.slice(2))));
       // how often each project came up: the dailies in the window that name it (its file name, code name or title)
       if (kind === "journal" || kind === "standup") (hq.mentionText = hq.mentionText || []).push([dateIn(kind === "journal" ? HQ_JOURNAL : HQ_STANDUP, f.path), String(f.text).toLowerCase()]);
     }
     hq.reports = Object.values(newestReport);
+    // an inbox note that a decision links to, or that is marked finished, is settled: it is not waiting on the person
+    const decidedNames = new Set(hq.decisions.flatMap(d => d.links || []));
+    hq.inbox.forEach(n => { n.settled = SETTLED_STATUS.has(n.status) || decidedNames.has(n.name.toLowerCase()) || decidedNames.has(VGShared.nameOf(n.path).toLowerCase()); });
     hq.journalDuplicates = [...new Set(hq.journals.map(j => j.date).filter(Boolean))].map(date => {
       const paths = hq.journals.filter(j => j.date === date).map(j => j.path);
       return paths.length > 1 ? { date, canonical: canonicalJournalPath(paths, date), paths: paths.sort() } : null;
@@ -696,6 +716,20 @@ const VGRules = (() => {
         state: !last ? "never" : ok === false ? "failed" : late ? "late" : ok === true ? "ok" : "unknown" };
     });
   }
+  // one way to write when something ran: "Sat, Nov 21, 02:00"; and where it runs without the scheduler's name
+  // a run time in the one short date style the rest of HQ uses ("Nov 21"), then the time as people say it
+  const whenWords = iso => iso ? new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+  const placeWords = where => String(where || "").replace(/\s*\((?:cron|launchd|task scheduler)\)/gi, "").trim();
+  // An automation that is late or failed, as sentences: the title and the reason. Every surface that lists one uses this.
+  function jobWords(j, now) {
+    now = now || new Date();
+    const days = j.last ? Math.max(0, Math.floor((now - new Date(j.last)) / VGShared.DAY_MS)) : null;
+    const h = j.every_hours || 24, often = h === 24 ? "every day" : h % 24 === 0 ? `every ${h / 24} days` : `every ${VGShared.plural(h, "hour")}`;
+    const name = j.name.charAt(0).toUpperCase() + j.name.slice(1);
+    if (j.state === "failed") { const at = whenWords(j.last), said = String(j.summary || "").replace(/[.\s]+$/, ""), sentence = said.charAt(0).toUpperCase() + said.slice(1);
+      return { title: `${name} failed`, why: `${sentence ? sentence + ". " : ""}Last run ${at || "unknown"}.` }; }
+    return { title: days === null ? `${name} has not run` : `${name} hasn't run for ${VGShared.plural(days, "day")}`, why: `It should run ${often}.${j.summary ? " Last result: " + j.summary + "." : ""}` };
+  }
   // The projects (scopes of work, project notes, user stories): kind, status group, summary, estimate, the days the
   // dailies named it, active decisions
   function hqProjects(data) {
@@ -713,11 +747,12 @@ const VGRules = (() => {
     const byPath = new Map();
     hits.filter(h => h.kind !== "related").forEach(h => { if (!byPath.has(h.path)) byPath.set(h.path, h); });
     return projects.map(p => ({ p, hit: byPath.get(p.path), score: Math.max(fuzzyScore(q, p.title), fuzzyScore(q, p.name || ""),
-      fuzzyScore(q, p.path) - 2) })).filter(r => r.score >= 0 || r.hit)
+      pathScore(q, p.path)) })).filter(r => r.score >= 0 || r.hit)
       .sort((a, b) => Number(b.score >= 0) - Number(a.score >= 0) || b.score - a.score || (b.hit?.score || 0) - (a.hit?.score || 0) || a.p.path.localeCompare(b.p.path))
       .map(r => ({ ...r.p, searchHit: r.hit }));
   }
   // Which part of HQ shows an item: today (work), needs (only you can decide it) or upkeep (the vault itself)
+  const SETTLED_STATUS = new Set(["done", "shipped", "decided", "accepted", "approved", "cancelled", "superseded", "archived"]);
   const TODAY_GROUP = { task: "today", plan: "today", carried: "today", approval: "needs", review: "needs", job: "needs", backlog: "needs", report: "needs", inbox: "needs" };
   const todayGroup = kind => TODAY_GROUP[kind] || "upkeep";
   // A task's words alone, to compare two lines: "service-alarm" and "service alarm" are the same, a stamp isn't part of it
@@ -757,7 +792,7 @@ const VGRules = (() => {
     const fieldsOf = t => ({ delegated: inlineField(t, H.delegate_field || "delegate"), review: inlineField(t, "review") });
     const todayJournal = canonicalJournal(hq, day);
     (todayJournal ? [todayJournal] : []).forEach(j => j.tasks.filter(t => t.mark === " " && !t.loose).forEach((t, i) =>
-      put({ key: `task|${j.path}|${t.text}`, kind: "task", path: j.path, line: t.line, text: t.text, ...fieldsOf(t.text), ids: [j.path], title: label(t.text), why: t.section || "Today's journal", score: 20 - i * 0.01 })));
+      put({ key: `task|${j.path}|${t.text}`, kind: "task", path: j.path, line: t.line, text: t.text, ...fieldsOf(t.text), ids: [j.path], title: label(t.text), why: sectionWords(t.section), score: 20 - i * 0.01 })));
     const plan = lastPlan(hq, day), planWords = plan ? planDoneWords(hq, marks, day) : null;
     if (plan) plan.plan.forEach((p, i) => planDoneOn(planKey(plan, p, i), p.text, marks, planWords) || put({ key: planKey(plan, p, i), kind: "plan", path: plan.path, line: p.line, text: p.text, ids: [plan.path], title: label(p.text), why: `Planned in ${stemCase(plan.path)}`, score: 15 - i * 0.01 }));
     hq.projects.filter(s => s.group === "waiting").forEach(s => { const waited = s.updated ? daysBetween(s.updated, day) : 0;
@@ -766,11 +801,11 @@ const VGRules = (() => {
     hq.reviews.filter(r => r.status === "waiting" || r.reviewOnly && ["pending", "proposed"].includes(r.status)).forEach(r => put({ key: `review|${r.path}`, kind: "review", path: r.path, ids: [r.path], title: r.reviewOnly ? (reportNames.get(reportTitle(r.name)) > 1 ? reportTitleTimed(r.name) : reportTitle(r.name)) : r.title,
       why: r.reviewOnly ? "Review only · no rows applied" : r.task ? `Draft for: ${r.task}` : "Draft waiting", reviewOnly: !!r.reviewOnly, score: 11.5 }));
     hqJobs(hq, o.now).filter(j => j.state === "failed" || j.state === "late").forEach(j => put({ key: `job|${j.name}|${j.last}`, kind: "job", path: H.automations_note, name: j.name, ids: [],
-      title: `${j.name}: ${j.state === "failed" ? "failed" : "late"}`, why: j.summary || j.when, score: j.state === "failed" ? 13 : 10 }));
+      title: jobWords(j, o.now).title, why: jobWords(j, o.now).why, score: j.state === "failed" ? 13 : 10 }));
     [...new Set(hq.journals.map(j => j.date).filter(d => d < day))].map(d => canonicalJournal(hq, d)).filter(Boolean).forEach(j => { const age = daysBetween(j.date, day);
       j.tasks.filter(t => t.mark === " ").forEach(t => put({ key: `carried|${j.path}|${t.text}`, kind: "carried", path: j.path, line: t.line, text: t.text, date: j.date, age, ...fieldsOf(t.text), ids: [j.path], section: t.section, subs: t.subs, under: t.under, underDone: t.underDone,
-        title: label(t.text), why: `From ${j.date} · ${age} day${age === 1 ? "" : "s"} ago${t.under ? ` · under ${t.under}` : ""}`, score: Math.max(1, 9 - age * 0.25) })); });
-    (hq.inbox || []).forEach(n => put({ key: `inbox|${n.path}`, kind: "inbox", path: n.path, ids: [n.path], title: n.title || n.name, why: "In the inbox", score: 3 }));
+        title: label(t.text), why: `From ${VGShared.shortDate(j.date)} · ${age} day${age === 1 ? "" : "s"} ago${t.under ? ` · under ${t.under}` : ""}`, score: Math.max(1, 9 - age * 0.25) })); });
+    (hq.inbox || []).filter(n => !n.settled).forEach(n => put({ key: `inbox|${n.path}`, kind: "inbox", path: n.path, ids: [n.path], title: n.title || n.name, why: "In the inbox", score: 3 }));
     // the rules file's backlog_shown: how many vault decisions count as needing you at once. The rest wait their turn, one filter away.
     let backlogUp = 0; hq.backlog.forEach(b => put({ key: `backlog|${b.path}|${b.text}`, ...(H.backlog_shown && !skip(`backlog|${b.path}|${b.text}`) && ++backlogUp > H.backlog_shown ? { waiting: true } : {}), kind: "backlog", path: b.path, line: b.line, text: b.text, ids: [b.path], title: label(b.text), why: stemCase(b.path), score: 3 }));
     hq.reports.filter(r => r.open > 0 && !r.job).forEach(r => put({ key: `report|${r.path}`, kind: "report", path: r.path, ids: [r.path], title: `${r.name}: ${r.open} row${r.open === 1 ? "" : "s"} to tick`, why: "Tick the rows to apply", score: 2.8 }));
@@ -826,7 +861,22 @@ const VGRules = (() => {
     const rest = Object.fromEntries(Object.entries(marks).filter(([k]) => !held(k))), set = new Set(keys);
     return todayList(data, { ...o, review: { ...o.review, hq: rest } }).filter(it => set.has(it.key) && TODAY_GROUP[it.kind] === "today").map(it => ({ ...it, until: String(marks[it.key]).startsWith("until:") ? String(marks[it.key]).slice(6) : null })).sort((a, b) => Number(!!b.urgent) - Number(!!a.urgent) || b.score - a.score);
   }
+  // The notes "From your notes" may show for a question: each must match as many of the question's words as it can (up to two), must not be raw
+  // property keys, and carries the reason it matched. One rule for every surface that lists related notes.
+  const relatedNotes = (hits, query) => {
+    const q = [...new Set(recallWords(query))], need = Math.min(2, q.length);
+    return (hits || []).flatMap(h => {
+      const snip = String(h.snippet || "");
+      if (/^---\s*\n/.test(snip) || snip.split("\n").filter(l => /^\s*[\w-]+:\s/.test(l)).length >= 3) return [];
+      const base = VGShared.nameOf(String(h.path || "")).toLowerCase(), text = (base + " " + (h.heading || "") + " " + snip).toLowerCase();
+      const got = q.filter(w => text.includes(w)); if (got.length < need) return [];
+      const named = q.find(w => base.includes(w));
+      return [{ ...h, reason: named ? `Its name has "${named}"` : `Mentions ${got.slice(0, 3).join(" and ")}` }];
+    });
+  };
   const plainSnippet = s => VGShared.plainLinks(String(s || "").replace(/^(\s*(?:[-*+]\s+)?)\[.\]\s+/gm, "$1")).replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/^[\s>#*-]+|[▼▶]/gm, "").replace(/\*\*|__|`|\|/g, " ").replace(/\s+/g, " ").trim();
+  // one short line of a related note: plain, cut at a word with an ellipsis
+  const snippetLine = (s, max = 140) => { const t = plainSnippet(s); if (t.length <= max) return t; const cut = t.slice(0, max), sp = cut.lastIndexOf(" "); return (sp > max * 0.6 ? cut.slice(0, sp) : cut).replace(/[\s.,;:]+$/, "") + "…"; };
   const FOCUS_MAX = 3;   // three is a decision; ten is a list
   const focusKeys = (review, day) => { const f = (review || {}).focus; return f && f.day === day ? (f.keys || []) : []; };
   function hqFocusItems(list, review, day) { const by = new Map(list.map(it => [it.key, it])); return focusKeys(review, day).map(k => by.get(k)).filter(Boolean); }
@@ -886,11 +936,16 @@ const VGRules = (() => {
     const out = [], yesterday = localDay(new Date(VGShared.noon(day).getTime() - VGShared.DAY_MS)), done = doneToday(data, review, yesterday).length, today = doneToday(data, review, day).length;
     if (today) out.push({ text: `${today} done so far today.`, go: "today" }); else if (done) out.push({ text: `${done} done yesterday.`, go: "changes" });
     const focus = hqFocusItems(list, review, day), plan = list.filter(i => i.kind === "plan" || i.kind === "task").length;
-    if (focus.length) out.push({ text: `Focus: ${focus.map(i => i.title).join("; ")}.`, go: "today" }); else if (plan && hour < STANDUP_HOUR) out.push({ text: `${plan} planned for today, none picked yet.`, go: "today" });
+    if (focus.length) out.push({ text: `Focus: ${focus.map(i => i.title).join("; ")}.`, go: "today" }); else if (plan && hour < STANDUP_HOUR) out.push({ text: `${plan} planned for today; pick one to focus on.`, go: "today" });
     const top = (threads || []).find(t => t.project || t.area); if (top && top.items.length > 1) out.push({ text: `Most open work is in ${top.title} (${top.items.length}).`, ...(top.project ? { proj: top.project.path } : { go: "threads" }) });
-    const approvals = list.filter(i => i.kind === "approval"), reviews = list.filter(i => i.kind === "review"); if (approvals.length || reviews.length) out.push({ text: `${[approvals.length ? `${approvals.length} approval${approvals.length === 1 ? "" : "s"}` : "", reviews.length ? `${reviews.length} draft${reviews.length === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ")} waiting on you.`, go: "needs" });
-    const failed = list.filter(i => i.kind === "job"); if (failed.length) out.push({ text: `${failed.length} automation${failed.length === 1 ? " needs" : "s need"} attention.`, go: "automations" });
-    const who = hqPeople(data, list).filter(p => p.items.length)[0]; if (who && who.items.length > 1) out.push({ text: `${who.name} is in ${who.items.length} open items.`, go: "people" });
+    // the same set the Needs you chip counts (group "needs"), split into what it is made of, so the two numbers agree
+    const needs = list.filter(i => (i.group || TODAY_GROUP[i.kind]) === "needs"), counts = new Map(); needs.forEach(i => counts.set(i.kind, (counts.get(i.kind) || 0) + 1));
+    const parts = [...counts].sort((x, y) => (y[0] === "approval") - (x[0] === "approval") || (y[0] === "review") - (x[0] === "review") || y[1] - x[1]).map(([k, n]) => VGShared.plural(n, kindName(k).toLowerCase(), kindWords(k)));
+    // new since the last visit: only when there was a last visit to compare with (hqVisit holds the keys it showed)
+    const before = review && review.hqVisit && new Set(review.hqVisit.keys || []), fresh = before ? needs.filter(i => !before.has(i.key)).length : 0;
+    if (needs.length) out.push({ text: `${needs.length} waiting on you${parts.length > 1 ? ": " + parts.join(", ") : ""}${fresh ? ` (${fresh} new since you were last here)` : ""}.`, go: "needs" });
+    // failed automations are not a brief line: the Automations chip carries the dot and count, and Do next names the job
+    const named = hqPeople(data, list).filter(p => p.items.length), who = named[0]; if (who && who.items.length > 1) out.push({ text: `${who.name} is named in ${who.items.length} open tasks and drafts${named[1] && named[1].items.length === who.items.length ? "" : ", more than anyone else"}.`, go: "people" });
     return out;
   }
   const PEOPLE_KINDS = new Set(["task", "plan", "carried", "approval", "review"]);   // your work; a suggestion or a backlog line that names someone isn't
@@ -900,7 +955,11 @@ const VGRules = (() => {
     // the notes a person is linked from (the graph's person links), the ones you come back to most first
     for (const l of data.links || []) { if (l.kind !== "person") continue; const p = end(l.source), t = byId.get(end(l.target)); if (!t) continue; if (!linked.has(p)) linked.set(p, []); linked.get(p).push(t); }
     const notesOf = id => (linked.get(id) || []).slice().sort((a, b) => (b.recent || 0) - (a.recent || 0) || (b.mentions || 0) - (a.mentions || 0) || a.name.localeCompare(b.name)).map(t => ({ id: t.id, name: t.name }));
-    return (data.nodes || []).filter(n => n.person).map(n => { const plain = !ambiguous.has(n.name.toLowerCase()) && n.name.length > 2 ? new RegExp(`\\b${esc(n.name)}\\b`) : null, link = `[[${n.name}`;
+    const folks = (data.nodes || []).filter(n => n.person), firstOf = n => n.name.split(/\s+/)[0].toLowerCase(), firstCount = new Map();
+    for (const n of folks) firstCount.set(firstOf(n), (firstCount.get(firstOf(n)) || 0) + 1);
+    // a first name alone ("with Ana") names someone only when no one else shares it and it isn't on the ambiguous list
+    const nameRx = n => { const ok = s => s.length > 2 && !ambiguous.has(s.toLowerCase()), first = n.name.split(/\s+/)[0], alts = []; if (ok(n.name)) alts.push(esc(n.name)); if (first !== n.name && ok(first) && firstCount.get(firstOf(n)) === 1) alts.push(esc(first)); return alts.length ? new RegExp(`\\b(?:${alts.join("|")})\\b`) : null; };
+    return folks.map(n => { const plain = nameRx(n), link = `[[${n.name}`;
       const items = list.filter(it => { if (!PEOPLE_KINDS.has(it.kind)) return false; const t = `${it.text || ""} ${it.title || ""}`; return t.includes(link) || (plain && plain.test(t)); });
       const decisions = ((data.hq && data.hq.decisions) || []).filter(d => (d.by || "").includes(n.name)).slice(0, 3);
       return { id: n.id, name: n.name, items, decisions, notes: notesOf(n.id), mentions: n.mentions || 0, recent: n.recent || 0 }; })
@@ -977,6 +1036,9 @@ const VGRules = (() => {
     return Math.max(-REACTION_CAP, Math.min(REACTION_CAP, (r.more || 0) - (r.less || 0))) * ((R.hq && R.hq.reaction_weight) || 0); };
   const canHideKind = kind => todayGroup(kind) === "upkeep";
   const KIND_WORDS = { link: "link suggestions", map: "add-to-map suggestions", write: "notes to write", hub: "note reviews", chart: "maps to make", adopt: "unlinked notes", rename: "map renames", task: "today's tasks", plan: "standup plan items", carried: "carried-over tasks", approval: "approvals", review: "drafts to review", inbox: "inbox notes", job: "automation alerts", backlog: "backlog items", report: "reports" };
+  // One card is one item: its label is the singular (the plural above names a whole list)
+  const KIND_NAME = { link: "Link suggestion", map: "Add-to-map suggestion", write: "Note to write", hub: "Note review", chart: "Map to make", adopt: "Unlinked note", rename: "Map rename", task: "Today's task", plan: "Standup plan item", carried: "Carried-over task", approval: "Approval", review: "Draft to review", inbox: "Inbox note", job: "Automation alert", backlog: "Backlog item", report: "Report" };
+  const kindName = kind => KIND_NAME[kind] || `${kind} item`;
   const kindWords = kind => KIND_WORDS[kind] || `${kind} items`;
   function todayList(data, o = {}) {
     const nodes = data.nodes || [], byId = new Map(nodes.map(n => [n.id, n])), mocs = (data.mocs || []).filter(m => !m.nav);
@@ -984,6 +1046,8 @@ const VGRules = (() => {
     const name = id => (byId.get(id) || {}).name || stemCase(id);
     const ranked = nodes.filter(n => plain(n) && !n.isolated).sort((a, b) => (b.bc || 0) - (a.bc || 0)).map(n => n.id);
     const rank = new Map(ranked.map((id, i) => [id, i + 1]));
+    const touching = new Map(); (data.links || []).forEach(l => [l.source, l.target].forEach(e => { const id = (e && e.id) || e; touching.set(id, (touching.get(id) || 0) + 1); }));
+    const groupName = c => { const g = (data.clusters || []).find(x => x.id === c); return (g && (g.label || g.name)) || "the same subject"; };
     const review = o.review || {}, day = o.today || localDay(new Date()), skipDays = o.skipDays || 14;
     const skipped = k => !!(review.skipped && review.skipped[k]) && (Date.parse(day) - Date.parse(review.skipped[k])) / VGShared.DAY_MS < skipDays;
     const hidden = new Set(o.hidden || []), out = [], seen = new Set(), groups = o.groups ? new Set(o.groups) : null;
@@ -997,12 +1061,12 @@ const VGRules = (() => {
     });
     mocs.forEach(m => (m.clusters || []).forEach(c => ((m.missing || {})[c] || []).slice(0, 3).forEach(id => { if (!byId.get(id)) return;
       const r = rank.get(id);
-      add({ key: `map|${m.id}|${id}`, kind: "map", m: m.id, mapTitle: m.title, id, name: name(id), ids: [id, m.id], title: `Add ${name(id)} to ${m.title}`, why: `It's in the topic this map covers${r ? ` (#${r} most connecting note)` : ""}`, score: 2 + (r ? 30 / r : 0) }); })));
+      add({ key: `map|${m.id}|${id}`, kind: "map", path: id, m: m.id, mapTitle: m.title, id, name: name(id), ids: [id, m.id], title: `Add ${name(id)} to ${m.title}`, why: `Not on the ${m.title} map yet, though it's one of the ${groupName(c)} notes${touching.get(id) ? `; ${VGShared.plural(touching.get(id), "note")} link to or from it` : ""}`, score: 2 + (r ? 30 / r : 0) }); })));
     (data.wanted || []).filter(w => w.creatable && (w.refs || []).length >= 3).forEach(w =>
       add({ key: `write|${w.id}`, kind: "write", id: w.id, name: w.name, refs: w.refs, ids: [w.id], title: `Write “${w.name}”`, why: `${w.refs.length} notes link to it, but it doesn't exist`, score: 1 + w.refs.length / 3 }));
     (review.pinned || []).filter(id => byId.get(id)).forEach(id => add({ key: `pin|${id}`, kind: "hub", id, name: name(id), ids: [id], title: `Review ${name(id)}`, why: "You asked to review this", score: 9 }));
     ranked.slice(0, 60).map(id => byId.get(id)).filter(n => n.recent === 0).slice(0, 8).forEach(n =>
-      add({ key: `review|${n.id}`, kind: "hub", id: n.id, name: n.name, ids: [n.id], title: `Review ${n.name}`, why: `#${rank.get(n.id)} most connecting note, quiet for ${data.recent_days || 30}+ days`, score: 1.5 }));
+      add({ key: `review|${n.id}`, kind: "hub", id: n.id, name: n.name, ids: [n.id], title: `Review ${n.name}`, why: `${VGShared.plural(touching.get(n.id) || 0, "note")} link to or from it, and it has been quiet for ${data.recent_days || 30}+ days`, score: 1.5 }));
     (data.clusters || []).filter(c => c.size >= 6 && !mapForCluster(mocs, c.id)).slice(0, 3).forEach(c =>
       add({ key: `chart|${c.id}`, kind: "chart", c: c.id, name: c.label || c.name, ids: nodes.filter(n => n.cluster === c.id).map(n => n.id), title: `Give ${c.label || c.name} a map`, why: `${c.size} notes, and no map lists them`, score: 2.5 }));
     // a map the plugin made (Create map) whose name no longer says anything about its topic: rename it to the topic's
@@ -1410,6 +1474,10 @@ const VGRules = (() => {
   const nextView = step => ({ text: `Next: ${step.label}`, aria: `Go to: ${step.label}`, label: step.label });
   // Triage Run: the open tasks a run deals, oldest first, and what a swipe scores. An older task is worth more; a run of
   // decisions multiplies it, up to five times.
+  // the source line on a Triage Run card: the age is already shown at the top of the card, so a carried task names only its day and section
+  const triageFrom = it => it.kind === "carried" ? `From ${VGShared.shortDate(it.date)}${it.under ? ` · under ${it.under}` : ""}` : (it.why || "");
+  // The Triage queue: the chosen next step first, then every item of every kind by its one score (urgent and overdue lift it, housekeeping is 3), then what was skipped.
+  const triageQueue = (list, next, skipped) => { const skip = new Set(skipped || []), seen = new Set(), ranked = (list || []).map((it, i) => [it, i]).sort((x, y) => (y[0].score || 0) - (x[0].score || 0) || x[1] - y[1]).map(x => x[0]), all = (next ? [next] : []).concat(ranked).filter(i => !seen.has(i.key) && seen.add(i.key)); return all.filter(i => !skip.has(i.key)).concat(all.filter(i => skip.has(i.key))); };
   const triageDeck = items => (items || []).filter(it => (it.kind === "task" || it.kind === "carried") && !it.delegated).sort((a, b) => (b.age || 0) - (a.age || 0));
   const triagePoints = (age, combo) => Math.round((10 + Math.min(age || 0, 120) / 4) * (1 + Math.min(combo || 0, 16) * 0.25));
   // A project/ tag as people say it: the system's name from the rules file, or the tag's own words.
@@ -1526,8 +1594,8 @@ const VGRules = (() => {
     const kept = all.filter(p => p[1] / total >= floor), rest = all.filter(p => p[1] / total < floor);
     return rest.length === 1 ? { kept: all, rest: [] } : { kept, rest };
   };
-  return { hqBriefLines, ringClusters, ringBudget, foldSmall, errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, mocNode, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, unmentioned, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
-    RULES: R, NEXT_NOTE, nextView, nextItem, SCALES, VIEW_SCALES, viewScale, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, GUIDE_LOG_KEEP, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
+  return { noRefsValue, settleRefs, pathScore, sectionWords, whenWords, placeWords, jobWords, hqBriefLines, ringClusters, ringBudget, foldSmall, errorIsElsewhere, ENGINE_PARTS, engineOwns, applyEngineNotes, applyEngineTopics, mocNode, hqJournalDate, hqStandupDate, twoWayDrop, taskEdit, noteTaskEdits, NEWS, newsSince, versionAfter, areaOfText, inDaily, standupsInUse, formatPattern, formatDate, wayUp, unmentioned, createdFromLine, bareLinkLine, LINK_KINDS, linkKindOf, forStandup, taskRowsOf, writtenLinks, plainSnippet, snippetLine, relatedNotes, whyWords, hqPutOff, hqPlanDone, taskWords, noteCounts, LINK_WORDS, journalOf, statusWords, codeNameWords, hqThreads, hqBrief, FOCUS_MAX, focusKeys, hqFocusItems, doneToday, addTaskLine, addProjectTask, hqPeople, reactionNudge, canHideKind, kindWords, kindName, nameDate, bornDate, HQ: H, PROJECT_TYPES, STATUS_CHOICES: H.status_choices || [], projectType, projectStatusTag, withStatusTag, tagsOf, openTaskLines, closeMark, TASK_LINE, taskLine, completionStamp, hasCompletion, stampsDone, addWorkLine, reportRows, plainRow, plainRowFull, stripAnsi, taskField, plainTask, inlineField, frontOf, tasksIn, itemsUnder, scopeSummary, scopeEstimate, hqJournalDate, dailyNotePath, canonicalDailyPath, canonicalJournalPath, canonicalJournal, hqKind, hqGather, hqJobs, hqProjects, hqProjectSearch, fuzzyScore, todayGroup, TODAY_GROUP, statusGroup,
+    RULES: R, NEXT_NOTE, nextView, nextItem, SCALES, VIEW_SCALES, viewScale, folders: R.folders, files: R.files, mergeShared, sharedSnapshot, GUIDE_LOG_KEEP, ledgerAdd, applyLedgers, ledgerDismissed, ledgerMoves, movedPath, followMoves, ledgerMoved, followLedgers, systemLabel, triageFrom, triageQueue, triageDeck, triagePoints, FOE_KINDS, foeStats, foeKind, wikiraceRoute, wikiraceScore, hqCalendar, monthShift, sessionMinutes, sessionAdded, minutesWords, BOARD_GROUPS, statusForGroup, hqNextStep, hqNextOf, reportTitle, hqSearchQuery, hqSearchPasses, notePreview, previewParts, parseDay, weekReview, weekStart, projectMinutes, focusByProject, linkedByName, isRecord, isStale, localDay, today, safeName, stem, pairKey, dismissKey, onMap, mapForCluster, isMapCandidate, isHubName, isHub, noteKind, SUGGESTION_KINDS, isSuggestion, isPrivate, isContextNote, contextTopic, claims, mentionNames, trophicLevels, joinsWhenLinked,
     SCENE_WHEN, SCENE_PARTS, sceneSpec, sceneYaml, sceneKey, recallWords, recallChunks, recallNoteDate, recallTimeRange, recallNearTarget, recallSearch, todayList, todayPick, TODAY_XP, questDone, missionValid, graph };
   }
   // rule data in layers: each later one wins, key by key (nested objects merge; a list or a value replaces)

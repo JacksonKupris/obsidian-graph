@@ -254,13 +254,33 @@
   .vg-searchbtn { min-width: 0; } .vg-searchbtn span, .vg-searchbtn kbd, .vg-presetname { display: none; }
   .vg-legend { max-width: calc(100% - 20px); bottom: 42px; } .vg-status { max-width: calc(100% - 20px); }
   .has-inspector .vg-legend, .has-inspector .vg-status { display: none; }
-  /* the banner spans the pane here: the overlays pinned under the toolbar (status pill, floor bar) go under it instead of behind it */
-  .vg-root:has(.vg-today:not([hidden])) .vg-status { top: var(--vg-under-today); }
 }
+/* the banner (up to 760px, centred) and the status pill (about 150 to 250px, at the right) share one edge: under 1600px wide they would touch,
+   so the overlays pinned under the toolbar (status pill, floor bar) go under the banner instead of behind it */
+@container vg (max-width: 1599px) { .vg-root:has(.vg-today:not([hidden])) .vg-status { top: var(--vg-under-today); } }
 /* an open inspector narrows the canvas: the today banner then reaches the status pill and floor bar, so they go under it */
 .vg-root.has-inspector:has(.vg-today:not([hidden])) .vg-status { top: var(--vg-under-today); }
 @keyframes vg-sheet-in { from { opacity: 0; transform: translateY(20px); } }
-@container vg (max-width: 460px) { .vg-legend { display: none; } }
+/* a phone has no room for the legend beside the graph: a Key button opens it above the button (Escape or a second tap closes it) */
+.vg-legend-key { display: none; position: absolute; left: 10px; bottom: calc(42px + var(--vg-bottom, 0px)); z-index: 2; }
+/* the ring names: folded until the needs-attention entry is clicked, then a card above the legend on a desktop and a list inside the open Key on a phone (below) */
+.vg-lg-attn-set { cursor: pointer; min-height: 24px; }
+.vg-lg-attn-names { display: none; }
+.vg-lg-attn-note { flex-basis: 100%; opacity: 0.8; }
+.vg-root.legend-open .vg-lg-attn-names { display: flex; flex-wrap: wrap; gap: 4px 12px; position: absolute; left: 0; bottom: calc(100% + 6px); width: max-content; max-width: 420px; padding: 8px 10px; border: 1px solid var(--vg-line); border-radius: var(--ds-r-md); background: var(--vg-panel); white-space: normal; cursor: default; }
+@container vg (max-width: 460px) {
+  .vg-legend { display: none; }
+  .vg-legend-key { display: inline-flex; }
+  .vg-legend:empty + .vg-legend-key, .is-neural .vg-legend-key, .is-cosmos .vg-legend-key, .has-inspector .vg-legend-key, .has-lens .vg-legend-key, .is-playing .vg-legend-key { display: none; }
+  .vg-root.legend-open .vg-legend { display: flex; bottom: calc(76px + var(--vg-bottom, 0px)); z-index: 3; }
+  /* the tooltip that lists the ring reasons never shows on touch, so the open Key spells them out beside their colours */
+  .vg-root.legend-open .vg-lg-attn-set { flex-wrap: wrap; }
+  .vg-root.legend-open .vg-lg-attn-names { position: static; width: auto; max-width: none; padding: 0; border: 0; background: none; flex-basis: 100%; }
+}
+.vg-lg-attn-name { display: inline-flex; align-items: center; gap: 4px; }
+.vg-ins-why { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 4px 0 8px; font-size: var(--vg-fs-xs); }
+.vg-ins-why .vg-lg-attn-name::before { content: ""; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--ring); box-sizing: border-box; }
+.is-compact .vg-legend-key { display: none !important; }
 
 @media (prefers-reduced-motion: reduce) {
   .vg-root *, .vg-root *::before, .vg-root *::after { animation: none !important; transition: none !important; }
@@ -338,6 +358,7 @@
 .vg-pass { margin: 2px 0 4px; display: grid; gap: 4px; }
 .vg-pass > div { display: flex; flex-direction: column; padding: 4px 8px; border-left: 2px solid var(--vg-sim); }
 .vg-compact-only { display: none; }
+.vg-root.vg-short-views .vg-dimseg { display: none; }
 
 /* lasso */
 .vg-lasso { position: absolute; z-index: 3; pointer-events: none; border: 1.5px dashed var(--vg-accent); border-radius: var(--ds-r-xs);
@@ -417,8 +438,19 @@
 .is-mobile .vg-tip { display: none; }
 /* every control a thumb can hit, at least --vg-tap on a phone (polish_loop.js reads the same token to check) */
 .vg-root { --vg-tap: 40px; --vg-hit-min: 24px; }
+/* a phone is read at arm's length: the two smallest text sizes become 12px, for every control and label at once */
+.vg-root.is-mobile { --ds-fs-2xs: 12px; --ds-fs-xs: 12px; --vg-fs-xs: 12px; }
+.vg-root small { font-size: var(--ds-fs-xs); }
 /* the floor on a desktop: the row buttons and chips the lenses draw (audit:views reads the same 24px) */
 .vg-root :is(.vg-mx-name, .vg-tl-label, .vg-rv-chip, .vg-visbtn, button.vg-fd-name, .vg-rp-pick, .vg-fd-bar) { min-height: var(--vg-hit-min); }
+/* every slider is 36 px tall on a phone, and a checkbox's label is its tap area */
+.vg-root.is-mobile input[type=range] { min-height: 36px; }
+.vg-root.is-mobile label:has(> input[type=checkbox]) { min-height: 36px; display: inline-flex; align-items: center; }
+/* list rows (.vg-item) are one shared piece: 40 px tall on a phone */
+.vg-root.is-mobile .vg-lens .vg-item { min-height: 40px; }
+/* the library scenes draw tappable labels 24 px tall: the tap area grows to 40 px, the look stays */
+.vg-root.is-mobile .vgv-labels button { position: relative; }
+.vg-root.is-mobile .vgv-labels button::after { content: ""; position: absolute; left: -4px; right: -4px; top: 50%; height: 40px; transform: translateY(-50%); }
 .vg-root.is-mobile :is(.vg-btn, .vg-btn-sm, .vg-mx-cell, .vg-mx-name, .vg-tl-label, .vg-rv-chip, .vg-sandel, .vg-autobtn, .vg-dockbtn, .vg-visbtn, .vg-chip, .vg-linkish, .vg-fd-bar) { min-height: var(--vg-tap); }
 .vg-root.is-mobile :is(.vg-ibtn, .vg-tab, .vg-searchbtn) { min-width: var(--vg-tap); min-height: var(--vg-tap); }
 .vg-root.is-mobile :is(.vg-viewhelp, .vg-visbtn, .vg-rp-pick, .vg-side .vg-input, .vg-mx-cell) { min-width: var(--vg-tap); min-height: var(--vg-tap); }
@@ -521,7 +553,10 @@
   --ds-accent-text: var(--vg-hud-sky); --ds-accent-soft: rgba(56, 189, 248, .16);
   --vg-raised: var(--ds-bg); --vg-panel: var(--ds-surface); --vg-fg: var(--ds-text); --vg-muted: var(--ds-muted); --vg-faint: var(--ds-faint); --vg-line: var(--ds-line); --vg-border: var(--ds-line); --vg-hover: var(--ds-hover); --vg-accent-text: var(--ds-accent-text); }
 /* matrix */
-.vg-mx-wrap { overflow: auto; }
+/* the row names stay while the columns scroll; a soft edge on the side that has more shows there is more to scroll to */
+.vg-mx-wrap { overflow: auto; background: linear-gradient(to right, var(--vg-panel) 30%, transparent) left / 28px 100% no-repeat local, linear-gradient(to left, var(--vg-panel) 30%, transparent) right / 28px 100% no-repeat local, linear-gradient(to right, rgba(0,0,0,.28), transparent) left / 12px 100% no-repeat scroll, linear-gradient(to left, rgba(0,0,0,.28), transparent) right / 12px 100% no-repeat scroll; }
+.vg-mx-row { position: sticky; left: 0; z-index: 1; background: var(--vg-panel); }
+.vg-root.is-mobile .vg-mx-name { max-width: 120px; }
 .vg-mx { border-collapse: separate; border-spacing: 2px; font-size: var(--vg-fs-xs); }
 .vg-mx th { font-weight: 600; white-space: nowrap; }
 .vg-mx-col { padding: 0 2px; } .vg-mx-row { text-align: left; }
@@ -780,7 +815,7 @@
 .vg-s-open { margin-top: 8px; }
 
 /* map views: subway, terrain, city */
-.vg-lg-attn { display: inline-block; width: 10px; height: 10px; border-radius: var(--ds-r-pill); border: 2px solid var(--ring, var(--vg-warn)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring, var(--vg-warn)) 45%, transparent); }
+.vg-lg-attn, .vg-lg-attn-name::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: var(--ds-r-pill); border: 2px solid var(--ring, var(--vg-warn)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring, var(--vg-warn)) 45%, transparent); }
 .vg-lg-stn { display: inline-block; width: 9px; height: 9px; border-radius: var(--ds-r-pill); background: #fff; border: 2px solid #2563eb; }
 .vg-lg-stn.is-x { border-color: #111; width: 11px; height: 11px; }
 .vg-lg-fog { display: inline-block; width: 14px; height: 8px; border-radius: var(--ds-r-2xs); background: linear-gradient(90deg, #9e744e, #d6d6d6); }
@@ -812,11 +847,13 @@
 .vg-root .vg-mapitem b { display: inline-flex; align-items: center; gap: 6px; }
 
 /* today strip: one line about what this view says right now, and one thing to do */
-.vg-root .vg-today { position: absolute; z-index: 3; top: var(--vg-under-bar); left: 50%; transform: translateX(-50%); max-width: min(760px, calc(100% - 24px));
+.vg-root .vg-today { position: absolute; z-index: 3; top: var(--vg-under-bar); left: 50%; transform: translateX(-50%); width: max-content; max-width: min(760px, calc(100% - 24px));
   display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 14px; border-radius: var(--ds-r-pill); font-size: var(--vg-fs-sm);
   background: color-mix(in srgb, var(--vg-raised) 88%, transparent); border: 1px solid var(--vg-border); box-shadow: var(--ds-shadow-1); backdrop-filter: blur(8px); }
-.vg-root .vg-today-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; cursor: pointer; }
-.vg-root .vg-today.is-open .vg-today-text { white-space: normal; }
+.vg-root .vg-today-text { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; line-clamp: 5; min-width: 0; cursor: pointer; }
+.vg-root .vg-today.is-open .vg-today-text { -webkit-line-clamp: unset; line-clamp: unset; }
+.vg-root .vg-today-text { padding-block: 4px; }
+.vg-root.is-mobile .vg-today-text { padding-block: 12px; }
 .vg-root .vg-today-act { flex: none; }
 .vg-root .vg-today-x { flex: none; width: 24px; height: 24px; opacity: .6; }
 .vg-root.has-lens .vg-today { display: none; }
@@ -987,7 +1024,8 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-root .vg-viewhelp:not([hidden]) { position: absolute; z-index: 3; top: var(--vg-under-bar); left: 12px; min-height: 28px; padding: 3px 10px; font: 600 var(--ds-fs-xs) var(--vg-font, inherit); color: var(--vg-hud-text); background: var(--vg-hud-panel); border: 1px solid var(--vg-hud-line); border-radius: var(--ds-r-sm); }
 .vg-root .vg-viewcard:not([hidden]) { position: absolute; z-index: 3; top: calc(var(--vg-under-bar) + 34px); left: 12px; width: min(380px, calc(100% - 24px)); max-height: calc(100% - 180px); overflow: auto; padding: 10px 12px; color: var(--vg-hud-text); background: var(--vg-hud-panel); border: 1px solid var(--vg-hud-line); border-radius: var(--ds-r-md); backdrop-filter: blur(10px); font-size: var(--ds-fs-xs); line-height: 1.45; }
 .vg-root.is-neural .vg-viewhelp:not([hidden]) { top: 146px; } .vg-root.is-neural .vg-viewcard:not([hidden]) { top: 180px; max-height: calc(100% - 240px); }
-@container (max-width: 760px) { .vg-root.is-neural .vg-viewhelp:not([hidden]) { top: var(--vg-under-bar); } .vg-root.is-neural .vg-viewcard:not([hidden]) { top: calc(var(--vg-under-bar) + 34px); } }
+/* in a narrow pane the Biggest gap strip spans the width at the same height: the help button and its card sit under it */
+@container (max-width: 760px) { .vg-root .vg-viewhelp:not([hidden]), .vg-root.is-neural .vg-viewhelp:not([hidden]) { top: calc(var(--vg-under-bar) + var(--vg-today-h, 0px)); } .vg-root .vg-viewcard:not([hidden]), .vg-root.is-neural .vg-viewcard:not([hidden]) { top: calc(var(--vg-under-bar) + var(--vg-today-h, 0px) + 44px); max-height: calc(100% - var(--vg-under-bar) - var(--vg-today-h, 0px) - 44px - 64px); } }
 .vg-viewcard dl { margin: 0; } .vg-viewcard dt { font-weight: 700; margin-top: 8px; } .vg-viewcard dt:first-child { margin-top: 0; } .vg-viewcard dd { margin: 1px 0 0; opacity: .9; }
 .vg-sci-bar { flex: 0 0 48px; height: 6px; margin: 8px 6px 0 0; border-radius: var(--ds-r-pill); background: var(--vg-line); overflow: hidden; } .vg-sci-bar i { display: block; height: 100%; background: var(--vg-accent); }
 
@@ -1020,3 +1058,21 @@ body:has(.vg-root.is-playing) .status-bar { display: none; }
 .vg-root.is-mobile .vg-viewsel { max-width: 17cqw; field-sizing: content; flex: 0 1 auto; min-width: 48px; font-size: var(--ds-fs-sm); }
 .vg-root.is-mobile.has-lens .vg-viewsel { max-width: 112px; }   /* a report names itself in full: the toolbar has room while it is open */   /* wide enough for the longest view name ("Topic river") */
 .vg-root.is-mobile .vg-toolsel { max-width: 36px; text-align: center; }
+@container vg (max-width: 460px) {   /* a narrow pane on a computer is not flagged mobile; it gets the same compact selects */
+  .vg-sels { gap: 4px; }
+  .vg-sel { padding: 0 2px; font-size: var(--ds-fs-md); }
+  .vg-viewsel { max-width: 17cqw; field-sizing: content; flex: 0 1 auto; min-width: 48px; font-size: var(--ds-fs-sm); }
+  .vg-toolsel { max-width: 36px; text-align: center; }
+}
+/* chart labels: the unit size fitChartText sets per chart keeps them at 11 px on screen */
+.vg-root :is(.vg-rv, .vg-st, .vg-sci-chart, .vg-rg) text { font-size: var(--chart-fs, var(--ds-fs-xs)); }
+/* narrow pane: the status line sits under the How to read this button instead of running beneath it */
+@container (max-width: 760px) { .vg-root:has(.vg-viewhelp:not([hidden])) .vg-status { top: calc(var(--vg-under-today) + var(--vg-tap) + 6px); } }
+/* neural: the header block sits under the Biggest gap strip, not behind it */
+.vg-root:has(.vg-today:not([hidden])) .vg-hud-title { top: calc(var(--vg-under-today) + 8px); }
+@container (min-width: 761px) { .vg-root.is-neural:has(.vg-today:not([hidden])) .vg-viewhelp:not([hidden]) { top: calc(var(--vg-under-today) + 96px); } .vg-root.is-neural:has(.vg-today:not([hidden])) .vg-viewcard:not([hidden]) { top: calc(var(--vg-under-today) + 130px); max-height: calc(100% - var(--vg-under-today) - 190px); } }
+/* neural: the status line sits at the bottom edge; the Biggest gap strip rules that set its top stretched it over the whole right side */
+.vg-root.is-neural:has(.vg-today:not([hidden])) .vg-status { top: auto; }
+@container vg (max-width: 1599px) { .vg-root.is-neural:has(.vg-today:not([hidden])) .vg-status { top: auto; } }
+/* neural: the status line sits where toasts do, so toasts stack above it */
+.is-neural .vg-toasts { bottom: calc(90px + var(--vg-bottom, 0px)); }

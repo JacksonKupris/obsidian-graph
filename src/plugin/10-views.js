@@ -23,6 +23,7 @@ class VaultGraphView extends ItemView {
     const root = el.createDiv();
     this.handle = mountVaultGraph(root, structuredClone(data), {   // the view keeps positions on its nodes: its own copy
       ...this.plugin.viewActions(this),   // the same actions every graph surface gets
+      palette: this.plugin.settings.hqPalette, onPalette: p => this.plugin.setPalette(p),   // the one remembered theme, shared with Vault HQ
       store: {   // layout + view settings live in the plugin's data.json (Obsidian Sync carries it)
         load: () => this.plugin.settings.view || null,
         save: view => { this.plugin.settings.view = this.plugin.followSaved(view); this.plugin.saveSettings(); },   // an open graph still holds old paths after a move
@@ -175,7 +176,7 @@ class VaultHQView extends ItemView {
     this.handle = mountVaultHQ(el.createDiv({ cls: "vg-hq-root" }), d, {
       api, state, mobile: Platform.isMobile, screen: this.plugin.settings.hqScreen, onNext: () => this.plugin.nextStepSoon(), onSession: s => this.plugin.showFocus(s), notify: msg => new Notice(msg, 0),
       onScreen: s => { this.plugin.settings.hqScreen = s; this.plugin.saveSettings(); },
-      layout: this.plugin.settings.hqLayout, onLayout: l => { this.plugin.settings.hqLayout = l; this.plugin.saveSettings(); },
+      palette: this.plugin.settings.hqPalette, onPalette: p => this.plugin.setPalette(p), layout: this.plugin.settings.hqLayout, onLayout: l => { this.plugin.settings.hqLayout = l; this.plugin.saveSettings(); },
       ask: (title, text, ok) => confirmModal(this.app, title, text, ok),
       input: (title, text, placeholder) => inputModal(this.app, title, text, placeholder),
       onDone: msg => this.plugin.recordAction(msg),
@@ -275,8 +276,8 @@ class VaultGraphSuggestView extends ItemView {
       const said = (data.said_unlinked || []).find(([id]) => id === n.id);
       // same rule as appendSection's "Already in…"
       const inMap = moc ? VGRules.onMap(moc, n.id) : null;
-      if (said && moc && !inMap) items.push({ icon: "sun", title: `Named in ${said[1]} daily notes but never linked`, sub: `Add it to ${moc.title} so its topic map links it`, btn: "Add to map", run: () => run("map") });
-      else if (said) items.push({ icon: "sun", title: `Named in ${said[1]} daily notes but never linked`, sub: "Turn the first plain mention in each into a link", btn: "Link mentions", run: () => run("mentions") });
+      if (said && moc && !inMap) items.push({ icon: "sun", title: VGRules.LINK_WORDS.namedIn(said[1]), sub: `Add it to ${moc.title} so its topic map links it`, btn: "Add to map", run: () => run("map") });
+      else if (said) items.push({ icon: "sun", title: VGRules.LINK_WORDS.namedIn(said[1]), sub: "Turn the first plain mention in each into a link", btn: "Link mentions", run: () => run("mentions") });
       if (moc && inMap === false && !(said && moc)) items.push({ icon: "hexagon", title: `Not listed in its topic's map`, sub: moc.title, btn: "Add to map", run: () => run("map") });
       data.links.filter(l => VGRules.isSuggestion(l) && (l.source === n.id || l.target === n.id)).forEach(l => {
         const other = byId.get(l.source === n.id ? l.target : l.source); if (!other) return;
@@ -374,7 +375,7 @@ class VaultGraphSuggestView extends ItemView {
       if (VGActions.todayWhen(it, ctx)) actions.push([VGActions.todayLabel(it), async () => { if (await VGActions.runToday(it, ctx) && pick) await this.plugin.markQuestDone(it.key); }]);
       if (it.kind === "link") actions.push(["Not related", () => this.act("Dismiss", () => this.plugin.dismiss(it.a, it.b, "gap"), `Dismissed ${it.names[0]} ↔ ${it.names[1]}`)]);
       // an HQ item (a task, a draft...): the same Later, Reject, Delegate and Open as in Vault HQ
-      VGActions.todayMore(it, ctx).filter(m => !(m.key === "open" && VGActions.todayLabel(it) === "Open")).forEach(m => actions.push([m.label, () => VGActions.runMore(m, it, ctx)]));
+      VGActions.todayMore(it, ctx).filter(m => !(m.key === "open" && VGActions.todayOpens(it))).forEach(m => actions.push([m.label, () => VGActions.runMore(m, it, ctx)]));
       if (tn && !VGRules.TODAY_GROUP[it.kind]) actions.push(openNote(noteId));
       if (tn && tn.tasks > 0) actions.push(taskAll(noteId, "x"), taskAll(noteId, "-"));   // the item's note has open tasks
       actions.forEach(([label, fn], i) => { const btn = acts.createEl("button", { text: label, cls: i === 0 ? "mod-cta" : "" }); btn.onclick = () => fn(); });

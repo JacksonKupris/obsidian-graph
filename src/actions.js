@@ -97,8 +97,8 @@ const VGActions = (() => {
     { key: "unmapped", ring: "#38bdf8", label: "not on its map", fix: "map", test: (n, c) => { const m = mapOf(c, n); return !!m && !VGRules.onMap(m, n.id); },
       text: (n, c) => `Not listed in ${mapOf(c, n).title}, its topic's map` },
     { key: "stale", ring: "#eab308", label: "stale", fix: "current", test: (n, c) => VGRules.isStale(n, ((c.data || {}).quality || {}).stale_days), text: n => `Unchanged for ${n.age} days` },
-    { key: "unlinked-mentions", ring: "#a78bfa", label: "named, not linked", fix: "mentions", test: (n, c) => ((c.data || {}).said_unlinked || []).some(([id]) => id === n.id),
-      text: (n, c) => { const hit = ((c.data || {}).said_unlinked || []).find(([id]) => id === n.id); return `Named in ${plural(hit[1], "daily note")}, never linked`; } },
+    { key: "unlinked-mentions", ring: "#a78bfa", label: "mentioned, not linked", fix: "mentions", test: (n, c) => ((c.data || {}).said_unlinked || []).some(([id]) => id === n.id),
+      text: (n, c) => { const hit = ((c.data || {}).said_unlinked || []).find(([id]) => id === n.id); return VGRules.LINK_WORDS.namedIn(hit[1]); } },
     { key: "orphan", ring: "#e879f9", label: "nothing links here", fix: "link", test: n => n.inlinks === 0, text: () => "Nothing links here" },
     { key: "deadend", ring: "#fb923c", label: "links nowhere", fix: "link", test: n => n.outlinks === 0, text: () => "Links to no other note" },
     { key: "refs", ring: "#94a3b8", label: "no references", minor: true, fix: "reference", test: n => n.refs === false, text: () => "No references" },
@@ -178,10 +178,10 @@ const VGActions = (() => {
     plan: { label: "Done", when: c => !!c.api.hqMark, undo: (it, c) => c.api.hqMark(it.key, null),
       run: async (it, c) => { await c.api.hqMark(it.key, "done"); const logged = c.api.logWork ? await c.api.logWork(it.text) : false;
         return `Done: ${short(it.title)}${logged ? ", added to today's standup" : ""}`; } },
-    inbox: { label: "Open", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },
-    approval: { label: "Open", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },
+    inbox: { label: "Open the note", opens: true, when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },
+    approval: { label: "Open the request", opens: true, when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },
     report: { label: "Open source report", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },
-    job: { label: "Open", when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },   // the automations note
+    job: { label: "Open the automations note", opens: true, when: c => !!c.api.openNote, run: (it, c) => { c.api.openNote(it.path); return null; } },   // the automations note
     review: { label: "Accept", when: c => !!c.api.setNoteStatus,
       ask: it => ["Accept the draft", `Accept “${it.title}”? This sets its status to accepted. Applying what it describes stays with you.`, "Accept"],
       run: async (it, c) => { await c.api.setNoteStatus(it.path, "accepted"); return `Accepted ${it.title}`; } },
@@ -195,6 +195,7 @@ const VGActions = (() => {
     return `Done: ${short(it.title)}${logged ? ", added to today's standup" : ""}`;
   }
   const todayWhen = (it, c) => it.reviewOnly ? !!c.api.openNote : !!TODAY[it.kind] && TODAY[it.kind].when(c);
+  const todayOpens = it => !it.reviewOnly && !!(TODAY[it.kind] || {}).opens;   // the main button only opens a note: nothing leaves the list
   const todayLabel = it => it.reviewOnly ? "Open for review" : it.kind === "adopt" && it.up ? "Add parent" : (TODAY[it.kind] || {}).label || "";
   function runToday(it, c, e) {
     if (it.reviewOnly) { c.api.openNote(it.path); return Promise.resolve(false); }
@@ -326,5 +327,5 @@ const VGActions = (() => {
     return box;
   }
 
-  return { history, ACTIONS, PROBLEMS, reasonLook, forNote, problems, attention, run, render, archiveFolder, isArchived, nameOf, TODAY, todayWhen, todayLabel, runToday, TODAY_MORE, todayMore, runMore, runBatch, runMove, runRow };
+  return { history, ACTIONS, PROBLEMS, reasonLook, forNote, problems, attention, run, render, archiveFolder, isArchived, nameOf, TODAY, todayWhen, todayLabel, todayOpens, runToday, TODAY_MORE, todayMore, runMore, runBatch, runMove, runRow };
 })();
