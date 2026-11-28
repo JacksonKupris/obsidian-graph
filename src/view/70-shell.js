@@ -347,7 +347,7 @@
     root.classList.toggle("is-neural", view === "neural");
     root.classList.toggle("is-cosmos", view === "cosmos");
     if (view !== "cosmos" && st.paused) setPaused(false);
-    if (view !== "cosmos") { st.placing = null; root.classList.remove("is-placing"); if (st.body) { st.body = null; $(".vg-inspector").hidden = true; root.classList.remove("has-inspector"); } }
+    if (view !== "cosmos") { stopPlacing(); if (st.body) { st.body = null; $(".vg-inspector").hidden = true; root.classList.remove("has-inspector"); } }
     root.dataset.vision = view === "neural" ? st.vision : "";
     root.classList.toggle("is-map", !!SCENES[view]); root.dataset.map = SCENES[view] ? view : "";
     if (SCENES[view]) {
@@ -638,6 +638,7 @@
       radarScope() { const A = mapCache.radar; if (!A) return null; const R = rot(), k = cam.k, o = scr(0, 0, R), r = A.RMAX * k, under = parseFloat(getComputedStyle(wrap).getPropertyValue("--vg-under-bar")) || 0;
         const held = nodes.find(n => !special(n) && n.tasks > 0 && P.get(n.id) && Math.hypot(P.get(n.id).x - o.x, P.get(n.id).y - o.y) < A.hold * k * 0.9);
         return { cx: o.x, cy: o.y, top: o.y - r, bottom: o.y + r, left: o.x - r, right: o.x + r, W, H, under, held: held ? held.id : null }; },
+      placeBody: (type, sx, sy) => placeBody(type, sx, sy),
       openBody(type) { const b = cos.bodies.find(x => x.type === type); if (b) selectBody(b.id); return !!b; },
       clockRing(i) { const C = mapCache.clock; if (!C || !C.cs[i]) return null; const R = rot(), k = cam.k, [dx, dy] = C.DIAL[0], o = scr(dx, dy, R), a = -Math.PI / 2 + 0.25 * Math.PI / 7, d = (C.ring(i) + 9) * k; return { x: o.x + Math.cos(a) * d, y: o.y + Math.sin(a) * d, c: C.cs[i].c }; }, saved: { snapshot: snapshotView, apply: applySaved, bodies: () => cos.bodies, auto: () => cos.auto, captured: () => Object.fromEntries(cos.bodies.map(b => [b.id, (bodyCaptured.get(b.id) || []).length])) }, openLens, closeLens, lensFps, noteGraph, renewLinks: () => { linkGen++; }, dropLink: () => { const at = links.findIndex(l => l.kind === "link"), l = links[at]; links.splice(at, 1); return () => links.splice(at, 0, l); }, st, cam, active: () => active, P, alpha: () => alpha, layouts, setView, scenes: () => SCENES, drawMs: () => drawMs, maps: () => mapCache, cos: () => cos, nodes, nb, replay: () => replay, visible, rules: VGRules },
     syncNext: syncNextBtn,

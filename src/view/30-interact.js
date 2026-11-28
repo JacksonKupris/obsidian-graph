@@ -361,7 +361,7 @@
     else if (typingIn) { typingIn.blur(); return 2; }
     else if (replay) stopTime();
     else if (st.lasso) setLassoMode(false);
-    else if (st.placing) { st.placing = null; root.classList.remove("is-placing"); $$(".vg-dockbtn").forEach(x => x.setAttribute("aria-pressed", "false")); dirty = true; }
+    else if (st.placing) { stopPlacing(); dirty = true; }
     else if (st.body) { st.body = null; $(".vg-inspector").hidden = true; root.classList.remove("has-inspector"); dirty = true; }
     else if (st.path) clearPath();
     else if (st.focus && !st.quietFocus) exitFocus();
