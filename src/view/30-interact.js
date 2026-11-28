@@ -368,6 +368,8 @@
     else if (st.multi) clearMulti();
     else if (st.selected) { const tied = st.highlightTied === st.selected; if (!stepBackNote()) { select(null); if (tied) clearHighlight(); } }
     else if (st.highlight) clearHighlight();
+    else if (!$(".vg-inspector").hidden && $(".vg-inspector .vg-ins-close")) $(".vg-inspector .vg-ins-close").click();   // any other panel in the inspector (Cosmos's Populate proposal)
+    else if (st.ship) setShip(false);
     else if (root.classList.contains("vg-side-open")) root.classList.remove("vg-side-open");
     else return 0;
     if (drawerBack) { drawerBack = false; if (drawerMode()) root.classList.add("vg-side-open"); }
