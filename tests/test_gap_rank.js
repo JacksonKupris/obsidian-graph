@@ -11,7 +11,7 @@ const D = "window.vaultGraph._debug";
     if (!await tab.waitFor(`window.vaultGraph && ${D} ? 1 : 0`, 30000)) throw new Error("the graph didn't mount");
     await tab.ev(`${D}.openView("2d")`); await sleep(800);
     const banner = await tab.ev(`(document.querySelector(".vg-today-text") || {}).textContent || ""`);
-    const m = /Biggest gap: (.+? ↔ .+?) ·/.exec(banner);
+    const m = /Biggest gap: (.+? ↔ .+?) · named /.exec(banner);
     check(!!m, "the 2D banner names the biggest gap (the check can't fail without one): " + banner);
     check(/Ranked by/.test(await tab.ev(`(document.querySelector(".vg-today-text") || {}).title || ""`)), "the banner's hover says what ranks the gap");
     await tab.ev(`${D}.openView("lens:matrix")`); await sleep(600);
