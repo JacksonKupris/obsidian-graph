@@ -759,6 +759,9 @@
 .vg-task-all { display: flex; gap: 6px; flex-wrap: wrap; padding: 2px 2px 6px; }
 .vg-tl-row:has(.vg-tl-pin) { grid-template-columns: minmax(140px, 32%) 1fr auto; }
 .vg-bh-row { display: flex; flex-direction: column; }
+.vg-seed-row { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; cursor: pointer; }
+.vg-seed-row b { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.vg-seed-row .vg-muted { flex: none; }
 .vg-bh-acts { display: flex; gap: 4px; padding: 0 8px 6px 25px; }
 
 /* deeper cosmos */

@@ -631,13 +631,18 @@
       ctx.fillText(MOBILE ? "SHIP · TAP A BODY OR SPACE TO WARP" : "SHIP · WASD TO FLY · Q/E ZOOM · CLICK TO WARP", cx, 60);
     }
   }
+  const stopPlacing = () => { st.placing = null; root.classList.remove("is-placing"); $$(".vg-dockbtn").forEach(x => x.setAttribute("aria-pressed", "false")); };
   function placeBody(type, sx, sy) {
     const [x, y] = toWorld(sx, sy), b = { id: "b" + Date.now().toString(36), type, x, y, target: null, name: "" };
-    if (type === "blackhole") b.target = "stale";
+    if (type === "blackhole") {   // each black hole collects something different; once every kind is placed, open the first
+      const holes = cos.bodies.filter(x => x.type === "blackhole"), used = new Set(holes.map(x => x.target));
+      b.target = Object.keys(BH_FILTERS).find(k => !used.has(k));
+      if (!b.target) { stopPlacing(); selectBody(holes[0].id); return toast("Every kind of black hole is already placed"); }
+    }
     if (type === "binary") b.target = mocs.slice(0, 2).map(m => m.id).filter(id => byId[id]);
     cos.bodies.push(b);
     if (cos.auto.motion) { if (type === "planet") releaseBody(b, 0, 0); else circularHere(b, null); }
-    st.placing = null; root.classList.remove("is-placing"); $$(".vg-dockbtn").forEach(x => x.setAttribute("aria-pressed", "false"));
+    stopPlacing();
     cosmosCapture(); selectBody(b.id); persistSoon(); alpha = Math.max(alpha, 0.4); kick();
     if (type === "star" || type === "planet" || type === "repulsor") toast(type === "star" ? "Pick the note or map this star is" : "Type a search for this " + BODY[type].label.toLowerCase());
   }
@@ -645,14 +650,20 @@
   // One rule set (SEED) decides what is proposed; the preview and the accept step both read its result, and anything
   // already in the sky is left out so running it twice proposes nothing new.
   const SEED = { maps: 6, minMapNotes: 3, contexts: 4, tags: 4, minTagNotes: 5, tagPrefix: "project/", contextName: /\bContext$/ };
+  // "Fleet Maintenance", "Fleet Maintenance - Context" and project/fleet-maintenance are one subject: one body each
+  const subjectOf = name => String(name).replace(/(\s+-)?\s+Context$/, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   function seedProposal() {
-    const have = new Set(cos.bodies.map(b => b.type === "star" ? "star:" + b.target : b.type === "planet" ? "planet:" + String(b.target).toLowerCase() : ""));
-    const out = [], star = (target, name, kind) => { if (have.has("star:" + target)) return; have.add("star:" + target); out.push({ type: "star", target, name, kind, count: anchorNb(target).size }); };
+    const sky = cos.bodies.filter(b => (b.type === "star" || b.type === "planet") && b.target);
+    const taken = new Set(sky.map(b => subjectOf(b.type === "planet" ? String(b.target).replace(/^tag:\s*/i, "").replace(SEED.tagPrefix, "") : bodyName(b))));
+    const held = new Set(); sky.forEach(b => { if (b.type === "star") { held.add(b.target); anchorNb(b.target).forEach(id => held.add(id)); } else nodes.filter(matchQuery(b.target)).forEach(n => held.add(n.id)); });
+    // proposed only when its subject has no body yet and it would bring in a note no body lists
+    const out = [], propose = (p, ids) => { const subject = subjectOf(p.name); if (taken.has(subject) || !ids.some(id => !held.has(id))) return; taken.add(subject); out.push({ ...p, count: ids.length }); };
+    const star = (target, name, kind) => propose({ type: "star", target, name, kind }, [...anchorNb(target)]);
     mocs.filter(m => byId[m.id] && (m.members || []).length >= SEED.minMapNotes).sort((a, b) => b.members.length - a.members.length || a.title.localeCompare(b.title)).slice(0, SEED.maps).forEach(m => star(m.id, m.title, "Map"));
     nodes.filter(n => !n.ghost && !n.moc && SEED.contextName.test(n.name)).sort((a, b) => b.bc - a.bc || a.name.localeCompare(b.name)).slice(0, SEED.contexts).forEach(n => star(n.id, n.name, "Context"));
-    const tagN = {}; nodes.forEach(n => !n.ghost && (n.tags || []).forEach(t => { if (t.startsWith(SEED.tagPrefix)) tagN[t] = (tagN[t] || 0) + 1; }));
-    Object.entries(tagN).filter(([, c]) => c >= SEED.minTagNotes).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, SEED.tags).forEach(([t, c]) => {
-      const target = "tag:" + t; if (have.has("planet:" + target)) return; have.add("planet:" + target); out.push({ type: "planet", target, name: t.slice(SEED.tagPrefix.length), kind: "Tag", count: c }); });
+    const tagged = {}; nodes.forEach(n => !n.ghost && (n.tags || []).forEach(t => { if (t.startsWith(SEED.tagPrefix)) (tagged[t] = tagged[t] || []).push(n.id); }));
+    Object.entries(tagged).filter(([, ids]) => ids.length >= SEED.minTagNotes).sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])).slice(0, SEED.tags)
+      .forEach(([t, ids]) => propose({ type: "planet", target: "tag:" + t, name: t.slice(SEED.tagPrefix.length), kind: "Tag" }, ids));
     return out;
   }
   function acceptSeed(items) {
@@ -666,11 +677,11 @@
   }
   function seedPreview() {
     select(null); st.body = null; const box = $(".vg-inspector"), items = seedProposal(); box.hidden = false; root.classList.add("has-inspector");
-    const rows = items.map((it, i) => `<label class="vg-bh-row"><input type="checkbox" data-seed="${i}" checked> <span class="vg-chip" style="--c:#fbbf24">${BODY[it.type].glyph} ${esc(it.kind)}</span> <b>${esc(it.name)}</b> <span class="vg-muted">${it.count} notes</span></label>`).join("");
+    const rows = items.map((it, i) => `<label class="vg-seed-row"><input type="checkbox" data-seed="${i}" checked> <span class="vg-chip" style="--c:#fbbf24">${BODY[it.type].glyph} ${esc(it.kind)}</span> <b>${esc(it.name)}</b> <span class="vg-muted">${plural(it.count, "note")}</span></label>`).join("");
     box.innerHTML = `<div class="vg-sheet-handle" aria-hidden="true"></div>
       <div class="vg-ins-head"><span class="vg-chip" style="--c:#fbbf24">✦ Populate from the vault</span><button class="vg-ibtn vg-ins-close" aria-label="Close" title="Close (Esc)">${icon("close")}</button></div>
       <h2 class="vg-ins-title">${items.length ? `${items.length} bodies proposed` : "Nothing new to add"}</h2>
-      <div class="vg-muted vg-ins-path">${items.length ? "Stars on the largest maps and the Context notes, planets on the main project tags." : "Every map, Context note and project tag that qualifies already has a body."}</div>
+      <div class="vg-muted vg-ins-path">${items.length ? "Maps, Context notes and project tags that have no body yet." : "Every map, Context note and project tag that qualifies is already covered."}</div>
       ${rows ? `<div class="vg-ins-sec">${rows}</div><div class="vg-ins-actions vg-wrap"><button class="vg-btn" data-seed="go">Add selected</button><button class="vg-btn vg-btn-ghost" data-seed="cancel">Cancel</button></div>` : `<div class="vg-ins-actions vg-wrap"><button class="vg-btn vg-btn-ghost" data-seed="cancel">Close</button></div>`}`;
     const close = () => { box.hidden = true; root.classList.remove("has-inspector"); };
     box.querySelector(".vg-ins-close").onclick = close;
